@@ -1,0 +1,260 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&family=Syne:wght@800&family=Unbounded:wght@700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 218 45% 97%;
+    --foreground: 223 38% 12%;
+    --card: 217 52% 95%;
+    --card-foreground: 223 38% 12%;
+    --border: 218 34% 80%;
+    --input: 218 34% 80%;
+    --ring: 220 94% 44%;
+    --primary: 220 92% 45%;
+    --primary-foreground: 0 0% 100%;
+    --muted-foreground: 222 18% 38%;
+    --hero-blue: 216 88% 58%;
+    --hero-pink: 231 72% 58%;
+    --hero-red: 7 82% 52%;
+    --section-a: 216 78% 95%;
+    --section-b: 220 82% 91%;
+    --section-c: 225 74% 94%;
+    --section-d: 215 40% 96%;
+    --chart-a: 220 90% 56%;
+    --chart-b: 212 92% 40%;
+    --card-solid: 217 48% 93%;
+    --font-body: "Inter", sans-serif;
+    --font-heading: "Unbounded", sans-serif;
+    --font-card-heading: "Space Grotesk", sans-serif;
+    --font-subpage-heading: "Syne", sans-serif;
+  }
+
+  .dark {
+    --background: 348 26% 7%;
+    --foreground: 20 14% 96%;
+    --card: 352 20% 11%;
+    --card-foreground: 0 0% 98%;
+    --border: 352 19% 21%;
+    --input: 352 19% 21%;
+    --ring: 356 78% 42%;
+    --primary: 356 72% 41%;
+    --primary-foreground: 0 0% 100%;
+    --muted-foreground: 8 10% 74%;
+    --hero-blue: 348 38% 32%;
+    --hero-pink: 358 62% 33%;
+    --hero-red: 1 82% 46%;
+    --section-a: 350 36% 10%;
+    --section-b: 354 28% 12%;
+    --section-c: 358 22% 10%;
+    --section-d: 346 26% 8%;
+    --chart-a: 358 92% 56%;
+    --chart-b: 354 86% 36%;
+    --card-solid: 352 19% 12%;
+  }
+
+  * {
+    @apply box-border border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply min-h-screen bg-background text-foreground antialiased;
+    background-image:
+      linear-gradient(to right, hsl(var(--foreground) / 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--foreground) / 0.035) 1px, transparent 1px);
+    background-size: 64px 64px;
+    font-family: var(--font-body), sans-serif;
+    font-weight: 400;
+    transition: background-color 520ms ease, color 520ms ease;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-heading), sans-serif;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.05em;
+  }
+
+  p,
+  .subtext {
+    font-family: var(--font-body), sans-serif;
+    font-weight: 400;
+    opacity: 0.8;
+  }
+
+  .card-heading {
+    font-family: var(--font-card-heading), sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+  }
+
+  a {
+    @apply transition-colors;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .subpage-heading {
+    font-family: var(--font-subpage-heading), sans-serif;
+    font-weight: 800;
+    line-height: 48px;
+    letter-spacing: -0.05em;
+  }
+
+  .lux-card {
+    position: relative;
+    border: 1px solid hsl(var(--border) / 0.7);
+    background: hsl(var(--card-solid));
+    padding: 1.25rem;
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+    box-shadow: 0 8px 24px -12px hsl(var(--primary) / 0.15);
+    transition:
+      transform 340ms cubic-bezier(0.2, 0.7, 0.2, 1),
+      border-color 340ms ease,
+      box-shadow 340ms ease,
+      background-color 520ms ease;
+  }
+
+  .lux-card:hover {
+    transform: translateY(-4px);
+    border-color: hsl(var(--primary) / 0.6);
+    box-shadow: 0 16px 32px -16px hsl(var(--primary) / 0.25);
+  }
+
+  .animate-marquee-horizontal {
+    animation: marquee-horizontal 40s linear infinite;
+    will-change: transform;
+  }
+
+  .animate-marquee-vertical {
+    animation: marquee-vertical 52s linear infinite;
+    will-change: transform;
+  }
+
+  .animate-marquee-vertical-reverse {
+    animation: marquee-vertical 52s linear infinite reverse;
+    will-change: transform;
+  }
+
+  .animate-review-left {
+    animation: review-left 34s linear infinite;
+    will-change: transform;
+    transform: translateZ(0);
+  }
+
+  .animate-review-right {
+    animation: review-right 34s linear infinite;
+    will-change: transform;
+    transform: translateZ(0);
+  }
+
+  .section-shell {
+    transition: background 680ms ease;
+  }
+
+  .theme-animate {
+    transition:
+      background-color 520ms ease,
+      border-color 520ms ease,
+      color 520ms ease,
+      box-shadow 520ms ease;
+  }
+
+  .boneyard-shimmer {
+    position: relative;
+    overflow: hidden;
+    background:
+      linear-gradient(100deg, hsl(var(--card-solid) / 0.95) 18%, hsl(var(--foreground) / 0.07) 40%, hsl(var(--card-solid) / 0.95) 62%);
+    background-size: 220% 100%;
+    animation: boneyard-shimmer 1.8s linear infinite;
+  }
+}
+
+@keyframes marquee-horizontal {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes marquee-vertical {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+
+@keyframes review-left {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes review-right {
+  0% {
+    transform: translate3d(-50%, 0, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes boneyard-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -20% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee-horizontal,
+  .animate-marquee-vertical,
+  .animate-marquee-vertical-reverse,
+  .boneyard-shimmer {
+    animation-duration: 1ms;
+    animation-iteration-count: 1;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.8);
+}
