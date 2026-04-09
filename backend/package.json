@@ -1,0 +1,17 @@
+{
+  "name": "discord-ecosystem-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "lint:check": "node -e \"console.log('No linter configured yet')\""
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.7",
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}
