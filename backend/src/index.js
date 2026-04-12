@@ -55,7 +55,9 @@ async function main() {
   const communityService = new CommunityService(configService, staffRatingService);
   const moderationService = new ModerationService(configService);
   const commandSyncService = new DiscordCommandSyncService(env, registry);
-  const accessControlService = new AccessControlService();
+  const accessControlService = new AccessControlService({
+    client
+  });
   const roleColorRotationService = new RoleColorRotationService({
     client,
     configService,
