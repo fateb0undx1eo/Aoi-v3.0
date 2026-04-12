@@ -107,8 +107,11 @@ export class DmBroadcastService {
       return [member];
     }
 
-    if (guild.memberCount <= 1000 && guild.members.cache.size < guild.memberCount) {
-      await guild.members.fetch().catch(() => null);
+    if (guild.members.cache.size < guild.memberCount) {
+      const fetchedMembers = await guild.members.fetch().catch(() => null);
+      if (!fetchedMembers && guild.members.cache.size === 0) {
+        throw new Error('Unable to load guild members for DM delivery.');
+      }
     }
 
     return guild.members.cache.filter((member) => !member.user?.bot).map((member) => member);
@@ -141,7 +144,18 @@ export class DmBroadcastService {
       throw new Error('Add a plain message or at least one container block before sending.');
     }
 
-    await member.send(messagePayload);
+    try {
+      await member.send(messagePayload);
+    } catch (error) {
+      if (!messagePayload.components || !plainMessage) {
+        throw error;
+      }
+
+      await member.send({
+        content: plainMessage,
+        allowedMentions: allowsMention ? { users: [member.id] } : { parse: [] }
+      });
+    }
   }
 
   pruneJobs() {
@@ -194,12 +208,17 @@ export class DmBroadcastService {
     job.status = 'running';
 
     try {
+      let firstError = null;
+
       for (const member of members) {
         try {
           await this.sendToMember(member, payload);
           job.sent += 1;
-        } catch {
+        } catch (error) {
           job.failed += 1;
+          if (!firstError) {
+            firstError = error instanceof Error ? error.message : 'DM delivery failed.';
+          }
         }
 
         job.processed += 1;
@@ -207,6 +226,20 @@ export class DmBroadcastService {
         if (payload.target_mode === 'everyone') {
           await sleep(Math.round(payload.delay_seconds * 1000));
         }
+      }
+
+      if (job.sent === 0 && job.failed > 0) {
+        job.status = 'failed';
+        job.error = firstError || 'DM broadcast failed.';
+        job.finished_at = new Date().toISOString();
+        logger.warn(`DM broadcast failed for guild ${job.guild_id}`, {
+          job_id: job.id,
+          error: job.error,
+          requested: job.requested,
+          sent: job.sent,
+          failed: job.failed
+        });
+        return;
       }
 
       job.status = 'completed';
