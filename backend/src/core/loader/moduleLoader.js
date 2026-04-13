@@ -4,7 +4,18 @@ import { pathToFileURL } from 'node:url';
 import { logger } from '../../utils/logger.js';
 
 async function listModuleEntrypoints(baseDir) {
-  const dirs = await fs.readdir(baseDir, { withFileTypes: true });
+  let dirs = [];
+
+  try {
+    dirs = await fs.readdir(baseDir, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return [];
+    }
+
+    throw error;
+  }
+
   const entries = [];
 
   for (const entry of dirs) {
