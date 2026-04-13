@@ -229,6 +229,7 @@ export class AnnouncementService {
     const payload = normalizePayload(rawPayload);
     const newEntries = payload.entries.filter((entry) => !entry.edit_existing);
     const editEntries = payload.entries.filter((entry) => entry.edit_existing);
+    const requestedChannels = newEntries.length > 0 ? payload.channel_ids.length : 0;
 
     if (!payload.channel_ids.length && newEntries.length > 0) {
       throw new Error('Select at least one target channel.');
@@ -243,7 +244,7 @@ export class AnnouncementService {
       throw new Error('Guild not found.');
     }
 
-    const channels = payload.channel_ids.length
+    const channels = newEntries.length > 0
       ? await this.resolveChannels(guild, payload.channel_ids)
       : [];
     if (!channels.length && newEntries.length > 0) {
@@ -268,21 +269,23 @@ export class AnnouncementService {
       }
     }
 
-    for (const channel of channels) {
-      try {
-        for (const entry of newEntries) {
-          await this.sendEntry(channel, entry);
-          await sleep(250);
+    if (newEntries.length > 0) {
+      for (const channel of channels) {
+        try {
+          for (const entry of newEntries) {
+            await this.sendEntry(channel, entry);
+            await sleep(250);
+          }
+          deliveredChannels += 1;
+        } catch (error) {
+          failedChannels += 1;
+          if (!firstFailureMessage) {
+            firstFailureMessage = error instanceof Error ? error.message : 'Failed to send the announcement.';
+          }
         }
-        deliveredChannels += 1;
-      } catch (error) {
-        failedChannels += 1;
-        if (!firstFailureMessage) {
-          firstFailureMessage = error instanceof Error ? error.message : 'Failed to send the announcement.';
-        }
-      }
 
-      await sleep(500);
+        await sleep(500);
+      }
     }
 
     if (editedMessages === 0 && deliveredChannels === 0 && (failedEdits > 0 || failedChannels > 0)) {
@@ -290,7 +293,7 @@ export class AnnouncementService {
     }
 
     return {
-      requested_channels: payload.channel_ids.length,
+      requested_channels: requestedChannels,
       delivered_channels: deliveredChannels,
       failed_channels: failedChannels,
       message_count: newEntries.length,

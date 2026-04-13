@@ -167,6 +167,10 @@ export function createGuildRoutes({ guildService, accessControlService, client, 
       const result = await announcementService.send(req.params.guildId, req.body ?? {});
       res.status(200).json({ ok: true, result });
     } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       next(error);
     }
   });
