@@ -166,6 +166,77 @@ function buildEntryPayload(entry) {
   return payload;
 }
 
+function buildComponentsV2EntryPayload(entry) {
+  const components = [];
+
+  if (entry.type === 'normal') {
+    if (entry.content) {
+      components.push({
+        type: 10,
+        content: entry.content
+      });
+    }
+  } else if (entry.type === 'embed') {
+    if (entry.embed.title) {
+      components.push({
+        type: 10,
+        content: `## ${entry.embed.title}`
+      });
+    }
+
+    if (entry.embed.description) {
+      components.push({
+        type: 10,
+        content: entry.embed.description
+      });
+    }
+
+    if (entry.embed.image_url) {
+      components.push({
+        type: 12,
+        items: [
+          {
+            media: { url: entry.embed.image_url },
+            description: 'Announcement image'
+          }
+        ]
+      });
+    }
+
+    if (entry.embed.footer_text) {
+      if (components.length > 0) {
+        components.push({
+          type: 14,
+          divider: true,
+          spacing: 1
+        });
+      }
+
+      components.push({
+        type: 10,
+        content: `*${entry.embed.footer_text}*`
+      });
+    }
+  } else {
+    return buildEntryPayload(entry);
+  }
+
+  if (!components.length) {
+    return null;
+  }
+
+  return {
+    flags: MessageFlags.IsComponentsV2,
+    components: [
+      {
+        type: 17,
+        components
+      }
+    ],
+    allowedMentions: { parse: [] }
+  };
+}
+
 export class AnnouncementService {
   constructor({ client }) {
     this.client = client;
@@ -217,7 +288,9 @@ export class AnnouncementService {
       throw new Error('Only messages sent by this bot can be edited.');
     }
 
-    const payload = buildEntryPayload(entry);
+    const payload = message.flags?.has?.(MessageFlags.IsComponentsV2)
+      ? buildComponentsV2EntryPayload(entry)
+      : buildEntryPayload(entry);
     if (!payload) {
       throw new Error('Add at least one container block before editing this message.');
     }
