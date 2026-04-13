@@ -1584,7 +1584,9 @@ export default function CommunityPage() {
   async function handleAnnouncementSend() {
     if (!guildId || typeof guildId !== "string") return;
 
-    if (announcementForm.channel_ids.length === 0) {
+    const requiresTargetChannels = announcementForm.entries.some((entry) => !entry.edit_existing);
+
+    if (requiresTargetChannels && announcementForm.channel_ids.length === 0) {
       setAnnouncementState("error");
       setAnnouncementMessage("Choose at least one channel before sending.");
       return;
@@ -1616,9 +1618,22 @@ export default function CommunityPage() {
 
       const result = data?.result;
       setAnnouncementState("success");
-      const deliveredText = `Delivered to ${result?.delivered_channels ?? 0}/${result?.requested_channels ?? 0} channel${(result?.requested_channels ?? 0) === 1 ? "" : "s"} with ${result?.message_count ?? 0} new message${(result?.message_count ?? 0) === 1 ? "" : "s"}.`;
+      const requestedChannels = result?.requested_channels ?? 0;
+      const deliveredChannels = result?.delivered_channels ?? 0;
+      const failedChannels = result?.failed_channels ?? 0;
+      const newMessageCount = result?.message_count ?? 0;
       const editedCount = result?.edited_messages ?? 0;
-      setAnnouncementMessage(editedCount > 0 ? `${deliveredText} Edited ${editedCount} linked bot message${editedCount === 1 ? "" : "s"}.` : deliveredText);
+      const failedEdits = result?.failed_edits ?? 0;
+      const deliveryText = requestedChannels > 0
+        ? `Delivered to ${deliveredChannels}/${requestedChannels} channel${requestedChannels === 1 ? "" : "s"} with ${newMessageCount} new message${newMessageCount === 1 ? "" : "s"}.`
+        : "";
+      const failedChannelText = failedChannels > 0 ? ` ${failedChannels} channel${failedChannels === 1 ? "" : "s"} failed.` : "";
+      const editText = editedCount > 0 ? ` Edited ${editedCount} linked bot message${editedCount === 1 ? "" : "s"}.` : "";
+      const failedEditText = failedEdits > 0 ? ` ${failedEdits} linked edit${failedEdits === 1 ? "" : "s"} failed.` : "";
+      const fallbackText = editedCount > 0
+        ? "Updated linked announcement messages."
+        : "Announcement request completed.";
+      setAnnouncementMessage(`${deliveryText}${failedChannelText}${editText}${failedEditText}`.trim() || fallbackText);
     } catch (error) {
       setAnnouncementState("error");
       setAnnouncementMessage(error instanceof Error ? error.message : "Failed to send announcement");

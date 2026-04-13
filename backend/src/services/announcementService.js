@@ -128,6 +128,44 @@ function parseMessageLink(link) {
   };
 }
 
+function buildEntryPayload(entry) {
+  const payload = {
+    allowedMentions: { parse: [] }
+  };
+
+  if (entry.type === 'normal') {
+    payload.content = entry.content;
+    payload.embeds = [];
+    payload.components = [];
+    return payload;
+  }
+
+  if (entry.type === 'embed') {
+    const embed = new EmbedBuilder();
+    if (entry.embed.color !== null) embed.setColor(entry.embed.color);
+    if (entry.embed.title) embed.setTitle(entry.embed.title);
+    if (entry.embed.description) embed.setDescription(entry.embed.description);
+    if (entry.embed.footer_text) embed.setFooter({ text: entry.embed.footer_text });
+    if (entry.embed.image_url) embed.setImage(entry.embed.image_url);
+
+    payload.content = '';
+    payload.embeds = [embed];
+    payload.components = [];
+    return payload;
+  }
+
+  const components = buildContainerComponents(entry.container_blocks);
+  if (!components.length) {
+    return null;
+  }
+
+  payload.content = '';
+  payload.embeds = [];
+  payload.flags = MessageFlags.IsComponentsV2;
+  payload.components = components;
+  return payload;
+}
+
 export class AnnouncementService {
   constructor({ client }) {
     this.client = client;
@@ -151,26 +189,9 @@ export class AnnouncementService {
   }
 
   async sendEntry(channel, entry) {
-    const payload = {};
-
-    if (entry.type === 'normal') {
-      payload.content = entry.content;
-    } else if (entry.type === 'embed') {
-      const embed = new EmbedBuilder();
-      if (entry.embed.color !== null) embed.setColor(entry.embed.color);
-      if (entry.embed.title) embed.setTitle(entry.embed.title);
-      if (entry.embed.description) embed.setDescription(entry.embed.description);
-      if (entry.embed.footer_text) embed.setFooter({ text: entry.embed.footer_text });
-      if (entry.embed.image_url) embed.setImage(entry.embed.image_url);
-      payload.embeds = [embed];
-    } else {
-      const components = buildContainerComponents(entry.container_blocks);
-      if (!components.length) {
-        return;
-      }
-
-      payload.flags = MessageFlags.IsComponentsV2;
-      payload.components = components;
+    const payload = buildEntryPayload(entry);
+    if (!payload) {
+      return;
     }
 
     await channel.send(payload);
@@ -196,38 +217,20 @@ export class AnnouncementService {
       throw new Error('Only messages sent by this bot can be edited.');
     }
 
-    if (entry.type === 'normal') {
-      await message.edit({ content: entry.content, embeds: [], components: [] });
-      return;
-    }
-
-    if (entry.type === 'embed') {
-      const embed = new EmbedBuilder();
-      if (entry.embed.color !== null) embed.setColor(entry.embed.color);
-      if (entry.embed.title) embed.setTitle(entry.embed.title);
-      if (entry.embed.description) embed.setDescription(entry.embed.description);
-      if (entry.embed.footer_text) embed.setFooter({ text: entry.embed.footer_text });
-      if (entry.embed.image_url) embed.setImage(entry.embed.image_url);
-      await message.edit({ content: '', embeds: [embed], components: [] });
-      return;
-    }
-
-    const components = buildContainerComponents(entry.container_blocks);
-    if (!components.length) {
+    const payload = buildEntryPayload(entry);
+    if (!payload) {
       throw new Error('Add at least one container block before editing this message.');
     }
 
-    await message.edit({
-      content: '',
-      embeds: [],
-      flags: MessageFlags.IsComponentsV2,
-      components
-    });
+    await message.edit(payload);
   }
 
   async send(guildId, rawPayload) {
     const payload = normalizePayload(rawPayload);
-    if (!payload.channel_ids.length && !payload.entries.every((entry) => entry.edit_existing)) {
+    const newEntries = payload.entries.filter((entry) => !entry.edit_existing);
+    const editEntries = payload.entries.filter((entry) => entry.edit_existing);
+
+    if (!payload.channel_ids.length && newEntries.length > 0) {
       throw new Error('Select at least one target channel.');
     }
 
@@ -243,43 +246,56 @@ export class AnnouncementService {
     const channels = payload.channel_ids.length
       ? await this.resolveChannels(guild, payload.channel_ids)
       : [];
-    if (!channels.length && !payload.entries.every((entry) => entry.edit_existing)) {
+    if (!channels.length && newEntries.length > 0) {
       throw new Error('None of the selected channels could be used.');
     }
 
     let editedMessages = 0;
     let deliveredChannels = 0;
     let failedChannels = 0;
+    let failedEdits = 0;
+    let firstFailureMessage = '';
 
-    for (const entry of payload.entries.filter((entry) => entry.edit_existing)) {
+    for (const entry of editEntries) {
       try {
         await this.editExistingEntry(guild, entry);
         editedMessages += 1;
-      } catch {
-        failedChannels += 1;
+      } catch (error) {
+        failedEdits += 1;
+        if (!firstFailureMessage) {
+          firstFailureMessage = error instanceof Error ? error.message : 'Failed to edit the linked announcement message.';
+        }
       }
     }
 
     for (const channel of channels) {
       try {
-        for (const entry of payload.entries.filter((entry) => !entry.edit_existing)) {
+        for (const entry of newEntries) {
           await this.sendEntry(channel, entry);
           await sleep(250);
         }
         deliveredChannels += 1;
-      } catch {
+      } catch (error) {
         failedChannels += 1;
+        if (!firstFailureMessage) {
+          firstFailureMessage = error instanceof Error ? error.message : 'Failed to send the announcement.';
+        }
       }
 
       await sleep(500);
+    }
+
+    if (editedMessages === 0 && deliveredChannels === 0 && (failedEdits > 0 || failedChannels > 0)) {
+      throw new Error(firstFailureMessage || 'Announcement delivery failed.');
     }
 
     return {
       requested_channels: payload.channel_ids.length,
       delivered_channels: deliveredChannels,
       failed_channels: failedChannels,
-      message_count: payload.entries.filter((entry) => !entry.edit_existing).length,
-      edited_messages: editedMessages
+      message_count: newEntries.length,
+      edited_messages: editedMessages,
+      failed_edits: failedEdits
     };
   }
 }
