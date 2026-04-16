@@ -1686,6 +1686,77 @@ export default function CommunityPage() {
     return parts.length > 0 ? parts : [value];
   }
 
+  function renderAnnouncementEntryPreview(entry: AnnouncementEntry) {
+    if (entry.type === "normal") {
+      return (
+        <div className="whitespace-pre-wrap text-zinc-100">
+          {renderPreviewText(entry.content || "Normal message preview")}
+        </div>
+      );
+    }
+
+    if (entry.type === "embed") {
+      return (
+        <div className="rounded-2xl border border-zinc-700 bg-black p-4">
+          {entry.embed.title ? <div className="text-lg font-semibold text-zinc-100">{renderPreviewText(entry.embed.title)}</div> : null}
+          {entry.embed.description ? <div className="mt-2 whitespace-pre-wrap text-zinc-300">{renderPreviewText(entry.embed.description)}</div> : null}
+          {entry.embed.image_url ? <img src={entry.embed.image_url} alt="Embed preview" className="mt-3 max-h-72 w-full rounded-xl border border-zinc-800 object-cover" /> : null}
+          {entry.embed.footer_text ? <div className="mt-3 text-xs text-zinc-500">{renderPreviewText(entry.embed.footer_text)}</div> : null}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3 rounded-2xl border border-zinc-700 bg-black p-4">
+        {entry.container_blocks.length === 0 ? (
+          <div className="text-sm text-zinc-500">No container blocks yet.</div>
+        ) : (
+          entry.container_blocks.map((block, blockIndex) => {
+            if (block.type === "separator") {
+              return <div key={`${entry.id}-${blockIndex}`} className="h-px w-full bg-zinc-800" />;
+            }
+
+            if (block.type === "image") {
+              return block.content ? (
+                <img key={`${entry.id}-${blockIndex}`} src={block.content} alt="Container preview" className="max-h-72 w-full rounded-xl border border-zinc-800 object-cover" />
+              ) : (
+                <div key={`${entry.id}-${blockIndex}`} className="rounded-xl border border-dashed border-zinc-800 px-4 py-6 text-sm text-zinc-500">Image URL goes here.</div>
+              );
+            }
+
+            return (
+              <div key={`${entry.id}-${blockIndex}`} className="whitespace-pre-wrap text-zinc-100">
+                {renderPreviewText(block.content || "Container text block")}
+              </div>
+            );
+          })
+        )}
+      </div>
+    );
+  }
+
+  function getAnnouncementPreviewSummary(entry: AnnouncementEntry) {
+    if (entry.type === "normal") {
+      return entry.content.trim() || "Empty normal message";
+    }
+
+    if (entry.type === "embed") {
+      return entry.embed.title.trim() || entry.embed.description.trim() || "Empty embed";
+    }
+
+    const textBlock = entry.container_blocks.find((block) => block.type === "text" && block.content.trim());
+    if (textBlock) {
+      return textBlock.content.trim();
+    }
+
+    const imageCount = entry.container_blocks.filter((block) => block.type === "image" && block.content.trim()).length;
+    if (imageCount > 0) {
+      return `${imageCount} image block${imageCount === 1 ? "" : "s"}`;
+    }
+
+    return entry.container_blocks.length > 0 ? `${entry.container_blocks.length} container blocks` : "Empty container";
+  }
+
   function renderStatusMessage(state: SaveState, message: string, fallback: string) {
     return (
       <div
@@ -1859,33 +1930,6 @@ export default function CommunityPage() {
                 Send a one-off DM to a selected member or the whole server. Placeholders apply only to the plain message on top, not to the container blocks.
               </DialogDescription>
             </DialogHeader>
-
-            <div className="sticky top-0 z-20 -mx-6 rounded-b-2xl border-b border-zinc-800 bg-zinc-950/95 px-6 pb-4 pt-2 backdrop-blur">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/80 px-4 py-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-zinc-100">DM Broadcast Quick Dock</div>
-                  <div className="text-xs text-zinc-400">
-                    Jump between sections, add blocks from anywhere, and send without scrolling all the way back down.
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("dm-broadcast-top")}>Top</Button>
-                  {dmBroadcastForm.target_mode === "member" ? (
-                    <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("dm-broadcast-member")}>Member</Button>
-                  ) : null}
-                  <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("dm-broadcast-message-section")}>Message</Button>
-                  <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("dm-broadcast-blocks")}>Blocks</Button>
-                  <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("dm-broadcast-preview")}>Preview</Button>
-                  <Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addDmBlock("text")}>Add Text</Button>
-                  <Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addDmBlock("image")}>Add Image</Button>
-                  <Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addDmBlock("separator")}>Add Separator</Button>
-                  <Button type="button" onClick={handleDmBroadcastSend} disabled={dmBroadcastSending} className="gap-2 bg-green-600 text-white hover:bg-green-500">
-                    <Save className="h-4 w-4" />
-                    {dmBroadcastSending ? (dmBroadcastJobId ? "Sending..." : "Queueing...") : "Send DM"}
-                  </Button>
-                </div>
-              </div>
-            </div>
 
             <div id="dm-broadcast-top" className="grid gap-8 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.7fr)]">
                 <div className="space-y-6">
@@ -2141,16 +2185,25 @@ export default function CommunityPage() {
                 </div>
             </div>
 
-            <div className="flex flex-col gap-3 border-t border-zinc-800 pt-4 sm:flex-row sm:items-center sm:justify-between">
-              {renderStatusMessage(
-                dmBroadcastState,
-                dmBroadcastMessage,
-                "Send a one-off DM to one member or the whole server."
-              )}
-              <Button type="button" onClick={handleDmBroadcastSend} disabled={dmBroadcastSending} className="gap-2 bg-green-600 text-white hover:bg-green-500">
-                <Save className="h-4 w-4" />
-                {dmBroadcastSending ? (dmBroadcastJobId ? "Sending..." : "Queueing...") : "Send DM"}
-              </Button>
+            <div className="sticky bottom-0 z-20 -mx-6 border-t border-zinc-800 bg-zinc-950/95 px-6 py-4 backdrop-blur">
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex-1">
+                  {renderStatusMessage(
+                    dmBroadcastState,
+                    dmBroadcastMessage,
+                    "Send a one-off DM to one member or the whole server."
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addDmBlock("text")}>Add Text</Button>
+                  <Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addDmBlock("image")}>Add Image</Button>
+                  <Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addDmBlock("separator")}>Add Separator</Button>
+                  <Button type="button" onClick={handleDmBroadcastSend} disabled={dmBroadcastSending} className="gap-2 bg-green-600 text-white hover:bg-green-500">
+                    <Save className="h-4 w-4" />
+                    {dmBroadcastSending ? (dmBroadcastJobId ? "Sending..." : "Queueing...") : "Send DM"}
+                  </Button>
+                </div>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -2166,39 +2219,6 @@ export default function CommunityPage() {
                 Build one-off announcements as normal messages, embeds, or containers. Send them to one channel or many and preview the final stack before posting.
               </DialogDescription>
             </DialogHeader>
-
-            <div className="sticky top-0 z-20 -mx-6 rounded-b-2xl border-b border-zinc-800 bg-zinc-950/95 px-6 pb-4 pt-2 backdrop-blur">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/80 px-4 py-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-zinc-100">Announcement Quick Dock</div>
-                  <div className="text-xs text-zinc-400">
-                    Add new parts, jump to channels or preview, and send without losing your position in long announcement stacks.
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("announcement-top")}>Top</Button>
-                  <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("announcement-channels")}>Channels</Button>
-                  <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("announcement-parts")}>Parts</Button>
-                  <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("announcement-preview")}>Preview</Button>
-                  <Button type="button" variant="outline" className="gap-2 border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addAnnouncementEntry("normal")}>
-                    <Plus className="h-4 w-4" />
-                    Message
-                  </Button>
-                  <Button type="button" variant="outline" className="gap-2 border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addAnnouncementEntry("embed")}>
-                    <Plus className="h-4 w-4" />
-                    Embed
-                  </Button>
-                  <Button type="button" variant="outline" className="gap-2 border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addAnnouncementEntry("container")}>
-                    <Plus className="h-4 w-4" />
-                    Container
-                  </Button>
-                  <Button type="button" onClick={handleAnnouncementSend} disabled={announcementSending} className="gap-2 bg-orange-500 text-black hover:bg-orange-400">
-                    <Save className="h-4 w-4" />
-                    {announcementSending ? "Sending..." : "Send Announcement"}
-                  </Button>
-                </div>
-              </div>
-            </div>
 
             <div id="announcement-top" className="grid gap-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(340px,0.8fr)]">
                 <div className="space-y-6">
@@ -2357,14 +2377,17 @@ export default function CommunityPage() {
                     <div className="space-y-4">
                       {announcementForm.entries.map((entry, entryIndex) => (
                         <div
+                          id={`announcement-editor-${entry.id}`}
                           key={entry.id}
                           onDragOver={(event) => event.preventDefault()}
                           onDrop={() => {
                             moveAnnouncementEntry(announcementDragEntryId, entry.id);
                             setAnnouncementDragEntryId("");
                           }}
-                          className={`rounded-2xl border bg-zinc-900/60 p-4 ${announcementDragEntryId === entry.id ? "border-orange-500/70" : "border-zinc-800"}`}
+                          className={`scroll-mt-24 rounded-2xl border bg-zinc-900/60 p-4 ${announcementDragEntryId === entry.id ? "border-orange-500/70" : "border-zinc-800"}`}
                         >
+                          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.78fr)]">
+                            <div className="space-y-4">
                           <div className="mb-4 flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
                               <button
@@ -2580,6 +2603,22 @@ export default function CommunityPage() {
                               </div>
                             </div>
                           ) : null}
+                            </div>
+                            <div className="self-start xl:sticky xl:top-4">
+                              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+                                <div className="mb-3 flex items-center justify-between gap-3">
+                                  <div>
+                                    <div className="text-xs uppercase tracking-wider text-zinc-500">Live Preview</div>
+                                    <div className="text-sm text-zinc-300">Part {entryIndex + 1} stays aligned with its editor.</div>
+                                  </div>
+                                  {entry.edit_existing ? (
+                                    <Badge className="bg-zinc-800 text-zinc-100 hover:bg-zinc-800">Edits existing</Badge>
+                                  ) : null}
+                                </div>
+                                {renderAnnouncementEntryPreview(entry)}
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -2587,14 +2626,25 @@ export default function CommunityPage() {
                 </div>
                 </div>
 
-                <div id="announcement-preview" className="scroll-mt-24" />
-                <div className="hidden lg:block">
-                  <div className="sticky top-0 space-y-4">
+                <div id="announcement-preview" className="hidden lg:block">
+                  <div id="announcement-preview-rail" className="sticky top-0 space-y-4">
                     <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-                      <div className="mb-3 text-xs uppercase tracking-wider text-zinc-500">Channels</div>
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-xs uppercase tracking-wider text-zinc-500">Channel Summary</div>
+                          <div className="text-sm text-zinc-300">Selected channels stay visible here while you edit lower parts.</div>
+                        </div>
+                        <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("announcement-channels")}>
+                          Edit
+                        </Button>
+                      </div>
                       <div className="flex flex-wrap gap-2">
                         {selectedAnnouncementChannels.length === 0 ? (
-                          <p className="text-sm text-zinc-500">No channels selected yet.</p>
+                          <p className="text-sm text-zinc-500">
+                            {announcementForm.entries.every((entry) => entry.edit_existing)
+                              ? "No channels needed because every part edits an existing bot message."
+                              : "No channels selected yet."}
+                          </p>
                         ) : (
                           selectedAnnouncementChannels.map((channel) => (
                             <Badge key={channel.id} variant="secondary" className="border-zinc-700 bg-zinc-800 px-3 py-1 text-zinc-100">
@@ -2605,145 +2655,75 @@ export default function CommunityPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+                      <div className="text-xs uppercase tracking-wider text-zinc-500">Preview Navigator</div>
+                      <div className="mt-2 text-sm text-zinc-300">Click any part preview to jump straight to that editor. The full live preview stays beside each part.</div>
+                    </div>
+
+                    <div className="space-y-3">
                       {announcementForm.entries.length === 0 ? (
                         <div className="rounded-2xl border border-dashed border-zinc-800 px-4 py-8 text-sm text-zinc-500">
                           No announcement parts to preview yet.
                         </div>
                       ) : (
-                        announcementForm.entries.map((entry) => (
-                          <div key={entry.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-                            <div className="mb-3 text-xs uppercase tracking-wider text-zinc-500">{entry.type} preview</div>
-
-                            {entry.type === "normal" ? (
-                              <div className="whitespace-pre-wrap text-zinc-100">{renderPreviewText(entry.content || "Normal message preview")}</div>
-                            ) : null}
-
-                            {entry.type === "embed" ? (
-                              <div className="rounded-2xl border border-zinc-700 bg-black p-4">
-                                {entry.embed.title ? <div className="text-lg font-semibold text-zinc-100">{renderPreviewText(entry.embed.title)}</div> : null}
-                                {entry.embed.description ? <div className="mt-2 whitespace-pre-wrap text-zinc-300">{renderPreviewText(entry.embed.description)}</div> : null}
-                                {entry.embed.image_url ? <img src={entry.embed.image_url} alt="Embed preview" className="mt-3 max-h-72 w-full rounded-xl border border-zinc-800 object-cover" /> : null}
-                                {entry.embed.footer_text ? <div className="mt-3 text-xs text-zinc-500">{renderPreviewText(entry.embed.footer_text)}</div> : null}
+                        announcementForm.entries.map((entry, entryIndex) => (
+                          <button
+                            key={entry.id}
+                            type="button"
+                            onClick={() => scrollDialogSection(`announcement-editor-${entry.id}`)}
+                            className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 text-left transition-colors hover:border-orange-500/50 hover:bg-zinc-900"
+                          >
+                            <div className="mb-3 flex items-start justify-between gap-3">
+                              <div>
+                                <div className="font-medium text-zinc-100">Part {entryIndex + 1}</div>
+                                <div className="text-xs uppercase tracking-wider text-zinc-500">{entry.type}</div>
                               </div>
-                            ) : null}
-
-                            {entry.type === "container" ? (
-                              <div className="space-y-3 rounded-2xl border border-zinc-700 bg-black p-4">
-                                {entry.container_blocks.length === 0 ? (
-                                  <div className="text-sm text-zinc-500">No container blocks yet.</div>
-                                ) : (
-                                  entry.container_blocks.map((block, blockIndex) => {
-                                    if (block.type === "separator") {
-                                      return <div key={`${entry.id}-${blockIndex}`} className="h-px w-full bg-zinc-800" />;
-                                    }
-
-                                    if (block.type === "image") {
-                                      return block.content ? (
-                                        <img key={`${entry.id}-${blockIndex}`} src={block.content} alt="Container preview" className="max-h-72 w-full rounded-xl border border-zinc-800 object-cover" />
-                                      ) : (
-                                        <div key={`${entry.id}-${blockIndex}`} className="rounded-xl border border-dashed border-zinc-800 px-4 py-6 text-sm text-zinc-500">Image URL goes here.</div>
-                                      );
-                                    }
-
-                                    return (
-                                      <div key={`${entry.id}-${blockIndex}`} className="whitespace-pre-wrap text-zinc-100">
-                                        {renderPreviewText(block.content || "Container text block")}
-                                      </div>
-                                    );
-                                  })
-                                )}
-                              </div>
-                            ) : null}
-                          </div>
+                              {entry.edit_existing ? (
+                                <Badge className="bg-zinc-800 text-zinc-100 hover:bg-zinc-800">Edit</Badge>
+                              ) : null}
+                            </div>
+                            <div className="line-clamp-3 text-sm text-zinc-300">
+                              {getAnnouncementPreviewSummary(entry)}
+                            </div>
+                          </button>
                         ))
                       )}
                     </div>
                   </div>
                 </div>
-                <div className="space-y-4 lg:hidden">
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-                  <div className="mb-3 text-xs uppercase tracking-wider text-zinc-500">Channels</div>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedAnnouncementChannels.length === 0 ? (
-                      <p className="text-sm text-zinc-500">No channels selected yet.</p>
-                    ) : (
-                      selectedAnnouncementChannels.map((channel) => (
-                        <Badge key={channel.id} variant="secondary" className="border-zinc-700 bg-zinc-800 px-3 py-1 text-zinc-100">
-                          #{channel.name}
-                        </Badge>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {announcementForm.entries.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-zinc-800 px-4 py-8 text-sm text-zinc-500">
-                      No announcement parts to preview yet.
-                    </div>
-                  ) : (
-                    announcementForm.entries.map((entry) => (
-                      <div key={entry.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-                        <div className="mb-3 text-xs uppercase tracking-wider text-zinc-500">{entry.type} preview</div>
-
-                        {entry.type === "normal" ? (
-                          <div className="whitespace-pre-wrap text-zinc-100">{renderPreviewText(entry.content || "Normal message preview")}</div>
-                        ) : null}
-
-                        {entry.type === "embed" ? (
-                          <div className="rounded-2xl border border-zinc-700 bg-black p-4">
-                            {entry.embed.title ? <div className="text-lg font-semibold text-zinc-100">{renderPreviewText(entry.embed.title)}</div> : null}
-                            {entry.embed.description ? <div className="mt-2 whitespace-pre-wrap text-zinc-300">{renderPreviewText(entry.embed.description)}</div> : null}
-                            {entry.embed.image_url ? <img src={entry.embed.image_url} alt="Embed preview" className="mt-3 max-h-72 w-full rounded-xl border border-zinc-800 object-cover" /> : null}
-                            {entry.embed.footer_text ? <div className="mt-3 text-xs text-zinc-500">{renderPreviewText(entry.embed.footer_text)}</div> : null}
-                          </div>
-                        ) : null}
-
-                        {entry.type === "container" ? (
-                          <div className="space-y-3 rounded-2xl border border-zinc-700 bg-black p-4">
-                            {entry.container_blocks.length === 0 ? (
-                              <div className="text-sm text-zinc-500">No container blocks yet.</div>
-                            ) : (
-                              entry.container_blocks.map((block, blockIndex) => {
-                                if (block.type === "separator") {
-                                  return <div key={`${entry.id}-${blockIndex}`} className="h-px w-full bg-zinc-800" />;
-                                }
-
-                                if (block.type === "image") {
-                                  return block.content ? (
-                                    <img key={`${entry.id}-${blockIndex}`} src={block.content} alt="Container preview" className="max-h-72 w-full rounded-xl border border-zinc-800 object-cover" />
-                                  ) : (
-                                    <div key={`${entry.id}-${blockIndex}`} className="rounded-xl border border-dashed border-zinc-800 px-4 py-6 text-sm text-zinc-500">Image URL goes here.</div>
-                                  );
-                                }
-
-                                return (
-                                  <div key={`${entry.id}-${blockIndex}`} className="whitespace-pre-wrap text-zinc-100">
-                                    {renderPreviewText(block.content || "Container text block")}
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-                    ))
-                  )}
-                </div>
-                </div>
             </div>
 
-            <div className="flex flex-col gap-3 border-t border-zinc-800 pt-4 sm:flex-row sm:items-center sm:justify-between">
-              {renderStatusMessage(
-                announcementState,
-                announcementMessage,
-                "Send one or more announcement parts to the selected channels."
-              )}
-              <Button type="button" onClick={handleAnnouncementSend} disabled={announcementSending} className="gap-2 bg-orange-500 text-black hover:bg-orange-400">
-                <Save className="h-4 w-4" />
-                {announcementSending ? "Sending..." : "Send Announcement"}
-              </Button>
+            <div className="sticky bottom-0 z-20 -mx-6 border-t border-zinc-800 bg-zinc-950/95 px-6 py-4 backdrop-blur">
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex-1">
+                  {renderStatusMessage(
+                    announcementState,
+                    announcementMessage,
+                    "Send one or more announcement parts to the selected channels."
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("announcement-channels")}>
+                    Channels
+                  </Button>
+                  <Button type="button" variant="outline" className="gap-2 border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addAnnouncementEntry("normal")}>
+                    <Plus className="h-4 w-4" />
+                    Message
+                  </Button>
+                  <Button type="button" variant="outline" className="gap-2 border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addAnnouncementEntry("embed")}>
+                    <Plus className="h-4 w-4" />
+                    Embed
+                  </Button>
+                  <Button type="button" variant="outline" className="gap-2 border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addAnnouncementEntry("container")}>
+                    <Plus className="h-4 w-4" />
+                    Container
+                  </Button>
+                  <Button type="button" onClick={handleAnnouncementSend} disabled={announcementSending} className="gap-2 bg-orange-500 text-black hover:bg-orange-400">
+                    <Save className="h-4 w-4" />
+                    {announcementSending ? "Sending..." : "Send Announcement"}
+                  </Button>
+                </div>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
