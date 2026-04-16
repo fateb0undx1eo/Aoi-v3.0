@@ -28,6 +28,7 @@ import { BotLooksService } from './services/botLooksService.js';
 import { StaffListService } from './services/staffListService.js';
 import { DmBroadcastService } from './services/dmBroadcastService.js';
 import { AnnouncementService } from './services/announcementService.js';
+import { FunService } from './services/funService.js';
 
 async function main() {
   const registry = await bootstrapRegistry();
@@ -81,6 +82,9 @@ async function main() {
   const announcementService = new AnnouncementService({
     client
   });
+  const funService = new FunService({
+    configService
+  });
 
   const services = {
     authService,
@@ -98,6 +102,7 @@ async function main() {
     staffRatingService,
     dmBroadcastService,
     announcementService,
+    funService,
     toolsService,
     accessControlService
   };

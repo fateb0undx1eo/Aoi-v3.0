@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import {
   Activity,
   Crown,
+  Heart,
   MessageSquare,
   Shield,
   Users,
@@ -76,6 +77,7 @@ function formatDate(input: string) {
 const moduleMeta: Record<string, { icon: React.ReactNode; href: string; description: string }> = {
   moderation: { icon: <Shield className="h-5 w-5" />, href: "moderation", description: "Ban, kick, warn, timeout users" },
   community: { icon: <Users className="h-5 w-5" />, href: "community", description: "Welcome, leave, boost, and staff tools" },
+  fun: { icon: <Heart className="h-5 w-5" />, href: "fun", description: "Waifu and husbando drops with claim buttons" },
   settings: { icon: <Zap className="h-5 w-5" />, href: "settings", description: "Bot configuration" },
   tools: { icon: <MessageSquare className="h-5 w-5" />, href: "tools", description: "Utility commands and helpers" },
   memes: { icon: <MessageSquare className="h-5 w-5" />, href: "memes", description: "Meme commands and feeds" },
