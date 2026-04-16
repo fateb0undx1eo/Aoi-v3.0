@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, Save, RefreshCcw, X, ChevronDown, ListChecks, ArrowUp, ArrowDown } from "lucide-react";
+import { Users, Save, RefreshCcw, X, ChevronDown, ListChecks, ArrowUp, ArrowDown, Megaphone } from "lucide-react";
 
 type ModuleRow = {
   name: string;
@@ -56,6 +56,11 @@ type StaffListConfig = {
   rank_tier_role_ids: string[];
 };
 
+type ChannelsActivityConfig = {
+  enabled: boolean;
+  default_delete_seconds: number;
+};
+
 type SaveState = "idle" | "success" | "error" | "info";
 
 const DEFAULT_STAFF_LIST_CONFIG: StaffListConfig = {
@@ -70,6 +75,11 @@ const DEFAULT_STAFF_LIST_CONFIG: StaffListConfig = {
   interval_unit: "minutes",
   staff_role_ids: [],
   rank_tier_role_ids: [],
+};
+
+const DEFAULT_CHANNELS_ACTIVITY_CONFIG: ChannelsActivityConfig = {
+  enabled: false,
+  default_delete_seconds: 15,
 };
 
 const MIN_STAFF_LIST_SECONDS_INTERVAL = 30;
@@ -108,6 +118,13 @@ function normalizeStaffListConfig(config: Record<string, any> | null | undefined
   };
 }
 
+function normalizeChannelsActivityConfig(config: Record<string, any> | null | undefined): ChannelsActivityConfig {
+  return {
+    enabled: Boolean(config?.enabled),
+    default_delete_seconds: Math.max(0, Math.min(3600, Number.parseInt(String(config?.default_delete_seconds ?? 15), 10) || 15)),
+  };
+}
+
 function reorder(values: string[], index: number, direction: -1 | 1) {
   const nextIndex = index + direction;
   if (nextIndex < 0 || nextIndex >= values.length) {
@@ -130,6 +147,7 @@ export default function ToolsPage() {
   const [loading, setLoading] = useState(true);
 
   const [staffListOpen, setStaffListOpen] = useState(false);
+  const [channelsActivityOpen, setChannelsActivityOpen] = useState(false);
   const [rolePickerOpen, setRolePickerOpen] = useState(false);
   const [roleQuery, setRoleQuery] = useState("");
   const [roleLoadMessage, setRoleLoadMessage] = useState("");
@@ -140,6 +158,11 @@ export default function ToolsPage() {
   const [staffListSaveMessage, setStaffListSaveMessage] = useState("");
   const [staffListSaveState, setStaffListSaveState] = useState<SaveState>("idle");
   const [staffListForm, setStaffListForm] = useState<StaffListConfig>(DEFAULT_STAFF_LIST_CONFIG);
+  const [channelsActivitySaving, setChannelsActivitySaving] = useState(false);
+  const [channelsActivityReloading, setChannelsActivityReloading] = useState(false);
+  const [channelsActivitySaveMessage, setChannelsActivitySaveMessage] = useState("");
+  const [channelsActivitySaveState, setChannelsActivitySaveState] = useState<SaveState>("idle");
+  const [channelsActivityForm, setChannelsActivityForm] = useState<ChannelsActivityConfig>(DEFAULT_CHANNELS_ACTIVITY_CONFIG);
 
   const loadGuildData = useCallback(async () => {
     if (!guildId || typeof guildId !== "string") return;
@@ -172,6 +195,7 @@ export default function ToolsPage() {
 
       const toolsModule = (overviewData.modules || []).find((module: ModuleRow) => module.name === "tools");
       setStaffListForm(normalizeStaffListConfig(toolsModule?.config?.staff_list));
+      setChannelsActivityForm(normalizeChannelsActivityConfig(toolsModule?.config?.channels_activity));
     } catch (error) {
       console.error("Failed to load tools data:", error);
     } finally {
@@ -227,6 +251,12 @@ export default function ToolsPage() {
       ? `Track ${roleCount} staff role${roleCount === 1 ? "" : "s"} and refresh every ${interval}.`
       : "Choose staff roles, rank order, and a publish mode for the staff roster.";
   }, [staffListForm]);
+
+  const channelsActivitySummary = useMemo(() => {
+    return channelsActivityForm.enabled
+      ? `Broadcasted messages auto-delete after ${channelsActivityForm.default_delete_seconds} second${channelsActivityForm.default_delete_seconds === 1 ? "" : "s"} by default.`
+      : "Broadcast messages stay until removed manually unless the slash command provides a delete override.";
+  }, [channelsActivityForm]);
 
   function renderStatusMessage(state: SaveState, message: string, fallback: string) {
     return (
@@ -373,6 +403,45 @@ export default function ToolsPage() {
     }
   }
 
+  async function handleChannelsActivitySave() {
+    if (!guildId || typeof guildId !== "string") return;
+
+    setChannelsActivitySaving(true);
+    setChannelsActivitySaveState("idle");
+    setChannelsActivitySaveMessage("");
+
+    try {
+      await persistToolsConfig({
+        ...(toolsModule?.config ?? {}),
+        channels_activity: channelsActivityForm,
+      });
+
+      await loadGuildData();
+      setChannelsActivitySaveState("success");
+      setChannelsActivitySaveMessage("Channels Activity saved successfully.");
+    } catch (error) {
+      console.error(error);
+      setChannelsActivitySaveState("error");
+      setChannelsActivitySaveMessage(error instanceof Error ? error.message : "Failed to save Channels Activity");
+    } finally {
+      setChannelsActivitySaving(false);
+    }
+  }
+
+  async function handleChannelsActivityReload() {
+    setChannelsActivityReloading(true);
+    setChannelsActivitySaveState("idle");
+    setChannelsActivitySaveMessage("");
+
+    try {
+      await loadGuildData();
+      setChannelsActivitySaveState("info");
+      setChannelsActivitySaveMessage("Reloaded the latest Channels Activity config.");
+    } finally {
+      setChannelsActivityReloading(false);
+    }
+  }
+
   async function handleStaffListEnabledToggle(checked: boolean) {
     const nextForm = { ...staffListForm, enabled: checked };
     setStaffListForm(nextForm);
@@ -431,6 +500,14 @@ export default function ToolsPage() {
         <section>
           <h2 className="card-heading mb-4 text-sm uppercase tracking-wider text-muted-foreground">Feature Cards</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <FeatureCard
+              icon={<Megaphone className="h-6 w-6" />}
+              title="Channels Activity"
+              description={channelsActivitySummary}
+              badge={channelsActivityForm.enabled ? "Auto Delete On" : "Auto Delete Off"}
+              iconColor="text-orange-400"
+              onClick={() => setChannelsActivityOpen(true)}
+            />
             <FeatureCard
               icon={<Users className="h-6 w-6" />}
               title="Staff List"
@@ -744,6 +821,99 @@ export default function ToolsPage() {
                 <Button type="button" onClick={handleStaffListSave} disabled={staffListSaving} className="gap-2 bg-cyan-600 text-white hover:bg-cyan-500">
                   <Save className="h-4 w-4" />
                   {staffListSaving ? "Saving..." : hasPersistedConfig ? "Update Config" : "Save Config"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={channelsActivityOpen} onOpenChange={setChannelsActivityOpen}>
+          <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto border-border/70 bg-zinc-950 text-zinc-100">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-3">
+                <Megaphone className="h-5 w-5 text-orange-400" />
+                Channels Activity
+              </DialogTitle>
+              <DialogDescription className="text-zinc-400">
+                Configure the default auto-delete behavior for the admin-only command <code>/channel all</code>. The command sends a message to every sendable guild channel, including voice-channel chats where Discord allows messages.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              <div className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="font-medium text-zinc-100">Default Auto Delete</div>
+                  <div className="text-sm text-zinc-400">
+                    {channelsActivityForm.enabled
+                      ? "Broadcast messages will auto-delete unless the slash command overrides the timer."
+                      : "Broadcast messages stay visible unless the slash command provides a delete timer."}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="channels-activity-enabled" className="text-sm text-zinc-200">Enabled</Label>
+                  <Switch
+                    id="channels-activity-enabled"
+                    checked={channelsActivityForm.enabled}
+                    onCheckedChange={(checked) => setChannelsActivityForm((current) => ({ ...current, enabled: checked }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-[1fr_160px]">
+                <div className="space-y-2">
+                  <Label htmlFor="channels-activity-delete" className="text-zinc-200">Default delete after seconds</Label>
+                  <Input
+                    id="channels-activity-delete"
+                    type="number"
+                    min={0}
+                    max={3600}
+                    value={channelsActivityForm.default_delete_seconds}
+                    className="border-zinc-800 bg-zinc-950 text-zinc-100"
+                    onChange={(event) =>
+                      setChannelsActivityForm((current) => ({
+                        ...current,
+                        default_delete_seconds: Math.max(0, Math.min(3600, Number.parseInt(event.target.value || "0", 10) || 0)),
+                      }))
+                    }
+                  />
+                  <p className="text-xs text-zinc-500">
+                    Use <code>0</code> to keep messages permanently when auto delete is enabled but no timer is desired.
+                  </p>
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full gap-2 border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900"
+                    onClick={handleChannelsActivityReload}
+                    disabled={channelsActivityReloading || channelsActivitySaving}
+                  >
+                    <RefreshCcw className="h-4 w-4" />
+                    {channelsActivityReloading ? "Reloading..." : "Reload"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+                <div className="font-medium text-zinc-100">Command Preview</div>
+                <div className="mt-2 text-sm text-zinc-400">
+                  <div><code>/channel all message:&quot;Server maintenance soon&quot;</code></div>
+                  <div className="mt-1"><code>/channel all message:&quot;Join the event VC&quot; delete_after_seconds:30</code></div>
+                </div>
+                <p className="mt-3 text-xs text-zinc-500">
+                  Only members with the Administrator permission can run this command. Slash-level delete seconds override the website default.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 border-t border-zinc-800 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                {renderStatusMessage(
+                  channelsActivitySaveState,
+                  channelsActivitySaveMessage,
+                  "Save updates the default auto-delete behavior used by /channel all."
+                )}
+                <Button type="button" onClick={handleChannelsActivitySave} disabled={channelsActivitySaving} className="gap-2 bg-orange-600 text-white hover:bg-orange-500">
+                  <Save className="h-4 w-4" />
+                  {channelsActivitySaving ? "Saving..." : "Save Config"}
                 </Button>
               </div>
             </div>

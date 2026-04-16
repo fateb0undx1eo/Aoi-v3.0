@@ -286,7 +286,6 @@ export default function FunPage() {
                     <div className="mt-4 text-lg font-semibold text-white">{preview.title}</div>
                     <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-300">{preview.body}</div>
                     <img src={SAMPLE_IMAGES[previewType]} alt={previewType} className="mt-4 h-80 w-full rounded-2xl border border-zinc-800 object-cover" />
-                    <div className="mt-4 rounded-2xl border border-zinc-800 bg-black/40 p-3 text-xs leading-5 text-zinc-400">Artist: kooskoo<br />Source: https://kooskoo.tumblr.com/post/653303098327056384/rkgk</div>
                     {previewMode === "summon" && <div className="mt-4 grid grid-cols-2 gap-3"><button type="button" className="rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-medium text-white">{form.smash_button_label}</button><button type="button" className="rounded-xl bg-red-500 px-4 py-2.5 text-sm font-medium text-white">{form.pass_button_label}</button></div>}
                   </div>
                   <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 text-sm text-zinc-300">Cooldown window: {formatDuration(form.cooldown_window_seconds)}<br />Buttons active for: {formatDuration(form.interaction_timeout_seconds)}<br />Resolved drop delete: {form.resolved_drop_delete_seconds === 0 ? "manual" : formatDuration(form.resolved_drop_delete_seconds)}<br />Ephemeral cleanup: {form.ephemeral_notice_delete_seconds === 0 ? "disabled" : formatDuration(form.ephemeral_notice_delete_seconds)}</div>

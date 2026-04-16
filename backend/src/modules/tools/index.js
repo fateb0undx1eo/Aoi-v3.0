@@ -19,6 +19,13 @@ const TOOLS_SCHEMA = {
         staff_role_ids: { type: 'array', items: { type: 'string' } },
         rank_tier_role_ids: { type: 'array', items: { type: 'string' } }
       }
+    },
+    channels_activity: {
+      type: 'object',
+      properties: {
+        enabled: { type: 'boolean' },
+        default_delete_seconds: { type: 'number' }
+      }
     }
   }
 };
@@ -27,6 +34,72 @@ export default {
   name: 'tools',
   configSchema: TOOLS_SCHEMA,
   commands: [
+    {
+      name: 'channel',
+      description: 'Send a message to every sendable channel in the server',
+      permissionOverrides: {
+        discordPermissions: ['Administrator']
+      },
+      options: [
+        {
+          name: 'all',
+          type: 1,
+          description: 'Broadcast to all channels',
+          options: [
+            {
+              name: 'message',
+              type: 3,
+              description: 'Message to send to all channels',
+              required: true
+            },
+            {
+              name: 'delete_after_seconds',
+              type: 4,
+              description: 'Optional override for auto-delete timing',
+              required: false,
+              min_value: 0,
+              max_value: 3600
+            }
+          ]
+        }
+      ],
+      async execute(interaction, { services }) {
+        const subcommand = interaction.options.getSubcommand(true);
+        if (subcommand !== 'all') {
+          await interaction.editReply('Unsupported channel action.');
+          return;
+        }
+
+        const content = interaction.options.getString('message', true).trim();
+        if (!content) {
+          await interaction.editReply('Provide a message to broadcast.');
+          return;
+        }
+
+        const config = await services.toolsService.getChannelActivityConfig(interaction.guildId);
+        const overrideDeleteSeconds = interaction.options.getInteger('delete_after_seconds');
+        const deleteAfterSeconds = overrideDeleteSeconds ?? (
+          config.enabled ? config.default_delete_seconds : 0
+        );
+
+        const result = await services.toolsService.broadcastToGuildChannels(
+          interaction.guild,
+          content,
+          deleteAfterSeconds
+        );
+
+        await interaction.editReply(
+          [
+            `Broadcast attempted in ${result.attempted} channel${result.attempted === 1 ? '' : 's'}.`,
+            `Sent: ${result.sent}.`,
+            `Failed: ${result.failed}.`,
+            deleteAfterSeconds > 0
+              ? `Messages will delete after ${deleteAfterSeconds} second${deleteAfterSeconds === 1 ? '' : 's'}.`
+              : 'Messages will stay until removed manually.'
+          ].join('\n')
+        );
+      }
+    },
     {
       name: 'autoresponder',
       description: 'Create or update an autoresponder',

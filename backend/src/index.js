@@ -46,7 +46,7 @@ async function main() {
   const moduleService = new ModuleService(registry, configCache);
   const authService = new AuthService(env);
   const settingsService = new SettingsService(configService);
-  const toolsService = new ToolsService();
+  const toolsService = new ToolsService(configService);
   const memeService = new MemeService({
     configService,
     configCache,

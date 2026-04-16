@@ -99,27 +99,10 @@ function renderTemplate(placeholderEngine, template, fallback, context) {
   return rendered || fallback;
 }
 
-function buildCreditText(asset) {
-  const lines = [];
-
-  if (asset?.artistName) {
-    lines.push(asset.artistHref
-      ? `Artist: ${asset.artistName} (${asset.artistHref})`
-      : `Artist: ${asset.artistName}`);
-  }
-
-  if (asset?.sourceUrl) {
-    lines.push(`Source: ${asset.sourceUrl}`);
-  }
-
-  return lines.join('\n');
-}
-
 function buildContainer({
   title,
   body = '',
   asset = null,
-  creditText = '',
   buttons = []
 }) {
   const components = [
@@ -155,18 +138,6 @@ function buildContainer({
           description: `${title} image`
         }
       ]
-    });
-  }
-
-  if (creditText) {
-    components.push({
-      type: 14,
-      divider: true,
-      spacing: 1
-    });
-    components.push({
-      type: 10,
-      content: creditText
     });
   }
 
@@ -273,8 +244,7 @@ async function expirePendingDrop(token, client, placeholderEngine) {
     components: buildContainer({
       title,
       body,
-      asset: pending.asset,
-      creditText: buildCreditText(pending.asset)
+      asset: pending.asset
     }),
     allowedMentions: { parse: [] }
   }).catch(() => null);
@@ -380,7 +350,6 @@ async function handleSummonCommand(interaction, { services, placeholderEngine },
       title,
       body,
       asset,
-      creditText: buildCreditText(asset),
       buttons: [
         {
           type: 2,
@@ -430,8 +399,7 @@ function buildGenericResolvedComponents(pending) {
   return buildContainer({
     title: `${getTypeTitle(pending.type)} Drop`,
     body: 'This drop is no longer available.',
-    asset: pending.asset,
-    creditText: buildCreditText(pending.asset)
+    asset: pending.asset
   });
 }
 
@@ -539,8 +507,7 @@ export default {
             components: buildContainer({
               title: dmTitle,
               body: dmBody,
-              asset: pending.asset,
-              creditText: buildCreditText(pending.asset)
+              asset: pending.asset
             }),
             allowedMentions: { parse: [] }
           }).then(() => true).catch(() => false);
@@ -582,8 +549,7 @@ export default {
           const components = buildContainer({
             title,
             body,
-            asset: pending.asset,
-            creditText: buildCreditText(pending.asset)
+            asset: pending.asset
           });
 
           if (pending.config.claim_result_visibility === 'public') {
@@ -621,8 +587,7 @@ export default {
         const passComponents = buildContainer({
           title: passTitle,
           body: passBody,
-          asset: pending.asset,
-          creditText: buildCreditText(pending.asset)
+          asset: pending.asset
         });
 
         if (pending.config.pass_result_visibility === 'public') {
