@@ -458,6 +458,13 @@ function normalizePremiumFeatureConfig(config: Record<string, any> | null | unde
   };
 }
 
+function scrollDialogSection(sectionId: string) {
+  if (typeof window === "undefined") return;
+  const target = document.getElementById(sectionId);
+  if (!target) return;
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 type SaveState = "idle" | "success" | "error" | "info";
 
 export default function CommunityPage() {
@@ -1853,7 +1860,34 @@ export default function CommunityPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.7fr)]">
+            <div className="sticky top-0 z-20 -mx-6 rounded-b-2xl border-b border-zinc-800 bg-zinc-950/95 px-6 pb-4 pt-2 backdrop-blur">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/80 px-4 py-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-zinc-100">DM Broadcast Quick Dock</div>
+                  <div className="text-xs text-zinc-400">
+                    Jump between sections, add blocks from anywhere, and send without scrolling all the way back down.
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("dm-broadcast-top")}>Top</Button>
+                  {dmBroadcastForm.target_mode === "member" ? (
+                    <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("dm-broadcast-member")}>Member</Button>
+                  ) : null}
+                  <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("dm-broadcast-message-section")}>Message</Button>
+                  <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("dm-broadcast-blocks")}>Blocks</Button>
+                  <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("dm-broadcast-preview")}>Preview</Button>
+                  <Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addDmBlock("text")}>Add Text</Button>
+                  <Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addDmBlock("image")}>Add Image</Button>
+                  <Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addDmBlock("separator")}>Add Separator</Button>
+                  <Button type="button" onClick={handleDmBroadcastSend} disabled={dmBroadcastSending} className="gap-2 bg-green-600 text-white hover:bg-green-500">
+                    <Save className="h-4 w-4" />
+                    {dmBroadcastSending ? (dmBroadcastJobId ? "Sending..." : "Queueing...") : "Send DM"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div id="dm-broadcast-top" className="grid gap-8 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.7fr)]">
                 <div className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
@@ -1904,7 +1938,7 @@ export default function CommunityPage() {
                 </div>
 
                 {dmBroadcastForm.target_mode === "member" && (
-                  <div className="space-y-3">
+                  <div id="dm-broadcast-member" className="space-y-3">
                     <Label className="text-zinc-200">Choose Member</Label>
                     <div className="relative">
                       <button
@@ -1964,7 +1998,7 @@ export default function CommunityPage() {
                   </div>
                 )}
 
-                <div className="space-y-2">
+                <div id="dm-broadcast-message-section" className="space-y-2">
                   <Label htmlFor="dm-broadcast-message" className="text-zinc-200">Plain Message</Label>
                   <Textarea
                     id="dm-broadcast-message"
@@ -1982,7 +2016,7 @@ export default function CommunityPage() {
                   </p>
                 </div>
 
-                <div className="space-y-3">
+                <div id="dm-broadcast-blocks" className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-zinc-200">Container Blocks</Label>
                     <div className="flex gap-2">
@@ -2018,6 +2052,7 @@ export default function CommunityPage() {
                 </div>
                 </div>
 
+                <div id="dm-broadcast-preview" className="scroll-mt-24" />
                 <div className="hidden lg:block">
                   <div className="sticky top-0 space-y-4">
                     <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
@@ -2062,7 +2097,7 @@ export default function CommunityPage() {
                     </div>
                   </div>
                 </div>
-                <div className="space-y-4 lg:hidden">
+                <div id="dm-broadcast-preview-mobile" className="space-y-4 lg:hidden">
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
                   <div className="mb-2 text-xs uppercase tracking-wider text-zinc-500">Plain Message Preview</div>
                   <div className="whitespace-pre-wrap text-zinc-100">
@@ -2132,7 +2167,40 @@ export default function CommunityPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(340px,0.8fr)]">
+            <div className="sticky top-0 z-20 -mx-6 rounded-b-2xl border-b border-zinc-800 bg-zinc-950/95 px-6 pb-4 pt-2 backdrop-blur">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/80 px-4 py-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-zinc-100">Announcement Quick Dock</div>
+                  <div className="text-xs text-zinc-400">
+                    Add new parts, jump to channels or preview, and send without losing your position in long announcement stacks.
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("announcement-top")}>Top</Button>
+                  <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("announcement-channels")}>Channels</Button>
+                  <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("announcement-parts")}>Parts</Button>
+                  <Button type="button" variant="outline" className="border-zinc-800 bg-black text-zinc-100 hover:bg-zinc-900" onClick={() => scrollDialogSection("announcement-preview")}>Preview</Button>
+                  <Button type="button" variant="outline" className="gap-2 border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addAnnouncementEntry("normal")}>
+                    <Plus className="h-4 w-4" />
+                    Message
+                  </Button>
+                  <Button type="button" variant="outline" className="gap-2 border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addAnnouncementEntry("embed")}>
+                    <Plus className="h-4 w-4" />
+                    Embed
+                  </Button>
+                  <Button type="button" variant="outline" className="gap-2 border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addAnnouncementEntry("container")}>
+                    <Plus className="h-4 w-4" />
+                    Container
+                  </Button>
+                  <Button type="button" onClick={handleAnnouncementSend} disabled={announcementSending} className="gap-2 bg-orange-500 text-black hover:bg-orange-400">
+                    <Save className="h-4 w-4" />
+                    {announcementSending ? "Sending..." : "Send Announcement"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div id="announcement-top" className="grid gap-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(340px,0.8fr)]">
                 <div className="space-y-6">
                 <div className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
                   <div>
@@ -2187,7 +2255,7 @@ export default function CommunityPage() {
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div id="announcement-channels" className="space-y-3">
                   <Label className="text-zinc-200">Target Channels</Label>
                   <div className="relative">
                     <button
@@ -2262,7 +2330,7 @@ export default function CommunityPage() {
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div id="announcement-parts" className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-zinc-200">Announcement Parts</Label>
                     <div className="flex flex-wrap gap-2">
@@ -2519,6 +2587,7 @@ export default function CommunityPage() {
                 </div>
                 </div>
 
+                <div id="announcement-preview" className="scroll-mt-24" />
                 <div className="hidden lg:block">
                   <div className="sticky top-0 space-y-4">
                     <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
