@@ -23,6 +23,27 @@ function normalizeBlocks(blocks) {
     .filter((block) => block.type === 'text' || block.type === 'image' || block.type === 'separator');
 }
 
+function normalizePlainMessages(rawMessages, fallbackMessageText = '') {
+  const normalizedMessages = Array.isArray(rawMessages)
+    ? rawMessages
+        .map((message) => {
+          if (typeof message === 'string') {
+            return trimString(message, 1800);
+          }
+
+          return trimString(message?.content, 1800);
+        })
+        .filter(Boolean)
+    : [];
+
+  if (normalizedMessages.length > 0) {
+    return normalizedMessages;
+  }
+
+  const fallbackMessage = trimString(fallbackMessageText, 1800);
+  return fallbackMessage ? [fallbackMessage] : [];
+}
+
 function buildContainerComponents(blocks) {
   const components = [];
 
@@ -76,7 +97,7 @@ function normalizePayload(payload = {}) {
   return {
     target_mode: payload.target_mode === 'everyone' ? 'everyone' : 'member',
     member_id: trimString(payload.member_id, 32),
-    message_text: trimString(payload.message_text, 1800),
+    plain_messages: normalizePlainMessages(payload.plain_messages, payload.message_text),
     container_blocks: normalizeBlocks(payload.container_blocks),
     delay_seconds: Math.min(10, Math.max(0.5, delaySeconds))
   };
@@ -129,31 +150,33 @@ export class DmBroadcastService {
     });
   }
 
+  renderPlainMessages(messages, member) {
+    return normalizePlainMessages(messages).map((message) => this.renderPlainMessage(message, member)).filter(Boolean);
+  }
+
   async sendToMember(member, payload) {
-    const plainMessage = this.renderPlainMessage(payload.message_text, member);
+    const plainMessages = this.renderPlainMessages(payload.plain_messages, member);
     const components = buildContainerComponents(payload.container_blocks);
-    const allowsMention = plainMessage.includes(`<@${member.id}>`);
-
-    const messagePayload = {
-      ...(plainMessage ? { content: plainMessage } : {}),
-      ...(components.length ? { flags: MessageFlags.IsComponentsV2, components } : {}),
-      allowedMentions: allowsMention ? { users: [member.id] } : { parse: [] }
-    };
-
-    if (!messagePayload.content && !messagePayload.components) {
+    if (!plainMessages.length && !components.length) {
       throw new Error('Add a plain message or at least one container block before sending.');
     }
 
-    try {
-      await member.send(messagePayload);
-    } catch (error) {
-      if (!messagePayload.components || !plainMessage) {
-        throw error;
-      }
+    for (const plainMessage of plainMessages) {
+      const allowsMention = plainMessage.includes(`<@${member.id}>`);
 
       await member.send({
         content: plainMessage,
         allowedMentions: allowsMention ? { users: [member.id] } : { parse: [] }
+      });
+
+      await sleep(150);
+    }
+
+    if (components.length) {
+      await member.send({
+        flags: MessageFlags.IsComponentsV2,
+        components,
+        allowedMentions: { parse: [] }
       });
     }
   }

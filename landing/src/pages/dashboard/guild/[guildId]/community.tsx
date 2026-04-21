@@ -112,10 +112,15 @@ type DmBroadcastBlock = {
   content: string;
 };
 
+type DmBroadcastPlainMessage = {
+  id: string;
+  content: string;
+};
+
 type DmBroadcastForm = {
   target_mode: "member" | "everyone";
   member_id: string;
-  message_text: string;
+  plain_messages: DmBroadcastPlainMessage[];
   container_blocks: DmBroadcastBlock[];
   delay_seconds: number;
 };
@@ -214,7 +219,12 @@ const DEFAULT_PREMIUM_FEATURE_CONFIG: PremiumFeatureConfig = {
 const DEFAULT_DM_BROADCAST_FORM: DmBroadcastForm = {
   target_mode: "member",
   member_id: "",
-  message_text: "Hey {username}, this is a DM from {server_name}.",
+  plain_messages: [
+    {
+      id: "dm-message-1",
+      content: "Hey {username}, this is a DM from {server_name}.",
+    },
+  ],
   container_blocks: [
     { type: "text", content: "Add your container text here." },
   ],
@@ -1213,6 +1223,41 @@ export default function CommunityPage() {
     }));
   }
 
+  function createDmPlainMessage(content = ""): DmBroadcastPlainMessage {
+    return {
+      id: `dm-plain-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      content,
+    };
+  }
+
+  function updateDmPlainMessage(messageId: string, content: string) {
+    setDmBroadcastForm((current) => ({
+      ...current,
+      plain_messages: current.plain_messages.map((message) =>
+        message.id === messageId ? { ...message, content } : message
+      ),
+    }));
+  }
+
+  function addDmPlainMessage() {
+    setDmBroadcastForm((current) => ({
+      ...current,
+      plain_messages: [...current.plain_messages, createDmPlainMessage("")],
+    }));
+  }
+
+  function removeDmPlainMessage(messageId: string) {
+    setDmBroadcastForm((current) => ({
+      ...current,
+      plain_messages:
+        current.plain_messages.length === 1
+          ? current.plain_messages.map((message) =>
+              message.id === messageId ? { ...message, content: "" } : message
+            )
+          : current.plain_messages.filter((message) => message.id !== messageId),
+    }));
+  }
+
   function addDmBlock(type: DmBroadcastBlock["type"]) {
     setDmBroadcastForm((current) => ({
       ...current,
@@ -1284,7 +1329,10 @@ export default function CommunityPage() {
       return;
     }
 
-    if (!dmBroadcastForm.message_text.trim() && dmBroadcastForm.container_blocks.every((block) => !block.content.trim() && block.type !== "separator")) {
+    const hasPlainMessages = dmBroadcastForm.plain_messages.some((message) => message.content.trim());
+    const hasContainerContent = dmBroadcastForm.container_blocks.some((block) => block.type === "separator" || block.content.trim());
+
+    if (!hasPlainMessages && !hasContainerContent) {
       setDmBroadcastState("error");
       setDmBroadcastMessage("Add a plain message or at least one container block before sending.");
       return;
@@ -1686,6 +1734,15 @@ export default function CommunityPage() {
     return parts.length > 0 ? parts : [value];
   }
 
+  function renderDmBroadcastPlainPreview(content: string, fallback = "Plain message preview") {
+    return renderPreviewText(
+      (content || fallback)
+        .replaceAll("{username}", selectedDmMember?.username || "PreviewUser")
+        .replaceAll("{server_name}", guild?.name || "Preview Server")
+        .replaceAll("{mention}", "@PreviewUser")
+    );
+  }
+
   function renderAnnouncementEntryPreview(entry: AnnouncementEntry) {
     if (entry.type === "normal") {
       return (
@@ -2042,22 +2099,37 @@ export default function CommunityPage() {
                   </div>
                 )}
 
-                <div id="dm-broadcast-message-section" className="space-y-2">
-                  <Label htmlFor="dm-broadcast-message" className="text-zinc-200">Plain Message</Label>
-                  <Textarea
-                    id="dm-broadcast-message"
-                    value={dmBroadcastForm.message_text}
-                    className="min-h-[120px] border-zinc-800 bg-zinc-950 text-zinc-100"
-                    onChange={(event) =>
-                      setDmBroadcastForm((current) => ({
-                        ...current,
-                        message_text: event.target.value.slice(0, 1800),
-                      }))
-                    }
-                  />
+                <div id="dm-broadcast-message-section" className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-zinc-200">Plain Message Stack</Label>
+                    <Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={addDmPlainMessage}>
+                      Add Message
+                    </Button>
+                  </div>
                   <p className="text-xs text-zinc-500">
-                    Placeholders here only: <code>{"{username}"}</code>, <code>{"{server_name}"}</code>, <code>{"{mention}"}</code>.
+                    Each plain message below sends as its own Discord DM. Use this when your DM needs multiple text messages before or after the container.
                   </p>
+                  <div className="space-y-3">
+                    {dmBroadcastForm.plain_messages.map((message, index) => (
+                      <div key={message.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                          <Badge className="bg-zinc-800 text-zinc-100 hover:bg-zinc-800">Message {index + 1}</Badge>
+                          <button type="button" onClick={() => removeDmPlainMessage(message.id)} className="rounded-full text-zinc-400 hover:text-red-400">
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <Textarea
+                          value={message.content}
+                          className="min-h-[120px] border-zinc-800 bg-zinc-950 text-zinc-100"
+                          placeholder="Write the plain DM message"
+                          onChange={(event) => updateDmPlainMessage(message.id, event.target.value.slice(0, 1800))}
+                        />
+                        <p className="mt-2 text-xs text-zinc-500">
+                          Placeholders here only: <code>{"{username}"}</code>, <code>{"{server_name}"}</code>, <code>{"{mention}"}</code>.
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div id="dm-broadcast-blocks" className="space-y-3">
@@ -2100,13 +2172,31 @@ export default function CommunityPage() {
                 <div className="hidden lg:block">
                   <div className="sticky top-0 space-y-4">
                     <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-                      <div className="mb-2 text-xs uppercase tracking-wider text-zinc-500">Plain Message Preview</div>
-                      <div className="whitespace-pre-wrap text-zinc-100">
-                        {renderPreviewText(
-                          dmBroadcastForm.message_text
-                            .replaceAll("{username}", selectedDmMember?.username || "PreviewUser")
-                            .replaceAll("{server_name}", guild?.name || "Preview Server")
-                            .replaceAll("{mention}", "@PreviewUser")
+                      <div className="mb-3 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs uppercase tracking-wider text-zinc-500">DM Sequence Preview</div>
+                          <div className="mt-1 text-sm text-zinc-300">Each plain entry below becomes its own DM message.</div>
+                        </div>
+                        <Badge className="bg-zinc-800 text-zinc-100 hover:bg-zinc-800">
+                          {dmBroadcastForm.plain_messages.filter((message) => message.content.trim()).length} text message{dmBroadcastForm.plain_messages.filter((message) => message.content.trim()).length === 1 ? "" : "s"}
+                        </Badge>
+                      </div>
+                      <div className="space-y-3">
+                        {dmBroadcastForm.plain_messages.filter((message) => message.content.trim()).length === 0 ? (
+                          <div className="rounded-2xl border border-dashed border-zinc-800 px-4 py-6 text-sm text-zinc-500">
+                            No plain DM messages yet.
+                          </div>
+                        ) : (
+                          dmBroadcastForm.plain_messages.map((message, index) =>
+                            message.content.trim() ? (
+                              <div key={message.id} className="rounded-2xl border border-zinc-700 bg-black p-4">
+                                <div className="mb-2 text-xs uppercase tracking-wider text-zinc-500">Message {index + 1}</div>
+                                <div className="whitespace-pre-wrap text-zinc-100">
+                                  {renderDmBroadcastPlainPreview(message.content)}
+                                </div>
+                              </div>
+                            ) : null
+                          )
                         )}
                       </div>
                     </div>
@@ -2143,13 +2233,31 @@ export default function CommunityPage() {
                 </div>
                 <div id="dm-broadcast-preview-mobile" className="space-y-4 lg:hidden">
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-                  <div className="mb-2 text-xs uppercase tracking-wider text-zinc-500">Plain Message Preview</div>
-                  <div className="whitespace-pre-wrap text-zinc-100">
-                    {renderPreviewText(
-                      dmBroadcastForm.message_text
-                        .replaceAll("{username}", selectedDmMember?.username || "PreviewUser")
-                        .replaceAll("{server_name}", guild?.name || "Preview Server")
-                        .replaceAll("{mention}", "@PreviewUser")
+                  <div className="mb-3 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs uppercase tracking-wider text-zinc-500">DM Sequence Preview</div>
+                      <div className="mt-1 text-sm text-zinc-300">Each plain entry below becomes its own DM message.</div>
+                    </div>
+                    <Badge className="bg-zinc-800 text-zinc-100 hover:bg-zinc-800">
+                      {dmBroadcastForm.plain_messages.filter((message) => message.content.trim()).length} text
+                    </Badge>
+                  </div>
+                  <div className="space-y-3">
+                    {dmBroadcastForm.plain_messages.filter((message) => message.content.trim()).length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-zinc-800 px-4 py-6 text-sm text-zinc-500">
+                        No plain DM messages yet.
+                      </div>
+                    ) : (
+                      dmBroadcastForm.plain_messages.map((message, index) =>
+                        message.content.trim() ? (
+                          <div key={message.id} className="rounded-2xl border border-zinc-700 bg-black p-4">
+                            <div className="mb-2 text-xs uppercase tracking-wider text-zinc-500">Message {index + 1}</div>
+                            <div className="whitespace-pre-wrap text-zinc-100">
+                              {renderDmBroadcastPlainPreview(message.content)}
+                            </div>
+                          </div>
+                        ) : null
+                      )
                     )}
                   </div>
                 </div>
@@ -2195,6 +2303,7 @@ export default function CommunityPage() {
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={addDmPlainMessage}>Add Message</Button>
                   <Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addDmBlock("text")}>Add Text</Button>
                   <Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addDmBlock("image")}>Add Image</Button>
                   <Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => addDmBlock("separator")}>Add Separator</Button>
