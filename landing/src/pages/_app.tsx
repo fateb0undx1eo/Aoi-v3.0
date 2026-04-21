@@ -10,7 +10,7 @@ export default function App({ Component, pageProps }: AppProps) {
   useEffect(() => {
     const timer = setTimeout(() => {
       setLoading(false);
-    }, 1950);
+    }, 950);
 
     return () => clearTimeout(timer);
   }, []);

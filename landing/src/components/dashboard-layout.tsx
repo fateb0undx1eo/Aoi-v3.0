@@ -39,15 +39,15 @@ function slugify(name = "") {
 function getModuleVisual(name = "") {
   const key = slugify(name);
 
-  const visuals: Record<string, { icon: typeof LayoutDashboard; accent: string }> = {
-    community: { icon: Users, accent: "text-red-400" },
-    fun: { icon: Gamepad2, accent: "text-pink-400" },
-    moderation: { icon: Shield, accent: "text-orange-400" },
-    settings: { icon: Settings2, accent: "text-cyan-400" },
-    tools: { icon: Wrench, accent: "text-amber-400" },
+  const visuals: Record<string, { icon: typeof LayoutDashboard; accent: string; summary: string }> = {
+    community: { icon: Users, accent: "text-rose-400", summary: "Engagement, onboarding, and daily community systems." },
+    fun: { icon: Gamepad2, accent: "text-fuchsia-400", summary: "Drops, playful interactions, and claim-based features." },
+    moderation: { icon: Shield, accent: "text-orange-400", summary: "Cases, punishments, and moderation controls." },
+    settings: { icon: Settings2, accent: "text-cyan-400", summary: "Guild-wide configuration and core preferences." },
+    tools: { icon: Wrench, accent: "text-amber-400", summary: "Utility actions, broadcasts, and operator shortcuts." },
   };
 
-  return visuals[key] || { icon: LayoutDashboard, accent: "text-zinc-300" };
+  return visuals[key] || { icon: LayoutDashboard, accent: "text-zinc-300", summary: "Manage this module." };
 }
 
 export function DashboardLayout({
@@ -70,6 +70,10 @@ export function DashboardLayout({
   const overviewHref = `/dashboard/guild/${guildId}`;
   const currentPath = useMemo(() => router.asPath.split("?")[0], [router.asPath]);
 
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [currentPath]);
+
   const moduleLinks = useMemo(
     () =>
       modules
@@ -83,30 +87,53 @@ export function DashboardLayout({
     [guildId, modules]
   );
 
+  const activeModule = useMemo(
+    () => moduleLinks.find((item) => item.href === currentPath),
+    [currentPath, moduleLinks]
+  );
+
   const hasModules = moduleLinks.length > 0;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="theme-animate sticky top-0 z-50 border-b border-border/65 bg-background/82 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[92rem] items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+    <div className="dashboard-canvas min-h-screen text-foreground">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute left-[-8%] top-[8%] h-[26rem] w-[26rem] rounded-full bg-[radial-gradient(circle,hsl(var(--dashboard-accent)/0.14),transparent_68%)] blur-3xl" />
+        <div className="absolute right-[-10%] top-[12%] h-[24rem] w-[24rem] rounded-full bg-[radial-gradient(circle,hsl(var(--dashboard-accent)/0.09),transparent_72%)] blur-3xl" />
+      </div>
+
+      <header className="theme-animate sticky top-0 z-50 border-b border-[hsl(var(--dashboard-stroke)/0.74)] bg-[hsl(var(--dashboard-panel)/0.72)] backdrop-blur-2xl">
+        <div className="mx-auto flex max-w-[96rem] items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setMobileOpen((v) => !v)}
-              className="inline-flex rounded-xl border border-border/75 bg-card/70 p-2 lg:hidden"
+              onClick={() => setMobileOpen((value) => !value)}
+              className="dashboard-chip inline-flex rounded-2xl p-2 lg:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>
             <button
               type="button"
-              onClick={() => setSidebarCollapsed((v) => !v)}
-              className="hidden rounded-xl border border-border/75 bg-card/70 p-2 lg:inline-flex"
+              onClick={() => setSidebarCollapsed((value) => !value)}
+              className="dashboard-chip hidden rounded-2xl p-2 lg:inline-flex"
             >
               {sidebarCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
             </button>
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">Dashboard</div>
-              <div className="text-sm font-semibold">{guildName}</div>
+
+            <div className="dashboard-chip flex items-center gap-3 rounded-[24px] px-3.5 py-2.5">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/12 text-primary">
+                <LayoutDashboard className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10px] uppercase tracking-[0.28em] text-muted-foreground">Discord Bot</div>
+                <div className="text-sm font-semibold text-foreground">Premium Dashboard</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="hidden items-center gap-3 md:flex">
+            <div className="dashboard-chip rounded-full px-4 py-2 text-sm text-foreground/88">
+              <span className="text-muted-foreground">Guild:</span>{" "}
+              <span className="font-medium text-foreground">{guildName}</span>
             </div>
           </div>
 
@@ -114,23 +141,19 @@ export function DashboardLayout({
             <button
               type="button"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="theme-animate inline-flex items-center gap-2 rounded-xl border border-border/75 bg-card/70 px-3 py-2 text-sm"
+              className="dashboard-chip theme-animate inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm"
               aria-label="Toggle theme"
             >
-              <span className="flex items-center">
-                {mounted ? (
-                  theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />
-                ) : (
-                  <span className="h-4 w-4" />
-                )}
-              </span>
-              <span className="hidden sm:inline">
-                {mounted ? (theme === "dark" ? "Light" : "Dark") : ""}
-              </span>
+              {mounted ? (
+                theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />
+              ) : (
+                <span className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">{mounted ? (theme === "dark" ? "Light" : "Dark") : ""}</span>
             </button>
             <Link
               href="/api/auth/logout"
-              className="theme-animate inline-flex items-center gap-2 rounded-xl border border-border/75 bg-card/70 px-3 py-2 text-sm"
+              className="dashboard-chip theme-animate inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm"
             >
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline">Logout</span>
@@ -139,61 +162,61 @@ export function DashboardLayout({
         </div>
       </header>
 
-      <div className="relative mx-auto flex w-full max-w-[92rem]">
+      <div className="relative mx-auto flex max-w-[96rem] gap-6 px-4 pb-8 pt-6 sm:px-6 lg:px-8">
         {mobileOpen && (
           <button
             type="button"
-            className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+            className="fixed inset-0 z-30 bg-black/60 lg:hidden"
             onClick={() => setMobileOpen(false)}
             aria-label="Close Menu"
           />
         )}
 
         <aside
-          className={`fixed left-0 top-[57px] z-40 h-[calc(100vh-57px)] p-4 transition-transform duration-300 lg:sticky lg:top-[57px] ${
-            mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-          } ${sidebarCollapsed ? "w-24" : "w-[19.5rem]"}`}
+          className={`fixed left-4 top-[5.25rem] z-40 h-[calc(100vh-6.5rem)] transition-transform duration-300 lg:sticky lg:left-auto lg:top-[5.9rem] lg:h-[calc(100vh-7.4rem)] ${
+            mobileOpen ? "translate-x-0" : "-translate-x-[120%] lg:translate-x-0"
+          } ${sidebarCollapsed ? "w-24" : "w-[20rem]"}`}
         >
-          <div className="flex h-full flex-col rounded-[28px] border border-border/65 bg-[linear-gradient(180deg,hsl(var(--card-solid)/0.96),hsl(var(--card)/0.82))] p-4 shadow-[0_30px_80px_-50px_rgba(0,0,0,0.88)]">
-            <div className={`rounded-2xl border border-border/60 bg-background/35 ${sidebarCollapsed ? "px-2 py-3" : "px-3.5 py-3.5"}`}>
-              <div className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-3"}`}>
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-black/20 text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <LayoutDashboard className="h-5 w-5" />
+          <div className="dashboard-panel flex h-full flex-col gap-4 rounded-[30px] p-4">
+            <div className={`dashboard-panel-soft rounded-[24px] ${sidebarCollapsed ? "px-2.5 py-3" : "px-4 py-4"}`}>
+              <div className={`flex ${sidebarCollapsed ? "justify-center" : "items-start gap-3"}`}>
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <span className="text-lg font-semibold">{guildName.slice(0, 1).toUpperCase()}</span>
                 </div>
                 {!sidebarCollapsed && (
                   <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-[0.28em] text-muted-foreground">Workspace</div>
-                    <div className="truncate text-sm font-semibold text-zinc-50">{guildName}</div>
+                    <div className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">Guild Workspace</div>
+                    <div className="mt-1 truncate text-base font-semibold text-foreground">{guildName}</div>
                     <div className="mt-1 text-xs text-muted-foreground">
-                      {hasModules ? `${moduleLinks.length} active modules` : "Loading modules"}
+                      {hasModules ? `${moduleLinks.length} live modules available` : "Loading modules"}
                     </div>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="mt-4 flex-1 space-y-5 overflow-y-auto pr-1">
+            <div className="flex-1 space-y-5 overflow-y-auto pr-1">
               <div className="space-y-2">
                 {!sidebarCollapsed && (
-                  <div className="px-1 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Core</div>
+                  <div className="px-1 text-[10px] uppercase tracking-[0.24em] text-muted-foreground">Command Center</div>
                 )}
+
                 <Link
                   href={overviewHref}
                   title="Overview"
-                  className={`theme-animate flex items-center rounded-2xl border px-3 py-3 text-sm ${
+                  className={`theme-animate flex items-center rounded-[22px] border px-3 py-3 ${
                     currentPath === overviewHref
-                      ? "border-primary/45 bg-primary/12 text-zinc-50 shadow-[0_18px_40px_-28px_hsl(var(--primary)/0.75)]"
-                      : "border-border/65 bg-background/20 text-foreground/82 hover:border-primary/30 hover:bg-background/35"
+                      ? "border-primary/38 bg-primary/10 shadow-[0_24px_48px_-34px_hsl(var(--primary)/0.8)]"
+                      : "border-[hsl(var(--dashboard-stroke)/0.7)] bg-transparent hover:border-primary/24 hover:bg-primary/6"
                   } ${sidebarCollapsed ? "justify-center" : "gap-3"}`}
-                  onClick={() => setMobileOpen(false)}
                 >
-                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${currentPath === overviewHref ? "bg-primary/16 text-primary" : "bg-black/15 text-zinc-300"}`}>
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${currentPath === overviewHref ? "bg-primary/14 text-primary" : "bg-black/10 text-foreground/78"}`}>
                     <LayoutDashboard className="h-4 w-4" />
                   </div>
                   {!sidebarCollapsed && (
                     <div className="min-w-0">
-                      <div className="font-medium">Overview</div>
-                      <div className="text-xs text-muted-foreground">Guild summary and analytics</div>
+                      <div className="font-medium text-foreground">Overview</div>
+                      <div className="text-xs text-muted-foreground">Guild summary and quick access</div>
                     </div>
                   )}
                 </Link>
@@ -202,8 +225,8 @@ export function DashboardLayout({
               <div className="space-y-2">
                 {!sidebarCollapsed && (
                   <div className="flex items-center justify-between px-1">
-                    <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Modules</div>
-                    <div className="rounded-full border border-border/60 bg-background/30 px-2 py-0.5 text-[10px] text-muted-foreground">
+                    <div className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">Modules</div>
+                    <div className="dashboard-chip rounded-full px-2 py-0.5 text-[10px] text-muted-foreground">
                       {moduleLinks.length}
                     </div>
                   </div>
@@ -211,7 +234,7 @@ export function DashboardLayout({
 
                 <nav className="space-y-2">
                   {moduleLinks.map((item) => {
-                    const active = currentPath === item.href;
+                    const active = item.href === currentPath;
                     const Icon = item.icon;
 
                     return (
@@ -219,23 +242,19 @@ export function DashboardLayout({
                         key={item.key}
                         href={item.href}
                         title={item.label}
-                        className={`theme-animate flex items-center rounded-2xl border px-3 py-3 text-sm ${
+                        className={`theme-animate flex items-center rounded-[22px] border px-3 py-3 ${
                           active
-                            ? "border-primary/45 bg-primary/10 text-zinc-50 shadow-[0_18px_40px_-28px_hsl(var(--primary)/0.75)]"
-                            : "border-border/65 bg-background/20 text-foreground/82 hover:border-primary/30 hover:bg-background/35"
+                            ? "border-primary/38 bg-primary/10 shadow-[0_24px_48px_-34px_hsl(var(--primary)/0.8)]"
+                            : "border-[hsl(var(--dashboard-stroke)/0.7)] bg-transparent hover:border-primary/24 hover:bg-primary/6"
                         } ${sidebarCollapsed ? "justify-center" : "gap-3"}`}
-                        onClick={() => setMobileOpen(false)}
                       >
-                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? "bg-primary/16 text-primary" : `bg-black/15 ${item.accent}`}`}>
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${active ? "bg-primary/14 text-primary" : `bg-black/10 ${item.accent}`}`}>
                           <Icon className="h-4 w-4" />
                         </div>
                         {!sidebarCollapsed && (
                           <div className="min-w-0 flex-1">
-                            <div className="truncate font-medium capitalize">{item.label}</div>
-                            <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-                              <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                              Active
-                            </div>
+                            <div className="truncate font-medium capitalize text-foreground">{item.label}</div>
+                            <div className="text-xs text-muted-foreground">{item.summary}</div>
                           </div>
                         )}
                       </Link>
@@ -243,30 +262,29 @@ export function DashboardLayout({
                   })}
 
                   {!hasModules && !sidebarCollapsed && (
-                    <div className="rounded-2xl border border-dashed border-border/60 bg-background/15 px-3 py-4 text-sm text-muted-foreground">
-                      Modules will appear once this guild finishes loading.
+                    <div className="rounded-[22px] border border-dashed border-[hsl(var(--dashboard-stroke)/0.7)] px-3 py-4 text-sm text-muted-foreground">
+                      Modules are still being prepared for this guild.
                     </div>
                   )}
                 </nav>
               </div>
             </div>
 
-            <div className="mt-4 space-y-2 border-t border-border/55 pt-4">
+            <div className="border-t border-[hsl(var(--dashboard-stroke)/0.7)] pt-4">
               <Link
                 href="/dashboard"
                 title="Change Server"
-                className={`theme-animate flex items-center rounded-2xl border border-border/65 bg-background/20 px-3 py-3 text-sm text-foreground/82 hover:border-primary/30 hover:bg-background/35 ${
+                className={`theme-animate flex items-center rounded-[22px] border border-[hsl(var(--dashboard-stroke)/0.7)] px-3 py-3 hover:border-primary/24 hover:bg-primary/6 ${
                   sidebarCollapsed ? "justify-center" : "gap-3"
                 }`}
-                onClick={() => setMobileOpen(false)}
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/15 text-zinc-300">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-black/10 text-foreground/78">
                   <PanelLeftOpen className="h-4 w-4" />
                 </div>
                 {!sidebarCollapsed && (
                   <div>
-                    <div className="font-medium">Change Server</div>
-                    <div className="text-xs text-muted-foreground">Back to server picker</div>
+                    <div className="font-medium text-foreground">Change Server</div>
+                    <div className="text-xs text-muted-foreground">Return to the server picker</div>
                   </div>
                 )}
               </Link>
@@ -274,14 +292,24 @@ export function DashboardLayout({
           </div>
         </aside>
 
-        <main className="relative z-10 w-full flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[78rem]">
-            <div className="mb-5 rounded-[24px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--card-solid)/0.86),hsl(var(--card)/0.72))] px-5 py-4 shadow-[0_24px_56px_-42px_rgba(0,0,0,0.9)]">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Current Section</div>
-              <div className="mt-1 text-lg font-semibold text-zinc-50">{heading}</div>
+        <main className="min-w-0 flex-1">
+          <div className="dashboard-panel mb-6 rounded-[30px] px-5 py-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">Current Section</div>
+                <div className="mt-2 text-2xl font-semibold text-foreground">{heading}</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {activeModule?.summary || "Operate your selected guild from one premium control surface."}
+                </div>
+              </div>
+              <div className="dashboard-chip rounded-full px-4 py-2 text-sm">
+                <span className="text-muted-foreground">Guild:</span>{" "}
+                <span className="font-medium text-foreground">{guildName}</span>
+              </div>
             </div>
-            {children}
           </div>
+
+          {children}
         </main>
       </div>
     </div>

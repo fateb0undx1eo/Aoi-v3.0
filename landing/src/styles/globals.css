@@ -26,6 +26,14 @@
     --chart-a: 220 90% 56%;
     --chart-b: 212 92% 40%;
     --card-solid: 217 48% 93%;
+    --dashboard-bg-a: 210 100% 99%;
+    --dashboard-bg-b: 217 88% 96%;
+    --dashboard-bg-c: 221 76% 91%;
+    --dashboard-panel: 0 0% 100%;
+    --dashboard-panel-soft: 215 68% 97%;
+    --dashboard-stroke: 218 34% 82%;
+    --dashboard-shadow: 220 86% 46%;
+    --dashboard-accent: 220 92% 45%;
     --font-body: "Inter", sans-serif;
     --font-heading: "Unbounded", sans-serif;
     --font-card-heading: "Space Grotesk", sans-serif;
@@ -53,6 +61,14 @@
     --chart-a: 358 92% 56%;
     --chart-b: 354 86% 36%;
     --card-solid: 352 19% 12%;
+    --dashboard-bg-a: 0 0% 3%;
+    --dashboard-bg-b: 356 30% 7%;
+    --dashboard-bg-c: 358 42% 11%;
+    --dashboard-panel: 0 0% 6%;
+    --dashboard-panel-soft: 0 0% 8%;
+    --dashboard-stroke: 355 16% 17%;
+    --dashboard-shadow: 358 76% 42%;
+    --dashboard-accent: 358 72% 44%;
   }
 
   * {
@@ -176,11 +192,58 @@
       box-shadow 520ms ease;
   }
 
+  .dashboard-canvas {
+    position: relative;
+    background:
+      radial-gradient(circle at 12% 8%, hsl(var(--dashboard-accent) / 0.12), transparent 28%),
+      radial-gradient(circle at 88% 12%, hsl(var(--dashboard-accent) / 0.08), transparent 24%),
+      linear-gradient(180deg, hsl(var(--dashboard-bg-b) / 0.96), hsl(var(--dashboard-bg-a)) 32%, hsl(var(--dashboard-bg-a)) 100%);
+  }
+
+  .dark .dashboard-canvas {
+    background:
+      radial-gradient(circle at 14% 10%, hsl(var(--dashboard-accent) / 0.14), transparent 24%),
+      radial-gradient(circle at 86% 10%, hsl(var(--dashboard-accent) / 0.09), transparent 22%),
+      linear-gradient(180deg, hsl(var(--dashboard-bg-c) / 0.98), hsl(var(--dashboard-bg-b) / 0.98) 24%, hsl(var(--dashboard-bg-a)) 100%);
+  }
+
+  .dashboard-panel {
+    border: 1px solid hsl(var(--dashboard-stroke) / 0.88);
+    background:
+      linear-gradient(180deg, hsl(var(--dashboard-panel) / 0.94), hsl(var(--dashboard-panel-soft) / 0.9));
+    box-shadow:
+      0 28px 64px -44px hsl(var(--dashboard-shadow) / 0.28),
+      inset 0 1px 0 hsl(0 0% 100% / 0.04);
+    backdrop-filter: blur(18px);
+  }
+
+  .dashboard-panel-soft {
+    border: 1px solid hsl(var(--dashboard-stroke) / 0.72);
+    background:
+      linear-gradient(180deg, hsl(var(--dashboard-panel-soft) / 0.92), hsl(var(--dashboard-panel) / 0.84));
+    box-shadow:
+      0 20px 46px -34px hsl(var(--dashboard-shadow) / 0.2),
+      inset 0 1px 0 hsl(0 0% 100% / 0.035);
+  }
+
+  .dashboard-chip {
+    border: 1px solid hsl(var(--dashboard-stroke) / 0.84);
+    background: hsl(var(--dashboard-panel) / 0.72);
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.03);
+    backdrop-filter: blur(14px);
+  }
+
   .boneyard-shimmer {
     position: relative;
     overflow: hidden;
     background:
-      linear-gradient(100deg, hsl(var(--card-solid) / 0.95) 18%, hsl(var(--foreground) / 0.07) 40%, hsl(var(--card-solid) / 0.95) 62%);
+      linear-gradient(
+        108deg,
+        hsl(var(--dashboard-panel-soft) / 0.96) 14%,
+        hsl(var(--dashboard-accent) / 0.08) 34%,
+        hsl(var(--foreground) / 0.06) 50%,
+        hsl(var(--dashboard-panel-soft) / 0.96) 72%
+      );
     background-size: 220% 100%;
     animation: boneyard-shimmer 1.8s linear infinite;
   }

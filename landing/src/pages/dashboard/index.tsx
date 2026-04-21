@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import { LayoutDashboard } from "lucide-react";
 import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
 
 /**
@@ -49,33 +50,38 @@ export default function DashboardHome() {
   }, [router]);
 
   return (
-    <div className="min-h-screen bg-background px-4 py-16 text-foreground sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-3xl rounded-3xl border border-border/70 bg-card/80 p-10 text-center shadow-[0_30px_72px_-42px_rgba(0,0,0,0.82)]">
-        <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Bot Dashboard</p>
-        <h1 className="mt-4 text-4xl font-bold sm:text-5xl">Manage your servers from one control center.</h1>
-        <p className="mx-auto mt-5 max-w-xl text-sm leading-7 text-foreground/82 sm:text-base">
-          Login with Discord, pick your server, and open the dashboard overview with live module and analytics data.
-        </p>
-
-        {errorMessage && (
-          <div className="mx-auto mt-6 max-w-xl rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            {errorMessage}
+    <div className="dashboard-canvas min-h-screen px-4 py-16 text-foreground sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-4xl">
+        <div className="dashboard-panel overflow-hidden rounded-[32px] p-10 text-center sm:p-12">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-primary/12 text-primary">
+            <LayoutDashboard className="h-7 w-7" />
           </div>
-        )}
+          <p className="mt-6 text-xs uppercase tracking-[0.28em] text-muted-foreground">Discord Bot Dashboard</p>
+          <h1 className="mt-4 text-4xl font-bold sm:text-5xl">Manage your servers from one premium control center.</h1>
+          <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-foreground/82 sm:text-base">
+            Login with Discord, choose a guild, and move through modules without leaving the same polished workspace.
+          </p>
 
-        <div className="mt-8">
-          {checking ? (
-            <div className="mx-auto max-w-xl">
-              <BoneyardCard lines={2} />
+          {errorMessage && (
+            <div className="mx-auto mt-6 max-w-xl rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {errorMessage}
             </div>
-          ) : (
-            <Link
-              href="/api/auth/discord"
-              className="theme-animate inline-flex items-center rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_20px_45px_-22px_hsl(var(--primary)/0.85)] hover:opacity-90"
-            >
-              Login with Discord
-            </Link>
           )}
+
+          <div className="mt-8">
+            {checking ? (
+              <div className="mx-auto max-w-xl">
+                <BoneyardCard lines={2} />
+              </div>
+            ) : (
+              <Link
+                href="/api/auth/discord"
+                className="theme-animate inline-flex items-center rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_24px_52px_-28px_hsl(var(--primary)/0.78)] hover:opacity-90"
+              >
+                Login with Discord
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </div>

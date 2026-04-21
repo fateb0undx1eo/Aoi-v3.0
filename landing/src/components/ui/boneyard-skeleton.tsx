@@ -16,14 +16,20 @@ export function BoneyardCard({
   lines?: number;
 }) {
   return (
-    <div className={cn("rounded-2xl border border-border/70 bg-card/70 p-4", className)}>
-      <BoneyardSkeleton className="h-4 w-24" />
-      <BoneyardSkeleton className="mt-4 h-10 w-3/5" />
+    <div className={cn("dashboard-panel-soft rounded-[26px] p-5", className)}>
+      <div className="flex items-center gap-3">
+        <BoneyardSkeleton className="h-11 w-11 rounded-2xl" />
+        <div className="flex-1 space-y-2">
+          <BoneyardSkeleton className="h-3.5 w-20 rounded-full" />
+          <BoneyardSkeleton className="h-4.5 w-32 rounded-full" />
+        </div>
+      </div>
+      <BoneyardSkeleton className="mt-5 h-8 w-3/5 rounded-full" />
       <div className="mt-5 space-y-3">
         {Array.from({ length: lines }).map((_, index) => (
           <BoneyardSkeleton
             key={index}
-            className={cn("h-3.5", index === lines - 1 ? "w-2/3" : "w-full")}
+            className={cn("h-3.5 rounded-full", index === lines - 1 ? "w-2/3" : "w-full")}
           />
         ))}
       </div>

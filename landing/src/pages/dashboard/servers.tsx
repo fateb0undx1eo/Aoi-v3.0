@@ -57,25 +57,45 @@ export default function DashboardServerPicker() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background px-4 py-10 text-foreground sm:px-6 lg:px-8">
+    <div className="dashboard-canvas min-h-screen px-4 py-10 text-foreground sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="subtext text-xs uppercase tracking-[0.24em] text-muted-foreground">Dashboard</p>
             <h1 className="mt-3 text-4xl font-bold sm:text-5xl">Choose your server</h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-foreground/86 sm:text-base">
-              After selecting a server, you will be redirected to the guild overview.
+              Pick a guild to open its control surface. Installed servers jump straight into the premium dashboard.
             </p>
           </div>
           <button
             type="button"
             onClick={loadGuilds}
-            className="theme-animate inline-flex items-center gap-2 rounded-xl border border-border/75 bg-card/65 px-4 py-2 text-sm"
+            className="dashboard-chip theme-animate inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm"
           >
             <RefreshCcw className="h-4 w-4" />
             Refresh
           </button>
         </div>
+
+        {!loading && !error && (
+          <div className="mb-8 grid gap-4 md:grid-cols-3">
+            <div className="dashboard-panel-soft rounded-[26px] p-5">
+              <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Installed</div>
+              <div className="mt-3 text-3xl font-bold">{installed.length}</div>
+              <div className="mt-2 text-sm text-muted-foreground">Ready to open in the dashboard.</div>
+            </div>
+            <div className="dashboard-panel-soft rounded-[26px] p-5">
+              <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Unavailable</div>
+              <div className="mt-3 text-3xl font-bold">{unavailable.length}</div>
+              <div className="mt-2 text-sm text-muted-foreground">Still need bot install or guild setup.</div>
+            </div>
+            <div className="dashboard-panel-soft rounded-[26px] p-5">
+              <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Total Guilds</div>
+              <div className="mt-3 text-3xl font-bold">{guilds.length}</div>
+              <div className="mt-2 text-sm text-muted-foreground">Fetched from your Discord account.</div>
+            </div>
+          </div>
+        )}
 
         {loading && (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -98,7 +118,7 @@ export default function DashboardServerPicker() {
                   <Link
                     key={guild.id}
                     href={`/dashboard/guild/${guild.id}`}
-                    className="theme-animate rounded-2xl border border-border/70 bg-card/70 p-4 shadow-[0_20px_46px_-32px_hsl(var(--foreground)/0.45)] hover:-translate-y-1"
+                    className="dashboard-panel theme-animate rounded-[28px] p-5 hover:-translate-y-1.5 hover:border-primary/35"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
@@ -117,10 +137,10 @@ export default function DashboardServerPicker() {
                       <ChevronRight className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-foreground/80">
-                      <div className="rounded-lg border border-border/70 bg-background/55 px-2 py-1.5">
+                      <div className="dashboard-chip rounded-xl px-2 py-1.5">
                         Members: {guild.member_count ?? "-"}
                       </div>
-                      <div className="rounded-lg border border-border/70 bg-background/55 px-2 py-1.5">
+                      <div className="dashboard-chip rounded-xl px-2 py-1.5">
                         Boosts: {guild.boost_level ?? "-"}
                       </div>
                     </div>
@@ -134,7 +154,7 @@ export default function DashboardServerPicker() {
                 <h2 className="card-heading mb-4 text-xl">Not Installed Yet</h2>
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {unavailable.map((guild) => (
-                    <article key={guild.id} className="rounded-2xl border border-border/70 bg-card/55 p-4">
+                    <article key={guild.id} className="dashboard-panel-soft rounded-[28px] p-5">
                       <div className="flex items-center gap-3">
                         {guildIconUrl(guild) ? (
                           <img src={guildIconUrl(guild) || ""} alt={guild.name} className="h-12 w-12 rounded-xl border border-border/70" />
