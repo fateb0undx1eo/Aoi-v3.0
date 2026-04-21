@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node ./node_modules/next/dist/bin/next dev -p 3002",
     "build": "node ./node_modules/next/dist/bin/next build",
-    "start": "node ./node_modules/next/dist/bin/next start -p 3002",
+    "start": "node ./server.js",
     "export": "next build && next export"
   },
   "dependencies": {

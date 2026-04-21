@@ -35,6 +35,7 @@ npm install
 Copy `landing/.env.example` to `landing/.env` and set:
 
 - `BACKEND_API_URL=http://localhost:3001`
+- `FRONTEND_APP_URL=http://localhost:3002`
 - `DISCORD_REDIRECT_URI=http://localhost:3002/api/auth/callback`
 
 Then start it:

@@ -70,6 +70,7 @@ Backend:
 Landing:
 
 - `BACKEND_API_URL`
+- `FRONTEND_APP_URL`
 - `DISCORD_REDIRECT_URI`
 - `NEXT_PUBLIC_DASHBOARD_URL` optional
 

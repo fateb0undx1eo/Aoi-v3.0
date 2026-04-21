@@ -35,7 +35,7 @@ Required backend env:
 
 ## Landing Deployment
 
-Deploy `landing/` separately as the frontend.
+Deploy `landing/` separately as the frontend. This repo now includes a root `render.yaml` that defines the frontend as its own Render web service, separate from the backend.
 
 Build/start:
 
@@ -46,9 +46,18 @@ npm run build
 npm start
 ```
 
+Render service shape:
+
+- runtime: `Node`
+- root directory: `landing`
+- build command: `npm install && npm run build`
+- start command: `npm start`
+- `PORT` is provided by Render automatically
+
 Required landing env:
 
 - `BACKEND_API_URL`
+- `FRONTEND_APP_URL`
 - `DISCORD_REDIRECT_URI`
 - `NEXT_PUBLIC_DASHBOARD_URL` optional
 
