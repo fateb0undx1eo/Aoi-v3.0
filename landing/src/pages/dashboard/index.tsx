@@ -50,7 +50,7 @@ export default function DashboardHome() {
 
   return (
     <div className="min-h-screen bg-background px-4 py-16 text-foreground sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-3xl rounded-3xl border border-border/70 bg-card/80 p-10 text-center shadow-[0_26px_58px_-38px_hsl(var(--foreground)/0.55)]">
+      <div className="mx-auto max-w-3xl rounded-3xl border border-border/70 bg-card/80 p-10 text-center shadow-[0_30px_72px_-42px_rgba(0,0,0,0.82)]">
         <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Bot Dashboard</p>
         <h1 className="mt-4 text-4xl font-bold sm:text-5xl">Manage your servers from one control center.</h1>
         <p className="mx-auto mt-5 max-w-xl text-sm leading-7 text-foreground/82 sm:text-base">

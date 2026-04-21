@@ -48,6 +48,15 @@ type ModuleRow = {
   enabled?: boolean;
 };
 
+const DEFAULT_MOD_CONFIG: ModConfig = {
+  warn_auto_punish_enabled: false,
+  warn_threshold_1: 3,
+  warn_action_1: "MUTE",
+  warn_duration_1: 3600,
+  dm_on_punish: true,
+  show_mod_in_dm: false,
+};
+
 export default function ModerationPage() {
   const router = useRouter();
   const { guildId } = router.query;
@@ -56,6 +65,7 @@ export default function ModerationPage() {
   const [activePunishments, setActivePunishments] = useState<Case[]>([]);
   const [config, setConfig] = useState<ModConfig | null>(null);
   const [modules, setModules] = useState<ModuleRow[]>([]);
+  const [guildName, setGuildName] = useState("Guild");
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [actionOpen, setActionOpen] = useState(false);
@@ -69,12 +79,7 @@ export default function ModerationPage() {
     if (!guildId || typeof guildId !== "string") return;
 
     try {
-      const [overviewRes, casesRes, activeRes, configRes] = await Promise.all([
-        fetch(`/api/dashboard/guild/${guildId}/overview`),
-        fetch(`/api/moderation/${guildId}/cases?limit=50`),
-        fetch(`/api/moderation/${guildId}/active`),
-        fetch(`/api/moderation/${guildId}/config`),
-      ]);
+      const overviewRes = await fetch(`/api/dashboard/guild/${guildId}/overview`);
 
       if (overviewRes.status === 401) {
         router.replace("/api/auth/discord");
@@ -82,25 +87,53 @@ export default function ModerationPage() {
       }
 
       const overviewData = await overviewRes.json();
-      const [casesData, activeData, configData] = await Promise.all([
-        casesRes.json(),
-        activeRes.json(),
-        configRes.json(),
+      setModules(overviewData.modules || []);
+      setGuildName(overviewData.guild?.name || "Guild");
+
+      const [casesResult, activeResult, configResult] = await Promise.allSettled([
+        fetch(`/api/moderation/${guildId}/cases?limit=50`).then(async (response) => {
+          const payload = await response.json().catch(() => ({ cases: [] }));
+          if (!response.ok) {
+            throw new Error(payload?.error || "Failed to load moderation cases");
+          }
+          return payload;
+        }),
+        fetch(`/api/moderation/${guildId}/active`).then(async (response) => {
+          const payload = await response.json().catch(() => ({ active: [] }));
+          if (!response.ok) {
+            throw new Error(payload?.error || "Failed to load active punishments");
+          }
+          return payload;
+        }),
+        fetch(`/api/moderation/${guildId}/config`).then(async (response) => {
+          const payload = await response.json().catch(() => ({ config: null }));
+          if (!response.ok) {
+            throw new Error(payload?.error || "Failed to load moderation config");
+          }
+          return payload;
+        }),
       ]);
 
-      setModules(overviewData.modules || []);
-      setCases(casesData.cases || []);
-      setActivePunishments(activeData.active || []);
-      setConfig(configData.config || {
-        warn_auto_punish_enabled: false,
-        warn_threshold_1: 3,
-        warn_action_1: 'MUTE',
-        warn_duration_1: 3600,
-        dm_on_punish: true,
-        show_mod_in_dm: false
-      });
+      setCases(casesResult.status === "fulfilled" ? casesResult.value.cases || [] : []);
+      setActivePunishments(activeResult.status === "fulfilled" ? activeResult.value.active || [] : []);
+      setConfig(configResult.status === "fulfilled" ? configResult.value.config || DEFAULT_MOD_CONFIG : DEFAULT_MOD_CONFIG);
+
+      if (casesResult.status === "rejected") {
+        console.error("Failed to load moderation cases:", casesResult.reason);
+      }
+      if (activeResult.status === "rejected") {
+        console.error("Failed to load active punishments:", activeResult.reason);
+      }
+      if (configResult.status === "rejected") {
+        console.error("Failed to load moderation config:", configResult.reason);
+      }
     } catch (err) {
       console.error("Failed to load moderation data:", err);
+      setGuildName("Guild");
+      setModules([]);
+      setCases([]);
+      setActivePunishments([]);
+      setConfig(DEFAULT_MOD_CONFIG);
     } finally {
       setLoading(false);
     }
@@ -222,7 +255,7 @@ export default function ModerationPage() {
 
   if (loading) {
     return (
-      <DashboardLayout guildId={String(guildId || "")} guildName="Guild" heading="Moderation" modules={modules}>
+      <DashboardLayout guildId={String(guildId || "")} guildName={guildName} heading="Moderation" modules={modules}>
         <div className="flex h-96 items-center justify-center">
           <div className="text-muted-foreground">Loading moderation data...</div>
         </div>
@@ -231,7 +264,7 @@ export default function ModerationPage() {
   }
 
   return (
-    <DashboardLayout guildId={String(guildId || "")} guildName="Guild" heading="Moderation" modules={modules}>
+    <DashboardLayout guildId={String(guildId || "")} guildName={guildName} heading="Moderation" modules={modules}>
       <div className="space-y-6">
         {/* Header with Actions */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
