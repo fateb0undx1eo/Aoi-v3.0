@@ -247,6 +247,346 @@
     background-size: 220% 100%;
     animation: boneyard-shimmer 1.8s linear infinite;
   }
+
+  .glass-nav {
+    border: 1px solid hsl(var(--border) / 0.62);
+    background:
+      linear-gradient(180deg, hsl(var(--background) / 0.8), hsl(var(--card) / 0.58));
+    box-shadow:
+      0 28px 54px -34px hsl(var(--foreground) / 0.24),
+      inset 0 1px 0 hsl(0 0% 100% / 0.08);
+    backdrop-filter: blur(28px);
+    transition:
+      border-color 360ms ease,
+      box-shadow 360ms ease,
+      background-color 520ms ease;
+  }
+
+  .glass-nav.is-scrolled {
+    border-color: hsl(var(--primary) / 0.34);
+    box-shadow:
+      0 36px 72px -38px hsl(var(--primary) / 0.28),
+      inset 0 1px 0 hsl(0 0% 100% / 0.1);
+  }
+
+  .nav-link {
+    position: relative;
+    color: hsl(var(--muted-foreground));
+    transition: color 240ms ease;
+  }
+
+  .nav-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -0.45rem;
+    height: 1px;
+    transform: scaleX(0);
+    transform-origin: left;
+    background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.9), transparent);
+    transition: transform 280ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  .nav-link:hover {
+    color: hsl(var(--foreground));
+  }
+
+  .nav-link:hover::after {
+    transform: scaleX(1);
+  }
+
+  .landing-noise {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='.08'%3E%3Ccircle cx='12' cy='20' r='1'/%3E%3Ccircle cx='58' cy='44' r='1'/%3E%3Ccircle cx='112' cy='36' r='1'/%3E%3Ccircle cx='156' cy='64' r='1'/%3E%3Ccircle cx='28' cy='98' r='1'/%3E%3Ccircle cx='74' cy='118' r='1'/%3E%3Ccircle cx='136' cy='108' r='1'/%3E%3Ccircle cx='40' cy='150' r='1'/%3E%3Ccircle cx='92' cy='158' r='1'/%3E%3Ccircle cx='162' cy='148' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    background-size: 180px 180px;
+    mix-blend-mode: soft-light;
+    opacity: 0.28;
+  }
+
+  .hero-mesh {
+    position: absolute;
+    inset: -18%;
+    background:
+      radial-gradient(circle at 16% 18%, hsl(var(--primary) / 0.32), transparent 24%),
+      radial-gradient(circle at 84% 14%, hsl(var(--hero-blue) / 0.22), transparent 26%),
+      radial-gradient(circle at 72% 72%, hsl(var(--hero-red) / 0.26), transparent 30%),
+      radial-gradient(circle at 18% 78%, hsl(var(--hero-pink) / 0.18), transparent 28%),
+      radial-gradient(circle at 50% 36%, hsl(var(--foreground) / 0.08), transparent 34%),
+      radial-gradient(circle at 50% 52%, hsl(var(--background) / 0.22), transparent 44%),
+      linear-gradient(140deg, hsl(var(--section-a) / 0.84), hsl(var(--section-b) / 0.38) 44%, hsl(var(--section-d) / 0.16) 100%);
+    filter: saturate(1.08);
+    animation: mesh-drift 28s ease-in-out infinite alternate;
+  }
+
+  .dark .hero-mesh {
+    background:
+      radial-gradient(circle at 14% 16%, hsl(var(--primary) / 0.34), transparent 24%),
+      radial-gradient(circle at 84% 16%, hsl(var(--hero-pink) / 0.24), transparent 28%),
+      radial-gradient(circle at 76% 72%, hsl(var(--hero-red) / 0.3), transparent 28%),
+      radial-gradient(circle at 20% 80%, hsl(var(--hero-blue) / 0.2), transparent 30%),
+      radial-gradient(circle at 46% 34%, hsl(var(--foreground) / 0.08), transparent 38%),
+      radial-gradient(circle at 50% 54%, hsl(var(--background) / 0.16), transparent 42%),
+      linear-gradient(145deg, hsl(var(--section-d) / 0.98), hsl(var(--section-c) / 0.78) 50%, hsl(var(--section-a) / 0.92) 100%);
+  }
+
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, hsl(var(--foreground) / 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--foreground) / 0.05) 1px, transparent 1px);
+    background-size: 84px 84px;
+    mask-image: radial-gradient(circle at center, black 42%, transparent 94%);
+    opacity: 0.42;
+  }
+
+  .hero-orb {
+    position: absolute;
+    border-radius: 9999px;
+    background:
+      radial-gradient(circle at 35% 35%, hsl(var(--primary) / 0.28), transparent 58%),
+      radial-gradient(circle at 72% 70%, hsl(var(--hero-blue) / 0.18), transparent 60%);
+    filter: blur(18px);
+    opacity: 0.9;
+    animation: float-orb 16s ease-in-out infinite;
+  }
+
+  .hero-spotlight {
+    position: absolute;
+    inset: auto 12% -36% 12%;
+    height: 18rem;
+    border-radius: 9999px;
+    background: radial-gradient(circle, hsl(var(--primary) / 0.18), transparent 68%);
+    filter: blur(28px);
+    opacity: 0.85;
+  }
+
+  .lux-surface {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid hsl(var(--border) / 0.74);
+    background:
+      linear-gradient(155deg, hsl(var(--card-solid) / 0.94), hsl(var(--card) / 0.74));
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+    box-shadow:
+      0 22px 54px -32px hsl(var(--foreground) / 0.25),
+      inset 0 1px 0 hsl(0 0% 100% / 0.06);
+    backdrop-filter: blur(26px);
+  }
+
+  .dark .lux-surface {
+    background:
+      linear-gradient(160deg, hsl(var(--card-solid) / 0.92), hsl(var(--card) / 0.72));
+    box-shadow:
+      0 28px 72px -42px hsl(var(--primary) / 0.26),
+      inset 0 1px 0 hsl(0 0% 100% / 0.04);
+  }
+
+  .interactive-card {
+    --pointer-x: 50%;
+    --pointer-y: 50%;
+    --rotate-x: 0deg;
+    --rotate-y: 0deg;
+    transform:
+      perspective(1200px)
+      rotateX(var(--rotate-x))
+      rotateY(var(--rotate-y))
+      translate3d(0, 0, 0);
+    transform-style: preserve-3d;
+    transition:
+      transform 420ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 320ms ease,
+      box-shadow 320ms ease,
+      background-color 520ms ease;
+    will-change: transform;
+  }
+
+  .interactive-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(320px circle at var(--pointer-x) var(--pointer-y), hsl(var(--primary) / 0.18), transparent 44%);
+    opacity: 0;
+    transition: opacity 260ms ease;
+    pointer-events: none;
+  }
+
+  .interactive-card::after {
+    content: "";
+    position: absolute;
+    inset: 1px;
+    border: 1px solid hsl(var(--primary) / 0.16);
+    clip-path: inherit;
+    opacity: 0;
+    transition: opacity 260ms ease, border-color 260ms ease;
+    pointer-events: none;
+  }
+
+  .interactive-card:hover {
+    border-color: hsl(var(--primary) / 0.52);
+    box-shadow:
+      0 38px 72px -44px hsl(var(--primary) / 0.34),
+      inset 0 1px 0 hsl(0 0% 100% / 0.08);
+  }
+
+  .interactive-card:hover::before,
+  .interactive-card:hover::after {
+    opacity: 1;
+  }
+
+  .premium-button {
+    position: relative;
+    overflow: hidden;
+    transition:
+      transform 260ms cubic-bezier(0.2, 0.7, 0.2, 1),
+      box-shadow 320ms ease,
+      border-color 320ms ease,
+      background-color 520ms ease;
+    will-change: transform;
+  }
+
+  .premium-button::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 0%, hsl(0 0% 100% / 0.16) 42%, transparent 76%);
+    transform: translateX(-130%);
+    transition: transform 620ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .premium-button:hover::before {
+    transform: translateX(135%);
+  }
+
+  .premium-button-primary {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--hero-red) / 0.9));
+    color: hsl(var(--primary-foreground));
+    box-shadow: 0 22px 44px -20px hsl(var(--primary) / 0.72);
+  }
+
+  .premium-button-primary:hover {
+    box-shadow: 0 28px 54px -24px hsl(var(--primary) / 0.82);
+  }
+
+  .premium-button-secondary {
+    border: 1px solid hsl(var(--border) / 0.78);
+    background: hsl(var(--card-solid) / 0.72);
+    color: hsl(var(--foreground));
+    box-shadow: 0 16px 34px -24px hsl(var(--foreground) / 0.18);
+  }
+
+  .premium-button-secondary:hover {
+    border-color: hsl(var(--primary) / 0.38);
+    box-shadow: 0 22px 40px -28px hsl(var(--primary) / 0.38);
+  }
+
+  .button-ripple {
+    position: absolute;
+    border-radius: 9999px;
+    background: hsl(var(--primary-foreground) / 0.22);
+    transform: translate(-50%, -50%) scale(0);
+    animation: button-ripple 620ms ease-out forwards;
+    pointer-events: none;
+  }
+
+  .section-divider {
+    position: relative;
+    height: 5.5rem;
+    overflow: hidden;
+  }
+
+  .section-divider::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: min(100%, 72rem);
+    height: 1px;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.45), transparent);
+  }
+
+  .section-divider::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0.95rem;
+    height: 0.95rem;
+    transform: translate(-50%, -50%) rotate(45deg);
+    border: 1px solid hsl(var(--primary) / 0.58);
+    background:
+      linear-gradient(135deg, hsl(var(--card-solid)), hsl(var(--card)));
+    box-shadow: 0 0 24px hsl(var(--primary) / 0.22);
+  }
+
+  .marquee-shell {
+    position: relative;
+    overflow: hidden;
+    mask-image: linear-gradient(90deg, transparent, black 10%, black 90%, transparent);
+  }
+
+  .dashboard-mock {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid hsl(var(--border) / 0.7);
+    background:
+      linear-gradient(160deg, hsl(var(--card-solid) / 0.98), hsl(var(--card) / 0.76));
+    box-shadow:
+      0 36px 84px -46px hsl(var(--foreground) / 0.3),
+      inset 0 1px 0 hsl(0 0% 100% / 0.08);
+    backdrop-filter: blur(30px);
+  }
+
+  .dark .dashboard-mock {
+    background:
+      linear-gradient(160deg, hsl(var(--card-solid) / 0.98), hsl(var(--card) / 0.82));
+    box-shadow:
+      0 44px 92px -48px hsl(var(--primary) / 0.28),
+      inset 0 1px 0 hsl(0 0% 100% / 0.04);
+  }
+
+  .dashboard-mock::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 18% 18%, hsl(var(--primary) / 0.14), transparent 26%),
+      radial-gradient(circle at 82% 20%, hsl(var(--hero-blue) / 0.14), transparent 28%),
+      linear-gradient(180deg, transparent, hsl(var(--background) / 0.2));
+    pointer-events: none;
+  }
+
+  .dashboard-scanline {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent, hsl(var(--foreground) / 0.04), transparent);
+    animation: scanline 7s linear infinite;
+    pointer-events: none;
+  }
+
+  .dashboard-bar {
+    transform-origin: bottom;
+    animation: dashboard-bar 2.8s ease-in-out infinite alternate;
+  }
+
+  .pulse-dot {
+    animation: pulse-dot 2.4s ease-in-out infinite;
+  }
+
+  .floating-chip {
+    animation: float-orb 12s ease-in-out infinite;
+  }
+
+  .review-card {
+    min-width: min(22rem, 88vw);
+  }
+
+  .theme-surface {
+    background:
+      radial-gradient(circle at top, hsl(var(--foreground) / 0.04), transparent 46%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(var(--section-d) / 0.38));
+  }
 }
 
 @keyframes marquee-horizontal {
@@ -294,13 +634,91 @@
   }
 }
 
+@keyframes mesh-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, -2%, 0) scale(1.04);
+  }
+  100% {
+    transform: translate3d(-2%, 2%, 0) scale(1.08);
+  }
+}
+
+@keyframes float-orb {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -16px, 0);
+  }
+}
+
+@keyframes button-ripple {
+  0% {
+    opacity: 0.44;
+    transform: translate(-50%, -50%) scale(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(9);
+  }
+}
+
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes dashboard-bar {
+  0% {
+    transform: scaleY(0.72);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 0.48;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-marquee-horizontal,
   .animate-marquee-vertical,
   .animate-marquee-vertical-reverse,
-  .boneyard-shimmer {
+  .animate-review-left,
+  .animate-review-right,
+  .boneyard-shimmer,
+  .hero-mesh,
+  .hero-orb,
+  .floating-chip,
+  .dashboard-scanline,
+  .dashboard-bar,
+  .pulse-dot,
+  .premium-button::before,
+  .button-ripple {
     animation-duration: 1ms;
     animation-iteration-count: 1;
+  }
+
+  .interactive-card,
+  .premium-button {
+    transition-duration: 1ms;
   }
 }
 
