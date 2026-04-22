@@ -9,7 +9,6 @@ import {
   Gauge,
   Layers3,
   MessageSquareMore,
-  Play,
   Quote,
   ShieldCheck,
   Sparkles,
@@ -93,11 +92,36 @@ const showcaseCards = [
 ];
 
 const chartBars = [34, 52, 48, 64, 58, 44, 72, 82, 76, 88, 62, 70];
+const workflowGraphBars = [52, 64, 58, 84, 76, 68];
 
 const dashboardSignals = [
   { label: "Automod policy", state: "Active", accent: "text-emerald-400" },
   { label: "Community queue", state: "Stable", accent: "text-foreground/76" },
   { label: "Broadcast checks", state: "Ready", accent: "text-primary" },
+];
+
+const featureShowcase = [
+  {
+    icon: ShieldCheck,
+    title: "Enterprise-grade moderation",
+    description: "Anti-raid systems, automated filters, and escalation paths that protect communities around the clock.",
+    stat: "99.9%",
+    statLabel: "Uptime",
+  },
+  {
+    icon: Zap,
+    title: "Lightning-fast automation",
+    description: "Workflow triggers, auto-roles, and scheduled commands that stay responsive without losing clarity.",
+    stat: "<120ms",
+    statLabel: "Response",
+  },
+  {
+    icon: Users,
+    title: "Community engagement",
+    description: "Announcements, waifu drops, member tools, and premium server features that keep activity healthy.",
+    stat: "18+",
+    statLabel: "Modules",
+  },
 ];
 
 const trustedReviews = [
@@ -214,7 +238,7 @@ function MorphWord() {
   const word = heroWords[index];
 
   return (
-    <span className="relative inline-flex min-w-[11ch] justify-center sm:justify-start">
+    <span className="relative inline-flex min-w-[14ch] justify-center px-2">
       <svg className="pointer-events-none absolute h-0 w-0">
         <filter id="hero-goo">
           <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
@@ -236,7 +260,7 @@ function MorphWord() {
             animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: -8, scale: 1.012, filter: "blur(4px)" }}
             transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
-            className="inline-block bg-[linear-gradient(120deg,hsl(var(--foreground)),hsl(var(--primary))_68%,hsl(var(--hero-blue)))] bg-clip-text text-transparent"
+            className="inline-block text-primary drop-shadow-[0_0_20px_hsl(var(--primary)/0.4)]"
           >
             {word}
           </motion.span>
@@ -545,7 +569,7 @@ export default function LandingPage() {
     <div className="theme-surface min-h-screen overflow-x-clip bg-background text-foreground">
       <div className="pointer-events-none fixed inset-x-0 top-0 z-[60] h-px bg-border/35">
         <div
-          className="h-full origin-left bg-[linear-gradient(90deg,hsl(var(--primary)),hsl(var(--hero-blue)),hsl(var(--hero-red)))] shadow-[0_0_28px_hsl(var(--primary)/0.5)]"
+          className="h-full origin-left bg-[linear-gradient(90deg,hsl(var(--primary)),hsl(var(--hero-blue)),hsl(var(--primary)))] shadow-[0_0_28px_hsl(var(--primary)/0.5)] dark:bg-[linear-gradient(90deg,hsl(var(--primary)),hsl(var(--hero-pink)),hsl(var(--hero-red)))]"
           style={{ transform: `scaleX(${progress})` }}
         />
       </div>
@@ -566,7 +590,7 @@ export default function LandingPage() {
             <div className="hero-spotlight" />
           </div>
 
-          <div className="relative mx-auto grid min-h-[calc(100svh-7rem)] max-w-6xl items-center gap-12 pb-8 pt-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:pt-16">
+          <div className="relative mx-auto grid min-h-[calc(100svh-7rem)] max-w-6xl items-center gap-12 px-1 pb-8 pt-10 sm:px-0 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:pt-16">
             <Reveal className="relative">
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-4 py-2 text-xs uppercase tracking-[0.28em] text-muted-foreground backdrop-blur-xl">
                 <Sparkles className="h-4 w-4 text-primary" />
@@ -711,45 +735,51 @@ export default function LandingPage() {
             </div>
 
             <Reveal>
-              <div className="lux-surface overflow-hidden rounded-[2rem] bg-[#08080a] p-6 text-white sm:p-8">
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_26%_18%,rgba(255,34,34,0.24),transparent_24%),radial-gradient(circle_at_84%_10%,rgba(125,0,0,0.22),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent)]" />
+              <div className="lux-surface overflow-hidden rounded-[2rem] p-6 sm:p-8">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_24%_18%,hsl(var(--primary)/0.16),transparent_24%),radial-gradient(circle_at_84%_14%,hsl(var(--hero-blue)/0.16),transparent_28%),linear-gradient(180deg,hsl(var(--foreground)/0.03),transparent)] dark:bg-[radial-gradient(circle_at_24%_18%,hsl(var(--primary)/0.18),transparent_24%),radial-gradient(circle_at_84%_14%,hsl(var(--hero-red)/0.18),transparent_28%),linear-gradient(180deg,hsl(0_0%_100%/0.03),transparent)]" />
                 <div className="relative z-10">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-[11px] uppercase tracking-[0.28em] text-white/62">Realtime load</div>
-                      <div className="mt-2 card-heading text-5xl sm:text-6xl">1.8k</div>
+                      <div className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">Realtime load</div>
+                      <div className="mt-2 card-heading text-5xl text-foreground sm:text-6xl">1.8k</div>
                     </div>
                     <div className="rounded-full border border-emerald-500/24 bg-emerald-500/14 px-3 py-1 text-xs font-semibold text-emerald-400">
                       Stable
                     </div>
                   </div>
-                  <p className="mt-3 max-w-md text-sm text-white/66">
+                  <p className="mt-3 max-w-md text-sm text-foreground/72">
                     Message flow, moderation traffic, and member tools all sit under one tuned control plane.
                   </p>
                 </div>
 
-                <div className="relative z-10 mt-8 h-48">
-                  <div className="absolute inset-x-0 bottom-0 flex items-end gap-2">
-                    {chartBars.map((height, index) => (
+                <div className="relative z-10 mt-8 h-56 premium-graph">
+                  {[25, 50, 75].map((percent) => (
+                    <div
+                      key={percent}
+                      className="premium-grid-line"
+                      style={{ bottom: `${percent}%` }}
+                    />
+                  ))}
+
+                  <div className="absolute inset-x-0 bottom-0 flex items-end gap-3 px-4 pb-10">
+                    {workflowGraphBars.map((height, index) => (
                       <motion.div
                         key={index}
-                        className="dashboard-bar flex-1 rounded-full"
-                        style={{
-                          height: `${height}%`,
-                          background: "linear-gradient(180deg,#ff4747 0%, #c20c0c 68%, #540000 100%)",
-                          boxShadow: "0 0 24px rgba(255,32,32,0.45)",
-                          animationDelay: `${index * 0.07}s`,
-                        }}
-                        initial={reducedMotion ? false : { scaleY: 0.12, opacity: 0.42 }}
+                        className="premium-bar flex-1"
+                        style={{ height: `${height}%` }}
+                        initial={reducedMotion ? false : { scaleY: 0, opacity: 0 }}
                         whileInView={reducedMotion ? undefined : { scaleY: 1, opacity: 1 }}
                         viewport={{ once: true, amount: 0.4 }}
-                        transition={{ duration: 0.55, delay: index * 0.03, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ duration: 0.7, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] }}
                       />
                     ))}
                   </div>
-                  <div className="absolute inset-x-0 bottom-0 mt-4 flex justify-between px-1 text-[10px] uppercase tracking-[0.26em] text-white/45">
+
+                  <div className="absolute inset-x-0 bottom-2 flex justify-between px-4">
                     {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
-                      <span key={label}>{label}</span>
+                      <span key={label} className="premium-axis-label">
+                        {label}
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -758,12 +788,12 @@ export default function LandingPage() {
                   {showcaseCards.map((card) => {
                     const Icon = card.icon;
                     return (
-                      <div key={card.title} className="rounded-[1.4rem] border border-white/8 bg-white/5 p-4 backdrop-blur-xl">
-                        <div className="mb-3 inline-flex rounded-xl border border-white/10 bg-white/6 p-2.5 text-red-300">
+                      <div key={card.title} className="rounded-[1.4rem] border border-border/70 bg-background/56 p-4 backdrop-blur-xl">
+                        <div className="mb-3 inline-flex rounded-xl border border-border/70 bg-card/72 p-2.5 text-primary">
                           <Icon className="h-4 w-4" />
                         </div>
-                        <div className="text-sm font-semibold text-white">{card.title}</div>
-                        <p className="mt-2 text-sm leading-6 text-white/60">{card.summary}</p>
+                        <div className="text-sm font-semibold text-foreground">{card.title}</div>
+                        <p className="mt-2 text-sm leading-6 text-foreground/68">{card.summary}</p>
                       </div>
                     );
                   })}
@@ -776,7 +806,7 @@ export default function LandingPage() {
         <SectionDivider />
 
         <section className="mx-auto max-w-6xl px-4 py-3 sm:px-6 lg:px-8">
-          <div className="marquee-shell rounded-[1.8rem] border border-border/70 bg-card/54 px-0 py-4 backdrop-blur-xl">
+          <div className="marquee-shell rounded-[1.8rem] border border-border/70 bg-card/54 px-8 py-4 backdrop-blur-xl">
             <div className="animate-marquee-horizontal flex w-[200%] items-center gap-6 whitespace-nowrap">
               {Array.from({ length: 18 }).map((_, index) => (
                 <span key={index} className="inline-flex items-center gap-4 text-[11px] uppercase tracking-[0.34em] text-muted-foreground">
@@ -792,40 +822,40 @@ export default function LandingPage() {
 
         <SectionDivider />
 
-        <section id="dashboard-preview" className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
-          <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-            <Reveal>
-              <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/58 px-4 py-2 text-xs uppercase tracking-[0.28em] text-muted-foreground backdrop-blur-xl">
-                <Play className="h-4 w-4 text-primary" />
-                Premium dashboard preview
-              </div>
-              <h2 className="mt-6 text-4xl sm:text-5xl">
-                Not a placeholder.
-                <span className="block text-primary">A real visual promise.</span>
-              </h2>
-              <p className="mt-5 max-w-xl text-sm leading-8 text-foreground/82 sm:text-base">
-                The empty video slot is gone. This mockup sells the product immediately, shows motion in the interface, and gives the page a premium center of gravity.
-              </p>
+        <section id="dashboard-preview" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
+          <Reveal className="text-center">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/58 px-4 py-2 text-xs uppercase tracking-[0.28em] text-muted-foreground backdrop-blur-xl">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Platform capabilities
+            </div>
+            <h2 className="mt-6 text-4xl sm:text-5xl">
+              Everything you need to
+              <span className="text-primary"> scale confidently.</span>
+            </h2>
+            <p className="mx-auto mt-5 max-w-3xl text-sm leading-8 text-foreground/82 sm:text-base">
+              From day-one moderation to community growth operations, every feature is built to work together seamlessly.
+            </p>
+          </Reveal>
 
-              <div className="mt-8 grid gap-4">
-                {[
-                  "Animated signal cards, pulses, and live-state chips make the preview feel active.",
-                  "The composition mirrors the actual dashboard language instead of generic SaaS scaffolding.",
-                  "Hover depth, gradients, and layered panels keep dark mode black/red and light mode white/cyan clean.",
-                ].map((item) => (
-                  <div key={item} className="lux-surface rounded-[1.4rem] px-4 py-4">
-                    <div className="flex items-start gap-3 text-sm leading-7 text-foreground/84">
-                      <div className="mt-1 text-primary">
-                        <ChevronRight className="h-4 w-4" />
-                      </div>
-                      <span>{item}</span>
+          <div className="mt-12 grid gap-6 lg:grid-cols-3">
+            {featureShowcase.map((feature, index) => {
+              const Icon = feature.icon;
+              return (
+                <InteractiveSurface key={feature.title} delay={index * 0.1} className="p-6">
+                  <div className="relative z-10">
+                    <div className="mb-5 inline-flex rounded-2xl border border-border/70 bg-background/66 p-3 text-primary backdrop-blur-xl">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <h3 className="card-heading text-xl">{feature.title}</h3>
+                    <p className="mt-3 text-sm leading-7 text-foreground/84">{feature.description}</p>
+                    <div className="mt-6 flex items-baseline gap-2">
+                      <span className="card-heading text-3xl text-primary">{feature.stat}</span>
+                      <span className="text-xs uppercase tracking-[0.22em] text-muted-foreground">{feature.statLabel}</span>
                     </div>
                   </div>
-                ))}
-              </div>
-            </Reveal>
-
-            <DashboardMock className="min-h-[38rem]" />
+                </InteractiveSurface>
+              );
+            })}
           </div>
         </section>
 

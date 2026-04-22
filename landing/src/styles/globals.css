@@ -87,7 +87,10 @@
     background-size: 64px 64px;
     font-family: var(--font-body), sans-serif;
     font-weight: 400;
-    transition: background-color 520ms ease, color 520ms ease;
+    transition:
+      background-color 520ms ease,
+      background-image 520ms ease,
+      color 520ms ease;
   }
 
   h1,
@@ -186,6 +189,7 @@
 
   .theme-animate {
     transition:
+      background 520ms ease,
       background-color 520ms ease,
       border-color 520ms ease,
       color 520ms ease,
@@ -309,13 +313,14 @@
     background:
       radial-gradient(circle at 16% 18%, hsl(var(--primary) / 0.32), transparent 24%),
       radial-gradient(circle at 84% 14%, hsl(var(--hero-blue) / 0.22), transparent 26%),
-      radial-gradient(circle at 72% 72%, hsl(var(--hero-red) / 0.26), transparent 30%),
-      radial-gradient(circle at 18% 78%, hsl(var(--hero-pink) / 0.18), transparent 28%),
+      radial-gradient(circle at 72% 72%, hsl(var(--hero-blue) / 0.2), transparent 30%),
+      radial-gradient(circle at 18% 78%, hsl(var(--primary) / 0.16), transparent 28%),
       radial-gradient(circle at 50% 36%, hsl(var(--foreground) / 0.08), transparent 34%),
       radial-gradient(circle at 50% 52%, hsl(var(--background) / 0.22), transparent 44%),
       linear-gradient(140deg, hsl(var(--section-a) / 0.84), hsl(var(--section-b) / 0.38) 44%, hsl(var(--section-d) / 0.16) 100%);
     filter: saturate(1.08);
     animation: mesh-drift 28s ease-in-out infinite alternate;
+    transition: background 520ms ease, filter 520ms ease;
   }
 
   .dark .hero-mesh {
@@ -372,6 +377,11 @@
       0 22px 54px -32px hsl(var(--foreground) / 0.25),
       inset 0 1px 0 hsl(0 0% 100% / 0.06);
     backdrop-filter: blur(26px);
+    transition:
+      background 520ms ease,
+      border-color 520ms ease,
+      box-shadow 520ms ease,
+      color 520ms ease;
   }
 
   .dark .lux-surface {
@@ -459,9 +469,13 @@
   }
 
   .premium-button-primary {
-    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--hero-red) / 0.9));
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--hero-blue) / 0.86));
     color: hsl(var(--primary-foreground));
     box-shadow: 0 22px 44px -20px hsl(var(--primary) / 0.72);
+  }
+
+  .dark .premium-button-primary {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--hero-red) / 0.9));
   }
 
   .premium-button-primary:hover {
@@ -523,7 +537,95 @@
   .marquee-shell {
     position: relative;
     overflow: hidden;
-    mask-image: linear-gradient(90deg, transparent, black 10%, black 90%, transparent);
+  }
+
+  .marquee-shell::before,
+  .marquee-shell::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 120px;
+    height: 100%;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .marquee-shell::before {
+    left: 0;
+    background: linear-gradient(90deg, hsl(var(--background)), transparent);
+  }
+
+  .marquee-shell::after {
+    right: 0;
+    background: linear-gradient(270deg, hsl(var(--background)), transparent);
+  }
+
+  .premium-graph {
+    position: relative;
+    background: linear-gradient(180deg, hsl(var(--card) / 0.44), hsl(var(--background) / 0.18));
+    border: 1px solid hsl(var(--border) / 0.55);
+    border-radius: 1.5rem;
+    padding: 2rem;
+    overflow: hidden;
+    box-shadow:
+      0 24px 52px -34px hsl(var(--primary) / 0.16),
+      inset 0 1px 0 hsl(0 0% 100% / 0.08);
+    transition:
+      background 520ms ease,
+      border-color 520ms ease,
+      box-shadow 520ms ease;
+  }
+
+  .premium-graph::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 20% 20%, hsl(var(--primary) / 0.1), transparent 50%),
+      radial-gradient(circle at 80% 80%, hsl(var(--hero-blue) / 0.1), transparent 50%);
+    pointer-events: none;
+  }
+
+  .dark .premium-graph {
+    background: linear-gradient(180deg, hsl(var(--card) / 0.62), hsl(var(--background) / 0.3));
+    box-shadow:
+      0 30px 64px -38px hsl(var(--primary) / 0.24),
+      inset 0 1px 0 hsl(0 0% 100% / 0.05);
+  }
+
+  .premium-bar {
+    position: relative;
+    background: linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.58) 100%);
+    border-radius: 9999px;
+    box-shadow:
+      0 0 20px hsl(var(--primary) / 0.3),
+      0 0 40px hsl(var(--primary) / 0.1),
+      inset 0 1px 0 hsl(0 0% 100% / 0.2);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background 520ms ease;
+    will-change: transform;
+  }
+
+  .premium-bar:hover {
+    transform: scaleY(1.05);
+    box-shadow:
+      0 0 30px hsl(var(--primary) / 0.5),
+      0 0 60px hsl(var(--primary) / 0.2),
+      inset 0 1px 0 hsl(0 0% 100% / 0.3);
+  }
+
+  .premium-grid-line {
+    position: absolute;
+    left: 1.5rem;
+    right: 1.5rem;
+    height: 1px;
+    background: hsl(var(--border) / 0.3);
+  }
+
+  .premium-axis-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: hsl(var(--muted-foreground));
   }
 
   .dashboard-mock {
@@ -586,6 +688,9 @@
     background:
       radial-gradient(circle at top, hsl(var(--foreground) / 0.04), transparent 46%),
       linear-gradient(180deg, hsl(var(--background)), hsl(var(--section-d) / 0.38));
+    transition:
+      background 520ms ease,
+      color 520ms ease;
   }
 }
 
@@ -719,6 +824,27 @@
   .interactive-card,
   .premium-button {
     transition-duration: 1ms;
+  }
+}
+
+@media (max-width: 768px) {
+  .marquee-shell::before,
+  .marquee-shell::after {
+    width: 60px;
+  }
+
+  .interactive-card {
+    transform: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .lux-surface {
+    padding: 1rem;
+  }
+
+  .card-heading {
+    font-size: 1.25rem;
   }
 }
 
