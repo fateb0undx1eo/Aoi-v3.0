@@ -47,12 +47,13 @@ export function SiteNavbar({ showAnchors = true }: SiteNavbarProps) {
         className={`glass-nav mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-[1.6rem] px-4 py-3 sm:px-5 ${isScrolled ? "is-scrolled" : ""}`}
       >
         <Link href="/" className="group flex min-w-0 items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-border/65 bg-card/70 shadow-[0_16px_34px_-24px_hsl(var(--foreground)/0.35)] transition-transform duration-300 group-hover:scale-[1.04]">
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-2xl border border-border/65 bg-card/70 shadow-[0_16px_34px_-24px_hsl(var(--foreground)/0.35)] transition-transform duration-300 group-hover:scale-[1.04]">
+            <span className="nav-status-dot absolute right-1 top-1" />
             <BrandMark />
           </div>
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold tracking-[0.18em] text-foreground/68 uppercase">Discord Bot</div>
-            <div className="truncate text-base font-semibold tracking-tight text-foreground">Multipurpose Platform</div>
+            <div className="truncate text-sm font-semibold tracking-[0.18em] text-foreground/68 uppercase">AOI</div>
+            <div className="truncate text-base font-semibold tracking-tight text-foreground">Guardian Interface</div>
           </div>
         </Link>
 

@@ -581,20 +581,22 @@ export default function LandingPage() {
       <SiteNavbar />
 
       <main id="top" className="relative z-10">
-        <section className="relative isolate overflow-hidden px-4 pb-14 pt-8 sm:px-6 lg:px-8">
+        <section className="aoi-grid-shell relative isolate overflow-hidden px-4 pb-14 pt-8 sm:px-6 lg:px-8">
           <div className="absolute inset-x-0 top-0 h-[48rem] overflow-hidden" style={{ transform: `translate3d(0, ${heroParallax}px, 0)` }}>
             <div className="hero-mesh" />
             <div className="hero-grid" />
             <div className="hero-orb left-[8%] top-[18%] h-52 w-52" />
             <div className="hero-orb bottom-[16%] right-[10%] h-64 w-64" style={{ animationDelay: "-5s" }} />
             <div className="hero-spotlight" />
+            <div className="section-aura left-[8%] top-[32%] h-56 w-56" />
+            <div className="section-aura bottom-[8%] right-[10%] h-72 w-72" />
           </div>
 
           <div className="relative mx-auto grid min-h-[calc(100svh-7rem)] max-w-6xl items-center gap-12 px-1 pb-8 pt-10 sm:px-0 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:pt-16">
             <Reveal className="relative">
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-4 py-2 text-xs uppercase tracking-[0.28em] text-muted-foreground backdrop-blur-xl">
                 <Sparkles className="h-4 w-4 text-primary" />
-                Premium Discord platform
+                AOI guardian platform
               </div>
               <h1 className="mt-7 max-w-4xl text-5xl leading-[0.92] tracking-[-0.07em] sm:text-6xl lg:text-7xl xl:text-[5.3rem]">
                 The premium control center for
@@ -604,7 +606,7 @@ export default function LandingPage() {
                 <span className="mt-4 block text-foreground/52">built to run serious communities cleanly.</span>
               </h1>
               <p className="mt-7 max-w-2xl text-base leading-8 text-foreground/82 sm:text-lg">
-                Replace disconnected moderation, utility, dashboard, and community stacks with one system that feels expensive because it is structured properly.
+                Replace disconnected moderation, utility, dashboard, and community stacks with one system that feels premium because it is structured properly.
               </p>
 
               <div className="mt-9 flex flex-col gap-4 sm:flex-row">
@@ -645,7 +647,10 @@ export default function LandingPage() {
               >
                 99.98% command uptime
               </div>
-              <DashboardMock compact />
+              <div className="relative">
+                <div className="aoi-panel-lines rounded-[2rem]" />
+                <DashboardMock compact />
+              </div>
             </div>
           </div>
         </section>
@@ -686,6 +691,7 @@ export default function LandingPage() {
                 const Icon = module.icon;
                 return (
                   <InteractiveSurface key={module.title} delay={index * 0.06} className="p-6 sm:p-7">
+                    <div className="aoi-panel-lines rounded-[inherit]" />
                     <div className="relative z-10">
                       <div className="mb-5 inline-flex rounded-2xl border border-border/70 bg-background/66 p-3 text-primary backdrop-blur-xl">
                         <Icon className="h-5 w-5" />
@@ -736,6 +742,7 @@ export default function LandingPage() {
 
             <Reveal>
               <div className="lux-surface overflow-hidden rounded-[2rem] p-6 sm:p-8">
+                <div className="aoi-panel-lines rounded-[inherit]" />
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_24%_18%,hsl(var(--primary)/0.16),transparent_24%),radial-gradient(circle_at_84%_14%,hsl(var(--hero-blue)/0.16),transparent_28%),linear-gradient(180deg,hsl(var(--foreground)/0.03),transparent)] dark:bg-[radial-gradient(circle_at_24%_18%,hsl(var(--primary)/0.18),transparent_24%),radial-gradient(circle_at_84%_14%,hsl(var(--hero-red)/0.18),transparent_28%),linear-gradient(180deg,hsl(0_0%_100%/0.03),transparent)]" />
                 <div className="relative z-10">
                   <div className="flex items-center justify-between">
@@ -788,7 +795,8 @@ export default function LandingPage() {
                   {showcaseCards.map((card) => {
                     const Icon = card.icon;
                     return (
-                      <div key={card.title} className="rounded-[1.4rem] border border-border/70 bg-background/56 p-4 backdrop-blur-xl">
+                      <div key={card.title} className="relative rounded-[1.4rem] border border-border/70 bg-background/56 p-4 backdrop-blur-xl">
+                        <div className="aoi-panel-lines rounded-[inherit]" />
                         <div className="mb-3 inline-flex rounded-xl border border-border/70 bg-card/72 p-2.5 text-primary">
                           <Icon className="h-4 w-4" />
                         </div>
@@ -826,7 +834,7 @@ export default function LandingPage() {
           <Reveal className="text-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/58 px-4 py-2 text-xs uppercase tracking-[0.28em] text-muted-foreground backdrop-blur-xl">
               <Sparkles className="h-4 w-4 text-primary" />
-              Platform capabilities
+              AOI capabilities
             </div>
             <h2 className="mt-6 text-4xl sm:text-5xl">
               Everything you need to
@@ -842,6 +850,7 @@ export default function LandingPage() {
               const Icon = feature.icon;
               return (
                 <InteractiveSurface key={feature.title} delay={index * 0.1} className="p-6">
+                  <div className="aoi-panel-lines rounded-[inherit]" />
                   <div className="relative z-10">
                     <div className="mb-5 inline-flex rounded-2xl border border-border/70 bg-background/66 p-3 text-primary backdrop-blur-xl">
                       <Icon className="h-5 w-5" />
@@ -898,6 +907,7 @@ export default function LandingPage() {
 
         <section className="mx-auto max-w-6xl px-4 pb-20 pt-4 sm:px-6 sm:pb-24 lg:px-8">
           <InteractiveSurface className="grid overflow-hidden p-0 lg:grid-cols-[1.02fr_0.98fr]">
+            <div className="aoi-panel-lines rounded-[inherit]" />
             <div className="relative z-10 p-8 sm:p-10 lg:p-12">
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/58 px-4 py-2 text-xs uppercase tracking-[0.28em] text-muted-foreground backdrop-blur-xl">
                 <Zap className="h-4 w-4 text-primary" />
@@ -927,7 +937,7 @@ export default function LandingPage() {
               <div className="relative z-10 flex flex-col items-center text-center">
                 <BrandMark large />
                 <div className="mt-8 rounded-full border border-border/70 bg-card/62 px-5 py-2 text-xs uppercase tracking-[0.34em] text-muted-foreground backdrop-blur-xl">
-                  Premium Discord stack
+                  AOI control stack
                 </div>
               </div>
             </div>

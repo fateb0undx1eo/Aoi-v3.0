@@ -128,6 +128,7 @@ export function DashboardLayout({
   return (
     <div className="dashboard-canvas min-h-screen text-foreground">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="dashboard-constellation" />
         <div className="absolute left-[-8%] top-[8%] h-[26rem] w-[26rem] rounded-full bg-[radial-gradient(circle,hsl(var(--dashboard-accent)/0.14),transparent_68%)] blur-3xl" />
         <div className="absolute right-[-10%] top-[12%] h-[24rem] w-[24rem] rounded-full bg-[radial-gradient(circle,hsl(var(--dashboard-accent)/0.09),transparent_72%)] blur-3xl" />
       </div>
@@ -150,8 +151,9 @@ export function DashboardLayout({
               {sidebarCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
             </button>
 
-            <div className="dashboard-chip flex items-center gap-3 rounded-[24px] px-3.5 py-2.5">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/12 text-primary">
+            <div className="dashboard-chip dashboard-panel-lift flex items-center gap-3 rounded-[24px] px-3.5 py-2.5">
+              <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/12 text-primary">
+                <span className="nav-status-dot absolute right-1.5 top-1.5" />
                 <BrandMark />
               </div>
               <div className="min-w-0">
@@ -208,7 +210,7 @@ export function DashboardLayout({
             mobileOpen ? "translate-x-0" : "-translate-x-[120%] lg:translate-x-0"
           } ${sidebarCollapsed ? "w-24" : "w-[20rem]"}`}
         >
-          <div className="dashboard-panel flex h-full flex-col gap-4 rounded-[30px] p-4">
+          <div className="dashboard-panel dashboard-panel-lift flex h-full flex-col gap-4 rounded-[30px] p-4">
             <div className={`dashboard-panel-soft rounded-[24px] ${sidebarCollapsed ? "px-2.5 py-3" : "px-4 py-4"}`}>
               <div className={`flex ${sidebarCollapsed ? "justify-center" : "items-start gap-3"}`}>
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -324,7 +326,7 @@ export function DashboardLayout({
         </aside>
 
         <main className="min-w-0 flex-1">
-          <div className="dashboard-panel mb-6 rounded-[30px] px-5 py-5">
+          <div className="dashboard-panel dashboard-panel-lift mb-6 rounded-[30px] px-5 py-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">Current Section</div>

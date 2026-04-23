@@ -237,6 +237,274 @@
     backdrop-filter: blur(14px);
   }
 
+  .aoi-brand-shell {
+    background:
+      radial-gradient(circle at 34% 30%, hsl(0 0% 100% / 0.22), transparent 24%),
+      linear-gradient(145deg, hsl(var(--primary)), hsl(var(--hero-blue) / 0.88));
+    box-shadow:
+      0 0 0 1px hsl(0 0% 100% / 0.08),
+      0 22px 44px -20px hsl(var(--primary) / 0.46),
+      inset 0 1px 0 hsl(0 0% 100% / 0.16);
+    overflow: hidden;
+  }
+
+  .dark .aoi-brand-shell {
+    background:
+      radial-gradient(circle at 34% 30%, hsl(0 0% 100% / 0.12), transparent 24%),
+      linear-gradient(145deg, hsl(var(--primary)), hsl(var(--hero-red) / 0.92));
+    box-shadow:
+      0 0 0 1px hsl(0 0% 100% / 0.05),
+      0 22px 52px -18px hsl(var(--primary) / 0.62),
+      inset 0 1px 0 hsl(0 0% 100% / 0.08);
+  }
+
+  .aoi-brand-glow {
+    position: absolute;
+    inset: -12%;
+    border-radius: 38%;
+    background:
+      radial-gradient(circle at center, hsl(var(--primary) / 0.4), transparent 58%);
+    filter: blur(12px);
+    opacity: 0.9;
+  }
+
+  .aoi-brand-ring,
+  .aoi-brand-core,
+  .aoi-brand-node,
+  .aoi-brand-slice {
+    position: absolute;
+    inset: 0;
+  }
+
+  .aoi-brand-ring {
+    margin: auto;
+    border-radius: 30%;
+    border: 1px solid hsl(0 0% 100% / 0.78);
+    transform: rotate(45deg);
+  }
+
+  .aoi-brand-ring-outer {
+    width: 72%;
+    height: 72%;
+    opacity: 0.86;
+    animation: orbit-spin 9s linear infinite;
+  }
+
+  .aoi-brand-ring-inner {
+    width: 50%;
+    height: 50%;
+    opacity: 0.7;
+    animation: orbit-spin 6s linear infinite reverse;
+  }
+
+  .aoi-brand-core {
+    width: 34%;
+    height: 34%;
+    margin: auto;
+    border-radius: 26%;
+    background: linear-gradient(135deg, hsl(0 0% 100%), hsl(0 0% 100% / 0.82));
+    box-shadow:
+      0 0 24px hsl(0 0% 100% / 0.28),
+      inset 0 1px 0 hsl(0 0% 100% / 0.55);
+    transform: rotate(45deg);
+  }
+
+  .aoi-brand-core-mark {
+    position: absolute;
+    inset: 24%;
+    border-radius: 24%;
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.94), hsl(var(--hero-blue) / 0.74));
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  }
+
+  .dark .aoi-brand-core-mark {
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.96), hsl(var(--hero-red) / 0.8));
+  }
+
+  .aoi-brand-node {
+    width: 12%;
+    height: 12%;
+    margin: auto;
+    border-radius: 999px;
+    background: hsl(0 0% 100%);
+    box-shadow: 0 0 16px hsl(0 0% 100% / 0.44);
+  }
+
+  .aoi-brand-node-top {
+    top: 14%;
+    left: 0;
+    right: 0;
+  }
+
+  .aoi-brand-node-left {
+    left: 16%;
+    bottom: 18%;
+  }
+
+  .aoi-brand-node-right {
+    right: 16%;
+    bottom: 18%;
+  }
+
+  .aoi-brand-slice {
+    inset: 20%;
+    border-radius: 30%;
+    border: 1px solid hsl(0 0% 100% / 0.34);
+    opacity: 0.66;
+  }
+
+  .aoi-brand-slice-left {
+    clip-path: polygon(0 0, 52% 0, 30% 100%, 0 100%);
+    transform: translateX(-5%) rotate(-12deg);
+  }
+
+  .aoi-brand-slice-right {
+    clip-path: polygon(48% 0, 100% 0, 100% 100%, 70% 100%);
+    transform: translateX(5%) rotate(12deg);
+  }
+
+  .aoi-grid-shell {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .aoi-grid-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(to right, hsl(var(--foreground) / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--foreground) / 0.05) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(circle at center, black 32%, transparent 92%);
+    opacity: 0.34;
+    pointer-events: none;
+  }
+
+  .aoi-grid-shell::after {
+    content: "";
+    position: absolute;
+    inset: auto -20% -24% -20%;
+    height: 34%;
+    background: radial-gradient(circle at center, hsl(var(--primary) / 0.18), transparent 60%);
+    filter: blur(38px);
+    pointer-events: none;
+  }
+
+  .section-aura {
+    position: absolute;
+    inset: auto;
+    border-radius: 9999px;
+    background:
+      radial-gradient(circle, hsl(var(--primary) / 0.18), transparent 64%);
+    filter: blur(32px);
+    pointer-events: none;
+  }
+
+  .aoi-panel-lines {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.38;
+  }
+
+  .aoi-panel-lines::before,
+  .aoi-panel-lines::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+
+  .aoi-panel-lines::before {
+    background:
+      linear-gradient(90deg, transparent, hsl(var(--primary) / 0.24), transparent);
+    transform: translateX(-100%);
+    animation: beam-sweep 10s linear infinite;
+  }
+
+  .aoi-panel-lines::after {
+    background-image: linear-gradient(to bottom, hsl(var(--foreground) / 0.08) 1px, transparent 1px);
+    background-size: 100% 14px;
+    mask-image: linear-gradient(180deg, transparent, black 12%, black 88%, transparent);
+  }
+
+  .dashboard-constellation {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .dashboard-constellation::before,
+  .dashboard-constellation::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-repeat: no-repeat;
+    opacity: 0.54;
+  }
+
+  .dashboard-constellation::before {
+    background-image:
+      radial-gradient(circle at 18% 22%, hsl(var(--dashboard-accent) / 0.42) 0 2px, transparent 2.5px),
+      radial-gradient(circle at 34% 12%, hsl(var(--dashboard-accent) / 0.24) 0 1.5px, transparent 2px),
+      radial-gradient(circle at 82% 18%, hsl(var(--dashboard-accent) / 0.34) 0 2px, transparent 2.5px),
+      linear-gradient(115deg, transparent 0 18%, hsl(var(--dashboard-accent) / 0.12) 18% 19%, transparent 19% 100%);
+    animation: constellation-drift 16s ease-in-out infinite alternate;
+  }
+
+  .dashboard-constellation::after {
+    background-image:
+      radial-gradient(circle at 20% 74%, hsl(var(--dashboard-accent) / 0.28) 0 2px, transparent 2.5px),
+      radial-gradient(circle at 72% 80%, hsl(var(--dashboard-accent) / 0.28) 0 2px, transparent 2.5px),
+      radial-gradient(circle at 88% 62%, hsl(var(--dashboard-accent) / 0.18) 0 1.5px, transparent 2px),
+      linear-gradient(135deg, transparent 0 66%, hsl(var(--dashboard-accent) / 0.08) 66% 67%, transparent 67% 100%);
+    animation: constellation-drift 14s ease-in-out infinite alternate-reverse;
+  }
+
+  .dashboard-panel-lift {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .dashboard-panel-lift::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at top left, hsl(var(--dashboard-accent) / 0.12), transparent 32%);
+    opacity: 0.88;
+    pointer-events: none;
+  }
+
+  .dashboard-panel-lift::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 1px solid hsl(var(--dashboard-accent) / 0.14);
+    mask-image: linear-gradient(180deg, black, transparent 74%);
+    pointer-events: none;
+  }
+
+  .nav-status-dot {
+    position: relative;
+    display: inline-flex;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 9999px;
+    background: hsl(var(--primary));
+    box-shadow: 0 0 18px hsl(var(--primary) / 0.6);
+  }
+
+  .nav-status-dot::after {
+    content: "";
+    position: absolute;
+    inset: -0.28rem;
+    border-radius: 9999px;
+    border: 1px solid hsl(var(--primary) / 0.24);
+    animation: pulse-aura 2.8s ease-out infinite;
+  }
+
   .boneyard-shimmer {
     position: relative;
     overflow: hidden;
@@ -802,6 +1070,48 @@
   }
 }
 
+@keyframes orbit-spin {
+  from {
+    transform: rotate(45deg);
+  }
+  to {
+    transform: rotate(405deg);
+  }
+}
+
+@keyframes beam-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  52%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes pulse-aura {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  32% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.68);
+  }
+}
+
+@keyframes constellation-drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(0, 10px, 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-marquee-horizontal,
   .animate-marquee-vertical,
@@ -815,6 +1125,12 @@
   .dashboard-scanline,
   .dashboard-bar,
   .pulse-dot,
+  .aoi-brand-ring-outer,
+  .aoi-brand-ring-inner,
+  .aoi-panel-lines::before,
+  .nav-status-dot::after,
+  .dashboard-constellation::before,
+  .dashboard-constellation::after,
   .premium-button::before,
   .button-ripple {
     animation-duration: 1ms;
