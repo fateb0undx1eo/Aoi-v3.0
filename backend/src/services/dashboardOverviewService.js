@@ -142,4 +142,8 @@ export class DashboardOverviewService {
 
     return value;
   }
+
+  invalidateGuild(guildId) {
+    this.overviewCache.delete(guildId);
+  }
 }

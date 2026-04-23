@@ -21,7 +21,7 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
-import { BoneyardCard, BoneyardSkeleton } from "@/components/ui/boneyard-skeleton";
+import { BoneyardCard, BoneyardHeroCard } from "@/components/ui/boneyard-skeleton";
 
 type AnalyticsRow = {
   date: string;
@@ -354,15 +354,7 @@ export default function GuildOverviewPage() {
     <DashboardLayout guildId={String(guildId || "")} guildName={guild?.name || "Guild"} heading="Overview" modules={modules}>
       {loading && (
         <div className="space-y-6">
-          <section className="rounded-[28px] border border-border/70 bg-card/80 p-6">
-            <div className="flex items-center gap-4">
-              <BoneyardSkeleton className="h-16 w-16 rounded-2xl" />
-              <div className="flex-1 space-y-3">
-                <BoneyardSkeleton className="h-5 w-40" />
-                <BoneyardSkeleton className="h-3.5 w-64" />
-              </div>
-            </div>
-          </section>
+          <BoneyardHeroCard />
           <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
             {Array.from({ length: 4 }).map((_, index) => (
               <BoneyardCard key={index} lines={2} />

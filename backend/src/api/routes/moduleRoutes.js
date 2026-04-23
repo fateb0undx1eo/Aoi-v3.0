@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { requireGuildAccess } from '../middleware/requireGuildAccess.js';
 
-export function createModuleRoutes({ moduleService, configService, configCache, accessControlService, authService, roleColorRotationService, memeService, botLooksService, staffListService }) {
+export function createModuleRoutes({ moduleService, configService, configCache, accessControlService, authService, roleColorRotationService, memeService, botLooksService, staffListService, dashboardOverviewService }) {
   const router = Router();
   router.use(requireAuth(authService));
   router.use('/:guildId', requireGuildAccess(accessControlService));
@@ -27,6 +27,7 @@ export function createModuleRoutes({ moduleService, configService, configCache, 
         config: req.body.config ?? {}
       });
       await configCache.refreshGuild(guildId);
+      dashboardOverviewService?.invalidateGuild(guildId);
       if (moduleName === 'community' && roleColorRotationService) {
         await roleColorRotationService.syncGuild(guildId);
       }

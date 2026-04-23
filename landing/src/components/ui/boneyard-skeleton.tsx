@@ -36,3 +36,17 @@ export function BoneyardCard({
     </div>
   );
 }
+
+export function BoneyardHeroCard({ className }: { className?: string }) {
+  return (
+    <div className={cn("dashboard-panel-soft rounded-[28px] p-6", className)}>
+      <div className="flex items-center gap-4">
+        <BoneyardSkeleton className="h-16 w-16 rounded-2xl" />
+        <div className="flex-1 space-y-3">
+          <BoneyardSkeleton className="h-5 w-40 rounded-full" />
+          <BoneyardSkeleton className="h-3.5 w-64 rounded-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
