@@ -17,6 +17,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 import type { ReactNode } from "react";
+import { BrandMark } from "@/components/brand-mark";
 
 type ModuleItem = {
   name: string;
@@ -65,6 +66,14 @@ export function DashboardLayout({
 
   useEffect(() => {
     setMounted(true);
+    try {
+      const savedValue = window.localStorage.getItem("dashboard_sidebar_collapsed");
+      if (savedValue === "1") {
+        setSidebarCollapsed(true);
+      }
+    } catch {
+      // Ignore storage access failures and use the default layout.
+    }
   }, []);
 
   const overviewHref = `/dashboard/guild/${guildId}`;
@@ -73,6 +82,28 @@ export function DashboardLayout({
   useEffect(() => {
     setMobileOpen(false);
   }, [currentPath]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    try {
+      window.localStorage.setItem("dashboard_sidebar_collapsed", sidebarCollapsed ? "1" : "0");
+    } catch {
+      // Ignore storage access failures and keep the UI responsive.
+    }
+  }, [mounted, sidebarCollapsed]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileOpen]);
 
   const moduleLinks = useMemo(
     () =>
@@ -121,11 +152,11 @@ export function DashboardLayout({
 
             <div className="dashboard-chip flex items-center gap-3 rounded-[24px] px-3.5 py-2.5">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/12 text-primary">
-                <LayoutDashboard className="h-5 w-5" />
+                <BrandMark />
               </div>
               <div className="min-w-0">
-                <div className="text-[10px] uppercase tracking-[0.28em] text-muted-foreground">Discord Bot</div>
-                <div className="text-sm font-semibold text-foreground">Premium Dashboard</div>
+                <div className="text-[10px] uppercase tracking-[0.28em] text-muted-foreground">AOI</div>
+                <div className="text-sm font-semibold text-foreground">Control Surface</div>
               </div>
             </div>
           </div>

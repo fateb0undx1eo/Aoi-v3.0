@@ -1,4 +1,6 @@
+import { createServer } from 'node:http';
 import { buildApiServer } from './api/server.js';
+import { attachOverviewSocketServer } from './api/overviewSocketServer.js';
 import { env } from './core/config/env.js';
 import { createDiscordClient } from './core/discordClient.js';
 import { bootstrapRegistry } from './core/loader/bootstrap.js';
@@ -29,6 +31,7 @@ import { StaffListService } from './services/staffListService.js';
 import { DmBroadcastService } from './services/dmBroadcastService.js';
 import { AnnouncementService } from './services/announcementService.js';
 import { FunService } from './services/funService.js';
+import { DashboardOverviewService } from './services/dashboardOverviewService.js';
 
 async function main() {
   const registry = await bootstrapRegistry();
@@ -85,6 +88,11 @@ async function main() {
   const funService = new FunService({
     configService
   });
+  const dashboardOverviewService = new DashboardOverviewService({
+    client,
+    moduleService,
+    analyticsService
+  });
 
   const services = {
     authService,
@@ -104,7 +112,8 @@ async function main() {
     announcementService,
     funService,
     toolsService,
-    accessControlService
+    accessControlService,
+    dashboardOverviewService
   };
 
   const context = {
@@ -230,10 +239,20 @@ async function main() {
     botLooksService,
     staffListService,
     settingsService,
-    accessControlService
+    accessControlService,
+    dashboardOverviewService
   });
 
-  apiServer.listen(env.apiPort, () => {
+  const server = createServer(apiServer);
+
+  attachOverviewSocketServer({
+    server,
+    authService,
+    accessControlService,
+    dashboardOverviewService
+  });
+
+  server.listen(env.apiPort, () => {
     logger.info(`API server running on :${env.apiPort}`);
   });
 }

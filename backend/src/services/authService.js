@@ -130,6 +130,27 @@ export class AuthService {
     };
   }
 
+  createSocketTicket(session, guildId, ttlMs = 60 * 1000) {
+    const now = Date.now();
+    return this.createSessionToken({
+      user: session.user,
+      accessToken: session.accessToken,
+      guildId,
+      scope: 'dashboard-overview',
+      issuedAt: now,
+      expiresAt: now + ttlMs
+    });
+  }
+
+  readSocketTicket(token) {
+    const payload = this.readSessionToken(token);
+    if (!payload || payload.scope !== 'dashboard-overview' || !payload.guildId) {
+      return null;
+    }
+
+    return payload;
+  }
+
   async handleCallback(code, redirectUriOverride = '') {
     const tokenData = await this.exchangeCodeForTokens(code, redirectUriOverride);
     const user = await this.fetchCurrentUser(tokenData.access_token);
