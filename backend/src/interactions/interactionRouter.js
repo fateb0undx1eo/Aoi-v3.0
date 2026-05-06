@@ -1,21 +1,32 @@
 import { logger } from '../utils/logger.js';
 
+async function replyOrEdit(interaction, content, ephemeral = true) {
+  if (interaction.deferred || interaction.replied) {
+    await interaction.editReply(content);
+    return;
+  }
+
+  await interaction.reply({ content, ephemeral });
+}
+
 export function registerInteractionRouter(client, registry, context) {
   client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isChatInputCommand()) return;
+    if (!interaction.isChatInputCommand() && !interaction.isMessageContextMenuCommand()) return;
 
     const command = registry.getCommand(interaction.commandName);
     if (!command) return;
 
     try {
-      await interaction.deferReply({ ephemeral: command.ephemeral ?? false });
+      if (command.defer !== false) {
+        await interaction.deferReply({ ephemeral: command.ephemeral ?? false });
+      }
 
       const commandConfig = context.configCache.getCommandConfig(
         interaction.guildId,
         command.name
       );
       if (commandConfig && commandConfig.enabled === false) {
-        await interaction.editReply('This command is disabled for this guild.');
+        await replyOrEdit(interaction, 'This command is disabled for this guild.');
         return;
       }
 
@@ -29,13 +40,13 @@ export function registerInteractionRouter(client, registry, context) {
         permissionOverrides
       );
       if (!permissionResult) {
-        await interaction.editReply('You are not allowed to use this command.');
+        await replyOrEdit(interaction, 'You are not allowed to use this command.');
         return;
       }
 
       const rateResult = context.rateLimiter.check(interaction, command.name);
       if (!rateResult.allowed) {
-        await interaction.editReply(`Rate limit exceeded. Retry in ${rateResult.retryAfter}s.`);
+        await replyOrEdit(interaction, `Rate limit exceeded. Retry in ${rateResult.retryAfter}s.`);
         return;
       }
 

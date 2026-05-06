@@ -7,11 +7,23 @@ export class DiscordCommandSyncService {
   }
 
   async syncGuildCommands() {
-    const commands = [...this.registry.commands.values()].map((command) => ({
-      name: command.name,
-      description: command.description ?? 'No description',
-      options: command.options ?? []
-    }));
+    const commands = [...this.registry.commands.values()].map((command) => {
+      const type = command.type ?? 1;
+
+      if (type === 3 || type === 2) {
+        return {
+          name: command.name,
+          type
+        };
+      }
+
+      return {
+        name: command.name,
+        type,
+        description: command.description ?? 'No description',
+        options: command.options ?? []
+      };
+    });
 
     const rest = new REST({ version: '10' }).setToken(this.env.discord.token);
     if (!this.env.discord.guildId) {

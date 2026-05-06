@@ -90,8 +90,7 @@ function buildMemeComponents({ subreddit, meme, pingRoleId }) {
           type: 12,
           items: [
             {
-              media: { url: imageUrl },
-              description: safeTitle
+              media: { url: imageUrl }
             }
           ]
         },

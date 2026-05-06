@@ -38,8 +38,7 @@ function buildContainerComponents(blocks) {
         type: 12,
         items: [
           {
-            media: { url: block.content },
-            description: 'Announcement image'
+            media: { url: block.content }
           }
         ]
       });
@@ -196,8 +195,7 @@ function buildComponentsV2EntryPayload(entry) {
         type: 12,
         items: [
           {
-            media: { url: entry.embed.image_url },
-            description: 'Announcement image'
+            media: { url: entry.embed.image_url }
           }
         ]
       });

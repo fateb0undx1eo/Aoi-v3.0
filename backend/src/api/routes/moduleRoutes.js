@@ -16,6 +16,22 @@ export function createModuleRoutes({ moduleService, configService, configCache, 
     }
   });
 
+  router.get('/:guildId/:moduleName', async (req, res, next) => {
+    try {
+      const moduleConfig = await configService.getModuleConfig(req.params.guildId, req.params.moduleName).catch(() => null);
+      res.status(200).json({
+        module: moduleConfig ?? {
+          guild_id: req.params.guildId,
+          module_name: req.params.moduleName,
+          enabled: true,
+          config: {}
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.put('/:guildId/:moduleName', async (req, res, next) => {
     try {
       const guildId = req.params.guildId;

@@ -48,6 +48,18 @@ type ModuleRow = {
   enabled?: boolean;
 };
 
+type ModerationModuleConfig = {
+  enabled?: boolean;
+  config?: {
+    case_command?: {
+      channel_id?: string | null;
+      allowed_role_ids?: string[];
+      allowed_user_ids?: string[];
+      default_timeout_minutes?: number;
+    };
+  };
+};
+
 const DEFAULT_MOD_CONFIG: ModConfig = {
   warn_auto_punish_enabled: false,
   warn_threshold_1: 3,
@@ -57,6 +69,23 @@ const DEFAULT_MOD_CONFIG: ModConfig = {
   show_mod_in_dm: false,
 };
 
+const DEFAULT_CASE_COMMAND_CONFIG = {
+  channel_id: "",
+  allowed_role_ids: [] as string[],
+  allowed_user_ids: [] as string[],
+  default_timeout_minutes: 10,
+};
+
+function normalizeCaseCommandConfig(rawConfig?: ModerationModuleConfig["config"]) {
+  const caseCommand = rawConfig?.case_command;
+  return {
+    channel_id: String(caseCommand?.channel_id || ""),
+    allowed_role_ids: Array.isArray(caseCommand?.allowed_role_ids) ? caseCommand.allowed_role_ids.filter(Boolean) : [],
+    allowed_user_ids: Array.isArray(caseCommand?.allowed_user_ids) ? caseCommand.allowed_user_ids.filter(Boolean) : [],
+    default_timeout_minutes: Math.max(1, Number(caseCommand?.default_timeout_minutes) || 10),
+  };
+}
+
 export default function ModerationPage() {
   const router = useRouter();
   const { guildId } = router.query;
@@ -64,6 +93,8 @@ export default function ModerationPage() {
   const [cases, setCases] = useState<Case[]>([]);
   const [activePunishments, setActivePunishments] = useState<Case[]>([]);
   const [config, setConfig] = useState<ModConfig | null>(null);
+  const [moderationModule, setModerationModule] = useState<ModerationModuleConfig | null>(null);
+  const [caseCommandConfig, setCaseCommandConfig] = useState(DEFAULT_CASE_COMMAND_CONFIG);
   const [modules, setModules] = useState<ModuleRow[]>([]);
   const [guildName, setGuildName] = useState("Guild");
   const [loading, setLoading] = useState(true);
@@ -90,7 +121,7 @@ export default function ModerationPage() {
       setModules(overviewData.modules || []);
       setGuildName(overviewData.guild?.name || "Guild");
 
-      const [casesResult, activeResult, configResult] = await Promise.allSettled([
+      const [casesResult, activeResult, configResult, moduleResult] = await Promise.allSettled([
         fetch(`/api/moderation/${guildId}/cases?limit=50`).then(async (response) => {
           const payload = await response.json().catch(() => ({ cases: [] }));
           if (!response.ok) {
@@ -112,11 +143,21 @@ export default function ModerationPage() {
           }
           return payload;
         }),
+        fetch(`/api/modules/${guildId}/moderation`).then(async (response) => {
+          const payload = await response.json().catch(() => ({ module: null }));
+          if (!response.ok) {
+            throw new Error(payload?.error || "Failed to load moderation module config");
+          }
+          return payload;
+        }),
       ]);
 
       setCases(casesResult.status === "fulfilled" ? casesResult.value.cases || [] : []);
       setActivePunishments(activeResult.status === "fulfilled" ? activeResult.value.active || [] : []);
       setConfig(configResult.status === "fulfilled" ? configResult.value.config || DEFAULT_MOD_CONFIG : DEFAULT_MOD_CONFIG);
+      const moderationModulePayload = moduleResult.status === "fulfilled" ? moduleResult.value.module || { enabled: true, config: {} } : { enabled: true, config: {} };
+      setModerationModule(moderationModulePayload);
+      setCaseCommandConfig(normalizeCaseCommandConfig(moderationModulePayload.config));
 
       if (casesResult.status === "rejected") {
         console.error("Failed to load moderation cases:", casesResult.reason);
@@ -127,6 +168,9 @@ export default function ModerationPage() {
       if (configResult.status === "rejected") {
         console.error("Failed to load moderation config:", configResult.reason);
       }
+      if (moduleResult.status === "rejected") {
+        console.error("Failed to load moderation module config:", moduleResult.reason);
+      }
     } catch (err) {
       console.error("Failed to load moderation data:", err);
       setGuildName("Guild");
@@ -134,6 +178,8 @@ export default function ModerationPage() {
       setCases([]);
       setActivePunishments([]);
       setConfig(DEFAULT_MOD_CONFIG);
+      setModerationModule({ enabled: true, config: {} });
+      setCaseCommandConfig(DEFAULT_CASE_COMMAND_CONFIG);
     } finally {
       setLoading(false);
     }
@@ -206,6 +252,56 @@ export default function ModerationPage() {
       }
     } catch (err) {
       console.error("Failed to update config:", err);
+    }
+  };
+
+  const handleCaseCommandUpdate = async (updates: Partial<typeof DEFAULT_CASE_COMMAND_CONFIG>) => {
+    if (!guildId || typeof guildId !== "string") return;
+
+    const nextConfig = {
+      ...caseCommandConfig,
+      ...updates,
+    };
+
+    setCaseCommandConfig(nextConfig);
+
+    try {
+      const response = await fetch(`/api/modules/${guildId}/moderation`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: moderationModule?.enabled ?? true,
+          config: {
+            ...(moderationModule?.config ?? {}),
+            case_command: {
+              channel_id: nextConfig.channel_id.trim(),
+              allowed_role_ids: nextConfig.allowed_role_ids,
+              allowed_user_ids: nextConfig.allowed_user_ids,
+              default_timeout_minutes: nextConfig.default_timeout_minutes,
+            },
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update case command config");
+      }
+
+      setModerationModule((current) => ({
+        enabled: current?.enabled ?? true,
+        config: {
+          ...(current?.config ?? {}),
+          case_command: {
+            channel_id: nextConfig.channel_id.trim(),
+            allowed_role_ids: nextConfig.allowed_role_ids,
+            allowed_user_ids: nextConfig.allowed_user_ids,
+            default_timeout_minutes: nextConfig.default_timeout_minutes,
+          },
+        },
+      }));
+    } catch (err) {
+      console.error("Failed to update case command config:", err);
+      loadData();
     }
   };
 
@@ -547,6 +643,64 @@ export default function ModerationPage() {
                         placeholder="Channel ID where mod actions are logged"
                         value={config.modlog_channel_id || ""}
                         onChange={(e) => handleConfigUpdate({ modlog_channel_id: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="space-y-2 rounded-xl border border-border/60 p-4">
+                      <div className="space-y-0.5">
+                        <Label>Case Command Channel ID</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Message reports from the Discord message command are sent here. Leave blank to reuse the modlog channel.
+                        </p>
+                      </div>
+                      <Input
+                        placeholder="Channel ID for case reports"
+                        value={caseCommandConfig.channel_id}
+                        onChange={(e) => handleCaseCommandUpdate({ channel_id: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Case Command Allowed Role IDs</Label>
+                        <Textarea
+                          placeholder="Comma-separated role IDs"
+                          value={caseCommandConfig.allowed_role_ids.join(", ")}
+                          onChange={(e) =>
+                            handleCaseCommandUpdate({
+                              allowed_role_ids: e.target.value.split(",").map((value) => value.trim()).filter(Boolean),
+                            })
+                          }
+                          rows={3}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Case Command Allowed User IDs</Label>
+                        <Textarea
+                          placeholder="Comma-separated user IDs"
+                          value={caseCommandConfig.allowed_user_ids.join(", ")}
+                          onChange={(e) =>
+                            handleCaseCommandUpdate({
+                              allowed_user_ids: e.target.value.split(",").map((value) => value.trim()).filter(Boolean),
+                            })
+                          }
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Case Command Default Timeout Minutes</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={caseCommandConfig.default_timeout_minutes}
+                        onChange={(e) =>
+                          handleCaseCommandUpdate({
+                            default_timeout_minutes: Math.max(1, Number(e.target.value) || 10),
+                          })
+                        }
                       />
                     </div>
 

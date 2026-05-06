@@ -61,8 +61,7 @@ function buildContainerComponents(blocks) {
         type: 12,
         items: [
           {
-            media: { url: block.content },
-            description: 'DM broadcast image'
+            media: { url: block.content }
           }
         ]
       });

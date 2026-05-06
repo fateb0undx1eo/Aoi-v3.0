@@ -5,6 +5,51 @@ export class ModerationService {
     this.configService = configService;
   }
 
+  normalizeCaseCommandConfig(rawConfig = {}) {
+    const channelId = String(rawConfig?.channel_id ?? '').trim();
+    const defaultTimeoutMinutes = Math.max(1, Math.min(10080, Number(rawConfig?.default_timeout_minutes) || 10));
+    const normalizeIds = (values) => (
+      Array.isArray(values)
+        ? values
+        : String(values ?? '')
+            .split(',')
+            .map((value) => value.trim())
+    ).filter(Boolean);
+
+    return {
+      channel_id: channelId || null,
+      allowed_role_ids: Array.from(new Set(normalizeIds(rawConfig?.allowed_role_ids))),
+      allowed_user_ids: Array.from(new Set(normalizeIds(rawConfig?.allowed_user_ids))),
+      default_timeout_minutes: defaultTimeoutMinutes
+    };
+  }
+
+  async getCaseCommandConfig(guildId) {
+    const row = await this.configService.getModuleConfig(guildId, 'moderation').catch(() => null);
+    return this.normalizeCaseCommandConfig(row?.config?.case_command);
+  }
+
+  async updateCaseCommandConfig(guildId, updates = {}) {
+    const row = await this.configService.getModuleConfig(guildId, 'moderation').catch(() => null);
+    const currentConfig = this.normalizeCaseCommandConfig(row?.config?.case_command);
+    const nextConfig = this.normalizeCaseCommandConfig({
+      ...currentConfig,
+      ...updates
+    });
+
+    await this.configService.upsertModuleConfig({
+      guild_id: guildId,
+      module_name: 'moderation',
+      enabled: row?.enabled ?? true,
+      config: {
+        ...(row?.config ?? {}),
+        case_command: nextConfig
+      }
+    });
+
+    return nextConfig;
+  }
+
   // AFK System
   async setAfk(guildId, userId, reason) {
     return upsertRows('afk_states', {

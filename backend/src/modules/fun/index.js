@@ -134,8 +134,7 @@ function buildContainer({
       type: 12,
       items: [
         {
-          media: { url: asset.url },
-          description: `${title} image`
+          media: { url: asset.url }
         }
       ]
     });

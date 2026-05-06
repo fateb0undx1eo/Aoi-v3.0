@@ -37,6 +37,7 @@ export default {
     {
       name: 'channel',
       description: 'Send a message to every sendable channel in the server',
+      ephemeral: true,
       permissionOverrides: {
         discordPermissions: ['Administrator']
       },

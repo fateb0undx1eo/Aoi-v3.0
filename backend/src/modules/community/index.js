@@ -329,8 +329,7 @@ function buildAnnouncementComponents({ title, body, gifUrl }) {
           type: 12,
           items: [
             {
-              media: { url: gifUrl },
-              description: `${title} animation`
+              media: { url: gifUrl }
             }
           ]
         },
@@ -602,6 +601,7 @@ export default {
     {
       name: 'profile',
       description: 'Manage the bot profile style for this server',
+      ephemeral: true,
       permissionOverrides: {
         discordPermissions: ['Administrator']
       },
@@ -650,15 +650,7 @@ export default {
 
         if (action === 'clear') {
           await services.profileStyleService.clearGuildConfig(interaction.guildId);
-          await interaction.editReply({
-            embeds: [
-              buildEmbed(
-                'Profile Style Cleared',
-                'The bot profile style was reset to Discord defaults and the saved config was updated.',
-                0x57f287
-              )
-            ]
-          });
+          await interaction.editReply('Profile style cleared. Done.');
           return;
         }
 
@@ -671,12 +663,12 @@ export default {
         const color2 = color2Input ? services.profileStyleService.parseColorInput(color2Input) : null;
 
         if (color1 === null) {
-          await interaction.editReply('Invalid primary color. Use a 6-digit hex value like `#FF0000`.');
+          await interaction.editReply('Invalid primary color. Not done.');
           return;
         }
 
         if (color2Input && color2 === null) {
-          await interaction.editReply('Invalid secondary color. Use a 6-digit hex value like `#00FFFF`.');
+          await interaction.editReply('Invalid secondary color. Not done.');
           return;
         }
 
@@ -687,19 +679,12 @@ export default {
           colors: [color1, color2].filter((value) => value !== null)
         });
 
-        await interaction.editReply({
-          embeds: [
-            buildEmbed(
-              'Profile Style Applied',
-              [
-                `Font ID: ${config.font_id}`,
-                `Effect ID: ${config.effect_id}`,
-                `Colors: ${config.colors.length ? config.colors.map(decimalToHex).join(', ') : 'none'}`
-              ].join('\n'),
-              0x5865f2
-            )
-          ]
-        });
+        await interaction.editReply([
+          `Font ID: ${config.font_id}`,
+          `Effect ID: ${config.effect_id}`,
+          `Colors: ${config.colors.length ? config.colors.map(decimalToHex).join(', ') : 'none'}`,
+          'Done.'
+        ].join('\n'));
       }
     },
     {
