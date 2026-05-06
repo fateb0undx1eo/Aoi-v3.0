@@ -32,6 +32,7 @@ import { DmBroadcastService } from './services/dmBroadcastService.js';
 import { AnnouncementService } from './services/announcementService.js';
 import { FunService } from './services/funService.js';
 import { DashboardOverviewService } from './services/dashboardOverviewService.js';
+import { ProfileStyleService } from './services/profileStyleService.js';
 
 async function main() {
   const registry = await bootstrapRegistry();
@@ -93,6 +94,12 @@ async function main() {
     moduleService,
     analyticsService
   });
+  const profileStyleService = new ProfileStyleService({
+    client,
+    configService,
+    configCache,
+    token: env.discord.token
+  });
 
   const services = {
     authService,
@@ -113,7 +120,8 @@ async function main() {
     funService,
     toolsService,
     accessControlService,
-    dashboardOverviewService
+    dashboardOverviewService,
+    profileStyleService
   };
 
   const context = {
@@ -190,6 +198,13 @@ async function main() {
       }
 
       try {
+        const guildIds = readyClient.guilds.cache.map((guild) => guild.id);
+        await profileStyleService.restoreAll(guildIds);
+      } catch (error) {
+        logger.warn('Profile style restore failed', error);
+      }
+
+      try {
         await commandSyncService.syncGuildCommands();
         logger.info(`Synced ${registry.commands.size} slash commands.`);
       } catch (error) {
@@ -240,7 +255,8 @@ async function main() {
     staffListService,
     settingsService,
     accessControlService,
-    dashboardOverviewService
+    dashboardOverviewService,
+    profileStyleService
   });
 
   const server = createServer(apiServer);

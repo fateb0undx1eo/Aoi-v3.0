@@ -73,6 +73,15 @@ const COMMUNITY_SCHEMA = {
         streaming_url: { type: 'string' }
       }
     },
+    profile_style: {
+      type: 'object',
+      properties: {
+        enabled: { type: 'boolean' },
+        font_id: { type: 'number' },
+        effect_id: { type: 'number' },
+        colors: { type: 'array', items: { type: 'number' } }
+      }
+    },
     announcements_studio: {
       type: 'object',
       properties: {
@@ -117,6 +126,34 @@ const COMMUNITY_SCHEMA = {
     }
   }
 };
+
+const PROFILE_STYLE_FONT_CHOICES = [
+  ['Bangers', 1],
+  ['Bio Rhyme', 2],
+  ['Cherry Bomb', 3],
+  ['Chicle', 4],
+  ['Compagnon', 5],
+  ['Museo Moderno', 6],
+  ['Neo Castel', 7],
+  ['Pixelify', 8],
+  ['Ribes', 9],
+  ['Sinistre', 10],
+  ['Default', 11],
+  ['Zilla Slab', 12]
+].map(([name, value]) => ({ name, value }));
+
+const PROFILE_STYLE_EFFECT_CHOICES = [
+  ['Solid', 1],
+  ['Gradient', 2],
+  ['Neon', 3],
+  ['Toon', 4],
+  ['Pop', 5],
+  ['Glow', 6]
+].map(([name, value]) => ({ name, value }));
+
+function decimalToHex(value) {
+  return `#${Number(value ?? 0).toString(16).padStart(6, '0').toUpperCase()}`;
+}
 
 function isUwuMessage(content) {
   return /uwu|owo|uvu/i.test(content);
@@ -557,6 +594,109 @@ export default {
               enabled ? 'Randomized Role Color Enabled' : 'Randomized Role Color Disabled',
               suffix,
               enabled ? 0x57f287 : 0xed4245
+            )
+          ]
+        });
+      }
+    },
+    {
+      name: 'profile',
+      description: 'Manage the bot profile style for this server',
+      permissionOverrides: {
+        discordPermissions: ['Administrator']
+      },
+      options: [
+        {
+          name: 'style',
+          type: 1,
+          description: 'Apply a profile style',
+          options: [
+            {
+              name: 'font',
+              type: 4,
+              description: 'Font style',
+              required: true,
+              choices: PROFILE_STYLE_FONT_CHOICES
+            },
+            {
+              name: 'effect',
+              type: 4,
+              description: 'Effect style',
+              required: true,
+              choices: PROFILE_STYLE_EFFECT_CHOICES
+            },
+            {
+              name: 'color1',
+              type: 3,
+              description: 'Primary hex color like #FF0000',
+              required: true
+            },
+            {
+              name: 'color2',
+              type: 3,
+              description: 'Secondary hex color like #00FFFF',
+              required: false
+            }
+          ]
+        },
+        {
+          name: 'clear',
+          type: 1,
+          description: 'Clear the saved profile style'
+        }
+      ],
+      async execute(interaction, { services }) {
+        const action = interaction.options.getSubcommand(true);
+
+        if (action === 'clear') {
+          await services.profileStyleService.clearGuildConfig(interaction.guildId);
+          await interaction.editReply({
+            embeds: [
+              buildEmbed(
+                'Profile Style Cleared',
+                'The bot profile style was reset to Discord defaults and the saved config was updated.',
+                0x57f287
+              )
+            ]
+          });
+          return;
+        }
+
+        const fontId = interaction.options.getInteger('font', true);
+        const effectId = interaction.options.getInteger('effect', true);
+        const color1Input = interaction.options.getString('color1', true);
+        const color2Input = interaction.options.getString('color2');
+
+        const color1 = services.profileStyleService.parseColorInput(color1Input);
+        const color2 = color2Input ? services.profileStyleService.parseColorInput(color2Input) : null;
+
+        if (color1 === null) {
+          await interaction.editReply('Invalid primary color. Use a 6-digit hex value like `#FF0000`.');
+          return;
+        }
+
+        if (color2Input && color2 === null) {
+          await interaction.editReply('Invalid secondary color. Use a 6-digit hex value like `#00FFFF`.');
+          return;
+        }
+
+        const config = await services.profileStyleService.updateGuildConfig(interaction.guildId, {
+          enabled: true,
+          font_id: fontId,
+          effect_id: effectId,
+          colors: [color1, color2].filter((value) => value !== null)
+        });
+
+        await interaction.editReply({
+          embeds: [
+            buildEmbed(
+              'Profile Style Applied',
+              [
+                `Font ID: ${config.font_id}`,
+                `Effect ID: ${config.effect_id}`,
+                `Colors: ${config.colors.length ? config.colors.map(decimalToHex).join(', ') : 'none'}`
+              ].join('\n'),
+              0x5865f2
             )
           ]
         });

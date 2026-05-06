@@ -592,24 +592,24 @@ export default function LandingPage() {
             <div className="section-aura bottom-[8%] right-[10%] h-72 w-72" />
           </div>
 
-          <div className="relative mx-auto grid min-h-[calc(100svh-7rem)] max-w-6xl items-center gap-12 px-1 pb-8 pt-10 sm:px-0 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:pt-16">
+          <div className="relative mx-auto grid min-h-[calc(100svh-7rem)] max-w-6xl items-center gap-10 px-1 pb-8 pt-8 sm:px-0 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14 lg:pt-12">
             <Reveal className="relative">
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-4 py-2 text-xs uppercase tracking-[0.28em] text-muted-foreground backdrop-blur-xl">
                 <Sparkles className="h-4 w-4 text-primary" />
                 AOI guardian platform
               </div>
-              <h1 className="mt-7 max-w-4xl text-5xl leading-[0.92] tracking-[-0.07em] sm:text-6xl lg:text-7xl xl:text-[5.3rem]">
+              <h1 className="mt-6 max-w-3xl text-4xl leading-[0.94] tracking-[-0.065em] sm:text-5xl lg:text-6xl xl:text-[4.55rem]">
                 The premium control center for
                 <span className="mt-4 block">
                   <MorphWord />
                 </span>
                 <span className="mt-4 block text-foreground/52">built to run serious communities cleanly.</span>
               </h1>
-              <p className="mt-7 max-w-2xl text-base leading-8 text-foreground/82 sm:text-lg">
+              <p className="mt-6 max-w-xl text-sm leading-7 text-foreground/82 sm:text-base">
                 Replace disconnected moderation, utility, dashboard, and community stacks with one system that feels premium because it is structured properly.
               </p>
 
-              <div className="mt-9 flex flex-col gap-4 sm:flex-row">
+              <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                 <MagneticButton href={dashboardUrl}>
                   Open Dashboard
                   <ArrowRight className="h-4 w-4" />
@@ -620,7 +620,7 @@ export default function LandingPage() {
                 </MagneticButton>
               </div>
 
-              <div className="mt-10 grid gap-3 sm:grid-cols-3">
+              <div className="mt-8 grid gap-3 sm:grid-cols-3">
                 {heroStats.map((stat, index) => (
                   <motion.div
                     key={stat.label}

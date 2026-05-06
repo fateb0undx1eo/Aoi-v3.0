@@ -81,6 +81,13 @@ type BotLooksConfig = {
   streaming_url: string;
 };
 
+type ProfileStyleConfig = {
+  enabled: boolean;
+  font_id: number;
+  effect_id: number;
+  colors: number[];
+};
+
 type DmWelcomerConfig = {
   enabled: boolean;
   title: string;
@@ -199,6 +206,37 @@ const DEFAULT_BOT_LOOKS_CONFIG: BotLooksConfig = {
   custom_status: "",
   streaming_url: "",
 };
+
+const DEFAULT_PROFILE_STYLE_CONFIG: ProfileStyleConfig = {
+  enabled: false,
+  font_id: 11,
+  effect_id: 1,
+  colors: [],
+};
+
+const PROFILE_STYLE_FONTS = [
+  { id: 1, label: "Bangers" },
+  { id: 2, label: "Bio Rhyme" },
+  { id: 3, label: "Cherry Bomb" },
+  { id: 4, label: "Chicle" },
+  { id: 5, label: "Compagnon" },
+  { id: 6, label: "Museo Moderno" },
+  { id: 7, label: "Neo Castel" },
+  { id: 8, label: "Pixelify" },
+  { id: 9, label: "Ribes" },
+  { id: 10, label: "Sinistre" },
+  { id: 11, label: "Default" },
+  { id: 12, label: "Zilla Slab" },
+];
+
+const PROFILE_STYLE_EFFECTS = [
+  { id: 1, label: "Solid" },
+  { id: 2, label: "Gradient" },
+  { id: 3, label: "Neon" },
+  { id: 4, label: "Toon" },
+  { id: 5, label: "Pop" },
+  { id: 6, label: "Glow" },
+];
 
 const DEFAULT_DM_WELCOMER_CONFIG: DmWelcomerConfig = {
   enabled: false,
@@ -340,6 +378,40 @@ function normalizeBotLooksConfig(config: Record<string, any> | null | undefined)
     custom_status: String(config?.custom_status ?? "").trim().slice(0, 128),
     streaming_url: String(config?.streaming_url ?? "").trim().slice(0, 256),
   };
+}
+
+function normalizeProfileStyleConfig(config: Record<string, any> | null | undefined): ProfileStyleConfig {
+  const fontId = PROFILE_STYLE_FONTS.some((entry) => entry.id === Number(config?.font_id))
+    ? Number(config?.font_id)
+    : DEFAULT_PROFILE_STYLE_CONFIG.font_id;
+  const effectId = PROFILE_STYLE_EFFECTS.some((entry) => entry.id === Number(config?.effect_id))
+    ? Number(config?.effect_id)
+    : DEFAULT_PROFILE_STYLE_CONFIG.effect_id;
+
+  return {
+    enabled: Boolean(config?.enabled),
+    font_id: fontId,
+    effect_id: effectId,
+    colors: Array.isArray(config?.colors)
+      ? config.colors
+          .map((value: unknown) => Number.parseInt(String(value ?? ""), 10))
+          .filter((value: number) => Number.isFinite(value) && value >= 0 && value <= 0xffffff)
+          .slice(0, 2)
+      : [],
+  };
+}
+
+function decimalToHexColor(value: number) {
+  return `#${value.toString(16).padStart(6, "0").toUpperCase()}`;
+}
+
+function parseHexColor(value: string) {
+  const trimmed = value.trim().replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(trimmed)) {
+    return null;
+  }
+
+  return Number.parseInt(trimmed, 16);
 }
 
 function normalizeDmWelcomerConfig(config: Record<string, any> | null | undefined): DmWelcomerConfig {
@@ -490,6 +562,7 @@ export default function CommunityPage() {
   const [roleColorOpen, setRoleColorOpen] = useState(false);
   const [memeOpen, setMemeOpen] = useState(false);
   const [botLooksOpen, setBotLooksOpen] = useState(false);
+  const [profileStyleOpen, setProfileStyleOpen] = useState(false);
   const [dmWelcomerOpen, setDmWelcomerOpen] = useState(false);
   const [dmAllOpen, setDmAllOpen] = useState(false);
   const [announcementOpen, setAnnouncementOpen] = useState(false);
@@ -525,6 +598,12 @@ export default function CommunityPage() {
   const [botLooksSaveMessage, setBotLooksSaveMessage] = useState("");
   const [botLooksSaveState, setBotLooksSaveState] = useState<SaveState>("idle");
   const [botLooksForm, setBotLooksForm] = useState<BotLooksConfig>(DEFAULT_BOT_LOOKS_CONFIG);
+  const [profileStyleSaving, setProfileStyleSaving] = useState(false);
+  const [profileStyleReloading, setProfileStyleReloading] = useState(false);
+  const [profileStyleResetting, setProfileStyleResetting] = useState(false);
+  const [profileStyleSaveMessage, setProfileStyleSaveMessage] = useState("");
+  const [profileStyleSaveState, setProfileStyleSaveState] = useState<SaveState>("idle");
+  const [profileStyleForm, setProfileStyleForm] = useState<ProfileStyleConfig>(DEFAULT_PROFILE_STYLE_CONFIG);
   const [dmWelcomerSaving, setDmWelcomerSaving] = useState(false);
   const [dmWelcomerReloading, setDmWelcomerReloading] = useState(false);
   const [dmWelcomerSaveMessage, setDmWelcomerSaveMessage] = useState("");
@@ -595,6 +674,7 @@ export default function CommunityPage() {
       const nextRoleColor = normalizeRoleColorConfig(communityModule?.config?.role_color_rotation);
       const nextMemeAutopost = normalizeMemeAutopostConfig(communityModule?.config?.meme_autopost);
       const nextBotLooks = normalizeBotLooksConfig(communityModule?.config?.bot_looks);
+      const nextProfileStyle = normalizeProfileStyleConfig(communityModule?.config?.profile_style);
       const nextDmWelcomer = normalizeDmWelcomerConfig(communityModule?.config?.dm_welcomer);
       const nextAnnouncementPresets = normalizeAnnouncementPresets(communityModule?.config?.announcements_studio);
       const nextPremiumFeature = normalizePremiumFeatureConfig(communityModule?.config?.premium_feature_1);
@@ -602,6 +682,7 @@ export default function CommunityPage() {
       setRoleColorForm(nextRoleColor);
       setMemeForm(nextMemeAutopost);
       setBotLooksForm(nextBotLooks);
+      setProfileStyleForm(nextProfileStyle);
       setDmWelcomerForm(nextDmWelcomer);
       setAnnouncementPresets(nextAnnouncementPresets);
       setPremiumFeatureForm(nextPremiumFeature);
@@ -792,6 +873,16 @@ export default function CommunityPage() {
     );
   }, [communityModule]);
 
+  const hasPersistedProfileStyleConfig = useMemo(() => {
+    const persisted = normalizeProfileStyleConfig(communityModule?.config?.profile_style);
+    return (
+      persisted.enabled ||
+      persisted.font_id !== DEFAULT_PROFILE_STYLE_CONFIG.font_id ||
+      persisted.effect_id !== DEFAULT_PROFILE_STYLE_CONFIG.effect_id ||
+      persisted.colors.length > 0
+    );
+  }, [communityModule]);
+
   const hasPersistedDmWelcomerConfig = useMemo(() => {
     const persisted = normalizeDmWelcomerConfig(communityModule?.config?.dm_welcomer);
     return (
@@ -829,6 +920,20 @@ export default function CommunityPage() {
       ? `${botLooksForm.status} while ${botLooksForm.activity_type} "${botLooksForm.activity_text}".`
       : `${botLooksForm.status} with ${botLooksForm.activity_type} selected but no activity text yet.`;
   }, [botLooksForm]);
+
+  const profileStyleSummary = useMemo(() => {
+    if (!profileStyleForm.enabled) {
+      return "Bot profile style is off. Save to keep the bot on default display styling.";
+    }
+
+    const font = PROFILE_STYLE_FONTS.find((entry) => entry.id === profileStyleForm.font_id)?.label ?? `Font ${profileStyleForm.font_id}`;
+    const effect = PROFILE_STYLE_EFFECTS.find((entry) => entry.id === profileStyleForm.effect_id)?.label ?? `Effect ${profileStyleForm.effect_id}`;
+    const colorText = profileStyleForm.colors.length
+      ? profileStyleForm.colors.map(decimalToHexColor).join(", ")
+      : "no custom colors";
+
+    return `${font} with ${effect} using ${colorText}. Slash sync: /profile style`;
+  }, [profileStyleForm]);
 
   const premiumFeatureSummary = useMemo(() => {
     if (!premiumFeatureForm.enabled) {
@@ -1111,6 +1216,67 @@ export default function CommunityPage() {
       setBotLooksSaveMessage("Bot Looks reset to Discord defaults.");
     } finally {
       setBotLooksResetting(false);
+    }
+  }
+
+  async function handleProfileStyleSave(nextForm = profileStyleForm) {
+    if (!guildId || typeof guildId !== "string") return;
+
+    setProfileStyleSaving(true);
+    setProfileStyleSaveState("idle");
+    setProfileStyleSaveMessage("");
+
+    try {
+      const colors = nextForm.colors
+        .filter((value) => Number.isFinite(value) && value >= 0 && value <= 0xffffff)
+        .slice(0, 2);
+
+      await persistCommunityConfig({
+        ...(communityModule?.config ?? {}),
+        profile_style: {
+          ...nextForm,
+          colors,
+        },
+      });
+
+      await loadGuildData();
+      setProfileStyleSaveState("success");
+      setProfileStyleSaveMessage("Profile style saved and applied successfully.");
+    } catch (error) {
+      console.error(error);
+      setProfileStyleSaveState("error");
+      setProfileStyleSaveMessage(error instanceof Error ? error.message : "Failed to save profile style");
+    } finally {
+      setProfileStyleSaving(false);
+    }
+  }
+
+  async function handleProfileStyleReload() {
+    setProfileStyleReloading(true);
+    setProfileStyleSaveState("idle");
+    setProfileStyleSaveMessage("");
+
+    try {
+      await loadGuildData();
+      setProfileStyleSaveState("info");
+      setProfileStyleSaveMessage("Reloaded the latest profile style config.");
+    } finally {
+      setProfileStyleReloading(false);
+    }
+  }
+
+  async function handleProfileStyleReset() {
+    setProfileStyleResetting(true);
+    setProfileStyleSaveState("idle");
+    setProfileStyleSaveMessage("");
+
+    try {
+      setProfileStyleForm(DEFAULT_PROFILE_STYLE_CONFIG);
+      await handleProfileStyleSave(DEFAULT_PROFILE_STYLE_CONFIG);
+      setProfileStyleSaveState("success");
+      setProfileStyleSaveMessage("Profile style reset to Discord defaults.");
+    } finally {
+      setProfileStyleResetting(false);
     }
   }
 
@@ -1854,7 +2020,7 @@ export default function CommunityPage() {
           </div>
           <div>
             <h1 className="text-3xl font-bold">Community</h1>
-            <p className="text-muted-foreground">Bot Looks, message features, role color rotation, and lightweight meme autopost controls live here now.</p>
+            <p className="text-muted-foreground">Bot looks, profile styling, message features, role color rotation, and lightweight meme autopost controls live here now.</p>
           </div>
         </div>
 
@@ -1868,6 +2034,14 @@ export default function CommunityPage() {
               badge={botLooksForm.enabled ? "Applied" : "Default"}
               iconColor="text-cyan-400"
               onClick={() => setBotLooksOpen(true)}
+            />
+            <FeatureCard
+              icon={<Eye className="h-6 w-6" />}
+              title="Profile Style"
+              description={profileStyleSummary}
+              badge={profileStyleForm.enabled ? "Styled" : "Default"}
+              iconColor="text-violet-400"
+              onClick={() => setProfileStyleOpen(true)}
             />
             <FeatureCard
               icon={<LogIn className="h-6 w-6" />}
@@ -3597,6 +3771,176 @@ export default function CommunityPage() {
                   >
                     <Save className="h-4 w-4" />
                     {botLooksSaving ? "Saving..." : hasPersistedBotLooksConfig ? "Update & Apply" : "Save & Apply"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={profileStyleOpen} onOpenChange={setProfileStyleOpen}>
+          <DialogContent className="max-h-[92vh] max-w-[min(94vw,980px)] overflow-y-auto border-border/70 bg-zinc-950 text-zinc-100">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-3">
+                <Eye className="h-5 w-5 text-violet-400" />
+                Profile Style
+              </DialogTitle>
+              <DialogDescription className="text-zinc-400">
+                Save the bot&apos;s guild profile styling here or through <code>/profile style</code>. This stores one shared community config and reapplies it after restart.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              <div className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="font-medium text-zinc-100">Profile Style Status</div>
+                  <div className="text-sm text-zinc-400">
+                    {profileStyleForm.enabled ? "Profile style is active and will be restored on startup." : "Profile style is currently off and the bot keeps the default Discord look."}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="profile-style-enabled" className="text-sm text-zinc-200">Enabled</Label>
+                  <Switch
+                    id="profile-style-enabled"
+                    checked={profileStyleForm.enabled}
+                    onCheckedChange={(checked) => setProfileStyleForm((current) => ({ ...current, enabled: checked }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-zinc-200">Font</Label>
+                  <Select
+                    value={String(profileStyleForm.font_id)}
+                    onValueChange={(value) =>
+                      setProfileStyleForm((current) => ({
+                        ...current,
+                        font_id: Number(value),
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="border-zinc-800 bg-black text-zinc-100">
+                      <SelectValue placeholder="Select font" />
+                    </SelectTrigger>
+                    <SelectContent className="border-zinc-800 bg-black text-zinc-100">
+                      {PROFILE_STYLE_FONTS.map((font) => (
+                        <SelectItem key={font.id} value={String(font.id)} className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">
+                          {font.label} ({font.id})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-zinc-200">Effect</Label>
+                  <Select
+                    value={String(profileStyleForm.effect_id)}
+                    onValueChange={(value) =>
+                      setProfileStyleForm((current) => ({
+                        ...current,
+                        effect_id: Number(value),
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="border-zinc-800 bg-black text-zinc-100">
+                      <SelectValue placeholder="Select effect" />
+                    </SelectTrigger>
+                    <SelectContent className="border-zinc-800 bg-black text-zinc-100">
+                      {PROFILE_STYLE_EFFECTS.map((effect) => (
+                        <SelectItem key={effect.id} value={String(effect.id)} className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">
+                          {effect.label} ({effect.id})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="profile-style-color1" className="text-zinc-200">Primary Color</Label>
+                  <Input
+                    id="profile-style-color1"
+                    type="color"
+                    value={profileStyleForm.colors[0] !== undefined ? decimalToHexColor(profileStyleForm.colors[0]) : "#5865F2"}
+                    className="h-11 border-zinc-800 bg-zinc-950 text-zinc-100"
+                    onChange={(event) => {
+                      const parsed = parseHexColor(event.target.value);
+                      setProfileStyleForm((current) => ({
+                        ...current,
+                        colors: parsed === null ? current.colors : [parsed, ...current.colors.slice(1, 2)],
+                      }));
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="profile-style-color2" className="text-zinc-200">Secondary Color</Label>
+                  <Input
+                    id="profile-style-color2"
+                    type="color"
+                    value={profileStyleForm.colors[1] !== undefined ? decimalToHexColor(profileStyleForm.colors[1]) : "#00FFFF"}
+                    className="h-11 border-zinc-800 bg-zinc-950 text-zinc-100"
+                    onChange={(event) => {
+                      const parsed = parseHexColor(event.target.value);
+                      setProfileStyleForm((current) => {
+                        const first = current.colors[0];
+                        if (parsed === null) return current;
+
+                        return {
+                          ...current,
+                          colors: first === undefined ? [parsed] : [first, parsed],
+                        };
+                      });
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-violet-900/50 bg-violet-500/5 p-4 text-sm text-violet-100">
+                <div className="font-medium">Preview</div>
+                <div className="mt-2 text-violet-200/90">{profileStyleSummary}</div>
+                <div className="mt-2 text-xs text-violet-300/70">Slash sync: <code>/profile style</code> or <code>/profile clear</code>.</div>
+              </div>
+
+              <div className="flex flex-col gap-3 border-t border-zinc-800 pt-4">
+                {renderStatusMessage(
+                  profileStyleSaveState,
+                  profileStyleSaveMessage,
+                  "Save & apply updates the guild profile styling now and restores it again on startup."
+                )}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="gap-2 border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900"
+                      onClick={handleProfileStyleReload}
+                      disabled={profileStyleReloading || profileStyleSaving || profileStyleResetting}
+                    >
+                      <RefreshCcw className="h-4 w-4" />
+                      {profileStyleReloading ? "Reloading..." : "Reload"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="gap-2 border-red-900/80 bg-red-950/40 text-red-200 hover:bg-red-950"
+                      onClick={handleProfileStyleReset}
+                      disabled={profileStyleResetting || profileStyleSaving || profileStyleReloading}
+                    >
+                      <X className="h-4 w-4" />
+                      {profileStyleResetting ? "Resetting..." : "Reset"}
+                    </Button>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => handleProfileStyleSave()}
+                    disabled={profileStyleSaving || profileStyleResetting}
+                    className="gap-2 bg-violet-600 text-white hover:bg-violet-500"
+                  >
+                    <Save className="h-4 w-4" />
+                    {profileStyleSaving ? "Saving..." : hasPersistedProfileStyleConfig ? "Update & Apply" : "Save & Apply"}
                   </Button>
                 </div>
               </div>
