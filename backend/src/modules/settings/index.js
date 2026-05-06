@@ -22,36 +22,6 @@ export default {
       }
     },
     {
-      name: 'commandmanager',
-      description: 'Command manager entrypoint',
-      options: [],
-      async execute(interaction) {
-        await interaction.editReply('Use dashboard command manager to set per-command overrides.');
-      }
-    },
-    {
-      name: 'branding',
-      description: 'Update guild branding',
-      options: [],
-      async execute(interaction, { services }) {
-        await services.settingsService.setBranding(interaction.guildId, {
-          color: '#5865F2',
-          accent: 'default'
-        });
-        await interaction.editReply('Branding updated.');
-      }
-    },
-    {
-      name: 'dashboardroles',
-      description: 'Set dashboard manager roles',
-      options: [],
-      async execute(interaction, { services }) {
-        const roleIds = interaction.member?.roles?.cache?.map((role) => role.id).slice(0, 3) ?? [];
-        await services.settingsService.setDashboardRoles(interaction.guildId, roleIds);
-        await interaction.editReply('Dashboard roles updated.');
-      }
-    },
-    {
       name: 'errorlogs',
       description: 'Configure error log channel',
       options: [],

@@ -54,10 +54,21 @@ type ModerationModuleConfig = {
     case_command?: {
       channel_id?: string | null;
       allowed_role_ids?: string[];
-      allowed_user_ids?: string[];
       default_timeout_minutes?: number;
     };
   };
+};
+
+type GuildChannel = {
+  id: string;
+  name: string;
+};
+
+type GuildRole = {
+  id: string;
+  name: string;
+  color?: number;
+  managed?: boolean;
 };
 
 const DEFAULT_MOD_CONFIG: ModConfig = {
@@ -72,7 +83,6 @@ const DEFAULT_MOD_CONFIG: ModConfig = {
 const DEFAULT_CASE_COMMAND_CONFIG = {
   channel_id: "",
   allowed_role_ids: [] as string[],
-  allowed_user_ids: [] as string[],
   default_timeout_minutes: 10,
 };
 
@@ -81,7 +91,6 @@ function normalizeCaseCommandConfig(rawConfig?: ModerationModuleConfig["config"]
   return {
     channel_id: String(caseCommand?.channel_id || ""),
     allowed_role_ids: Array.isArray(caseCommand?.allowed_role_ids) ? caseCommand.allowed_role_ids.filter(Boolean) : [],
-    allowed_user_ids: Array.isArray(caseCommand?.allowed_user_ids) ? caseCommand.allowed_user_ids.filter(Boolean) : [],
     default_timeout_minutes: Math.max(1, Number(caseCommand?.default_timeout_minutes) || 10),
   };
 }
@@ -95,6 +104,8 @@ export default function ModerationPage() {
   const [config, setConfig] = useState<ModConfig | null>(null);
   const [moderationModule, setModerationModule] = useState<ModerationModuleConfig | null>(null);
   const [caseCommandConfig, setCaseCommandConfig] = useState(DEFAULT_CASE_COMMAND_CONFIG);
+  const [channels, setChannels] = useState<GuildChannel[]>([]);
+  const [roles, setRoles] = useState<GuildRole[]>([]);
   const [modules, setModules] = useState<ModuleRow[]>([]);
   const [guildName, setGuildName] = useState("Guild");
   const [loading, setLoading] = useState(true);
@@ -121,7 +132,7 @@ export default function ModerationPage() {
       setModules(overviewData.modules || []);
       setGuildName(overviewData.guild?.name || "Guild");
 
-      const [casesResult, activeResult, configResult, moduleResult] = await Promise.allSettled([
+      const [casesResult, activeResult, configResult, moduleResult, channelsResult, rolesResult] = await Promise.allSettled([
         fetch(`/api/moderation/${guildId}/cases?limit=50`).then(async (response) => {
           const payload = await response.json().catch(() => ({ cases: [] }));
           if (!response.ok) {
@@ -150,6 +161,20 @@ export default function ModerationPage() {
           }
           return payload;
         }),
+        fetch(`/api/guilds/${guildId}/channels`).then(async (response) => {
+          const payload = await response.json().catch(() => ({ channels: [] }));
+          if (!response.ok) {
+            throw new Error(payload?.error || "Failed to load channels");
+          }
+          return payload;
+        }),
+        fetch(`/api/guilds/${guildId}/roles`).then(async (response) => {
+          const payload = await response.json().catch(() => ({ roles: [] }));
+          if (!response.ok) {
+            throw new Error(payload?.error || "Failed to load roles");
+          }
+          return payload;
+        }),
       ]);
 
       setCases(casesResult.status === "fulfilled" ? casesResult.value.cases || [] : []);
@@ -158,6 +183,8 @@ export default function ModerationPage() {
       const moderationModulePayload = moduleResult.status === "fulfilled" ? moduleResult.value.module || { enabled: true, config: {} } : { enabled: true, config: {} };
       setModerationModule(moderationModulePayload);
       setCaseCommandConfig(normalizeCaseCommandConfig(moderationModulePayload.config));
+      setChannels(channelsResult.status === "fulfilled" ? channelsResult.value.channels || [] : []);
+      setRoles(rolesResult.status === "fulfilled" ? rolesResult.value.roles || [] : []);
 
       if (casesResult.status === "rejected") {
         console.error("Failed to load moderation cases:", casesResult.reason);
@@ -171,6 +198,12 @@ export default function ModerationPage() {
       if (moduleResult.status === "rejected") {
         console.error("Failed to load moderation module config:", moduleResult.reason);
       }
+      if (channelsResult.status === "rejected") {
+        console.error("Failed to load channels:", channelsResult.reason);
+      }
+      if (rolesResult.status === "rejected") {
+        console.error("Failed to load roles:", rolesResult.reason);
+      }
     } catch (err) {
       console.error("Failed to load moderation data:", err);
       setGuildName("Guild");
@@ -180,6 +213,8 @@ export default function ModerationPage() {
       setConfig(DEFAULT_MOD_CONFIG);
       setModerationModule({ enabled: true, config: {} });
       setCaseCommandConfig(DEFAULT_CASE_COMMAND_CONFIG);
+      setChannels([]);
+      setRoles([]);
     } finally {
       setLoading(false);
     }
@@ -276,7 +311,6 @@ export default function ModerationPage() {
             case_command: {
               channel_id: nextConfig.channel_id.trim(),
               allowed_role_ids: nextConfig.allowed_role_ids,
-              allowed_user_ids: nextConfig.allowed_user_ids,
               default_timeout_minutes: nextConfig.default_timeout_minutes,
             },
           },
@@ -294,7 +328,6 @@ export default function ModerationPage() {
           case_command: {
             channel_id: nextConfig.channel_id.trim(),
             allowed_role_ids: nextConfig.allowed_role_ids,
-            allowed_user_ids: nextConfig.allowed_user_ids,
             default_timeout_minutes: nextConfig.default_timeout_minutes,
           },
         },
@@ -638,79 +671,91 @@ export default function ModerationPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Modlog Channel ID</Label>
-                      <Input
-                        placeholder="Channel ID where mod actions are logged"
-                        value={config.modlog_channel_id || ""}
-                        onChange={(e) => handleConfigUpdate({ modlog_channel_id: e.target.value })}
-                      />
+                      <Label>Modlog Channel</Label>
+                      <Select
+                        value={config.modlog_channel_id || "__none"}
+                        onValueChange={(value) => handleConfigUpdate({ modlog_channel_id: value === "__none" ? "" : value })}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select modlog channel" />
+                        </SelectTrigger>
+                        <SelectContent position="popper" className="z-50 w-[var(--radix-select-trigger-width)] bg-background border shadow-md">
+                          <SelectItem value="__none">Not configured</SelectItem>
+                          {channels.map((channel) => (
+                            <SelectItem key={channel.id} value={channel.id}>
+                              #{channel.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
-                    <div className="space-y-2 rounded-xl border border-border/60 p-4">
+                    <div className="grid gap-4 rounded-xl border border-border/60 p-4 lg:grid-cols-2">
                       <div className="space-y-0.5">
-                        <Label>Case Command Channel ID</Label>
+                        <Label>Case Command Channel</Label>
                         <p className="text-sm text-muted-foreground">
-                          Message reports from the Discord message command are sent here. Leave blank to reuse the modlog channel.
+                          Message reports from the Discord message command are sent here.
                         </p>
-                      </div>
-                      <Input
-                        placeholder="Channel ID for case reports"
-                        value={caseCommandConfig.channel_id}
-                        onChange={(e) => handleCaseCommandUpdate({ channel_id: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Case Command Allowed Role IDs</Label>
-                        <Textarea
-                          placeholder="Comma-separated role IDs"
-                          value={caseCommandConfig.allowed_role_ids.join(", ")}
-                          onChange={(e) =>
-                            handleCaseCommandUpdate({
-                              allowed_role_ids: e.target.value.split(",").map((value) => value.trim()).filter(Boolean),
-                            })
-                          }
-                          rows={3}
-                        />
+                        <Select
+                          value={caseCommandConfig.channel_id || "__none"}
+                          onValueChange={(value) => handleCaseCommandUpdate({ channel_id: value === "__none" ? "" : value })}
+                        >
+                          <SelectTrigger className="mt-2 w-full">
+                            <SelectValue placeholder="Select case channel" />
+                          </SelectTrigger>
+                          <SelectContent position="popper" className="z-50 w-[var(--radix-select-trigger-width)] bg-background border shadow-md">
+                            <SelectItem value="__none">Not configured</SelectItem>
+                            {channels.map((channel) => (
+                              <SelectItem key={channel.id} value={channel.id}>
+                                #{channel.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label>Case Command Allowed User IDs</Label>
-                        <Textarea
-                          placeholder="Comma-separated user IDs"
-                          value={caseCommandConfig.allowed_user_ids.join(", ")}
-                          onChange={(e) =>
-                            handleCaseCommandUpdate({
-                              allowed_user_ids: e.target.value.split(",").map((value) => value.trim()).filter(Boolean),
-                            })
-                          }
-                          rows={3}
-                        />
+                      <div className="space-y-0.5">
+                        <Label>Case Command Role</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Only this role can open cases or press case action buttons.
+                        </p>
+                        <Select
+                          value={caseCommandConfig.allowed_role_ids[0] || "__none"}
+                          onValueChange={(value) => handleCaseCommandUpdate({ allowed_role_ids: value === "__none" ? [] : [value] })}
+                        >
+                          <SelectTrigger className="mt-2 w-full">
+                            <SelectValue placeholder="Select case role" />
+                          </SelectTrigger>
+                          <SelectContent position="popper" className="z-50 w-[var(--radix-select-trigger-width)] bg-background border shadow-md">
+                            <SelectItem value="__none">Not configured</SelectItem>
+                            {roles.filter((role) => !role.managed).map((role) => (
+                              <SelectItem key={role.id} value={role.id}>
+                                {role.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Case Command Default Timeout Minutes</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={caseCommandConfig.default_timeout_minutes}
-                        onChange={(e) =>
-                          handleCaseCommandUpdate({
-                            default_timeout_minutes: Math.max(1, Number(e.target.value) || 10),
-                          })
-                        }
-                      />
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Mute Role ID</Label>
-                      <Input
-                        placeholder="Role ID used for mutes"
-                        value={config.mute_role_id || ""}
-                        onChange={(e) => handleConfigUpdate({ mute_role_id: e.target.value })}
-                      />
+                      <Label>Mute Role</Label>
+                      <Select
+                        value={config.mute_role_id || "__none"}
+                        onValueChange={(value) => handleConfigUpdate({ mute_role_id: value === "__none" ? "" : value })}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select mute role" />
+                        </SelectTrigger>
+                        <SelectContent position="popper" className="z-50 w-[var(--radix-select-trigger-width)] bg-background border shadow-md">
+                          <SelectItem value="__none">Not configured</SelectItem>
+                          {roles.filter((role) => !role.managed).map((role) => (
+                            <SelectItem key={role.id} value={role.id}>
+                              {role.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </>
                 )}

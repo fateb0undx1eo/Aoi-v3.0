@@ -5,13 +5,13 @@ import {
   EmbedBuilder,
   MessageFlags,
   ModalBuilder,
-  PermissionFlagsBits,
   TextInputBuilder,
   TextInputStyle
 } from 'discord.js';
 
 const CASE_MODAL_PREFIX = 'case:submit';
 const CASE_ACTION_PREFIX = 'case:action';
+const CASE_TIMEOUT_MODAL_PREFIX = 'case:timeout';
 const pendingCaseReports = new Map();
 
 const MODERATION_SCHEMA = {
@@ -26,7 +26,6 @@ const MODERATION_SCHEMA = {
       properties: {
         channel_id: { type: 'string' },
         allowed_role_ids: { type: 'array', items: { type: 'string' } },
-        allowed_user_ids: { type: 'array', items: { type: 'string' } },
         default_timeout_minutes: { type: 'number' }
       }
     }
@@ -87,28 +86,22 @@ function getCaseCommandConfig(guildId, services, configCache) {
 
 function canUseCaseCommand(member, userId, caseConfig) {
   const allowedRoles = Array.isArray(caseConfig.allowed_role_ids) ? caseConfig.allowed_role_ids : [];
-  const allowedUsers = Array.isArray(caseConfig.allowed_user_ids) ? caseConfig.allowed_user_ids : [];
-  const hasAllowList = allowedRoles.length > 0 || allowedUsers.length > 0;
-
-  if (hasAllowList) {
-    if (allowedUsers.includes(userId)) return true;
-    return member?.roles?.cache?.some((role) => allowedRoles.includes(role.id)) ?? false;
-  }
-
-  return member?.permissions?.has(PermissionFlagsBits.ManageMessages) ?? false;
+  if (allowedRoles.length === 0) return false;
+  return member?.roles?.cache?.some((role) => allowedRoles.includes(role.id)) ?? false;
 }
 
 function resolveReportChannelId(modConfig, caseConfig) {
   return String(caseConfig.channel_id || modConfig.modlog_channel_id || '').trim() || null;
 }
 
-function getAttachmentLinks(message) {
+function getAttachmentData(message) {
   const attachments = [...(message.attachments?.values?.() ?? [])];
-  if (attachments.length === 0) return 'None';
-  return attachments
-    .slice(0, 5)
-    .map((attachment, index) => `[file ${index + 1}](${attachment.url})`)
-    .join(', ');
+  return attachments.slice(0, 5).map((attachment) => ({
+    url: attachment.url,
+    name: attachment.name ?? 'attachment',
+    isImage: String(attachment.contentType ?? '').startsWith('image/')
+      || /\.(png|jpe?g|gif|webp)$/i.test(String(attachment.url ?? '').split('?')[0])
+  }));
 }
 
 function getMessagePreview(message) {
@@ -116,6 +109,27 @@ function getMessagePreview(message) {
   if (content) return content;
   if (message.attachments?.size) return 'No text content.';
   return 'No text content.';
+}
+
+function buildMediaComponents(attachments = []) {
+  const imageItems = attachments
+    .filter((attachment) => attachment.isImage && attachment.url)
+    .slice(0, 4)
+    .map((attachment) => ({ media: { url: attachment.url } }));
+
+  return imageItems.length
+    ? [{
+        type: 12,
+        items: imageItems
+      }]
+    : [];
+}
+
+function getAttachmentLinks(attachments = []) {
+  if (!attachments.length) return 'None';
+  return attachments
+    .map((attachment, index) => `[file ${index + 1}](${attachment.url})`)
+    .join(', ');
 }
 
 function buildCaseReportComponents(report, resolvedLabel = '') {
@@ -128,13 +142,14 @@ function buildCaseReportComponents(report, resolvedLabel = '') {
     `**Reason**: ${escapeMarkdown(report.reason)}`,
     `**Message Content**:`,
     report.messageContent,
-    `**Media**: ${report.attachmentLinks}`
+    `**Media**: ${getAttachmentLinks(report.attachments)}`
   ].join('\n');
 
   const components = [
     {
       type: 17,
       components: [
+        ...buildMediaComponents(report.attachments),
         {
           type: 10,
           content: body
@@ -157,7 +172,7 @@ function buildCaseReportComponents(report, resolvedLabel = '') {
           type: 2,
           custom_id: `${CASE_ACTION_PREFIX}:timeout:${report.token}`,
           style: ButtonStyle.Primary,
-          label: `Timeout (${report.timeoutMinutes}m)`
+          label: 'Timeout'
         },
         {
           type: 2,
@@ -178,18 +193,38 @@ function buildCaseReportComponents(report, resolvedLabel = '') {
 }
 
 async function sendModerationDm({ member, guildName, actionType, reason, moderatorName, showModerator }) {
-  const lines = [
-    `${guildName}`,
-    `Action: ${actionType}`,
-    `Reason: ${reason || 'No reason provided'}`
-  ];
-
-  if (showModerator && moderatorName) {
-    lines.push(`Moderator: ${moderatorName}`);
-  }
-
   try {
-    await member.send(lines.join('\n'));
+    const title = actionType === 'WARN'
+      ? 'Warning Notice'
+      : actionType === 'TIMEOUT'
+        ? 'Timeout Notice'
+        : 'Kick Notice';
+    const lines = [
+      `# ${title}`,
+      `**Server**: ${escapeMarkdown(guildName)}`,
+      `**Action**: ${actionType}`,
+      `**Reason**: ${escapeMarkdown(reason || 'No reason provided')}`
+    ];
+
+    if (showModerator && moderatorName) {
+      lines.push(`**Moderator**: ${escapeMarkdown(moderatorName)}`);
+    }
+
+    await member.send({
+      flags: MessageFlags.IsComponentsV2,
+      components: [
+        {
+          type: 17,
+          components: [
+            {
+              type: 10,
+              content: lines.join('\n')
+            }
+          ]
+        }
+      ],
+      allowedMentions: { parse: [] }
+    });
   } catch {}
 }
 
@@ -236,6 +271,11 @@ async function handleCaseCommand(interaction, context) {
     return;
   }
 
+  if (targetMessage.author.id === interaction.user.id) {
+    await interaction.reply({ content: 'You cannot open a case on your own message.', ephemeral: true });
+    return;
+  }
+
   const token = `${interaction.guildId}.${targetMessage.id}.${interaction.user.id}`;
   pendingCaseReports.set(token, {
     guildId: interaction.guildId,
@@ -245,7 +285,7 @@ async function handleCaseCommand(interaction, context) {
     messageId: targetMessage.id,
     messageUrl: targetMessage.url,
     messageContent: getMessagePreview(targetMessage),
-    attachmentLinks: getAttachmentLinks(targetMessage),
+    attachments: getAttachmentData(targetMessage),
     reportChannelId,
     timeoutMinutes: caseConfig.default_timeout_minutes
   });
@@ -262,17 +302,7 @@ async function handleCaseCommand(interaction, context) {
     .setMaxLength(500)
     .setPlaceholder('Enter the report reason');
 
-  const timeoutInput = new TextInputBuilder()
-    .setCustomId('timeout')
-    .setLabel('Timeout Minutes')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(false)
-    .setPlaceholder(String(caseConfig.default_timeout_minutes));
-
-  modal.addComponents(
-    textInputRow(reasonInput),
-    textInputRow(timeoutInput)
-  );
+  modal.addComponents(textInputRow(reasonInput));
 
   await interaction.showModal(modal);
 }
@@ -287,8 +317,6 @@ async function handleCaseModal(interaction, context) {
   }
 
   const reason = truncate(interaction.fields.getTextInputValue('reason'), 500);
-  const timeoutRaw = truncate(interaction.fields.getTextInputValue('timeout'), 10);
-  const timeoutMinutes = Math.max(1, Math.min(10080, Number.parseInt(timeoutRaw || String(report.timeoutMinutes), 10) || report.timeoutMinutes));
   const channel = await interaction.guild.channels.fetch(report.reportChannelId).catch(() => null);
 
   if (!channel?.isTextBased?.() || typeof channel.send !== 'function') {
@@ -300,7 +328,6 @@ async function handleCaseModal(interaction, context) {
   const finalizedReport = {
     ...report,
     reason,
-    timeoutMinutes,
     reportedTimestamp: Math.floor(Date.now() / 1000),
     token
   };
@@ -357,7 +384,28 @@ async function handleCaseAction(interaction, context) {
 
   const moderatorName = interaction.user.tag ?? interaction.user.username;
   const modConfig = await services.moderationService.getModConfig(interaction.guildId);
-  const durationSeconds = actionType === 'TIMEOUT' ? report.timeoutMinutes * 60 : undefined;
+  if (member.id === interaction.user.id) {
+    await interaction.reply({ content: 'You cannot action a case against yourself.', ephemeral: true });
+    return;
+  }
+
+  if (actionType === 'TIMEOUT') {
+    const modal = new ModalBuilder()
+      .setCustomId(`${CASE_TIMEOUT_MODAL_PREFIX}:${token}`)
+      .setTitle('Timeout Duration');
+    const durationInput = new TextInputBuilder()
+      .setCustomId('minutes')
+      .setLabel('Minutes')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setMaxLength(6)
+      .setPlaceholder('60');
+    modal.addComponents(textInputRow(durationInput));
+    await interaction.showModal(modal);
+    return;
+  }
+
+  const durationSeconds = undefined;
 
   try {
     if (modConfig.dm_on_punish) {
@@ -407,6 +455,87 @@ async function handleCaseAction(interaction, context) {
   await interaction.followUp({ content: 'Case action completed.', ephemeral: true });
 }
 
+async function handleCaseTimeoutModal(interaction, context) {
+  const token = interaction.customId.slice(`${CASE_TIMEOUT_MODAL_PREFIX}:`.length);
+  const report = pendingCaseReports.get(token);
+
+  if (!report || report.guildId !== interaction.guildId || report.resolved) {
+    await interaction.reply({ content: 'This case report is no longer available.', ephemeral: true });
+    return;
+  }
+
+  const { services, configCache } = context;
+  const caseConfig = getCaseCommandConfig(interaction.guildId, services, configCache);
+  if (!canUseCaseCommand(interaction.member, interaction.user.id, caseConfig)) {
+    await interaction.reply({ content: 'You are not allowed to use this action.', ephemeral: true });
+    return;
+  }
+
+  const minutes = Math.max(1, Math.min(10080, Number.parseInt(interaction.fields.getTextInputValue('minutes'), 10) || 0));
+  const guild = interaction.guild;
+  const member = await guild.members.fetch(report.targetUserId).catch(() => null);
+  if (!member || member.id === interaction.user.id) {
+    await interaction.reply({ content: 'The reported user is not available for this action.', ephemeral: true });
+    return;
+  }
+
+  const moderatorName = interaction.user.tag ?? interaction.user.username;
+  const modConfig = await services.moderationService.getModConfig(interaction.guildId);
+  const durationSeconds = minutes * 60;
+
+  try {
+    if (modConfig.dm_on_punish) {
+      await sendModerationDm({
+        member,
+        guildName: guild.name,
+        actionType: 'TIMEOUT',
+        reason: `${report.reason}\nDuration: ${minutes} minute(s)`,
+        moderatorName,
+        showModerator: Boolean(modConfig.show_mod_in_dm)
+      });
+    }
+
+    await performGuildAction({
+      member,
+      actionType: 'TIMEOUT',
+      reason: report.reason,
+      durationSeconds
+    });
+
+    await services.moderationService.createCase({
+      guildId: interaction.guildId,
+      targetUserId: report.targetUserId,
+      targetUsername: report.targetUsername,
+      moderatorUserId: interaction.user.id,
+      moderatorUsername: moderatorName,
+      type: 'TIMEOUT',
+      reason: `${report.reason} (reported message: ${report.messageUrl})`,
+      durationSeconds
+    });
+  } catch (error) {
+    await interaction.reply({ content: `Failed to apply timeout: ${error.message}`, ephemeral: true });
+    return;
+  }
+
+  report.resolved = true;
+  report.timeoutMinutes = minutes;
+  pendingCaseReports.set(token, report);
+
+  const channel = await interaction.guild.channels.fetch(report.reportChannelId).catch(() => null);
+  const message = channel?.isTextBased?.()
+    ? await channel.messages.fetch(report.reportMessageId).catch(() => null)
+    : null;
+
+  if (message) {
+    await message.edit({
+      components: buildCaseReportComponents(report, `TIMEOUT for ${minutes} minute(s) by ${escapeMarkdown(moderatorName)}`),
+      allowedMentions: { parse: [] }
+    });
+  }
+
+  await interaction.reply({ content: 'Case action completed.', ephemeral: true });
+}
+
 export default {
   name: 'moderation',
   configSchema: MODERATION_SCHEMA,
@@ -427,6 +556,11 @@ export default {
       async execute(interaction, context) {
         if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_MODAL_PREFIX}:`)) {
           await handleCaseModal(interaction, context);
+          return;
+        }
+
+        if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_TIMEOUT_MODAL_PREFIX}:`)) {
+          await handleCaseTimeoutModal(interaction, context);
           return;
         }
 

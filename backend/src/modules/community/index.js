@@ -160,8 +160,8 @@ function isUwuMessage(content) {
 }
 
 function getStarDisplay(rating) {
-  const filled = '★'.repeat(Math.floor(rating));
-  const empty = '☆'.repeat(5 - Math.floor(rating));
+  const filled = '*'.repeat(Math.floor(rating));
+  const empty = '-'.repeat(5 - Math.floor(rating));
   return filled + empty;
 }
 
@@ -347,6 +347,27 @@ function buildAnnouncementComponents({ title, body, gifUrl }) {
   ];
 }
 
+function buildStaffLeaderboardComponents(rows) {
+  const content = rows.map((row, index) => [
+    `**${index + 1}. <@${row.staffUserId}>**`,
+    `Rating: ${row.averageStars}/5`,
+    `Reviews: ${row.ratingsCount}`,
+    `Meter: ${getStarDisplay(row.averageStars)}`
+  ].join('\n')).join('\n\n');
+
+  return [
+    {
+      type: 17,
+      components: [
+        {
+          type: 10,
+          content: `# Staff Rating Leaderboard\n\n${content}`
+        }
+      ]
+    }
+  ];
+}
+
 function buildMemeAutopostControlEmbed(config, stats = []) {
   const latest = stats.slice(0, 5).map((row) => {
     const when = row.fetched_at ? new Date(row.fetched_at).toLocaleString() : 'unknown time';
@@ -463,58 +484,6 @@ export default {
   configSchema: COMMUNITY_SCHEMA,
   commands: [
     {
-      name: 'leave',
-      description: 'Configure leave message',
-      options: [
-        { name: 'channel', type: 7, description: 'Channel for leave messages', required: false }
-      ],
-      async execute(interaction, { services }) {
-        const channel = interaction.options.getChannel('channel') || interaction.channel;
-
-        await services.communityService.setMessageConfig(interaction.guildId, 'leave', {
-          channel_id: channel.id,
-          text: '{username} left {server_name}',
-          enabled: true
-        });
-
-        await interaction.editReply({
-          embeds: [
-            buildEmbed(
-              'Leave Message Configured',
-              `Leave messages will now be sent to <#${channel.id}>.`,
-              0x808080
-            )
-          ]
-        });
-      }
-    },
-    {
-      name: 'boost',
-      description: 'Configure boost message',
-      options: [
-        { name: 'channel', type: 7, description: 'Channel for boost messages', required: false }
-      ],
-      async execute(interaction, { services }) {
-        const channel = interaction.options.getChannel('channel') || interaction.channel;
-
-        await services.communityService.setMessageConfig(interaction.guildId, 'boost', {
-          channel_id: channel.id,
-          text: 'Thanks {mention} for boosting {server_name}',
-          enabled: true
-        });
-
-        await interaction.editReply({
-          embeds: [
-            buildEmbed(
-              'Boost Message Configured',
-              `Boost messages will now be sent to <#${channel.id}>.\n\nPreview: Thanks <@${interaction.user.id}> for boosting ${interaction.guild.name}!`,
-              0xf47fff
-            )
-          ]
-        });
-      }
-    },
-    {
       name: 'staffrate',
       description: 'Rate a staff member',
       options: [
@@ -549,24 +518,20 @@ export default {
     {
       name: 'staffleaderboard',
       description: 'Show staff rating leaderboard',
+      defer: false,
       options: [],
       async execute(interaction, { services }) {
         const rows = await services.communityService.getStaffLeaderboard(interaction.guildId, 10);
 
         if (rows.length === 0) {
-          await interaction.editReply('No staff ratings yet.');
+          await interaction.reply({ content: 'No staff ratings yet.', ephemeral: true });
           return;
         }
 
-        const description = rows
-          .map((row, index) => {
-            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '•';
-            return `${medal} <@${row.staffUserId}> - ${getStarDisplay(row.averageStars)} (${row.ratingsCount} ratings)`;
-          })
-          .join('\n');
-
-        await interaction.editReply({
-          embeds: [buildEmbed('Staff Leaderboard', description, 0xfee75c)]
+        await interaction.reply({
+          flags: MessageFlags.IsComponentsV2,
+          components: buildStaffLeaderboardComponents(rows),
+          allowedMentions: { parse: [] }
         });
       }
     },

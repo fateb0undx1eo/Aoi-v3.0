@@ -69,9 +69,9 @@ const workflowSteps = [
     description: "Every moderation action starts from clear command surfaces with context-first flow.",
   },
   {
-    tag: "/sticky",
-    title: "Channels stay self-guided",
-    description: "Keep rules, onboarding prompts, and repetitive guidance visible without manual staff cleanup.",
+    tag: "case",
+    title: "Message reports become real cases",
+    description: "Staff can turn a reported message into a clean warn, timeout, or kick flow from Discord.",
   },
   {
     tag: "/channel all",
@@ -592,20 +592,20 @@ export default function LandingPage() {
             <div className="section-aura bottom-[8%] right-[10%] h-72 w-72" />
           </div>
 
-          <div className="relative mx-auto grid min-h-[calc(100svh-7rem)] max-w-6xl items-center gap-10 px-1 pb-8 pt-8 sm:px-0 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14 lg:pt-12">
+          <div className="relative mx-auto grid min-h-[calc(100svh-9rem)] max-w-7xl items-center gap-8 px-1 pb-10 pt-6 sm:px-0 lg:grid-cols-[0.9fr_1.1fr] lg:gap-10 lg:pt-8">
             <Reveal className="relative">
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-4 py-2 text-xs uppercase tracking-[0.28em] text-muted-foreground backdrop-blur-xl">
                 <Sparkles className="h-4 w-4 text-primary" />
                 AOI guardian platform
               </div>
-              <h1 className="mt-6 max-w-3xl text-4xl leading-[0.94] tracking-[-0.065em] sm:text-5xl lg:text-6xl xl:text-[4.55rem]">
+              <h1 className="mt-5 max-w-2xl text-4xl leading-[0.98] tracking-tight sm:text-5xl lg:text-[3.75rem] xl:text-[4.1rem]">
                 The premium control center for
                 <span className="mt-4 block">
                   <MorphWord />
                 </span>
                 <span className="mt-4 block text-foreground/52">built to run serious communities cleanly.</span>
               </h1>
-              <p className="mt-6 max-w-xl text-sm leading-7 text-foreground/82 sm:text-base">
+              <p className="mt-5 max-w-lg text-sm leading-7 text-foreground/82 sm:text-base">
                 Replace disconnected moderation, utility, dashboard, and community stacks with one system that feels premium because it is structured properly.
               </p>
 
@@ -620,7 +620,7 @@ export default function LandingPage() {
                 </MagneticButton>
               </div>
 
-              <div className="mt-8 grid gap-3 sm:grid-cols-3">
+              <div className="mt-7 grid gap-3 sm:grid-cols-3">
                 {heroStats.map((stat, index) => (
                   <motion.div
                     key={stat.label}
@@ -658,13 +658,13 @@ export default function LandingPage() {
         <SectionDivider />
 
         <section id="modules" className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
-          <div className="grid gap-8 lg:grid-cols-[0.92fr_1.08fr] lg:items-start">
+          <div className="grid gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
             <Reveal className="lg:sticky lg:top-28">
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/58 px-4 py-2 text-xs uppercase tracking-[0.28em] text-muted-foreground backdrop-blur-xl">
                 <Layers3 className="h-4 w-4 text-primary" />
                 Module architecture
               </div>
-              <h2 className="mt-6 text-4xl sm:text-5xl">
+              <h2 className="mt-6 text-3xl sm:text-4xl">
                 Every part of the platform feels
                 <span className="text-primary"> intentionally connected.</span>
               </h2>
@@ -686,11 +686,11 @@ export default function LandingPage() {
               </div>
             </Reveal>
 
-            <div className="grid gap-5 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {moduleCards.map((module, index) => {
                 const Icon = module.icon;
                 return (
-                  <InteractiveSurface key={module.title} delay={index * 0.06} className="p-6 sm:p-7">
+                  <InteractiveSurface key={module.title} delay={index * 0.06} className="p-5 sm:p-6">
                     <div className="aoi-panel-lines rounded-[inherit]" />
                     <div className="relative z-10">
                       <div className="mb-5 inline-flex rounded-2xl border border-border/70 bg-background/66 p-3 text-primary backdrop-blur-xl">
@@ -714,7 +714,7 @@ export default function LandingPage() {
               <Zap className="h-4 w-4 text-primary" />
               Command-first workflow
             </div>
-            <h2 className="mt-6 text-4xl sm:text-5xl">
+            <h2 className="mt-6 text-3xl sm:text-4xl">
               Setup looks premium because the
               <span className="text-primary"> flow is frictionless.</span>
             </h2>
@@ -723,10 +723,10 @@ export default function LandingPage() {
             </p>
           </Reveal>
 
-          <div className="mt-12 grid gap-5 lg:grid-cols-[1.02fr_0.98fr]">
+          <div className="mt-10 grid gap-5 lg:grid-cols-[0.94fr_1.06fr]">
             <div className="grid gap-4">
               {workflowSteps.map((step, index) => (
-                <InteractiveSurface key={step.tag} delay={index * 0.08} className="p-6">
+                <InteractiveSurface key={step.tag} delay={index * 0.08} className="p-5">
                   <div className="relative z-10 flex items-start gap-4">
                     <div className="mt-1 rounded-2xl border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
                       {step.tag}
@@ -741,7 +741,7 @@ export default function LandingPage() {
             </div>
 
             <Reveal>
-              <div className="lux-surface overflow-hidden rounded-[2rem] p-6 sm:p-8">
+              <div className="lux-surface overflow-hidden rounded-[2rem] p-5 sm:p-7">
                 <div className="aoi-panel-lines rounded-[inherit]" />
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_24%_18%,hsl(var(--primary)/0.16),transparent_24%),radial-gradient(circle_at_84%_14%,hsl(var(--hero-blue)/0.16),transparent_28%),linear-gradient(180deg,hsl(var(--foreground)/0.03),transparent)] dark:bg-[radial-gradient(circle_at_24%_18%,hsl(var(--primary)/0.18),transparent_24%),radial-gradient(circle_at_84%_14%,hsl(var(--hero-red)/0.18),transparent_28%),linear-gradient(180deg,hsl(0_0%_100%/0.03),transparent)]" />
                 <div className="relative z-10">
@@ -836,7 +836,7 @@ export default function LandingPage() {
               <Sparkles className="h-4 w-4 text-primary" />
               AOI capabilities
             </div>
-            <h2 className="mt-6 text-4xl sm:text-5xl">
+            <h2 className="mt-6 text-3xl sm:text-4xl">
               Everything you need to
               <span className="text-primary"> scale confidently.</span>
             </h2>
@@ -845,7 +845,7 @@ export default function LandingPage() {
             </p>
           </Reveal>
 
-          <div className="mt-12 grid gap-6 lg:grid-cols-3">
+          <div className="mt-10 grid gap-5 lg:grid-cols-3">
             {featureShowcase.map((feature, index) => {
               const Icon = feature.icon;
               return (
@@ -876,12 +876,12 @@ export default function LandingPage() {
               <Quote className="h-4 w-4 text-primary" />
               Trusted by communities
             </div>
-            <h2 className="mt-6 text-4xl sm:text-5xl">
-              Testimonials now move like a
-              <span className="text-primary"> premium carousel.</span>
+            <h2 className="mt-6 text-3xl sm:text-4xl">
+              Communities rely on
+              <span className="text-primary"> controlled operations.</span>
             </h2>
             <p className="mx-auto mt-5 max-w-3xl text-sm leading-8 text-foreground/82 sm:text-base">
-              Staggered auto-scrolling tracks, glowing quote marks, and gradient avatars lift this section without turning it into visual noise.
+              Staff teams get faster moderation, cleaner dashboards, and fewer scattered bot surfaces.
             </p>
           </Reveal>
 
@@ -913,7 +913,7 @@ export default function LandingPage() {
                 <Zap className="h-4 w-4 text-primary" />
                 Final call
               </div>
-              <h2 className="mt-6 text-4xl sm:text-5xl">
+              <h2 className="mt-6 text-3xl sm:text-4xl">
                 Keep the server premium.
                 <span className="block text-primary">Keep operations under control.</span>
               </h2>

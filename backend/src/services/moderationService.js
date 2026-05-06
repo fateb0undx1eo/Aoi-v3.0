@@ -19,7 +19,6 @@ export class ModerationService {
     return {
       channel_id: channelId || null,
       allowed_role_ids: Array.from(new Set(normalizeIds(rawConfig?.allowed_role_ids))),
-      allowed_user_ids: Array.from(new Set(normalizeIds(rawConfig?.allowed_user_ids))),
       default_timeout_minutes: defaultTimeoutMinutes
     };
   }
