@@ -29,22 +29,22 @@ const LEVELING_SCHEMA = {
 };
 
 const DEFAULT_RANK_CARD_CONFIG = Object.freeze({
-  background_color: '#090A10',
-  panel_color: '#181920',
-  panel_border_color: '#282A33',
+  background_color: '#101212',
+  panel_color: '#151716',
+  panel_border_color: '#2A2D2B',
   display_name_color: '#FFFFFF',
-  username_color: '#858B9A',
+  username_color: '#9A9A9A',
   rank_color: '#FFFFFF',
-  rank_label_color: '#D62BFF',
-  progress_track_color: '#1A1B23',
-  progress_start_color: '#A414F5',
-  progress_end_color: '#E363E9',
-  progress_text_color: '#E9ECF5',
-  stat_card_color: '#191A21',
-  stat_label_color: '#878C9A',
+  rank_label_color: '#FF1717',
+  progress_track_color: '#2B2527',
+  progress_start_color: '#FF1212',
+  progress_end_color: '#FF4141',
+  progress_text_color: '#FF1717',
+  stat_card_color: '#070708',
+  stat_label_color: '#A0A0A0',
   stat_value_color: '#FFFFFF',
-  status_color: '#28D56C',
-  grid_color: '#20222B'
+  status_color: '#7DFF8D',
+  grid_color: '#252A28'
 });
 
 function cleanHex(value, fallback) {
@@ -130,6 +130,15 @@ function createProgressGradient(ctx, x, y, width, config) {
   return gradient;
 }
 
+function hexToRgba(hex, alpha) {
+  const clean = String(hex || '#000000').replace('#', '');
+  const value = Number.parseInt(clean, 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function drawCoverImage(ctx, image, x, y, width, height) {
   const scale = Math.max(width / image.width, height / image.height);
   const sourceWidth = width / scale;
@@ -155,18 +164,18 @@ function drawTextFit(ctx, text, x, y, maxWidth) {
 
 function drawGrid(ctx, width, height, color) {
   ctx.save();
-  ctx.globalAlpha = 0.68;
+  ctx.globalAlpha = 0.52;
   ctx.strokeStyle = color;
   ctx.lineWidth = 1;
 
-  for (let x = 0; x <= width; x += 80) {
+  for (let x = 0; x <= width; x += 50) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, height);
     ctx.stroke();
   }
 
-  for (let y = 0; y <= height; y += 80) {
+  for (let y = 0; y <= height; y += 50) {
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(width, y);
@@ -187,7 +196,7 @@ function drawAvatarFallback(ctx, x, y, radius, user, config) {
   ctx.fillStyle = gradient;
   ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
   ctx.fillStyle = config.display_name_color;
-  ctx.font = '900 44px Arial';
+  ctx.font = '900 44px "Arial Rounded MT Bold", "Trebuchet MS", Arial';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(String(user.username || 'A').slice(0, 1).toUpperCase(), x, y + 2);
@@ -195,113 +204,115 @@ function drawAvatarFallback(ctx, x, y, radius, user, config) {
 }
 
 function drawRankCardPng({ user, avatar, config, stats }) {
-  const width = 1000;
-  const height = 350;
-  const progressWidth = Math.round(660 * stats.progress);
-  const displayName = user.globalName || user.displayName || user.username;
+  const width = 900;
+  const height = 400;
+  const progressWidth = Math.round(540 * stats.progress);
+  const displayName = (user.globalName || user.displayName || user.username || 'AOI USER').toUpperCase();
   const username = user.username;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
-  const progressGradient = createProgressGradient(ctx, 305, 128, 660, config);
+  const progressGradient = createProgressGradient(ctx, 320, 140, 540, config);
 
   ctx.fillStyle = config.background_color;
   ctx.fillRect(0, 0, width, height);
   drawGrid(ctx, width, height, config.grid_color);
 
-  const ambientGlow = ctx.createRadialGradient(890, 176, 20, 890, 176, 190);
-  ambientGlow.addColorStop(0, `${config.progress_start_color}33`);
-  ambientGlow.addColorStop(1, `${config.progress_start_color}00`);
+  const ambientGlow = ctx.createRadialGradient(790, 110, 30, 790, 110, 360);
+  ambientGlow.addColorStop(0, hexToRgba(config.progress_start_color, 0.26));
+  ambientGlow.addColorStop(1, hexToRgba(config.progress_start_color, 0));
   ctx.fillStyle = ambientGlow;
-  ctx.beginPath();
-  ctx.arc(890, 176, 190, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.fillRect(450, 0, 450, height);
 
   ctx.save();
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.44)';
-  ctx.shadowBlur = 34;
-  ctx.shadowOffsetY = 18;
-  fillRoundedRect(ctx, 35, 30, 230, 290, 24, config.panel_color);
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.48)';
+  ctx.shadowBlur = 30;
+  ctx.shadowOffsetY = 14;
+  fillRoundedRect(ctx, 24, 25, 262, 350, 24, hexToRgba(config.panel_color, 0.78));
   ctx.restore();
-  strokeRoundedRect(ctx, 35, 30, 230, 290, 24, config.panel_border_color);
+  strokeRoundedRect(ctx, 24, 25, 262, 350, 24, hexToRgba(config.panel_border_color, 0.82));
 
   ctx.save();
   ctx.shadowColor = config.progress_start_color;
-  ctx.shadowBlur = 18;
-  ctx.strokeStyle = progressGradient;
-  ctx.lineWidth = 8;
+  ctx.shadowBlur = 14;
+  ctx.strokeStyle = config.progress_start_color;
+  ctx.lineWidth = 4;
   ctx.beginPath();
-  ctx.arc(150, 132, 74, 0, Math.PI * 2);
+  ctx.arc(155, 112, 72, 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
 
   if (avatar) {
     ctx.save();
     ctx.beginPath();
-    ctx.arc(150, 132, 70, 0, Math.PI * 2);
+    ctx.arc(155, 112, 68, 0, Math.PI * 2);
     ctx.clip();
-    drawCoverImage(ctx, avatar, 80, 62, 140, 140);
+    drawCoverImage(ctx, avatar, 87, 44, 136, 136);
     ctx.restore();
   } else {
-    drawAvatarFallback(ctx, 150, 132, 70, user, config);
+    drawAvatarFallback(ctx, 155, 112, 68, user, config);
   }
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = config.rank_color;
-  ctx.font = '900 58px Arial';
-  ctx.fillText(`#${stats.rank}`, 150, 268);
+  ctx.font = '900 68px "Arial Rounded MT Bold", "Trebuchet MS", Arial';
+  ctx.fillText(`#${stats.rank}`, 155, 240);
   ctx.fillStyle = config.rank_label_color;
-  ctx.font = '700 11px Arial';
-  ctx.fillText('GLOBAL RANK', 150, 294);
+  ctx.font = '400 16px Arial';
+  ctx.fillText('GLOBAL RANK', 155, 265);
 
   ctx.save();
-  ctx.globalAlpha = 0.14;
-  fillRoundedRect(ctx, 83, 309, 134, 34, 17, config.status_color);
+  ctx.globalAlpha = 0.16;
+  fillRoundedRect(ctx, 84, 326, 142, 36, 18, config.status_color);
   ctx.restore();
-  strokeRoundedRect(ctx, 83, 309, 134, 34, 17, config.status_color);
+  strokeRoundedRect(ctx, 84, 326, 142, 36, 18, config.status_color, 1.4);
   ctx.fillStyle = config.status_color;
-  ctx.font = '800 13px Arial';
-  ctx.fillText('SUPER ACTIVE', 150, 331);
+  ctx.font = '400 16px Arial';
+  ctx.fillText('SUPER ACTIVE', 155, 350);
 
   ctx.textAlign = 'left';
   ctx.fillStyle = config.display_name_color;
-  ctx.font = '900 42px Arial';
-  drawTextFit(ctx, displayName, 305, 72, 500);
-  ctx.fillStyle = config.username_color;
-  ctx.font = '700 14px Arial';
-  drawTextFit(ctx, `@${username}`, 307, 100, 420);
+  ctx.font = '900 42px "Arial Rounded MT Bold", "Trebuchet MS", Arial';
+  drawTextFit(ctx, displayName, 320, 80, 500);
+
   ctx.fillStyle = config.stat_label_color;
-  ctx.font = '800 12px Arial';
-  ctx.fillText('WEEKLY PROGRESS', 305, 116);
+  ctx.font = '400 16px Arial';
+  ctx.fillText('WEEKLY PROGRESS', 320, 125);
 
   ctx.textAlign = 'right';
   ctx.fillStyle = config.progress_text_color;
-  ctx.font = '900 14px Arial';
-  ctx.fillText(`${compactNumber(stats.current)} / ${compactNumber(stats.needed)}`, 965, 117);
+  ctx.font = '400 16px Arial';
+  ctx.fillText(`${compactNumber(stats.current)} / ${compactNumber(stats.needed)}`, 860, 125);
 
-  fillRoundedRect(ctx, 305, 128, 660, 30, 15, config.progress_track_color);
-  fillRoundedRect(ctx, 305, 128, progressWidth, 30, 15, progressGradient);
+  fillRoundedRect(ctx, 320, 140, 540, 16, 8, hexToRgba(config.progress_track_color, 0.86));
+  ctx.save();
+  ctx.shadowColor = config.progress_start_color;
+  ctx.shadowBlur = 24;
+  fillRoundedRect(ctx, 320, 140, progressWidth, 16, 8, progressGradient);
+  ctx.restore();
 
   ctx.textAlign = 'left';
   ctx.fillStyle = config.username_color;
-  ctx.font = '600 13px Arial';
-  ctx.fillText(`${compactNumber(stats.remaining)} more XP for next role`, 305, 181);
+  ctx.font = '400 14px Arial';
+  ctx.fillText(`${stats.remaining} more for next role`, 320, 175);
 
   drawStatCard(ctx, {
-    x: 305,
-    y: 204,
-    label: 'DAILY XP',
+    x: 320,
+    y: 220,
+    label: 'DAILY MSGS',
     value: compactNumber(stats.daily),
     raw: stats.daily.toLocaleString(),
+    icon: 'chat',
     config,
     progressGradient
   });
   drawStatCard(ctx, {
-    x: 543,
-    y: 204,
+    x: 600,
+    y: 220,
     label: 'LIFETIME',
     value: compactNumber(stats.lifetime),
     raw: stats.lifetime.toLocaleString(),
+    icon: 'trophy',
     config,
     progressGradient
   });
@@ -309,27 +320,63 @@ function drawRankCardPng({ user, avatar, config, stats }) {
   return canvas.toBuffer('image/png');
 }
 
-function drawStatCard(ctx, { x, y, label, value, raw, config, progressGradient }) {
+function drawStatCard(ctx, { x, y, label, value, raw, icon, config }) {
   ctx.save();
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.34)';
-  ctx.shadowBlur = 24;
-  ctx.shadowOffsetY = 14;
-  fillRoundedRect(ctx, x, y, 220, 94, 13, config.stat_card_color);
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.42)';
+  ctx.shadowBlur = 22;
+  ctx.shadowOffsetY = 10;
+  fillRoundedRect(ctx, x, y, 260, 120, 10, hexToRgba(config.stat_card_color, 0.72));
   ctx.restore();
 
-  strokeRoundedRect(ctx, x, y, 220, 94, 13, config.panel_border_color);
-  ctx.fillStyle = progressGradient;
-  ctx.fillRect(x + 45, y, 130, 2);
+  if (icon === 'chat') {
+    drawChatIcon(ctx, x + 200, y + 58, config.panel_border_color);
+  } else {
+    drawTrophyIcon(ctx, x + 200, y + 58, config.panel_border_color);
+  }
+
   ctx.textAlign = 'left';
   ctx.fillStyle = config.stat_label_color;
-  ctx.font = '800 11px Arial';
-  ctx.fillText(label, x + 18, y + 30);
+  ctx.font = '400 16px Arial';
+  ctx.fillText(label, x + 20, y + 35);
   ctx.fillStyle = config.stat_value_color;
-  ctx.font = '900 38px Arial';
-  ctx.fillText(value, x + 18, y + 68);
+  ctx.font = '900 36px "Arial Rounded MT Bold", "Trebuchet MS", Arial';
+  ctx.fillText(value, x + 20, y + 76);
   ctx.fillStyle = config.username_color;
-  ctx.font = '13px Arial';
-  ctx.fillText(raw, x + 18, y + 89);
+  ctx.font = '400 16px Arial';
+  ctx.fillText(raw, x + 20, y + 100);
+}
+
+function drawChatIcon(ctx, x, y, color) {
+  ctx.save();
+  ctx.globalAlpha = 0.12;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, 16, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(x, y + 28, 24, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(x - 5, y + 15, 10, 18);
+  ctx.restore();
+}
+
+function drawTrophyIcon(ctx, x, y, color) {
+  ctx.save();
+  ctx.globalAlpha = 0.12;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 3;
+  roundedRect(ctx, x - 16, y - 22, 32, 30, 8);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x - 10, y + 8);
+  ctx.lineTo(x + 10, y + 8);
+  ctx.lineTo(x + 5, y + 22);
+  ctx.lineTo(x - 5, y + 22);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillRect(x - 17, y + 24, 34, 5);
+  ctx.restore();
 }
 
 async function buildRankAttachment(user, config) {
