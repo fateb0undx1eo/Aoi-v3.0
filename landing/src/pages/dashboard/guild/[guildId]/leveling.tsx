@@ -39,22 +39,22 @@ type RankCardConfig = {
 };
 
 const DEFAULT_RANK_CARD: RankCardConfig = {
-  background_color: "#0B0D12",
-  panel_color: "#12141A",
-  panel_border_color: "#8B4DFF",
+  background_color: "#0B0F14",
+  panel_color: "#11161C",
+  panel_border_color: "#A855F7",
   display_name_color: "#FFFFFF",
-  username_color: "#8E93A1",
+  username_color: "#9CA3AF",
   rank_color: "#FFFFFF",
-  rank_label_color: "#B24DFF",
-  progress_track_color: "#24272E",
-  progress_start_color: "#8F38FF",
-  progress_end_color: "#B425FF",
-  progress_text_color: "#ECEAF7",
-  stat_card_color: "#151820",
-  stat_label_color: "#9CA0AA",
+  rank_label_color: "#9CA3AF",
+  progress_track_color: "#1A1F26",
+  progress_start_color: "#A855F7",
+  progress_end_color: "#A855F7",
+  progress_text_color: "#FFFFFF",
+  stat_card_color: "#11161C",
+  stat_label_color: "#9CA3AF",
   stat_value_color: "#FFFFFF",
-  status_color: "#23F28A",
-  grid_color: "#1D2230",
+  status_color: "#22C55E",
+  grid_color: "#FFFFFF",
 };
 
 const COLOR_FIELDS: Array<{ key: keyof RankCardConfig; label: string }> = [
@@ -224,37 +224,38 @@ export default function LevelingPage() {
                 className="overflow-hidden rounded-2xl border p-4"
                 style={{
                   ...previewStyle,
-                  backgroundImage: `linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px), radial-gradient(circle at 82% 12%, ${form.progress_start_color}44, transparent 38%)`,
-                  backgroundSize: "50px 50px, 50px 50px, 100% 100%",
+                  backgroundImage: "linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px)",
+                  backgroundSize: "44px 44px, 44px 44px",
                 }}
               >
-                <div className="rounded-2xl border p-5" style={{ backgroundColor: `${form.panel_color}D1`, borderColor: `${form.panel_border_color}AA`, boxShadow: `0 0 28px ${form.progress_start_color}33` }}>
-                  <div className="grid gap-8 md:grid-cols-[170px_1fr]">
+                <div className="rounded-2xl border p-6" style={{ backgroundColor: form.background_color, borderColor: `${form.panel_border_color}8C` }}>
+                  <div className="grid gap-8 md:grid-cols-[245px_1fr]">
                     <div className="text-center">
-                      <div className="mx-auto h-32 w-32 rounded-full border-[7px]" style={{ borderColor: form.progress_start_color, background: `linear-gradient(135deg, ${form.progress_start_color}, ${form.progress_end_color})`, boxShadow: `0 0 24px ${form.progress_start_color}88` }} />
-                      <div className="mt-3 text-6xl font-black tracking-tight" style={{ color: form.rank_color }}>#43</div>
-                      <div className="text-xs font-bold uppercase tracking-wide" style={{ color: form.rank_label_color }}>Global Rank</div>
-                      <div className="mx-auto mt-3 w-fit rounded-full border px-5 py-1.5 text-xs font-black uppercase" style={{ color: form.status_color, borderColor: form.status_color, backgroundColor: `${form.status_color}1F` }}>Super Active</div>
+                      <div className="mx-auto h-[140px] w-[140px] rounded-full border-[6px]" style={{ borderColor: form.progress_start_color, backgroundColor: form.panel_color, boxShadow: `0 0 18px ${form.progress_start_color}52` }} />
+                      <div className="mt-4 text-7xl font-black tracking-tight" style={{ color: form.rank_color }}>#43</div>
+                      <div className="text-sm font-bold uppercase tracking-wide" style={{ color: form.rank_label_color }}>Global Rank</div>
+                      <div className="mx-auto mt-6 w-fit rounded-full px-6 py-2 text-xs font-black uppercase" style={{ color: form.status_color, backgroundColor: "#112A1F" }}>Super Active</div>
                     </div>
-                    <div className="py-1">
-                      <div className="text-4xl font-black tracking-tight" style={{ color: form.display_name_color }}>Akira</div>
-                      <div className="mt-1 text-sm font-semibold" style={{ color: form.username_color }}>@friedrichnietzscheisme</div>
-                      <div className="mt-5 flex justify-between text-xs font-black uppercase" style={{ color: form.progress_text_color }}>
-                      <span>Weekly Progress</span>
-                        <span>2.9K / 5K</span>
+                    <div className="border-l pl-8 py-3" style={{ borderColor: "#6B728066" }}>
+                      <div className="text-[40px] font-black leading-none tracking-tight" style={{ color: form.display_name_color }}>Akira</div>
+                      <div className="mt-3 text-base font-semibold" style={{ color: form.username_color }}>@friedrichnietzscheisme</div>
+                      <div className="mt-7 text-sm font-bold uppercase" style={{ color: form.stat_label_color }}>Weekly Progress</div>
+                      <div className="mt-3 h-[26px] rounded-full" style={{ backgroundColor: form.progress_track_color }}>
+                        <div className="flex h-[26px] w-[58%] items-center justify-center rounded-full text-sm font-black" style={{ backgroundColor: form.progress_start_color, color: form.progress_text_color }}>2.9K / 5K</div>
                       </div>
-                      <div className="mt-2 h-[18px] rounded-full" style={{ backgroundColor: form.progress_track_color }}>
-                        <div className="h-[18px] w-[62%] rounded-full" style={{ background: `linear-gradient(90deg, ${form.progress_start_color}, ${form.progress_end_color})`, boxShadow: `0 0 18px ${form.progress_start_color}` }} />
-                      </div>
-                      <div className="mt-2 text-sm font-semibold" style={{ color: form.username_color }}>2.1K more XP for next role</div>
-                      <div className="mt-5 grid gap-5 sm:grid-cols-2">
-                        {["Daily XP", "Lifetime XP"].map((label, index) => (
-                          <div key={label} className="rounded-xl border p-5" style={{ backgroundColor: `${form.stat_card_color}BF`, borderColor: `${form.panel_border_color}33` }}>
-                            <div className="text-xs font-black uppercase" style={{ color: form.stat_label_color }}>{label}</div>
-                            <div className="mt-2 text-4xl font-black" style={{ color: form.stat_value_color }}>{index === 0 ? "3.5K" : "89.1K"}</div>
-                            <div className="text-sm font-semibold" style={{ color: form.username_color }}>{index === 0 ? "3,521" : "89,121"}</div>
-                          </div>
-                        ))}
+                      <div className="-mt-[22px] pr-5 text-right text-sm font-black" style={{ color: "#6B7280" }}>58%</div>
+                      <div className="mt-4 text-sm font-semibold" style={{ color: form.username_color }}>2.1K more for next role</div>
+                      <div className="mt-8 grid gap-10 sm:grid-cols-2">
+                        <div>
+                          <div className="text-sm font-bold uppercase" style={{ color: form.stat_label_color }}>Daily XP</div>
+                          <div className="mt-2 text-4xl font-black" style={{ color: form.stat_value_color }}>3.5K</div>
+                          <div className="text-sm font-semibold" style={{ color: "#6B7280" }}>3,521</div>
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold uppercase" style={{ color: form.stat_label_color }}>Lifetime XP</div>
+                          <div className="mt-2 text-4xl font-black" style={{ color: form.stat_value_color }}>89.1K</div>
+                          <div className="text-sm font-semibold" style={{ color: "#6B7280" }}>89,121</div>
+                        </div>
                       </div>
                     </div>
                   </div>
