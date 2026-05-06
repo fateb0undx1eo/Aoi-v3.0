@@ -1,4 +1,5 @@
 import { AttachmentBuilder } from 'discord.js';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 
 const LEVELING_SCHEMA = {
   type: 'object',
@@ -63,14 +64,6 @@ function getRankCardConfig(configCache, guildId) {
   );
 }
 
-function escapeXml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 function compactNumber(value) {
   if (value >= 1000) {
     const compact = value / 1000;
@@ -99,90 +92,251 @@ function getDeterministicStats(userId) {
   };
 }
 
-async function avatarDataUri(user) {
+async function loadUserAvatar(user) {
   const url = user.displayAvatarURL({ extension: 'png', size: 256 });
   const response = await fetch(url);
-  if (!response.ok) return url;
-  const contentType = response.headers.get('content-type') || 'image/png';
-  const bytes = Buffer.from(await response.arrayBuffer());
-  return `data:${contentType};base64,${bytes.toString('base64')}`;
+  if (!response.ok) return null;
+  return loadImage(Buffer.from(await response.arrayBuffer()));
 }
 
-function buildRankCardSvg({ user, avatarUri, config, stats }) {
+function roundedRect(ctx, x, y, width, height, radius) {
+  const safeRadius = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + safeRadius, y);
+  ctx.arcTo(x + width, y, x + width, y + height, safeRadius);
+  ctx.arcTo(x + width, y + height, x, y + height, safeRadius);
+  ctx.arcTo(x, y + height, x, y, safeRadius);
+  ctx.arcTo(x, y, x + width, y, safeRadius);
+  ctx.closePath();
+}
+
+function fillRoundedRect(ctx, x, y, width, height, radius, fillStyle) {
+  roundedRect(ctx, x, y, width, height, radius);
+  ctx.fillStyle = fillStyle;
+  ctx.fill();
+}
+
+function strokeRoundedRect(ctx, x, y, width, height, radius, strokeStyle, lineWidth = 1) {
+  roundedRect(ctx, x, y, width, height, radius);
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = lineWidth;
+  ctx.stroke();
+}
+
+function createProgressGradient(ctx, x, y, width, config) {
+  const gradient = ctx.createLinearGradient(x, y, x + width, y);
+  gradient.addColorStop(0, config.progress_start_color);
+  gradient.addColorStop(1, config.progress_end_color);
+  return gradient;
+}
+
+function drawCoverImage(ctx, image, x, y, width, height) {
+  const scale = Math.max(width / image.width, height / image.height);
+  const sourceWidth = width / scale;
+  const sourceHeight = height / scale;
+  const sourceX = (image.width - sourceWidth) / 2;
+  const sourceY = (image.height - sourceHeight) / 2;
+  ctx.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
+}
+
+function drawTextFit(ctx, text, x, y, maxWidth) {
+  const source = String(text ?? '');
+  if (ctx.measureText(source).width <= maxWidth) {
+    ctx.fillText(source, x, y);
+    return;
+  }
+
+  let output = source;
+  while (output.length > 1 && ctx.measureText(`${output}...`).width > maxWidth) {
+    output = output.slice(0, -1);
+  }
+  ctx.fillText(`${output}...`, x, y);
+}
+
+function drawGrid(ctx, width, height, color) {
+  ctx.save();
+  ctx.globalAlpha = 0.68;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+
+  for (let x = 0; x <= width; x += 80) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+  }
+
+  for (let y = 0; y <= height; y += 80) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawAvatarFallback(ctx, x, y, radius, user, config) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.clip();
+  const gradient = ctx.createLinearGradient(x - radius, y - radius, x + radius, y + radius);
+  gradient.addColorStop(0, config.panel_border_color);
+  gradient.addColorStop(1, config.progress_track_color);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  ctx.fillStyle = config.display_name_color;
+  ctx.font = '900 44px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(user.username || 'A').slice(0, 1).toUpperCase(), x, y + 2);
+  ctx.restore();
+}
+
+function drawRankCardPng({ user, avatar, config, stats }) {
   const width = 1000;
   const height = 350;
   const progressWidth = Math.round(660 * stats.progress);
-  const displayName = escapeXml(user.globalName || user.displayName || user.username);
-  const username = escapeXml(user.username);
-  const safeAvatarUri = escapeXml(avatarUri);
+  const displayName = user.globalName || user.displayName || user.username;
+  const username = user.username;
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext('2d');
+  const progressGradient = createProgressGradient(ctx, 305, 128, 660, config);
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <defs>
-    <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
-      <path d="M 80 0 L 0 0 0 80" fill="none" stroke="${config.grid_color}" stroke-width="1" opacity="0.7"/>
-    </pattern>
-    <linearGradient id="progress" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="${config.progress_start_color}"/>
-      <stop offset="100%" stop-color="${config.progress_end_color}"/>
-    </linearGradient>
-    <clipPath id="avatarClip">
-      <circle cx="150" cy="132" r="70"/>
-    </clipPath>
-    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#000000" flood-opacity="0.42"/>
-    </filter>
-    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
-      <feGaussianBlur stdDeviation="10" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-  </defs>
-  <rect width="${width}" height="${height}" fill="${config.background_color}"/>
-  <rect width="${width}" height="${height}" fill="url(#grid)" opacity="0.7"/>
-  <circle cx="890" cy="176" r="170" fill="${config.progress_start_color}" opacity="0.11"/>
+  ctx.fillStyle = config.background_color;
+  ctx.fillRect(0, 0, width, height);
+  drawGrid(ctx, width, height, config.grid_color);
 
-  <g filter="url(#softShadow)">
-    <rect x="35" y="30" width="230" height="290" rx="24" fill="${config.panel_color}" stroke="${config.panel_border_color}"/>
-    <circle cx="150" cy="132" r="74" fill="none" stroke="url(#progress)" stroke-width="8" filter="url(#glow)"/>
-    <image href="${safeAvatarUri}" x="80" y="62" width="140" height="140" preserveAspectRatio="xMidYMid slice" clip-path="url(#avatarClip)"/>
-    <text x="150" y="268" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="900" fill="${config.rank_color}">#${stats.rank}</text>
-    <text x="150" y="294" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="4" fill="${config.rank_label_color}">GLOBAL RANK</text>
-    <rect x="83" y="309" width="134" height="34" rx="17" fill="${config.status_color}" opacity="0.14" stroke="${config.status_color}" stroke-width="1"/>
-    <text x="150" y="331" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="800" fill="${config.status_color}">SUPER ACTIVE</text>
-  </g>
+  const ambientGlow = ctx.createRadialGradient(890, 176, 20, 890, 176, 190);
+  ambientGlow.addColorStop(0, `${config.progress_start_color}33`);
+  ambientGlow.addColorStop(1, `${config.progress_start_color}00`);
+  ctx.fillStyle = ambientGlow;
+  ctx.beginPath();
+  ctx.arc(890, 176, 190, 0, Math.PI * 2);
+  ctx.fill();
 
-  <text x="305" y="72" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="900" fill="${config.display_name_color}">${displayName}</text>
-  <text x="307" y="100" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" fill="${config.username_color}">@${username}</text>
-  <text x="305" y="116" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="800" letter-spacing="1" fill="${config.stat_label_color}">WEEKLY PROGRESS</text>
-  <text x="965" y="117" text-anchor="end" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="900" fill="${config.progress_text_color}">${compactNumber(stats.current)} / ${compactNumber(stats.needed)}</text>
-  <rect x="305" y="128" width="660" height="30" rx="15" fill="${config.progress_track_color}"/>
-  <rect x="305" y="128" width="${progressWidth}" height="30" rx="15" fill="url(#progress)"/>
-  <text x="305" y="181" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="600" fill="${config.username_color}">${compactNumber(stats.remaining)} more XP for next role</text>
+  ctx.save();
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.44)';
+  ctx.shadowBlur = 34;
+  ctx.shadowOffsetY = 18;
+  fillRoundedRect(ctx, 35, 30, 230, 290, 24, config.panel_color);
+  ctx.restore();
+  strokeRoundedRect(ctx, 35, 30, 230, 290, 24, config.panel_border_color);
 
-  <g filter="url(#softShadow)">
-    <rect x="305" y="204" width="220" height="94" rx="13" fill="${config.stat_card_color}" stroke="${config.panel_border_color}"/>
-    <rect x="350" y="204" width="130" height="2" fill="url(#progress)"/>
-    <text x="323" y="234" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="800" fill="${config.stat_label_color}">DAILY XP</text>
-    <text x="323" y="272" font-family="Inter, Arial, sans-serif" font-size="38" font-weight="900" fill="${config.stat_value_color}">${compactNumber(stats.daily)}</text>
-    <text x="323" y="293" font-family="Inter, Arial, sans-serif" font-size="13" fill="${config.username_color}">${stats.daily.toLocaleString()}</text>
+  ctx.save();
+  ctx.shadowColor = config.progress_start_color;
+  ctx.shadowBlur = 18;
+  ctx.strokeStyle = progressGradient;
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.arc(150, 132, 74, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
 
-    <rect x="543" y="204" width="220" height="94" rx="13" fill="${config.stat_card_color}" stroke="${config.panel_border_color}"/>
-    <rect x="588" y="204" width="130" height="2" fill="url(#progress)"/>
-    <text x="561" y="234" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="800" fill="${config.stat_label_color}">LIFETIME</text>
-    <text x="561" y="272" font-family="Inter, Arial, sans-serif" font-size="38" font-weight="900" fill="${config.stat_value_color}">${compactNumber(stats.lifetime)}</text>
-    <text x="561" y="293" font-family="Inter, Arial, sans-serif" font-size="13" fill="${config.username_color}">${stats.lifetime.toLocaleString()}</text>
-  </g>
-</svg>`;
+  if (avatar) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(150, 132, 70, 0, Math.PI * 2);
+    ctx.clip();
+    drawCoverImage(ctx, avatar, 80, 62, 140, 140);
+    ctx.restore();
+  } else {
+    drawAvatarFallback(ctx, 150, 132, 70, user, config);
+  }
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = config.rank_color;
+  ctx.font = '900 58px Arial';
+  ctx.fillText(`#${stats.rank}`, 150, 268);
+  ctx.fillStyle = config.rank_label_color;
+  ctx.font = '700 11px Arial';
+  ctx.fillText('GLOBAL RANK', 150, 294);
+
+  ctx.save();
+  ctx.globalAlpha = 0.14;
+  fillRoundedRect(ctx, 83, 309, 134, 34, 17, config.status_color);
+  ctx.restore();
+  strokeRoundedRect(ctx, 83, 309, 134, 34, 17, config.status_color);
+  ctx.fillStyle = config.status_color;
+  ctx.font = '800 13px Arial';
+  ctx.fillText('SUPER ACTIVE', 150, 331);
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = config.display_name_color;
+  ctx.font = '900 42px Arial';
+  drawTextFit(ctx, displayName, 305, 72, 500);
+  ctx.fillStyle = config.username_color;
+  ctx.font = '700 14px Arial';
+  drawTextFit(ctx, `@${username}`, 307, 100, 420);
+  ctx.fillStyle = config.stat_label_color;
+  ctx.font = '800 12px Arial';
+  ctx.fillText('WEEKLY PROGRESS', 305, 116);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = config.progress_text_color;
+  ctx.font = '900 14px Arial';
+  ctx.fillText(`${compactNumber(stats.current)} / ${compactNumber(stats.needed)}`, 965, 117);
+
+  fillRoundedRect(ctx, 305, 128, 660, 30, 15, config.progress_track_color);
+  fillRoundedRect(ctx, 305, 128, progressWidth, 30, 15, progressGradient);
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = config.username_color;
+  ctx.font = '600 13px Arial';
+  ctx.fillText(`${compactNumber(stats.remaining)} more XP for next role`, 305, 181);
+
+  drawStatCard(ctx, {
+    x: 305,
+    y: 204,
+    label: 'DAILY XP',
+    value: compactNumber(stats.daily),
+    raw: stats.daily.toLocaleString(),
+    config,
+    progressGradient
+  });
+  drawStatCard(ctx, {
+    x: 543,
+    y: 204,
+    label: 'LIFETIME',
+    value: compactNumber(stats.lifetime),
+    raw: stats.lifetime.toLocaleString(),
+    config,
+    progressGradient
+  });
+
+  return canvas.toBuffer('image/png');
+}
+
+function drawStatCard(ctx, { x, y, label, value, raw, config, progressGradient }) {
+  ctx.save();
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.34)';
+  ctx.shadowBlur = 24;
+  ctx.shadowOffsetY = 14;
+  fillRoundedRect(ctx, x, y, 220, 94, 13, config.stat_card_color);
+  ctx.restore();
+
+  strokeRoundedRect(ctx, x, y, 220, 94, 13, config.panel_border_color);
+  ctx.fillStyle = progressGradient;
+  ctx.fillRect(x + 45, y, 130, 2);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = config.stat_label_color;
+  ctx.font = '800 11px Arial';
+  ctx.fillText(label, x + 18, y + 30);
+  ctx.fillStyle = config.stat_value_color;
+  ctx.font = '900 38px Arial';
+  ctx.fillText(value, x + 18, y + 68);
+  ctx.fillStyle = config.username_color;
+  ctx.font = '13px Arial';
+  ctx.fillText(raw, x + 18, y + 89);
 }
 
 async function buildRankAttachment(user, config) {
   const stats = getDeterministicStats(user.id);
-  const avatarUri = await avatarDataUri(user).catch(() => user.displayAvatarURL({ extension: 'png', size: 256 }));
-  const svg = buildRankCardSvg({ user, avatarUri, config, stats });
-  return new AttachmentBuilder(Buffer.from(svg), { name: `rank-${user.id}.svg` });
+  const avatar = await loadUserAvatar(user).catch(() => null);
+  const png = drawRankCardPng({ user, avatar, config, stats });
+  return new AttachmentBuilder(png, { name: `rank-${user.id}.png` });
 }
 
 export default {
