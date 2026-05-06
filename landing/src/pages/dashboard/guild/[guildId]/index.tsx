@@ -5,6 +5,7 @@ import {
   Crown,
   Heart,
   LayoutDashboard,
+  Medal,
   MessageSquare,
   Shield,
   Users,
@@ -93,6 +94,7 @@ const moduleMeta: Record<string, { icon: ReactNode; href: string; description: s
   fun: { icon: <Heart className="h-5 w-5" />, href: "fun", description: "Waifu and husbando drops with claim buttons" },
   settings: { icon: <Zap className="h-5 w-5" />, href: "settings", description: "Bot configuration" },
   tools: { icon: <MessageSquare className="h-5 w-5" />, href: "tools", description: "Utility commands and helpers" },
+  leveling: { icon: <Medal className="h-5 w-5" />, href: "leveling", description: "Rank cards and progression styling" },
 };
 
 function buildChartPath(points: number[], width: number, height: number) {

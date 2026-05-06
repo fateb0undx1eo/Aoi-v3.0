@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import {
   Gamepad2,
   LayoutDashboard,
+  Medal,
   LogOut,
   Menu,
   Moon,
@@ -46,6 +47,7 @@ function getModuleVisual(name = "") {
     moderation: { icon: Shield, accent: "text-orange-400", summary: "Cases, punishments, and moderation controls." },
     settings: { icon: Settings2, accent: "text-cyan-400", summary: "Guild-wide configuration and core preferences." },
     tools: { icon: Wrench, accent: "text-amber-400", summary: "Utility actions, broadcasts, and operator shortcuts." },
+    leveling: { icon: Medal, accent: "text-emerald-400", summary: "Rank cards, XP visuals, and progression styling." },
   };
 
   return visuals[key] || { icon: LayoutDashboard, accent: "text-zinc-300", summary: "Manage this module." };
