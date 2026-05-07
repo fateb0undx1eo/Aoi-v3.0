@@ -20,7 +20,15 @@ const LEVELING_SCHEMA = {
 // FONT REGISTRATION
 // ============================================================================
 
-const FONT_DIR = path.join(process.cwd(), 'assets', 'fonts');
+const FONT_DIR = path.join(
+  process.cwd(),
+  'backend',
+  'src',
+  'modules',
+  'leveling',
+  'Assests',
+  'Fonts'
+);
 
 function tryRegister(name, file, weight = 'normal') {
   try {
