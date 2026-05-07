@@ -45,7 +45,7 @@ function error(...msg) {
 }
 
 // ============================================================================
-// STARTUP
+// STARTUP DEBUG
 // ============================================================================
 
 log('================================================');
@@ -55,30 +55,36 @@ log('FONT_DIR =', FONT_DIR);
 log('================================================');
 
 try {
-  if (fs.existsSync(FONT_DIR)) {
-    log('Font directory exists');
-
-    const files = fs.readdirSync(FONT_DIR);
-
-    log('Available fonts:', files);
+  if (!fs.existsSync(FONT_DIR)) {
+    error('FONT DIRECTORY DOES NOT EXIST');
   } else {
-    error('Font directory missing');
+    log('Font directory exists');
+    log(
+      'Available fonts:',
+      fs.readdirSync(FONT_DIR)
+    );
   }
 } catch (err) {
-  error('Font directory read failed');
+  error('Failed reading font directory');
   console.error(err);
 }
 
 // ============================================================================
-// FONT LOADING
+// FONT REGISTRATION
 // ============================================================================
 
-function loadFont(family, file, weight) {
+const LOADED_FONTS = new Set();
+
+function tryRegister(
+  family,
+  file,
+  weight = 'normal'
+) {
   try {
     const full = path.join(FONT_DIR, file);
 
     if (!fs.existsSync(full)) {
-      error('Missing font:', full);
+      error(`Missing font ${file}`);
       return;
     }
 
@@ -87,6 +93,10 @@ function loadFont(family, file, weight) {
       weight
     });
 
+    LOADED_FONTS.add(
+      `${family}-${weight}`
+    );
+
     log(`Loaded ${file}`);
   } catch (err) {
     error(`Failed loading ${file}`);
@@ -94,13 +104,32 @@ function loadFont(family, file, weight) {
   }
 }
 
-loadFont('Satoshi', 'Satoshi-Black.otf', '900');
-loadFont('Satoshi', 'Satoshi-Bold.otf', '700');
-loadFont('Inter', 'Inter_24pt-SemiBold.ttf', '600');
-loadFont('Inter', 'Inter_24pt-Regular.ttf', '400');
+tryRegister(
+  'Satoshi',
+  'Satoshi-Black.otf',
+  '900'
+);
+
+tryRegister(
+  'Satoshi',
+  'Satoshi-Bold.otf',
+  '700'
+);
+
+tryRegister(
+  'Inter',
+  'Inter_24pt-SemiBold.ttf',
+  '600'
+);
+
+tryRegister(
+  'Inter',
+  'Inter_24pt-Regular.ttf',
+  '400'
+);
 
 // ============================================================================
-// CONFIG
+// CARD
 // ============================================================================
 
 const CARD = {
@@ -111,6 +140,105 @@ const CARD = {
 // ============================================================================
 // HELPERS
 // ============================================================================
+
+function roundRect(
+  ctx,
+  x,
+  y,
+  w,
+  h,
+  r
+) {
+  const radius = Math.min(
+    r,
+    w / 2,
+    h / 2
+  );
+
+  ctx.beginPath();
+
+  ctx.moveTo(x + radius, y);
+
+  ctx.arcTo(
+    x + w,
+    y,
+    x + w,
+    y + h,
+    radius
+  );
+
+  ctx.arcTo(
+    x + w,
+    y + h,
+    x,
+    y + h,
+    radius
+  );
+
+  ctx.arcTo(
+    x,
+    y + h,
+    x,
+    y,
+    radius
+  );
+
+  ctx.arcTo(
+    x,
+    y,
+    x + w,
+    y,
+    radius
+  );
+
+  ctx.closePath();
+}
+
+function fillRoundRect(
+  ctx,
+  x,
+  y,
+  w,
+  h,
+  r,
+  fill
+) {
+  roundRect(
+    ctx,
+    x,
+    y,
+    w,
+    h,
+    r
+  );
+
+  ctx.fillStyle = fill;
+  ctx.fill();
+}
+
+function strokeRoundRect(
+  ctx,
+  x,
+  y,
+  w,
+  h,
+  r,
+  stroke,
+  width = 1
+) {
+  roundRect(
+    ctx,
+    x,
+    y,
+    w,
+    h,
+    r
+  );
+
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = width;
+  ctx.stroke();
+}
 
 function rgba(hex, alpha) {
   const value = parseInt(
@@ -125,56 +253,64 @@ function rgba(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-
-  ctx.moveTo(x + r, y);
-
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-
-  ctx.closePath();
-}
-
-function fillRoundRect(
-  ctx,
-  x,
-  y,
-  w,
-  h,
-  r,
-  fill
-) {
-  roundRect(ctx, x, y, w, h, r);
-
-  ctx.fillStyle = fill;
-  ctx.fill();
-}
-
 function setFont(
   ctx,
   weight,
   size,
   family = 'Satoshi'
 ) {
-  ctx.font = `${weight} ${size}px "${family}"`;
+  ctx.font = `${weight} ${size}px "${family}", sans-serif`;
 }
 
 function compactNumber(num) {
   if (num >= 1000) {
-    return `${(num / 1000).toFixed(1)}K`;
+    const k = num / 1000;
+
+    return `${
+      k % 1 === 0
+        ? k.toFixed(0)
+        : k.toFixed(1)
+    }K`;
   }
 
   return String(num);
 }
 
+function drawTextFit(
+  ctx,
+  text,
+  x,
+  y,
+  maxWidth
+) {
+  let value = String(text ?? '');
+
+  while (
+    ctx.measureText(value).width >
+      maxWidth &&
+    value.length > 0
+  ) {
+    value = value.slice(0, -1);
+  }
+
+  if (value !== text) {
+    value += '...';
+  }
+
+  ctx.fillText(value, x, y);
+}
+
 // ============================================================================
-// VECTOR ICONS
+// SVG STYLE ICONS
 // ============================================================================
 
-function drawDiamond(ctx, x, y, size, color) {
+function drawDiamond(
+  ctx,
+  x,
+  y,
+  size,
+  color
+) {
   ctx.save();
 
   ctx.beginPath();
@@ -192,12 +328,66 @@ function drawDiamond(ctx, x, y, size, color) {
   ctx.restore();
 }
 
-function drawBars(ctx, x, y, color) {
+function drawBolt(
+  ctx,
+  x,
+  y,
+  size,
+  color
+) {
+  ctx.save();
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    x - size * 0.2,
+    y - size
+  );
+
+  ctx.lineTo(
+    x + size * 0.2,
+    y - size
+  );
+
+  ctx.lineTo(
+    x - size * 0.05,
+    y
+  );
+
+  ctx.lineTo(
+    x + size * 0.35,
+    y
+  );
+
+  ctx.lineTo(
+    x - size * 0.3,
+    y + size
+  );
+
+  ctx.closePath();
+
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawBars(
+  ctx,
+  x,
+  y,
+  color
+) {
   ctx.fillStyle = color;
 
-  ctx.fillRect(x, y + 12, 7, 18);
-  ctx.fillRect(x + 12, y, 7, 30);
-  ctx.fillRect(x + 24, y + 7, 7, 23);
+  ctx.fillRect(x, y + 10, 8, 20);
+  ctx.fillRect(x + 14, y, 8, 30);
+  ctx.fillRect(
+    x + 28,
+    y + 6,
+    8,
+    24
+  );
 }
 
 // ============================================================================
@@ -217,6 +407,7 @@ function getStats(userId) {
     current,
     needed,
     progress: current / needed,
+    remaining: needed - current,
     daily: 3500,
     lifetime: 89121
   };
@@ -231,26 +422,58 @@ async function fetchAvatar(user) {
     const url =
       user.displayAvatarURL({
         extension: 'png',
-        size: 256
+        size: 256,
+        forceStatic: true
       });
 
     log('Fetching avatar:', url);
 
-    const response = await fetch(url);
+    const res = await fetch(url);
 
-    if (!response.ok) {
-      error('Avatar fetch failed');
+    if (!res.ok) {
+      error(
+        `Avatar request failed ${res.status}`
+      );
+
       return null;
     }
 
     const arrayBuffer =
-      await response.arrayBuffer();
+      await res.arrayBuffer();
 
-    const buffer = Buffer.from(arrayBuffer);
+    if (
+      !arrayBuffer ||
+      arrayBuffer.byteLength === 0
+    ) {
+      error('Avatar buffer empty');
+      return null;
+    }
 
-    return await loadImage(buffer);
+    const buffer = Buffer.from(
+      arrayBuffer
+    );
+
+    log(
+      `Avatar downloaded (${buffer.length} bytes)`
+    );
+
+    try {
+      const image =
+        await loadImage(buffer);
+
+      log(
+        'Avatar parsed successfully'
+      );
+
+      return image;
+    } catch (imgErr) {
+      error('loadImage failed');
+      console.error(imgErr);
+
+      return null;
+    }
   } catch (err) {
-    error('Avatar load failed');
+    error('fetchAvatar failed');
     console.error(err);
 
     return null;
@@ -258,11 +481,11 @@ async function fetchAvatar(user) {
 }
 
 // ============================================================================
-// DRAWING
+// BACKGROUND
 // ============================================================================
 
 function drawBackground(ctx) {
-  const bg =
+  const gradient =
     ctx.createLinearGradient(
       0,
       0,
@@ -270,10 +493,10 @@ function drawBackground(ctx) {
       CARD.height
     );
 
-  bg.addColorStop(0, '#050816');
-  bg.addColorStop(1, '#12071F');
+  gradient.addColorStop(0, '#040611');
+  gradient.addColorStop(1, '#0A0416');
 
-  ctx.fillStyle = bg;
+  ctx.fillStyle = gradient;
 
   ctx.fillRect(
     0,
@@ -291,60 +514,158 @@ function drawBackground(ctx) {
     22,
     rgba('#050816', 0.82)
   );
+
+  strokeRoundRect(
+    ctx,
+    15,
+    15,
+    CARD.width - 30,
+    CARD.height - 30,
+    22,
+    rgba('#C084FC', 0.4),
+    1.2
+  );
 }
 
-function drawAvatar(ctx, avatar) {
-  const x = 52;
-  const y = 46;
+// ============================================================================
+// AVATAR DRAW
+// ============================================================================
 
-  ctx.save();
+function drawAvatar(
+  ctx,
+  avatar
+) {
+  try {
+    const x = 52;
+    const y = 46;
+    const size = 170;
 
-  ctx.beginPath();
+    const cx = x + size / 2;
+    const cy = y + size / 2;
 
-  ctx.arc(137, 131, 76, 0, Math.PI * 2);
+    ctx.save();
 
-  ctx.clip();
+    ctx.shadowColor = '#A855F7';
+    ctx.shadowBlur = 40;
 
-  if (avatar) {
-    ctx.drawImage(
-      avatar,
-      x + 9,
-      y + 9,
-      152,
-      152
+    ctx.beginPath();
+
+    ctx.arc(
+      cx,
+      cy,
+      96,
+      0,
+      Math.PI * 2
     );
-  } else {
-    ctx.fillStyle = '#1F2937';
 
-    ctx.fillRect(
-      x,
-      y,
-      170,
-      170
+    ctx.strokeStyle = rgba(
+      '#A855F7',
+      0.9
     );
+
+    ctx.lineWidth = 10;
+
+    ctx.stroke();
+
+    ctx.restore();
+
+    ctx.beginPath();
+
+    ctx.arc(
+      cx,
+      cy,
+      84,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 8;
+
+    ctx.stroke();
+
+    ctx.save();
+
+    ctx.beginPath();
+
+    ctx.arc(
+      cx,
+      cy,
+      76,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.clip();
+
+    if (avatar) {
+      ctx.drawImage(
+        avatar,
+        x + 9,
+        y + 9,
+        152,
+        152
+      );
+    } else {
+      ctx.fillStyle = '#FFFFFF';
+
+      ctx.fillRect(
+        x + 9,
+        y + 9,
+        152,
+        152
+      );
+    }
+
+    ctx.restore();
+
+    fillRoundRect(
+      ctx,
+      188,
+      176,
+      42,
+      42,
+      21,
+      '#0B1022'
+    );
+
+    drawDiamond(
+      ctx,
+      209,
+      197,
+      8,
+      '#A855F7'
+    );
+  } catch (err) {
+    error('drawAvatar failed');
+    console.error(err);
   }
-
-  ctx.restore();
-
-  ctx.beginPath();
-
-  ctx.arc(137, 131, 84, 0, Math.PI * 2);
-
-  ctx.strokeStyle = '#A855F7';
-  ctx.lineWidth = 8;
-
-  ctx.stroke();
 }
 
-function drawCard(ctx, user, stats) {
+// ============================================================================
+// MAIN TEXT
+// ============================================================================
+
+function drawMain(
+  ctx,
+  user,
+  stats
+) {
+  const name =
+    user.globalName ||
+    user.displayName ||
+    user.username;
+
   ctx.fillStyle = '#FFFFFF';
 
-  setFont(ctx, 900, 58);
+  setFont(ctx, 900, 56);
 
-  ctx.fillText(
-    user.username,
-    340,
-    95
+  drawTextFit(
+    ctx,
+    name,
+    344,
+    90,
+    400
   );
 
   ctx.fillStyle = '#9CA3AF';
@@ -352,43 +673,66 @@ function drawCard(ctx, user, stats) {
   setFont(ctx, 600, 24, 'Inter');
 
   ctx.fillText(
-    `#${stats.rank}`,
-    340,
-    132
+    `@${user.username}`,
+    344,
+    125
   );
+
+  ctx.fillStyle = '#FFFFFF';
+
+  setFont(ctx, 900, 82);
+
+  ctx.fillText(
+    `#${stats.rank}`,
+    60,
+    320
+  );
+
+  ctx.fillStyle = '#A855F7';
+
+  setFont(ctx, 700, 26, 'Inter');
+
+  ctx.fillText(
+    'GLOBAL RANK',
+    60,
+    360
+  );
+
+  const x = 344;
+  const y = 180;
 
   fillRoundRect(
     ctx,
-    340,
-    170,
-    600,
-    36,
-    18,
-    '#111827'
+    x,
+    y,
+    620,
+    40,
+    22,
+    rgba('#111827', 0.95)
   );
 
-  const progress =
-    600 * stats.progress;
-
-  const gradient =
+  const prog =
     ctx.createLinearGradient(
-      340,
-      170,
-      940,
-      170
+      x,
+      y,
+      x + 620,
+      y
     );
 
-  gradient.addColorStop(0, '#9333EA');
-  gradient.addColorStop(1, '#C084FC');
+  prog.addColorStop(0, '#9333EA');
+  prog.addColorStop(1, '#C084FC');
 
   fillRoundRect(
     ctx,
-    340,
-    170,
-    progress,
-    36,
-    18,
-    gradient
+    x,
+    y,
+    Math.max(
+      120,
+      620 * stats.progress
+    ),
+    40,
+    22,
+    prog
   );
 
   ctx.fillStyle = '#FFFFFF';
@@ -397,32 +741,33 @@ function drawCard(ctx, user, stats) {
 
   ctx.fillText(
     `${compactNumber(stats.current)} / ${compactNumber(stats.needed)}`,
-    360,
-    194
+    365,
+    206
   );
 
   fillRoundRect(
     ctx,
-    340,
-    255,
+    344,
+    280,
     620,
-    110,
+    104,
     22,
-    rgba('#0B1020', 0.75)
+    rgba('#0B1020', 0.72)
   );
 
   drawDiamond(
     ctx,
-    390,
-    310,
+    394,
+    321,
     10,
     '#A855F7'
   );
 
-  drawBars(
+  drawBolt(
     ctx,
-    690,
-    290,
+    709,
+    321,
+    11,
     '#A855F7'
   );
 
@@ -432,30 +777,37 @@ function drawCard(ctx, user, stats) {
 
   ctx.fillText(
     compactNumber(stats.daily),
-    440,
-    325
+    450,
+    340
   );
 
   ctx.fillText(
     compactNumber(stats.lifetime),
-    760,
-    325
+    764,
+    340
   );
 
   ctx.fillStyle = '#9CA3AF';
 
-  setFont(ctx, 600, 15, 'Inter');
+  setFont(ctx, 600, 16, 'Inter');
 
   ctx.fillText(
     'DAILY XP',
-    440,
-    290
+    450,
+    300
   );
 
   ctx.fillText(
     'LIFETIME XP',
-    760,
-    290
+    764,
+    300
+  );
+
+  drawBars(
+    ctx,
+    850,
+    56,
+    '#C4B5FD'
   );
 }
 
@@ -479,23 +831,41 @@ function renderCard({
     const ctx =
       canvas.getContext('2d');
 
+    ctx.antialias = 'subpixel';
+    ctx.patternQuality = 'best';
+    ctx.quality = 'best';
+    ctx.textDrawingMode = 'glyph';
+
     drawBackground(ctx);
 
-    drawAvatar(ctx, avatar);
+    drawAvatar(
+      ctx,
+      avatar
+    );
 
-    drawCard(ctx, user, stats);
+    drawMain(
+      ctx,
+      user,
+      stats
+    );
 
-    const buffer =
-      canvas.toBuffer('image/png');
+    let buffer;
 
-    if (!buffer || !buffer.length) {
-      throw new Error(
-        'PNG buffer empty'
+    try {
+      buffer =
+        canvas.toBuffer('image/png');
+    } catch (bufferErr) {
+      error(
+        'canvas.toBuffer failed'
       );
+
+      console.error(bufferErr);
+
+      throw bufferErr;
     }
 
     log(
-      `Generated PNG (${buffer.length} bytes)`
+      `PNG created (${buffer.length} bytes)`
     );
 
     return buffer;
@@ -515,18 +885,33 @@ async function buildRankAttachment(
   user
 ) {
   try {
+    log(
+      `Building rank card for ${user.username}`
+    );
+
     const avatar =
       await fetchAvatar(user);
 
     const stats =
       getStats(user.id);
 
-    const png =
-      renderCard({
+    let png;
+
+    try {
+      png = renderCard({
         user,
         avatar,
         stats
       });
+    } catch (renderErr) {
+      error(
+        'Render pipeline crashed'
+      );
+
+      console.error(renderErr);
+
+      throw renderErr;
+    }
 
     return new AttachmentBuilder(
       png,
@@ -536,7 +921,7 @@ async function buildRankAttachment(
     );
   } catch (err) {
     error(
-      'buildRankAttachment failed'
+      'Failed building attachment'
     );
 
     console.error(err);
@@ -581,18 +966,32 @@ export default {
             files: [attachment]
           });
 
-          log('Card sent');
+          log(
+            'Rank card sent successfully'
+          );
         } catch (err) {
           error(
-            'Command failed'
+            'Command execution failed'
           );
 
           console.error(err);
 
-          await interaction.editReply({
-            content:
-              'Failed to generate rank card.'
-          });
+          const content =
+            'Failed to generate rank card. Check logs.';
+
+          if (
+            interaction.deferred ||
+            interaction.replied
+          ) {
+            await interaction.editReply({
+              content
+            });
+          } else {
+            await interaction.reply({
+              content,
+              ephemeral: true
+            });
+          }
         }
       }
     }
