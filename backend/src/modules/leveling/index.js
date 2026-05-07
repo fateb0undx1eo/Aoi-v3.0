@@ -60,6 +60,50 @@ function loadFonts() {
 loadFonts();
 
 // ============================================================================
+// COLOR PALETTE \u2014 edit here to retheme the entire card
+// ============================================================================
+
+const COLORS = {
+  // Backgrounds
+  background:        '#000000',
+  cardBg:            'rgba(20, 20, 20, 0.6)',   // left panel + stat cards
+  cardBgStroke:      'rgba(255, 255, 255, 0.06)',
+
+  // Accent / brand
+  primary:           '#a855f7',
+  primaryLight:      '#8b5cf6',
+  primaryMid:        '#9333ea',
+  primaryGlow:       'rgba(139, 92, 246, 0.15)',
+  primaryGlowSoft:   'rgba(139, 92, 246, 0.05)',
+  primaryBorder:     'rgba(168, 85, 247, 0.3)',
+  primaryIconBg:     'rgba(168, 85, 247, 0.12)',
+
+  // Status
+  active:            '#22c55e',
+  activeBg:          'rgba(34, 197, 94, 0.1)',
+  activeBorder:      'rgba(34, 197, 94, 0.5)',
+
+  // Text
+  textPrimary:       '#ffffff',
+  textSecondary:     '#d1d5db',
+  textTertiary:      '#6b7280',
+  textMuted:         '#4b5563',
+
+  // Misc overlays
+  overlayLight:      'rgba(255, 255, 255, 0.05)',
+  overlayPure:       'rgba(0, 0, 0, 0)',
+
+  // Avatar ring
+  avatarRingA:       '#a855f7',
+  avatarRingB:       '#ec4899',
+  avatarRingC:       '#8b5cf6',
+  avatarRingInner:   '#0a0e1f',
+
+  // Icon inner fill (cutout colour)
+  iconCutout:        '#0a0e1f',
+};
+
+// ============================================================================
 // CARD CONFIG
 // ============================================================================
 
@@ -99,6 +143,305 @@ function font(ctx, w, s, f = 'Satoshi') {
   ctx.font = `${w} ${s}px "${f}", sans-serif`;
 }
 
+function fmt(n) {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return String(n);
+}
+
+function fmtComma(n) {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// ============================================================================
+// NOISE TEXTURE
+// ============================================================================
+
+function addNoise(ctx, x, y, w, h, opacity = 0.03) {
+  const imageData = ctx.getImageData(x, y, w, h);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const noise = (Math.random() - 0.5) * 255 * opacity;
+    data[i]     += noise;
+    data[i + 1] += noise;
+    data[i + 2] += noise;
+  }
+  ctx.putImageData(imageData, x, y);
+}
+
+// ============================================================================
+// STATS (TEMP)
+// ============================================================================
+
+function getStats(id) {
+  const seed = Number(String(id).slice(-6));
+  const current = 2900 + (seed % 500);
+  const needed  = 5000;
+
+  return {
+    rank: 43,
+    current,
+    needed,
+    progress: current / needed,
+    daily: 3521,
+    life: 89121,
+    memberSince: 'Jan 12, 2024',
+    streak: 28,
+    lastActive: '5m ago'
+  };
+}
+
+// ============================================================================
+// AVATAR
+// ============================================================================
+
+async function getAvatar(user) {
+  try {
+    const url = user.displayAvatarURL({ extension: 'png', size: 512 });
+    const res  = await fetch(url);
+    if (!res.ok) return null;
+    const buf  = Buffer.from(await res.arrayBuffer());
+    return await loadImage(buf);
+  } catch (e) {
+    err('Avatar error:', e);
+    return null;
+  }
+}
+
+// ============================================================================
+// BACKGROUND  \u2014 no outer border ring
+// ============================================================================
+
+function drawBg(ctx) {
+  // Pure black canvas
+  ctx.fillStyle = COLORS.background;
+  ctx.fillRect(0, 0, CARD.w, CARD.h);
+
+  // Subtle corner glow (top-right)
+  const glowGradient = ctx.createRadialGradient(
+    CARD.w - 100, 100, 50,
+    CARD.w - 100, 100, 400
+  );
+  glowGradient.addColorStop(0, COLORS.primaryGlow);
+  glowGradient.addColorStop(0.5, COLORS.primaryGlowSoft);
+  glowGradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
+  ctx.fillStyle = glowGradient;
+  ctx.fillRect(0, 0, CARD.w, CARD.h);
+}
+
+// ============================================================================
+// LEFT SECTION CARD \u2014 same colour as stat cards
+// ============================================================================
+
+function drawLeftCard(ctx) {
+  const x = 40;
+  const y = 40;
+  const w = 420;
+  const h = CARD.h - 80;
+  const r = 20;
+
+  box(ctx, x, y, w, h, r, COLORS.cardBg);
+  addNoise(ctx, x, y, w, h, 0.05);
+  stroke(ctx, x, y, w, h, r, COLORS.cardBgStroke, 1);
+}
+
+// ============================================================================
+// AVATAR WITH GRADIENT RING
+// ============================================================================
+
+function drawAvatar(ctx, img) {
+  const x    = 90;
+  const y    = 80;
+  const size = 280;
+  const cx   = x + size / 2;
+  const cy   = y + size / 2;
+  const radius = size / 2;
+
+  const gradient = ctx.createLinearGradient(x, y, x + size, y + size);
+  gradient.addColorStop(0, COLORS.avatarRingA);
+  gradient.addColorStop(0.5, COLORS.avatarRingB);
+  gradient.addColorStop(1, COLORS.avatarRingC);
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius + 8, 0, Math.PI * 2);
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius + 4, 0, Math.PI * 2);
+  ctx.fillStyle = COLORS.avatarRingInner;
+  ctx.fill();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.clip();
+
+  if (img) {
+    ctx.drawImage(img, x, y, size, size);
+  } else {
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(x, y, size, size);
+  }
+
+  ctx.restore();
+
+  drawSparkle(ctx, x + size + 10, y + size - 30);
+}
+
+// ============================================================================
+// SPARKLE ICON
+// ============================================================================
+
+function drawSparkle(ctx, x, y) {
+  const size = 28;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.shadowColor = 'rgba(168, 85, 247, 0.6)';
+  ctx.shadowBlur  = 10;
+  ctx.fillStyle   = COLORS.primary;
+  ctx.beginPath();
+
+  for (let i = 0; i < 4; i++) {
+    const angle = (i * Math.PI / 2) - Math.PI / 4;
+    const x1    = Math.cos(angle) * size;
+    const y1    = Math.sin(angle) * size;
+    const x2    = Math.cos(angle + Math.PI / 4) * (size * 0.4);
+    const y2    = Math.sin(angle + Math.PI / 4) * (size * 0.4);
+    if (i === 0) ctx.moveTo(x1, y1);
+    else         ctx.lineTo(x1, y1);
+    ctx.lineTo(x2, y2);
+  }
+
+  ctx.closePath();
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur  = 0;
+  ctx.restore();
+}
+
+// ============================================================================
+// USER INFO
+// ============================================================================
+
+function drawUserInfo(ctx, user) {
+  const x = 520;
+  const y = 140;
+
+  ctx.fillStyle = COLORS.textPrimary;
+  font(ctx, 900, 68, 'Satoshi');
+  ctx.fillText(user.globalName || user.username, x, y);
+
+  ctx.fillStyle = COLORS.textTertiary;
+  font(ctx, 400, 28, 'Inter');
+  ctx.fillText(`@${user.username}`, x, y + 50);
+}
+
+// ============================================================================
+// WEEKLY PROGRESS
+// \u2014 label above bar at the LEFT, percentage badge removed
+// ============================================================================
+
+function drawWeeklyProgress(ctx, stats) {
+  const x    = 520;
+  const y    = 260;
+  const barW = 550;
+  const barH = 50;
+
+  // Label \u2014 left-aligned, above the bar
+  ctx.fillStyle = COLORS.textTertiary;
+  font(ctx, 600, 20, 'Inter');
+  ctx.fillText('WEEKLY PROGRESS', x, y - 14);
+
+  // Bar background
+  box(ctx, x, y, barW, barH, 25, COLORS.overlayLight);
+
+  // Bar fill
+  const fillW    = Math.max(80, barW * stats.progress);
+  const gradient = ctx.createLinearGradient(x, y, x + fillW, y);
+  gradient.addColorStop(0, COLORS.primary);
+  gradient.addColorStop(1, COLORS.primaryLight);
+  box(ctx, x, y, fillW, barH, 25, gradient);
+
+  // XP text centred on bar
+  ctx.fillStyle = COLORS.textPrimary;
+  font(ctx, 700, 24, 'Inter');
+  const progressText = `${fmt(stats.current)} / ${fmt(stats.needed)}`;
+  ctx.fillText(
+    progressText,
+    x + barW / 2 - ctx.measureText(progressText).width / 2,
+    y + 34
+  );
+
+  // "More for next role" hint
+  ctx.fillStyle = COLORS.primary;
+  font(ctx, 400, 20, 'Inter');
+  const needed = stats.needed - stats.current;
+  ctx.fillText(`\u2197 ${fmt(needed)} more for next role`, x, y + 75);
+}
+
+// ============================================================================
+// RANK NUMBER
+// ============================================================================
+
+function drawRankNumber(ctx, rank) {
+  const x = 90;
+  const y = 500;
+
+  const gradient = ctx.createLinearGradient(x, y - 100, x, y);
+  gradient.addColorStop(0, COLORS.textPrimary);
+  gradient.addColorStop(1, COLORS.primary);
+
+  ctx.fillStyle = gradient;
+  font(ctx, 900, 120, 'Satoshi');
+  ctx.fillText(`#${rank}`, x, y);
+
+  ctx.fillStyle = COLORS.primary;
+  font(ctx, 700, 22, 'Inter');
+  ctx.fillText('GLOBAL RANK', x, y + 35);
+}
+
+// ============================================================================
+// STATUS BADGE \u2014 compact, fits "SUPER ACTIVE" comfortably
+// ============================================================================
+
+function drawStatusBadge(ctx) {
+  const x   = 90;
+  const y   = 570;
+  const h   = 42;
+  const pad = 22;
+
+  // Measure text width so badge auto-sizes
+  font(ctx, 700, 20, 'Inter');
+  const dotDiameter = 12;
+  const gap         = 10;
+  const textW       = ctx.measureText('SUPER ACTIVE').width;
+  const w           = pad + dotDiameter + gap + textW + pad;
+
+  box(ctx, x, y, w, h, 21, COLORS.activeBg);
+  stroke(ctx, x, y, w, h, 21, COLORS.activeBorder, 1.5);
+
+  // Green dot
+  ctx.fillStyle = COLORS.active;
+  ctx.beginPath();
+  ctx.arc(x + pad + dotDiameter / 2, y + h / 2, dotDiameter / 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Text
+  ctx.fillStyle = COLORS.active;
+  ctx.fillText('SUPER ACTIVE', x + pad + dotDiameter + gap, y + h / 2 + 7);
+}
+
+// ============================================================================
+// STAT CARD \u2014 with better SVG-style path icons
+// ============================================================================
+
+function drawStatCard(ctx, x, y, icon, label, value, subtext) {
+  const w = 260;
+  const h = 150;
+  const r = 20;
+
+  box(ctx, x, y, w, h, r, COLORS.cardBg);
+  stroke(ctx, x, y, w
 function fmt(n) {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
   return String(n);
