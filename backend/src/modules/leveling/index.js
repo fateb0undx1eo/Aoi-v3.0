@@ -31,10 +31,10 @@ function tryRegister(name, file, weight = 'normal') {
   } catch {}
 }
 
-tryRegister('Satoshi', 'Satoshi-Black.ttf', '900');
-tryRegister('Satoshi', 'Satoshi-Bold.ttf', '700');
-tryRegister('Inter', 'Inter-SemiBold.ttf', '600');
-tryRegister('Inter', 'Inter-Regular.ttf', '400');
+tryRegister('Satoshi', 'Satoshi-Black.otf', '900');
+tryRegister('Satoshi', 'Satoshi-Bold.otf', '700');
+tryRegister('Inter', 'Inter_24pt-SemiBold.ttf', '600');
+tryRegister('Inter', 'Inter_24pt-Regular.ttf', '400');
 
 // ============================================================================
 // CARD CONFIG
