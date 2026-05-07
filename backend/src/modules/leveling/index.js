@@ -1,130 +1,682 @@
-import { AttachmentBuilder } from 'discord.js'; import { createCanvas, loadImage, registerFont } from 'canvas'; import path from 'path'; import fs from 'fs';
+import { AttachmentBuilder } from 'discord.js';
+import { createCanvas, loadImage, registerFont } from 'canvas';
+import path from 'path';
+import fs from 'fs';
 
-// ============================================================================ // MODULE CONFIG (FIXED FOR LOADER) // ============================================================================
+// ============================================================================
+// REQUIRED FOR LOADER
+// ============================================================================
 
-const configSchema = { type: 'object', properties: {} };
+const LEVELING_SCHEMA = {
+  type: 'object',
+  properties: {},
+  additionalProperties: true
+};
 
-const events = [];
+// ============================================================================
+// PATHS
+// ============================================================================
 
-// ============================================================================ // PATHS // ============================================================================
+const FONT_DIR = path.join(
+  process.cwd(),
+  'src',
+  'modules',
+  'leveling',
+  'assets',
+  'fonts'
+);
 
-const ROOT = process.cwd(); const FONT_DIR = path.join(ROOT, 'src', 'modules', 'leveling', 'assets', 'fonts');
+// ============================================================================
+// LOGGING
+// ============================================================================
 
-// ============================================================================ // LOG // ============================================================================
+const log = (...a) => console.log('[LEVELING]', ...a);
+const err = (...a) => console.error('[LEVELING]', ...a);
 
-const log = (...a) => console.log('[LEVELING]', ...a); const err = (...a) => console.error('[LEVELING]', ...a);
+// ============================================================================
+// FONTS
+// ============================================================================
 
-// ============================================================================ // FONTS // ============================================================================
+function loadFonts() {
+  try {
+    if (!fs.existsSync(FONT_DIR)) return;
 
-function loadFont(name, file, weight='normal') { try { const p = path.join(FONT_DIR, file); if (!fs.existsSync(p)) return; registerFont(p, { family: name, weight }); log('Font loaded', file); } catch (e) { err('Font error', file, e); } }
+    const load = (file, family, weight) => {
+      const full = path.join(FONT_DIR, file);
+      if (!fs.existsSync(full)) return;
+      registerFont(full, { family, weight });
+      log('Font loaded:', file);
+    };
 
-loadFont('Satoshi','Satoshi-Black.otf','900'); loadFont('Satoshi','Satoshi-Bold.otf','700'); loadFont('Inter','Inter_24pt-SemiBold.ttf','600'); loadFont('Inter','Inter_24pt-Regular.ttf','400');
-
-// ============================================================================ // CARD SIZE // ============================================================================
-
-const CARD = { w: 1034, h: 491 };
-
-// ============================================================================ // HELPERS // ============================================================================
-
-const rr = (ctx,x,y,w,h,r)=>{ const R=Math.min(r,w/2,h/2); ctx.beginPath(); ctx.moveTo(x+R,y); ctx.arcTo(x+w,y,x+w,y+h,R); ctx.arcTo(x+w,y+h,x,y+h,R); ctx.arcTo(x,y+h,x,y,R); ctx.arcTo(x,y,x+w,y,R); ctx.closePath(); };
-
-const fr = (ctx,...a)=>{rr(ctx,...a);ctx.fillStyle=a[5];ctx.fill();}; const sr = (ctx,x,y,w,h,r,c,l=1)=>{rr(ctx,x,y,w,h,r);ctx.strokeStyle=c;ctx.lineWidth=l;ctx.stroke();};
-
-const rgba=(h,a)=>{ const v=parseInt(h.slice(1),16); return rgba(${v>>16&255},${v>>8&255},${v&255},${a}); };
-
-const font=(ctx,w,s,f='Satoshi')=>ctx.font=${w} ${s}px "${f}";
-
-const fit=(ctx,t,x,y,m)=>{ let s=String(t); while(ctx.measureText(s).width>m&&s.length>0)s=s.slice(0,-1); if(s!==t)s+='...'; ctx.fillText(s,x,y); };
-
-const k=num=>num>=1000?(num/1000).toFixed(num%1000?1:0)+'K':String(num);
-
-// ============================================================================ // STATS // ============================================================================
-
-function stats(id){ const seed=Number(String(id).slice(-6)); const cur=2900+(seed%450); const need=5000; return { rank:1+(seed%99), current:cur, needed:need, progress:cur/need, daily:3500, lifetime:89121 }; }
-
-// ============================================================================ // AVATAR // ============================================================================
-
-async function avatar(u){ try{ const url=u.displayAvatarURL({extension:'png',size:512}); const r=await fetch(url); if(!r.ok)return null; return await loadImage(Buffer.from(await r.arrayBuffer())); }catch{return null;} }
-
-// ============================================================================ // BACKGROUND (GLASS + NEON GRID) // ============================================================================
-
-function bg(ctx){ const g=ctx.createLinearGradient(0,0,CARD.w,CARD.h); g.addColorStop(0,'#05060F'); g.addColorStop(1,'#12081F'); ctx.fillStyle=g; ctx.fillRect(0,0,CARD.w,CARD.h);
-
-// glow const glow=ctx.createRadialGradient(850,150,50,850,150,400); glow.addColorStop(0,rgba('#A855F7',0.25)); glow.addColorStop(1,'transparent'); ctx.fillStyle=glow; ctx.fillRect(0,0,CARD.w,CARD.h);
-
-// glass base fr(ctx,20,20,CARD.w-40,CARD.h-40,28,rgba('#0B0F1A',0.75)); sr(ctx,20,20,CARD.w-40,CARD.h-40,28,rgba('#C084FC',0.35),1.2);
-
-// grid ctx.save(); ctx.globalAlpha=0.06; ctx.strokeStyle='#fff'; for(let i=0;i<20;i++){ ctx.beginPath();ctx.moveTo(i60,0);ctx.lineTo(i60,CARD.h);ctx.stroke(); } ctx.restore(); }
-
-// ============================================================================ // AVATAR // ============================================================================
-
-function drawAvatar(ctx,a){ const x=60,y=60,r=85; const cx=x+r,cy=y+r;
-
-ctx.save(); ctx.shadowColor='#A855F7'; ctx.shadowBlur=40; ctx.beginPath();ctx.arc(cx,cy,92,0,Math.PI*2); ctx.strokeStyle=rgba('#A855F7',0.9); ctx.lineWidth=10;ctx.stroke();ctx.restore();
-
-ctx.beginPath();ctx.arc(cx,cy,76,0,Math.PI*2);ctx.clip();
-
-if(a)ctx.drawImage(a,x+8,y+8,160,160); else ctx.fillRect(x,y,160,160); }
-
-// ============================================================================ // MAIN UI // ============================================================================
-
-function draw(ctx,u,s){ const name=u.globalName||u.username;
-
-// username ctx.fillStyle='#fff';font(ctx,'900',54);fit(ctx,name,360,90,400);
-
-ctx.fillStyle='#A78BFA';font(ctx,'600',22,'Inter');ctx.fillText('@'+u.username,360,120);
-
-// rank big ctx.fillStyle='#fff';font(ctx,'900',90);ctx.fillText('#'+s.rank,70,330); ctx.fillStyle='#A855F7';font(ctx,'700',26,'Inter');ctx.fillText('GLOBAL RANK',70,370);
-
-// status pill fr(ctx,70,390,200,42,22,rgba('#14532D',0.35)); ctx.fillStyle='#22C55E';font(ctx,'700',18,'Inter');ctx.fillText('● SUPER ACTIVE',95,418);
-
-// progress const x=360,y=160,w=600,h=40; fr(ctx,x,y,w,h,22,rgba('#111827',0.9));
-
-const p=ctx.createLinearGradient(x,y,x+w,y); p.addColorStop(0,'#9333EA');p.addColorStop(1,'#C084FC');
-
-fr(ctx,x,y,w*s.progress,h,22,p);
-
-ctx.fillStyle='#fff';font(ctx,'700',16,'Inter'); ctx.fillText(${k(s.current)} / ${k(s.needed)},x+20,y+26); ctx.fillText(${Math.round(s.progress*100)}%,x+w-60,y+26);
-
-// stats panel fr(ctx,360,260,600,120,22,rgba('#0B1020',0.75));
-
-ctx.fillStyle='#fff';font(ctx,'900',38); ctx.fillText(k(s.daily),420,320); ctx.fillText(k(s.lifetime),720,320);
-
-ctx.fillStyle='#9CA3AF';font(ctx,'600',14,'Inter'); ctx.fillText('DAILY XP',420,290); ctx.fillText('LIFETIME XP',720,290); }
-
-// ============================================================================ // RENDER // ============================================================================
-
-function render(u,a,s){ const c=createCanvas(CARD.w,CARD.h); const ctx=c.getContext('2d');
-
-bg(ctx); drawAvatar(ctx,a); draw(ctx,u,s);
-
-return c.toBuffer('image/png'); }
-
-// ============================================================================ // BUILD // ============================================================================
-
-async function build(user){ const a=await avatar(user); const s=stats(user.id); return new AttachmentBuilder(render(user,a,s),{name:rank-${user.id}.png}); }
-
-// ============================================================================ // EXPORT MODULE // ============================================================================
-
-export default { name:'leveling', configSchema, events,
-
-commands:[{ name:'rank', description:'rank card',
-
-async execute(i){
-  try{
-    if(!i.deferred&&!i.replied) await i.deferReply();
-
-    const file=await build(i.user);
-    await i.editReply({files:[file]});
-
-  }catch(e){
-    console.error('[LEVELING ERROR]',e);
-
-    if(i.deferred||i.replied)
-      await i.editReply('❌ Card generation failed');
-    else
-      await i.reply({content:'❌ Failed',ephemeral:true});
+    load('Satoshi-Black.otf', 'Satoshi', '900');
+    load('Satoshi-Bold.otf', 'Satoshi', '700');
+    load('Inter_24pt-SemiBold.ttf', 'Inter', '600');
+    load('Inter_24pt-Regular.ttf', 'Inter', '400');
+  } catch (e) {
+    err('Font load error:', e);
   }
 }
 
-]} };
+loadFonts();
+
+// ============================================================================
+// CARD CONFIG
+// ============================================================================
+
+const CARD = {
+  w: 1360,
+  h: 692
+};
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+function round(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function box(ctx, x, y, w, h, r, c) {
+  round(ctx, x, y, w, h, r);
+  ctx.fillStyle = c;
+  ctx.fill();
+}
+
+function stroke(ctx, x, y, w, h, r, c, lw = 1) {
+  round(ctx, x, y, w, h, r);
+  ctx.strokeStyle = c;
+  ctx.lineWidth = lw;
+  ctx.stroke();
+}
+
+function font(ctx, w, s, f = 'Satoshi') {
+  ctx.font = `${w} ${s}px "${f}", sans-serif`;
+}
+
+function fmt(n) {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return String(n);
+}
+
+function fmtComma(n) {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// ============================================================================
+// STATS (TEMP)
+// ============================================================================
+
+function getStats(id) {
+  const seed = Number(String(id).slice(-6));
+
+  const current = 2900 + (seed % 500);
+  const needed = 5000;
+
+  return {
+    rank: 43,
+    current,
+    needed,
+    progress: current / needed,
+    daily: 3521,
+    life: 89121,
+    memberSince: 'Jan 12, 2024',
+    streak: 28,
+    lastActive: '5m ago'
+  };
+}
+
+// ============================================================================
+// AVATAR
+// ============================================================================
+
+async function getAvatar(user) {
+  try {
+    const url = user.displayAvatarURL({
+      extension: 'png',
+      size: 512
+    });
+
+    const res = await fetch(url);
+    if (!res.ok) return null;
+
+    const buf = Buffer.from(await res.arrayBuffer());
+    return await loadImage(buf);
+  } catch (e) {
+    err('Avatar error:', e);
+    return null;
+  }
+}
+
+// ============================================================================
+// BACKGROUND
+// ============================================================================
+
+function drawBg(ctx) {
+  // Main gradient background
+  const g = ctx.createRadialGradient(CARD.w / 2, CARD.h / 2, 0, CARD.w / 2, CARD.h / 2, CARD.w);
+  g.addColorStop(0, '#0f1729');
+  g.addColorStop(0.5, '#0a0e1f');
+  g.addColorStop(1, '#1a0a2e');
+
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, CARD.w, CARD.h);
+
+  // Card container with border
+  const cardX = 30;
+  const cardY = 30;
+  const cardW = CARD.w - 60;
+  const cardH = CARD.h - 60;
+  const cardR = 28;
+
+  // Outer glow
+  ctx.shadowColor = 'rgba(168, 85, 247, 0.3)';
+  ctx.shadowBlur = 30;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+
+  // Card background
+  box(ctx, cardX, cardY, cardW, cardH, cardR, 'rgba(10, 10, 25, 0.95)');
+
+  // Reset shadow
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+
+  // Border
+  stroke(ctx, cardX, cardY, cardW, cardH, cardR, 'rgba(168, 85, 247, 0.5)', 2);
+}
+
+// ============================================================================
+// AVATAR WITH GRADIENT RING
+// ============================================================================
+
+function drawAvatar(ctx, img) {
+  const x = 110;
+  const y = 90;
+  const size = 280;
+  const cx = x + size / 2;
+  const cy = y + size / 2;
+  const radius = size / 2;
+
+  // Gradient ring
+  const gradient = ctx.createLinearGradient(x, y, x + size, y + size);
+  gradient.addColorStop(0, '#a855f7');
+  gradient.addColorStop(0.5, '#ec4899');
+  gradient.addColorStop(1, '#8b5cf6');
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius + 8, 0, Math.PI * 2);
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // Inner dark ring
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius + 4, 0, Math.PI * 2);
+  ctx.fillStyle = '#0a0e1f';
+  ctx.fill();
+
+  // Clip for avatar
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.clip();
+
+  if (img) {
+    ctx.drawImage(img, x, y, size, size);
+  } else {
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(x, y, size, size);
+  }
+
+  ctx.restore();
+
+  // Sparkle icon near avatar
+  drawSparkle(ctx, x + size + 10, y + size - 30);
+}
+
+// ============================================================================
+// SPARKLE ICON
+// ============================================================================
+
+function drawSparkle(ctx, x, y) {
+  const size = 28;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Outer glow
+  ctx.shadowColor = 'rgba(168, 85, 247, 0.6)';
+  ctx.shadowBlur = 10;
+
+  ctx.fillStyle = '#a855f7';
+  ctx.beginPath();
+  
+  // Draw 4-pointed star
+  for (let i = 0; i < 4; i++) {
+    const angle = (i * Math.PI / 2) - Math.PI / 4;
+    const x1 = Math.cos(angle) * size;
+    const y1 = Math.sin(angle) * size;
+    const x2 = Math.cos(angle + Math.PI / 4) * (size * 0.4);
+    const y2 = Math.sin(angle + Math.PI / 4) * (size * 0.4);
+    
+    if (i === 0) ctx.moveTo(x1, y1);
+    else ctx.lineTo(x1, y1);
+    ctx.lineTo(x2, y2);
+  }
+  
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+// ============================================================================
+// RANKED USER BADGE
+// ============================================================================
+
+function drawRankedBadge(ctx) {
+  const x = CARD.w - 320;
+  const y = 90;
+  const w = 240;
+  const h = 50;
+
+  // Badge background
+  box(ctx, x, y, w, h, 12, 'rgba(139, 92, 246, 0.15)');
+  stroke(ctx, x, y, w, h, 12, 'rgba(139, 92, 246, 0.4)', 1.5);
+
+  // Icon
+  ctx.fillStyle = '#a855f7';
+  ctx.beginPath();
+  ctx.arc(x + 30, y + 25, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x + 45, y + 25, 8, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Text
+  ctx.fillStyle = '#a0a0c0';
+  font(ctx, 600, 18, 'Inter');
+  ctx.fillText('RANKED USER', x + 70, y + 32);
+}
+
+// ============================================================================
+// USER INFO
+// ============================================================================
+
+function drawUserInfo(ctx, user) {
+  const x = 520;
+  const y = 120;
+
+  // Username
+  ctx.fillStyle = '#ffffff';
+  font(ctx, 900, 68, 'Satoshi');
+  ctx.fillText(user.globalName || user.username, x, y);
+
+  // Handle
+  ctx.fillStyle = '#888899';
+  font(ctx, 400, 28, 'Inter');
+  ctx.fillText(`@${user.username}`, x, y + 50);
+}
+
+// ============================================================================
+// WEEKLY PROGRESS
+// ============================================================================
+
+function drawWeeklyProgress(ctx, stats) {
+  const x = 520;
+  const y = 240;
+  const barW = 550;
+  const barH = 50;
+
+  // Label
+  ctx.fillStyle = '#888899';
+  font(ctx, 600, 20, 'Inter');
+  ctx.fillText('WEEKLY PROGRESS', x, y - 10);
+
+  // Progress bar background
+  box(ctx, x, y, barW, barH, 25, 'rgba(255, 255, 255, 0.06)');
+
+  // Progress bar fill
+  const fillW = Math.max(80, barW * stats.progress);
+  const gradient = ctx.createLinearGradient(x, y, x + fillW, y);
+  gradient.addColorStop(0, '#a855f7');
+  gradient.addColorStop(1, '#8b5cf6');
+  
+  box(ctx, x, y, fillW, barH, 25, gradient);
+
+  // Progress text
+  ctx.fillStyle = '#ffffff';
+  font(ctx, 700, 24, 'Inter');
+  const progressText = `${fmt(stats.current)} / ${fmt(stats.needed)}`;
+  ctx.fillText(progressText, x + barW / 2 - ctx.measureText(progressText).width / 2, y + 34);
+
+  // Percentage
+  ctx.fillStyle = '#888899';
+  font(ctx, 600, 22, 'Inter');
+  const percentage = `${Math.round(stats.progress * 100)}%`;
+  ctx.fillText(percentage, x + barW + 30, y + 34);
+
+  // Next role text
+  ctx.fillStyle = '#a855f7';
+  font(ctx, 400, 20, 'Inter');
+  const needed = stats.needed - stats.current;
+  ctx.fillText(`↗ ${fmt(needed)} more for next role`, x, y + 75);
+}
+
+// ============================================================================
+// RANK NUMBER
+// ============================================================================
+
+function drawRankNumber(ctx, rank) {
+  const x = 110;
+  const y = 500;
+
+  // Rank number with gradient
+  const gradient = ctx.createLinearGradient(x, y - 100, x, y);
+  gradient.addColorStop(0, '#ffffff');
+  gradient.addColorStop(1, '#a855f7');
+
+  ctx.fillStyle = gradient;
+  font(ctx, 900, 120, 'Satoshi');
+  ctx.fillText(`#${rank}`, x, y);
+
+  // Label
+  ctx.fillStyle = '#a855f7';
+  font(ctx, 700, 22, 'Inter');
+  ctx.fillText('GLOBAL RANK', x, y + 35);
+}
+
+// ============================================================================
+// STATUS BADGE
+// ============================================================================
+
+function drawStatusBadge(ctx) {
+  const x = 110;
+  const y = 570;
+  const w = 280;
+  const h = 50;
+
+  // Badge background
+  box(ctx, x, y, w, h, 25, 'rgba(34, 197, 94, 0.1)');
+  stroke(ctx, x, y, w, h, 25, 'rgba(34, 197, 94, 0.5)', 2);
+
+  // Green dot
+  ctx.fillStyle = '#22c55e';
+  ctx.beginPath();
+  ctx.arc(x + 35, y + 25, 8, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Text
+  ctx.fillStyle = '#22c55e';
+  font(ctx, 700, 22, 'Inter');
+  ctx.fillText('SUPER ACTIVE', x + 60, y + 32);
+}
+
+// ============================================================================
+// STAT CARD
+// ============================================================================
+
+function drawStatCard(ctx, x, y, icon, label, value, subtext) {
+  const w = 260;
+  const h = 150;
+  const r = 20;
+
+  // Card background
+  box(ctx, x, y, w, h, r, 'rgba(255, 255, 255, 0.03)');
+  stroke(ctx, x, y, w, h, r, 'rgba(255, 255, 255, 0.08)', 1);
+
+  // Icon background
+  const iconSize = 60;
+  const iconX = x + 30;
+  const iconY = y + 30;
+  box(ctx, iconX, iconY, iconSize, iconSize, 12, 'rgba(168, 85, 247, 0.15)');
+
+  // Draw icon
+  ctx.fillStyle = '#a855f7';
+  drawIcon(ctx, icon, iconX + iconSize / 2, iconY + iconSize / 2);
+
+  // Label
+  ctx.fillStyle = '#888899';
+  font(ctx, 600, 16, 'Inter');
+  ctx.fillText(label, x + iconX + iconSize + 20 - x, y + 45);
+
+  // Value
+  ctx.fillStyle = '#ffffff';
+  font(ctx, 700, 38, 'Inter');
+  ctx.fillText(value, x + iconX + iconSize + 20 - x, y + 85);
+
+  // Subtext
+  if (subtext) {
+    ctx.fillStyle = '#666677';
+    font(ctx, 400, 16, 'Inter');
+    ctx.fillText(subtext, x + iconX + iconSize + 20 - x, y + 110);
+  }
+}
+
+// ============================================================================
+// ICON DRAWING
+// ============================================================================
+
+function drawIcon(ctx, type, x, y) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  switch (type) {
+    case 'chat':
+      // Chat bubble
+      ctx.beginPath();
+      ctx.roundRect(-18, -12, 36, 24, 4);
+      ctx.fill();
+      // Lines inside
+      ctx.fillStyle = '#0a0e1f';
+      ctx.fillRect(-12, -6, 24, 3);
+      ctx.fillRect(-12, 3, 16, 3);
+      break;
+
+    case 'trophy':
+      // Trophy cup
+      ctx.beginPath();
+      ctx.moveTo(-12, -8);
+      ctx.lineTo(-8, 8);
+      ctx.lineTo(8, 8);
+      ctx.lineTo(12, -8);
+      ctx.closePath();
+      ctx.fill();
+      // Base
+      ctx.fillRect(-14, 8, 28, 4);
+      ctx.fillRect(-10, 12, 20, 3);
+      // Handles
+      ctx.beginPath();
+      ctx.arc(-12, -4, 4, 0, Math.PI * 2);
+      ctx.arc(12, -4, 4, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+
+    case 'calendar':
+      // Calendar body
+      ctx.fillRect(-14, -8, 28, 22);
+      // Top bar
+      ctx.fillStyle = '#0a0e1f';
+      ctx.fillRect(-14, -8, 28, 6);
+      // Rings
+      ctx.fillStyle = '#a855f7';
+      ctx.fillRect(-10, -12, 3, 6);
+      ctx.fillRect(7, -12, 3, 6);
+      break;
+
+    case 'bolt':
+      // Lightning bolt
+      ctx.beginPath();
+      ctx.moveTo(2, -16);
+      ctx.lineTo(-8, 0);
+      ctx.lineTo(-2, 0);
+      ctx.lineTo(-6, 16);
+      ctx.lineTo(8, -4);
+      ctx.lineTo(2, -4);
+      ctx.closePath();
+      ctx.fill();
+      break;
+
+    case 'clock':
+      // Circle
+      ctx.beginPath();
+      ctx.arc(0, 0, 14, 0, Math.PI * 2);
+      ctx.fill();
+      // Hands
+      ctx.strokeStyle = '#0a0e1f';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, -8);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(6, 0);
+      ctx.stroke();
+      break;
+  }
+
+  ctx.restore();
+}
+
+// ============================================================================
+// FOOTER INFO
+// ============================================================================
+
+function drawFooter(ctx, stats) {
+  const y = 620;
+  const iconSize = 24;
+  const spacing = 280;
+
+  // Member since
+  drawFooterItem(ctx, 540, y, 'calendar', 'Member since', stats.memberSince);
+
+  // Activity streak
+  drawFooterItem(ctx, 540 + spacing, y, 'bolt', 'Activity streak', `${stats.streak} days`);
+
+  // Last active
+  drawFooterItem(ctx, 540 + spacing * 2, y, 'clock', 'Last active', stats.lastActive);
+}
+
+function drawFooterItem(ctx, x, y, icon, label, value) {
+  // Icon
+  ctx.fillStyle = '#666677';
+  drawIcon(ctx, icon, x, y);
+
+  // Label
+  ctx.fillStyle = '#666677';
+  font(ctx, 400, 16, 'Inter');
+  ctx.fillText(label, x + 35, y - 4);
+
+  // Value
+  ctx.fillStyle = '#ffffff';
+  font(ctx, 600, 18, 'Inter');
+  ctx.fillText(value, x + 35, y + 18);
+}
+
+// ============================================================================
+// MAIN DRAW
+// ============================================================================
+
+function draw(ctx, user, avatar, stats) {
+  drawBg(ctx);
+  drawAvatar(ctx, avatar);
+  drawRankedBadge(ctx);
+  drawUserInfo(ctx, user);
+  drawWeeklyProgress(ctx, stats);
+  drawRankNumber(ctx, stats.rank);
+  drawStatusBadge(ctx);
+
+  // Stat cards
+  drawStatCard(ctx, 540, 370, 'chat', 'DAILY XP', fmt(stats.daily), fmtComma(stats.daily));
+  drawStatCard(ctx, 830, 370, 'trophy', 'LIFETIME XP', fmt(stats.life), fmtComma(stats.life));
+
+  // Footer
+  drawFooter(ctx, stats);
+}
+
+// ============================================================================
+// RENDER
+// ============================================================================
+
+function render({ user, avatar, stats }) {
+  const canvas = createCanvas(CARD.w, CARD.h);
+  const ctx = canvas.getContext('2d');
+
+  draw(ctx, user, avatar, stats);
+
+  return canvas.toBuffer('image/png');
+}
+
+// ============================================================================
+// BUILD
+// ============================================================================
+
+async function build(user) {
+  const avatar = await getAvatar(user);
+  const stats = getStats(user.id);
+
+  return render({ user, avatar, stats });
+}
+
+// ============================================================================
+// MODULE EXPORT
+// ============================================================================
+
+export default {
+  name: 'leveling',
+
+  configSchema: LEVELING_SCHEMA,
+  events: [],
+
+  commands: [
+    {
+      name: 'rank',
+      description: 'Show rank card',
+
+      async execute(interaction) {
+        try {
+          log('/rank used by', interaction.user.username);
+
+          const png = await build(interaction.user);
+
+          const file = new AttachmentBuilder(png, {
+            name: `rank-${interaction.user.id}.png`
+          });
+
+          // SAFE RESPONSE HANDLING
+          if (interaction.deferred || interaction.replied) {
+            await interaction.editReply({ files: [file] });
+          } else {
+            await interaction.reply({ files: [file] });
+          }
+
+        } catch (e) {
+          err('CARD ERROR:', e);
+
+          const msg =
+            '❌ Card generation failed.\n```' +
+            (e?.stack?.slice(0, 1800) || e) +
+            '```';
+
+          try {
+            if (interaction.deferred || interaction.replied) {
+              await interaction.editReply({ content: msg });
+            } else {
+              await interaction.reply({ content: msg, ephemeral: true });
+            }
+          } catch (sendErr) {
+            err('Failed sending error:', sendErr);
+          }
+        }
+      }
+    }
+  ]
+};
