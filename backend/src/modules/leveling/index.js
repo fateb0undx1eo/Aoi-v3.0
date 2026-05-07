@@ -37,7 +37,7 @@ function error(...a) {
 }
 
 // ============================================================================
-// SAFE GLOBAL ERRORS
+// GLOBAL SAFETY
 // ============================================================================
 
 process.on('unhandledRejection', (e) => {
@@ -49,7 +49,7 @@ process.on('uncaughtException', (e) => {
 });
 
 // ============================================================================
-// STORAGE
+// STORAGE SYSTEM
 // ============================================================================
 
 async function ensureDB() {
@@ -85,15 +85,14 @@ async function getStats(userId) {
   const user = db[userId];
 
   const needed = 5000 + user.level * 1200;
-  const progress = user.xp / needed;
 
   return {
     rank: user.level,
     current: user.xp,
     needed,
-    progress: Math.min(progress, 1),
+    progress: Math.min(user.xp / needed, 1),
     lifetime: user.xp,
-    daily: 3000 + user.level * 50
+    remaining: Math.max(needed - user.xp, 0)
   };
 }
 
@@ -136,6 +135,11 @@ function loadFonts() {
       weight: '400'
     });
 
+    registerFont(path.join(FONT_DIR, 'Inter_24pt-SemiBold.ttf'), {
+      family: 'Inter',
+      weight: '600'
+    });
+
     log('Fonts loaded');
   } catch (e) {
     error('Font load failed', e);
@@ -163,20 +167,20 @@ async function getAvatar(user) {
     const res = await fetch(url);
     if (!res.ok) return null;
 
-    const img = await loadImage(
-      Buffer.from(await res.arrayBuffer())
-    );
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const img = await loadImage(buffer);
 
     avatarCache.set(user.id, img);
+
     return img;
   } catch (e) {
-    error('Avatar failed', e);
+    error('Avatar fetch failed', e);
     return null;
   }
 }
 
 // ============================================================================
-// CARD CONFIG
+// CARD SETUP
 // ============================================================================
 
 const CARD = {
@@ -200,7 +204,7 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-function fill(ctx, x, y, w, h, r, color) {
+function fillRR(ctx, x, y, w, h, r, color) {
   roundRect(ctx, x, y, w, h, r);
   ctx.fillStyle = color;
   ctx.fill();
@@ -210,7 +214,7 @@ function fill(ctx, x, y, w, h, r, color) {
 // FALLBACK AVATAR
 // ============================================================================
 
-function drawInitial(ctx, user, x, y, size) {
+function drawFallback(ctx, user, x, y, size) {
   const letter = (user.username || 'U')[0].toUpperCase();
 
   const g = ctx.createLinearGradient(x, y, x + size, y + size);
@@ -238,7 +242,6 @@ function render({ user, avatar, stats }) {
   const ctx = canvas.getContext('2d');
 
   try {
-    // background
     const bg = ctx.createLinearGradient(0, 0, CARD.width, CARD.height);
     bg.addColorStop(0, '#040611');
     bg.addColorStop(1, '#0A0416');
@@ -246,13 +249,13 @@ function render({ user, avatar, stats }) {
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, CARD.width, CARD.height);
 
-    fill(ctx, 15, 15, CARD.width - 30, CARD.height - 30, 22, 'rgba(5,8,22,0.85)');
+    fillRR(ctx, 15, 15, CARD.width - 30, CARD.height - 30, 22, 'rgba(5,8,22,0.85)');
 
     // avatar
     const x = 52, y = 46, size = 170;
 
     if (!avatar) {
-      drawInitial(ctx, user, x, y, size);
+      drawFallback(ctx, user, x, y, size);
     } else {
       ctx.save();
       ctx.beginPath();
@@ -283,13 +286,13 @@ function render({ user, avatar, stats }) {
     // progress
     const px = 344, py = 180;
 
-    fill(ctx, px, py, 620, 40, 22, 'rgba(17,24,39,0.9)');
+    fillRR(ctx, px, py, 620, 40, 22, 'rgba(17,24,39,0.9)');
 
     const prog = ctx.createLinearGradient(px, py, px + 620, py);
     prog.addColorStop(0, '#9333EA');
     prog.addColorStop(1, '#C084FC');
 
-    fill(ctx, px, py, 620 * stats.progress, 40, 22, prog);
+    fillRR(ctx, px, py, 620 * stats.progress, 40, 22, prog);
 
     ctx.fillStyle = '#fff';
     ctx.font = '700 18px Inter';
@@ -319,11 +322,14 @@ async function buildRank(user) {
 }
 
 // ============================================================================
-// EXPORT MODULE
+// MODULE EXPORT (FIXED FOR YOUR LOADER)
 // ============================================================================
 
 export default {
   name: 'leveling',
+
+  // REQUIRED (your loader error)
+  configSchema: {},
 
   commands: [
     {
@@ -341,10 +347,10 @@ export default {
             files: [attachment]
           });
 
-          console.log(`[RANK] OK ${Date.now() - start}ms`);
+          log(`Rank OK in ${Date.now() - start}ms`);
 
         } catch (err) {
-          console.error('[RANK ERROR]', err);
+          error(err);
 
           const msg =
             `❌ Failed to generate rank card\n\n` +
@@ -360,5 +366,5 @@ export default {
     }
   ],
 
-  events: []
+  events: [] // REQUIRED (your loader)
 };
