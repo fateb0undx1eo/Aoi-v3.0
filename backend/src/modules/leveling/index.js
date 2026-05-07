@@ -18,7 +18,7 @@ const LEVELING_SCHEMA = {
 };
 
 // ============================================================================
-// ROOT PATH FIX
+// PATHS
 // ============================================================================
 
 const ROOT_DIR = process.cwd();
@@ -45,48 +45,41 @@ function error(...msg) {
 }
 
 // ============================================================================
-// DEBUG
+// STARTUP
 // ============================================================================
 
 log('================================================');
 log('LEVELING MODULE START');
-log('process.cwd() =', ROOT_DIR);
+log('ROOT =', ROOT_DIR);
 log('FONT_DIR =', FONT_DIR);
 log('================================================');
 
 try {
-  if (!fs.existsSync(FONT_DIR)) {
-    error('FONT DIRECTORY DOES NOT EXIST');
-  } else {
+  if (fs.existsSync(FONT_DIR)) {
+    log('Font directory exists');
+
     const files = fs.readdirSync(FONT_DIR);
 
-    log('Font directory exists');
     log('Available fonts:', files);
+  } else {
+    error('Font directory missing');
   }
 } catch (err) {
-  error('Failed reading font directory');
+  error('Font directory read failed');
   console.error(err);
 }
 
 // ============================================================================
-// FONT REGISTRATION
+// FONT LOADING
 // ============================================================================
 
-const LOADED_FONTS = new Set();
-
-function tryRegister(
-  family,
-  file,
-  weight = 'normal'
-) {
+function loadFont(family, file, weight) {
   try {
     const full = path.join(FONT_DIR, file);
 
-    log(`Trying font: ${file}`);
-
     if (!fs.existsSync(full)) {
-      error(`Missing font -> ${full}`);
-      return false;
+      error('Missing font:', full);
+      return;
     }
 
     registerFont(full, {
@@ -94,78 +87,53 @@ function tryRegister(
       weight
     });
 
-    LOADED_FONTS.add(`${family}-${weight}`);
-
-    log(
-      `Loaded font "${file}" as ${family} (${weight})`
-    );
-
-    return true;
+    log(`Loaded ${file}`);
   } catch (err) {
-    error(`Failed loading font "${file}"`);
+    error(`Failed loading ${file}`);
     console.error(err);
-
-    return false;
   }
 }
 
-tryRegister(
-  'Satoshi',
-  'Satoshi-Black.otf',
-  '900'
-);
-
-tryRegister(
-  'Satoshi',
-  'Satoshi-Bold.otf',
-  '700'
-);
-
-tryRegister(
-  'Inter',
-  'Inter_24pt-SemiBold.ttf',
-  '600'
-);
-
-tryRegister(
-  'Inter',
-  'Inter_24pt-Regular.ttf',
-  '400'
-);
+loadFont('Satoshi', 'Satoshi-Black.otf', '900');
+loadFont('Satoshi', 'Satoshi-Bold.otf', '700');
+loadFont('Inter', 'Inter_24pt-SemiBold.ttf', '600');
+loadFont('Inter', 'Inter_24pt-Regular.ttf', '400');
 
 // ============================================================================
-// CARD CONFIG
+// CONFIG
 // ============================================================================
 
 const CARD = {
   width: 1034,
-  height: 491,
-
-  purple: '#A855F7',
-  purple2: '#C084FC',
-
-  white: '#FFFFFF',
-  secondary: '#9CA3AF',
-  muted: '#6B7280',
-
-  green: '#22C55E'
+  height: 491
 };
 
 // ============================================================================
 // HELPERS
 // ============================================================================
 
-function roundRect(ctx, x, y, w, h, r) {
-  const radius = Math.min(r, w / 2, h / 2);
+function rgba(hex, alpha) {
+  const value = parseInt(
+    hex.replace('#', ''),
+    16
+  );
 
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
 
-  ctx.moveTo(x + radius, y);
+  ctx.moveTo(x + r, y);
 
-  ctx.arcTo(x + w, y, x + w, y + h, radius);
-  ctx.arcTo(x + w, y + h, x, y + h, radius);
-  ctx.arcTo(x, y + h, x, y, radius);
-  ctx.arcTo(x, y, x + w, y, radius);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
 
   ctx.closePath();
 }
@@ -185,95 +153,28 @@ function fillRoundRect(
   ctx.fill();
 }
 
-function strokeRoundRect(
-  ctx,
-  x,
-  y,
-  w,
-  h,
-  r,
-  stroke,
-  width = 1
-) {
-  roundRect(ctx, x, y, w, h, r);
-
-  ctx.strokeStyle = stroke;
-  ctx.lineWidth = width;
-
-  ctx.stroke();
-}
-
-function rgba(hex, alpha) {
-  const value = parseInt(
-    hex.replace('#', ''),
-    16
-  );
-
-  const r = (value >> 16) & 255;
-  const g = (value >> 8) & 255;
-  const b = value & 255;
-
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-function compactNumber(num) {
-  if (num >= 1000) {
-    const k = num / 1000;
-
-    return `${
-      k % 1 === 0
-        ? k.toFixed(0)
-        : k.toFixed(1)
-    }K`;
-  }
-
-  return String(num);
-}
-
-function drawTextFit(
-  ctx,
-  text,
-  x,
-  y,
-  maxWidth
-) {
-  let value = String(text ?? '');
-
-  while (
-    ctx.measureText(value).width >
-      maxWidth &&
-    value.length > 0
-  ) {
-    value = value.slice(0, -1);
-  }
-
-  if (value !== text) {
-    value += '...';
-  }
-
-  ctx.fillText(value, x, y);
-}
-
 function setFont(
   ctx,
   weight,
   size,
   family = 'Satoshi'
 ) {
-  ctx.font = `${weight} ${size}px "${family}", sans-serif`;
+  ctx.font = `${weight} ${size}px "${family}"`;
+}
+
+function compactNumber(num) {
+  if (num >= 1000) {
+    return `${(num / 1000).toFixed(1)}K`;
+  }
+
+  return String(num);
 }
 
 // ============================================================================
-// SVG STYLE ICONS
+// VECTOR ICONS
 // ============================================================================
 
-function drawDiamond(
-  ctx,
-  x,
-  y,
-  size,
-  color
-) {
+function drawDiamond(ctx, x, y, size, color) {
   ctx.save();
 
   ctx.beginPath();
@@ -291,43 +192,12 @@ function drawDiamond(
   ctx.restore();
 }
 
-function drawBars(
-  ctx,
-  x,
-  y,
-  color
-) {
+function drawBars(ctx, x, y, color) {
   ctx.fillStyle = color;
 
-  ctx.fillRect(x, y + 12, 8, 18);
-  ctx.fillRect(x + 14, y + 4, 8, 26);
-  ctx.fillRect(x + 28, y, 8, 30);
-}
-
-function drawPulse(
-  ctx,
-  x,
-  y,
-  color
-) {
-  ctx.save();
-
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 3;
-
-  ctx.beginPath();
-
-  ctx.moveTo(x, y + 8);
-  ctx.lineTo(x + 8, y + 8);
-  ctx.lineTo(x + 12, y);
-  ctx.lineTo(x + 18, y + 16);
-  ctx.lineTo(x + 24, y + 4);
-  ctx.lineTo(x + 30, y + 8);
-  ctx.lineTo(x + 40, y + 8);
-
-  ctx.stroke();
-
-  ctx.restore();
+  ctx.fillRect(x, y + 12, 7, 18);
+  ctx.fillRect(x + 12, y, 7, 30);
+  ctx.fillRect(x + 24, y + 7, 7, 23);
 }
 
 // ============================================================================
@@ -344,13 +214,9 @@ function getStats(userId) {
 
   return {
     rank: 1 + (seed % 99),
-
     current,
     needed,
-
     progress: current / needed,
-    remaining: needed - current,
-
     daily: 3500,
     lifetime: 89121
   };
@@ -365,7 +231,7 @@ async function fetchAvatar(user) {
     const url =
       user.displayAvatarURL({
         extension: 'png',
-        size: 512
+        size: 256
       });
 
     log('Fetching avatar:', url);
@@ -373,25 +239,18 @@ async function fetchAvatar(user) {
     const response = await fetch(url);
 
     if (!response.ok) {
-      error(
-        `Avatar request failed: ${response.status}`
-      );
-
+      error('Avatar fetch failed');
       return null;
     }
 
-    const buffer = Buffer.from(
-      await response.arrayBuffer()
-    );
+    const arrayBuffer =
+      await response.arrayBuffer();
 
-    const image =
-      await loadImage(buffer);
+    const buffer = Buffer.from(arrayBuffer);
 
-    log('Avatar loaded');
-
-    return image;
+    return await loadImage(buffer);
   } catch (err) {
-    error('Avatar loading failed');
+    error('Avatar load failed');
     console.error(err);
 
     return null;
@@ -399,11 +258,11 @@ async function fetchAvatar(user) {
 }
 
 // ============================================================================
-// BACKGROUND
+// DRAWING
 // ============================================================================
 
 function drawBackground(ctx) {
-  const gradient =
+  const bg =
     ctx.createLinearGradient(
       0,
       0,
@@ -411,10 +270,10 @@ function drawBackground(ctx) {
       CARD.height
     );
 
-  gradient.addColorStop(0, '#050816');
-  gradient.addColorStop(1, '#0A0416');
+  bg.addColorStop(0, '#050816');
+  bg.addColorStop(1, '#12071F');
 
-  ctx.fillStyle = gradient;
+  ctx.fillStyle = bg;
 
   ctx.fillRect(
     0,
@@ -432,128 +291,17 @@ function drawBackground(ctx) {
     22,
     rgba('#050816', 0.82)
   );
-
-  strokeRoundRect(
-    ctx,
-    15,
-    15,
-    CARD.width - 30,
-    CARD.height - 30,
-    22,
-    rgba('#C084FC', 0.4),
-    1.2
-  );
-
-  const glow =
-    ctx.createRadialGradient(
-      850,
-      120,
-      40,
-      850,
-      120,
-      320
-    );
-
-  glow.addColorStop(
-    0,
-    rgba('#A855F7', 0.28)
-  );
-
-  glow.addColorStop(
-    1,
-    rgba('#A855F7', 0)
-  );
-
-  ctx.fillStyle = glow;
-
-  ctx.fillRect(
-    0,
-    0,
-    CARD.width,
-    CARD.height
-  );
-
-  ctx.save();
-
-  ctx.strokeStyle = rgba(
-    '#FFFFFF',
-    0.08
-  );
-
-  ctx.beginPath();
-
-  ctx.moveTo(310, 48);
-  ctx.lineTo(310, 440);
-
-  ctx.stroke();
-
-  ctx.restore();
 }
-
-// ============================================================================
-// AVATAR
-// ============================================================================
 
 function drawAvatar(ctx, avatar) {
   const x = 52;
   const y = 46;
-  const size = 170;
-
-  const cx = x + size / 2;
-  const cy = y + size / 2;
-
-  ctx.save();
-
-  ctx.shadowColor = '#A855F7';
-  ctx.shadowBlur = 40;
-
-  ctx.beginPath();
-
-  ctx.arc(
-    cx,
-    cy,
-    96,
-    0,
-    Math.PI * 2
-  );
-
-  ctx.strokeStyle = rgba(
-    '#A855F7',
-    0.9
-  );
-
-  ctx.lineWidth = 10;
-
-  ctx.stroke();
-
-  ctx.restore();
-
-  ctx.beginPath();
-
-  ctx.arc(
-    cx,
-    cy,
-    84,
-    0,
-    Math.PI * 2
-  );
-
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = 8;
-
-  ctx.stroke();
 
   ctx.save();
 
   ctx.beginPath();
 
-  ctx.arc(
-    cx,
-    cy,
-    76,
-    0,
-    Math.PI * 2
-  );
+  ctx.arc(137, 131, 76, 0, Math.PI * 2);
 
   ctx.clip();
 
@@ -566,257 +314,80 @@ function drawAvatar(ctx, avatar) {
       152
     );
   } else {
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = '#1F2937';
 
     ctx.fillRect(
-      x + 9,
-      y + 9,
-      152,
-      152
+      x,
+      y,
+      170,
+      170
     );
   }
 
   ctx.restore();
 
-  fillRoundRect(
-    ctx,
-    188,
-    176,
-    42,
-    42,
-    21,
-    '#0B1022'
-  );
+  ctx.beginPath();
 
-  drawDiamond(
-    ctx,
-    209,
-    197,
-    8,
-    '#A855F7'
-  );
+  ctx.arc(137, 131, 84, 0, Math.PI * 2);
+
+  ctx.strokeStyle = '#A855F7';
+  ctx.lineWidth = 8;
+
+  ctx.stroke();
 }
 
-// ============================================================================
-// RANK
-// ============================================================================
-
-function drawRankSection(
-  ctx,
-  stats
-) {
-  ctx.textAlign = 'center';
-
-  ctx.save();
-
-  ctx.globalAlpha = 0.05;
-
-  setFont(ctx, 900, 120);
-
+function drawCard(ctx, user, stats) {
   ctx.fillStyle = '#FFFFFF';
+
+  setFont(ctx, 900, 58);
 
   ctx.fillText(
-    String(stats.rank),
-    200,
-    334
+    user.username,
+    340,
+    95
   );
 
-  ctx.restore();
+  ctx.fillStyle = '#9CA3AF';
 
-  ctx.fillStyle = '#FFFFFF';
-
-  setFont(ctx, 900, 82);
+  setFont(ctx, 600, 24, 'Inter');
 
   ctx.fillText(
     `#${stats.rank}`,
-    145,
-    320
-  );
-
-  ctx.fillStyle = '#A855F7';
-
-  setFont(ctx, 700, 28, 'Inter');
-
-  ctx.fillText(
-    'GLOBAL RANK',
-    157,
-    372
+    340,
+    132
   );
 
   fillRoundRect(
     ctx,
-    50,
-    394,
-    195,
-    44,
-    24,
-    rgba('#22C55E', 0.08)
-  );
-
-  strokeRoundRect(
-    ctx,
-    50,
-    394,
-    195,
-    44,
-    24,
-    rgba('#22C55E', 0.35),
-    1
-  );
-
-  drawPulse(
-    ctx,
-    64,
-    404,
-    '#22C55E'
-  );
-
-  ctx.fillStyle = '#22C55E';
-
-  setFont(ctx, 700, 22, 'Inter');
-
-  ctx.fillText(
-    'ACTIVE',
-    145,
-    423
-  );
-}
-
-// ============================================================================
-// USER
-// ============================================================================
-
-function drawTopUser(
-  ctx,
-  user
-) {
-  const name =
-    user.globalName ||
-    user.displayName ||
-    user.username;
-
-  ctx.textAlign = 'left';
-
-  ctx.fillStyle = '#FFFFFF';
-
-  setFont(ctx, 900, 56);
-
-  drawTextFit(
-    ctx,
-    name,
-    344,
-    85,
-    360
-  );
-
-  ctx.fillStyle = '#9CA3AF';
-
-  setFont(ctx, 600, 26, 'Inter');
-
-  drawTextFit(
-    ctx,
-    `@${user.username}`,
-    344,
-    121,
-    400
-  );
-
-  fillRoundRect(
-    ctx,
-    836,
-    50,
-    150,
+    340,
+    170,
+    600,
     36,
-    11,
-    rgba('#12162A', 0.95)
+    18,
+    '#111827'
   );
 
-  strokeRoundRect(
-    ctx,
-    836,
-    50,
-    150,
-    36,
-    11,
-    rgba('#A855F7', 0.28),
-    1
-  );
-
-  drawBars(
-    ctx,
-    852,
-    56,
-    '#C4B5FD'
-  );
-
-  ctx.fillStyle = '#C4B5FD';
-
-  setFont(ctx, 700, 14, 'Inter');
-
-  ctx.fillText(
-    'RANKED USER',
-    900,
-    72
-  );
-}
-
-// ============================================================================
-// PROGRESS
-// ============================================================================
-
-function drawProgress(
-  ctx,
-  stats
-) {
-  const x = 344;
-  const y = 170;
-
-  const w = 620;
-  const h = 40;
-
-  ctx.fillStyle = '#9CA3AF';
-
-  setFont(ctx, 700, 17, 'Inter');
-
-  ctx.fillText(
-    'WEEKLY PROGRESS',
-    x,
-    144
-  );
-
-  fillRoundRect(
-    ctx,
-    x,
-    y,
-    w,
-    h,
-    22,
-    rgba('#111827', 0.95)
-  );
+  const progress =
+    600 * stats.progress;
 
   const gradient =
     ctx.createLinearGradient(
-      x,
-      y,
-      x + w,
-      y
+      340,
+      170,
+      940,
+      170
     );
 
   gradient.addColorStop(0, '#9333EA');
   gradient.addColorStop(1, '#C084FC');
 
-  const progressWidth = Math.max(
-    120,
-    w * stats.progress
-  );
-
   fillRoundRect(
     ctx,
-    x,
-    y,
-    progressWidth,
-    h,
-    22,
+    340,
+    170,
+    progress,
+    36,
+    18,
     gradient
   );
 
@@ -824,187 +395,68 @@ function drawProgress(
 
   setFont(ctx, 700, 18, 'Inter');
 
-  ctx.textAlign = 'center';
-
   ctx.fillText(
     `${compactNumber(stats.current)} / ${compactNumber(stats.needed)}`,
-    x + progressWidth - 70,
-    y + 26
+    360,
+    194
   );
-}
 
-// ============================================================================
-// STATS
-// ============================================================================
-
-function drawStatBlock(
-  ctx,
-  x,
-  y,
-  label,
-  value,
-  raw
-) {
-  ctx.textAlign = 'left';
-
-  ctx.fillStyle = '#9CA3AF';
-
-  setFont(ctx, 700, 15, 'Inter');
-
-  ctx.fillText(label, x, y - 18);
-
-  ctx.fillStyle = '#FFFFFF';
-
-  setFont(ctx, 900, 42);
-
-  ctx.fillText(value, x, y + 18);
-
-  ctx.fillStyle = '#6B7280';
-
-  setFont(ctx, 400, 16, 'Inter');
-
-  ctx.fillText(raw, x, y + 44);
-}
-
-function drawStatsCard(
-  ctx,
-  stats
-) {
   fillRoundRect(
     ctx,
-    344,
-    276,
+    340,
+    255,
     620,
-    104,
+    110,
     22,
-    rgba('#0B1020', 0.72)
-  );
-
-  strokeRoundRect(
-    ctx,
-    344,
-    276,
-    620,
-    104,
-    22,
-    rgba('#A855F7', 0.12),
-    1
-  );
-
-  fillRoundRect(
-    ctx,
-    366,
-    293,
-    56,
-    56,
-    16,
-    rgba('#111827', 0.90)
-  );
-
-  fillRoundRect(
-    ctx,
-    681,
-    293,
-    56,
-    56,
-    16,
-    rgba('#111827', 0.90)
+    rgba('#0B1020', 0.75)
   );
 
   drawDiamond(
     ctx,
-    394,
-    321,
+    390,
+    310,
     10,
     '#A855F7'
   );
 
   drawBars(
     ctx,
-    694,
-    304,
+    690,
+    290,
     '#A855F7'
   );
 
-  drawStatBlock(
-    ctx,
-    450,
-    321,
-    'DAILY XP',
+  ctx.fillStyle = '#FFFFFF';
+
+  setFont(ctx, 900, 42);
+
+  ctx.fillText(
     compactNumber(stats.daily),
-    stats.daily.toLocaleString()
+    440,
+    325
   );
 
-  drawStatBlock(
-    ctx,
-    764,
-    321,
-    'LIFETIME XP',
+  ctx.fillText(
     compactNumber(stats.lifetime),
-    stats.lifetime.toLocaleString()
-  );
-}
-
-// ============================================================================
-// FOOTER
-// ============================================================================
-
-function drawFooter(ctx) {
-  ctx.save();
-
-  ctx.strokeStyle = rgba(
-    '#FFFFFF',
-    0.08
+    760,
+    325
   );
 
-  ctx.beginPath();
+  ctx.fillStyle = '#9CA3AF';
 
-  ctx.moveTo(344, 392);
-  ctx.lineTo(964, 392);
+  setFont(ctx, 600, 15, 'Inter');
 
-  ctx.stroke();
+  ctx.fillText(
+    'DAILY XP',
+    440,
+    290
+  );
 
-  ctx.restore();
-
-  const items = [
-    {
-      x: 382,
-      label: 'Member since',
-      value: 'Jan 12 2024'
-    },
-    {
-      x: 625,
-      label: 'Activity streak',
-      value: '28 days'
-    },
-    {
-      x: 865,
-      label: 'Last active',
-      value: '5m ago'
-    }
-  ];
-
-  for (const item of items) {
-    ctx.fillStyle = '#9CA3AF';
-
-    setFont(ctx, 400, 14, 'Inter');
-
-    ctx.fillText(
-      item.label,
-      item.x,
-      420
-    );
-
-    ctx.fillStyle = '#FFFFFF';
-
-    setFont(ctx, 700, 22, 'Inter');
-
-    ctx.fillText(
-      item.value,
-      item.x,
-      446
-    );
-  }
+  ctx.fillText(
+    'LIFETIME XP',
+    760,
+    290
+  );
 }
 
 // ============================================================================
@@ -1028,18 +480,22 @@ function renderCard({
       canvas.getContext('2d');
 
     drawBackground(ctx);
+
     drawAvatar(ctx, avatar);
-    drawRankSection(ctx, stats);
-    drawTopUser(ctx, user);
-    drawProgress(ctx, stats);
-    drawStatsCard(ctx, stats);
-    drawFooter(ctx);
+
+    drawCard(ctx, user, stats);
 
     const buffer =
       canvas.toBuffer('image/png');
 
+    if (!buffer || !buffer.length) {
+      throw new Error(
+        'PNG buffer empty'
+      );
+    }
+
     log(
-      `PNG created (${buffer.length} bytes)`
+      `Generated PNG (${buffer.length} bytes)`
     );
 
     return buffer;
@@ -1059,21 +515,18 @@ async function buildRankAttachment(
   user
 ) {
   try {
-    log(
-      `Building rank card for ${user.username}`
-    );
-
     const avatar =
       await fetchAvatar(user);
 
     const stats =
       getStats(user.id);
 
-    const png = renderCard({
-      user,
-      avatar,
-      stats
-    });
+    const png =
+      renderCard({
+        user,
+        avatar,
+        stats
+      });
 
     return new AttachmentBuilder(
       png,
@@ -1083,7 +536,7 @@ async function buildRankAttachment(
     );
   } catch (err) {
     error(
-      'Failed building attachment'
+      'buildRankAttachment failed'
     );
 
     console.error(err);
@@ -1128,32 +581,18 @@ export default {
             files: [attachment]
           });
 
-          log(
-            'Rank card sent successfully'
-          );
+          log('Card sent');
         } catch (err) {
           error(
-            'Command execution failed'
+            'Command failed'
           );
 
           console.error(err);
 
-          const content =
-            'Failed to generate rank card. Check logs.';
-
-          if (
-            interaction.deferred ||
-            interaction.replied
-          ) {
-            await interaction.editReply({
-              content
-            });
-          } else {
-            await interaction.reply({
-              content,
-              ephemeral: true
-            });
-          }
+          await interaction.editReply({
+            content:
+              'Failed to generate rank card.'
+          });
         }
       }
     }
