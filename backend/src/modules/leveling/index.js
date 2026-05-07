@@ -9,7 +9,7 @@ import path from 'path';
 import fs from 'fs';
 
 // ============================================================================
-// CONFIG SCHEMA
+// CONFIG
 // ============================================================================
 
 const LEVELING_SCHEMA = {
@@ -18,7 +18,7 @@ const LEVELING_SCHEMA = {
 };
 
 // ============================================================================
-// PATHS
+// ROOT PATH FIX
 // ============================================================================
 
 const ROOT_DIR = process.cwd();
@@ -33,7 +33,7 @@ const FONT_DIR = path.join(
 );
 
 // ============================================================================
-// DEBUG LOGGER
+// LOGGER
 // ============================================================================
 
 function log(...msg) {
@@ -45,7 +45,7 @@ function error(...msg) {
 }
 
 // ============================================================================
-// STARTUP DEBUG
+// DEBUG
 // ============================================================================
 
 log('================================================');
@@ -260,22 +260,11 @@ function setFont(
   size,
   family = 'Satoshi'
 ) {
-  const exists =
-    LOADED_FONTS.has(
-      `${family}-${weight}`
-    );
-
-  if (!exists) {
-    error(
-      `Missing registered font ${family}-${weight}`
-    );
-  }
-
   ctx.font = `${weight} ${size}px "${family}", sans-serif`;
 }
 
 // ============================================================================
-// SVG ICONS
+// SVG STYLE ICONS
 // ============================================================================
 
 function drawDiamond(
@@ -302,52 +291,6 @@ function drawDiamond(
   ctx.restore();
 }
 
-function drawBolt(
-  ctx,
-  x,
-  y,
-  size,
-  color
-) {
-  ctx.save();
-
-  ctx.beginPath();
-
-  ctx.moveTo(x - size * 0.2, y - size);
-  ctx.lineTo(x + size * 0.2, y - size);
-  ctx.lineTo(x - size * 0.05, y);
-  ctx.lineTo(x + size * 0.35, y);
-  ctx.lineTo(x - size * 0.3, y + size);
-
-  ctx.closePath();
-
-  ctx.fillStyle = color;
-  ctx.fill();
-
-  ctx.restore();
-}
-
-function drawCircleDot(
-  ctx,
-  x,
-  y,
-  size,
-  color
-) {
-  ctx.beginPath();
-
-  ctx.arc(
-    x,
-    y,
-    size,
-    0,
-    Math.PI * 2
-  );
-
-  ctx.fillStyle = color;
-  ctx.fill();
-}
-
 function drawBars(
   ctx,
   x,
@@ -356,9 +299,35 @@ function drawBars(
 ) {
   ctx.fillStyle = color;
 
-  ctx.fillRect(x, y + 10, 8, 20);
-  ctx.fillRect(x + 14, y, 8, 30);
-  ctx.fillRect(x + 28, y + 6, 8, 24);
+  ctx.fillRect(x, y + 12, 8, 18);
+  ctx.fillRect(x + 14, y + 4, 8, 26);
+  ctx.fillRect(x + 28, y, 8, 30);
+}
+
+function drawPulse(
+  ctx,
+  x,
+  y,
+  color
+) {
+  ctx.save();
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+
+  ctx.beginPath();
+
+  ctx.moveTo(x, y + 8);
+  ctx.lineTo(x + 8, y + 8);
+  ctx.lineTo(x + 12, y);
+  ctx.lineTo(x + 18, y + 16);
+  ctx.lineTo(x + 24, y + 4);
+  ctx.lineTo(x + 30, y + 8);
+  ctx.lineTo(x + 40, y + 8);
+
+  ctx.stroke();
+
+  ctx.restore();
 }
 
 // ============================================================================
@@ -411,11 +380,8 @@ async function fetchAvatar(user) {
       return null;
     }
 
-    const arrayBuffer =
-      await response.arrayBuffer();
-
     const buffer = Buffer.from(
-      arrayBuffer
+      await response.arrayBuffer()
     );
 
     const image =
@@ -445,7 +411,7 @@ function drawBackground(ctx) {
       CARD.height
     );
 
-  gradient.addColorStop(0, '#040611');
+  gradient.addColorStop(0, '#050816');
   gradient.addColorStop(1, '#0A0416');
 
   ctx.fillStyle = gradient;
@@ -485,7 +451,7 @@ function drawBackground(ctx) {
       40,
       850,
       120,
-      300
+      320
     );
 
   glow.addColorStop(
@@ -529,111 +495,106 @@ function drawBackground(ctx) {
 // ============================================================================
 
 function drawAvatar(ctx, avatar) {
-  try {
-    const x = 52;
-    const y = 46;
-    const size = 170;
+  const x = 52;
+  const y = 46;
+  const size = 170;
 
-    const cx = x + size / 2;
-    const cy = y + size / 2;
+  const cx = x + size / 2;
+  const cy = y + size / 2;
 
-    ctx.save();
+  ctx.save();
 
-    ctx.shadowColor = '#A855F7';
-    ctx.shadowBlur = 40;
+  ctx.shadowColor = '#A855F7';
+  ctx.shadowBlur = 40;
 
-    ctx.beginPath();
+  ctx.beginPath();
 
-    ctx.arc(
-      cx,
-      cy,
-      96,
-      0,
-      Math.PI * 2
+  ctx.arc(
+    cx,
+    cy,
+    96,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.strokeStyle = rgba(
+    '#A855F7',
+    0.9
+  );
+
+  ctx.lineWidth = 10;
+
+  ctx.stroke();
+
+  ctx.restore();
+
+  ctx.beginPath();
+
+  ctx.arc(
+    cx,
+    cy,
+    84,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 8;
+
+  ctx.stroke();
+
+  ctx.save();
+
+  ctx.beginPath();
+
+  ctx.arc(
+    cx,
+    cy,
+    76,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.clip();
+
+  if (avatar) {
+    ctx.drawImage(
+      avatar,
+      x + 9,
+      y + 9,
+      152,
+      152
     );
+  } else {
+    ctx.fillStyle = '#FFFFFF';
 
-    ctx.strokeStyle = rgba(
-      '#A855F7',
-      0.9
+    ctx.fillRect(
+      x + 9,
+      y + 9,
+      152,
+      152
     );
-
-    ctx.lineWidth = 10;
-
-    ctx.stroke();
-
-    ctx.restore();
-
-    ctx.beginPath();
-
-    ctx.arc(
-      cx,
-      cy,
-      84,
-      0,
-      Math.PI * 2
-    );
-
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 8;
-
-    ctx.stroke();
-
-    ctx.save();
-
-    ctx.beginPath();
-
-    ctx.arc(
-      cx,
-      cy,
-      76,
-      0,
-      Math.PI * 2
-    );
-
-    ctx.clip();
-
-    if (avatar) {
-      ctx.drawImage(
-        avatar,
-        x + 9,
-        y + 9,
-        152,
-        152
-      );
-    } else {
-      ctx.fillStyle = '#FFFFFF';
-
-      ctx.fillRect(
-        x + 9,
-        y + 9,
-        152,
-        152
-      );
-    }
-
-    ctx.restore();
-
-    fillRoundRect(
-      ctx,
-      188,
-      176,
-      42,
-      42,
-      21,
-      '#0B1022'
-    );
-
-    drawDiamond(
-      ctx,
-      209,
-      197,
-      8,
-      '#A855F7'
-    );
-  } catch (err) {
-    error('drawAvatar failed');
-    console.error(err);
   }
+
+  ctx.restore();
+
+  fillRoundRect(
+    ctx,
+    188,
+    176,
+    42,
+    42,
+    21,
+    '#0B1022'
+  );
+
+  drawDiamond(
+    ctx,
+    209,
+    197,
+    8,
+    '#A855F7'
+  );
 }
 
 // ============================================================================
@@ -703,11 +664,10 @@ function drawRankSection(
     1
   );
 
-  drawCircleDot(
+  drawPulse(
     ctx,
-    76,
-    416,
-    6,
+    64,
+    404,
     '#22C55E'
   );
 
@@ -723,7 +683,7 @@ function drawRankSection(
 }
 
 // ============================================================================
-// USER INFO
+// USER
 // ============================================================================
 
 function drawTopUser(
@@ -793,8 +753,6 @@ function drawTopUser(
 
   setFont(ctx, 700, 14, 'Inter');
 
-  ctx.textAlign = 'left';
-
   ctx.fillText(
     'RANKED USER',
     900,
@@ -815,8 +773,6 @@ function drawProgress(
 
   const w = 620;
   const h = 40;
-
-  ctx.textAlign = 'left';
 
   ctx.fillStyle = '#9CA3AF';
 
@@ -875,16 +831,6 @@ function drawProgress(
     x + progressWidth - 70,
     y + 26
   );
-
-  ctx.fillStyle = '#6B7280';
-
-  ctx.textAlign = 'right';
-
-  ctx.fillText(
-    `${Math.round(stats.progress * 100)}%`,
-    x + w - 12,
-    y + 26
-  );
 }
 
 // ============================================================================
@@ -924,13 +870,10 @@ function drawStatsCard(
   ctx,
   stats
 ) {
-  const x = 344;
-  const y = 276;
-
   fillRoundRect(
     ctx,
-    x,
-    y,
+    344,
+    276,
     620,
     104,
     22,
@@ -939,8 +882,8 @@ function drawStatsCard(
 
   strokeRoundRect(
     ctx,
-    x,
-    y,
+    344,
+    276,
     620,
     104,
     22,
@@ -976,11 +919,10 @@ function drawStatsCard(
     '#A855F7'
   );
 
-  drawBolt(
+  drawBars(
     ctx,
-    709,
-    321,
-    11,
+    694,
+    304,
     '#A855F7'
   );
 
@@ -1043,8 +985,6 @@ function drawFooter(ctx) {
   ];
 
   for (const item of items) {
-    ctx.textAlign = 'left';
-
     ctx.fillStyle = '#9CA3AF';
 
     setFont(ctx, 400, 14, 'Inter');
@@ -1086,11 +1026,6 @@ function renderCard({
 
     const ctx =
       canvas.getContext('2d');
-
-    ctx.antialias = 'subpixel';
-    ctx.patternQuality = 'best';
-    ctx.quality = 'best';
-    ctx.textDrawingMode = 'glyph';
 
     drawBackground(ctx);
     drawAvatar(ctx, avatar);
