@@ -2,8 +2,8 @@ import { AttachmentBuilder } from 'discord.js';
 import { createCanvas, loadImage } from 'canvas';
 
 const CARD = Object.freeze({
-  width: 900,
-  height: 400,
+  width: 1034,
+  height: 491,
   accent: '#A855F7',
   background: '#0B0F14',
   surface: '#11161C',
@@ -176,15 +176,15 @@ function drawSubtleGrid(ctx, color) {
 
   for (let x = 40; x < CARD.width; x += 44) {
     ctx.beginPath();
-    ctx.moveTo(x, 28);
-    ctx.lineTo(x, CARD.height - 28);
+    ctx.moveTo(x, 24);
+    ctx.lineTo(x, CARD.height - 24);
     ctx.stroke();
   }
 
   for (let y = 32; y < CARD.height; y += 44) {
     ctx.beginPath();
-    ctx.moveTo(28, y);
-    ctx.lineTo(CARD.width - 28, y);
+    ctx.moveTo(24, y);
+    ctx.lineTo(CARD.width - 24, y);
     ctx.stroke();
   }
 
@@ -192,19 +192,19 @@ function drawSubtleGrid(ctx, color) {
 }
 
 function drawAvatar(ctx, avatar, user, config) {
-  const x = 64;
-  const y = 42;
-  const size = 140;
+  const x = 59;
+  const y = 53;
+  const size = 170;
   const center = x + size / 2;
   const radius = size / 2;
 
   ctx.save();
   ctx.shadowColor = hexToRgba(config.progress_start_color, 0.32);
-  ctx.shadowBlur = 18;
+  ctx.shadowBlur = 40;
   ctx.beginPath();
-  ctx.arc(center, y + radius, radius + 7, 0, Math.PI * 2);
+  ctx.arc(center, y + radius, radius + 14, 0, Math.PI * 2);
   ctx.strokeStyle = config.progress_start_color;
-  ctx.lineWidth = 6;
+  ctx.lineWidth = 8;
   ctx.stroke();
   ctx.restore();
 
@@ -219,7 +219,7 @@ function drawAvatar(ctx, avatar, user, config) {
     ctx.fillStyle = config.panel_color;
     ctx.fillRect(x, y, size, size);
     ctx.fillStyle = config.display_name_color;
-    ctx.font = '700 56px Arial';
+    ctx.font = '700 62px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(String(user.username || 'A').slice(0, 1).toUpperCase(), center, y + radius + 2);
@@ -233,81 +233,92 @@ function drawLeftColumn(ctx, avatar, user, config, stats) {
 
   const rankNumber = String(stats.rank);
 
-  ctx.save();
-  ctx.globalAlpha = 0.045;
-  ctx.strokeStyle = config.rank_color;
-  ctx.lineWidth = 2;
-  ctx.font = '900 102px Arial';
-  ctx.strokeText(rankNumber, 180, 291);
-  ctx.restore();
-
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = config.rank_color;
-  ctx.font = '900 70px Arial';
-  ctx.fillText(`#${rankNumber}`, 134, 274);
+  ctx.font = '900 82px Arial';
+  ctx.fillText(`#${rankNumber}`, 145, 322);
+
+  ctx.save();
+  ctx.globalAlpha = 0.07;
+  ctx.fillStyle = config.rank_color;
+  ctx.font = '900 95px Arial';
+  ctx.fillText(rankNumber, 212, 322);
+  ctx.restore();
 
   ctx.fillStyle = config.rank_label_color;
-  ctx.font = '700 14px Arial';
-  ctx.fillText('GLOBAL RANK', 134, 302);
+  ctx.font = '700 30px Arial';
+  ctx.fillText('GLOBAL RANK', 165, 372);
 
-  fillRoundRect(ctx, 64, 329, 140, 34, 17, CARD.activeBg);
+  fillRoundRect(ctx, 45, 395, 220, 42, 21, CARD.activeBg);
+  strokeRoundRect(ctx, 45, 395, 220, 42, 21, hexToRgba(config.status_color, 0.5), 1.2);
   ctx.fillStyle = CARD.activeText;
   ctx.beginPath();
-  ctx.arc(88, 346, 5, 0, Math.PI * 2);
+  ctx.arc(71, 416, 6, 0, Math.PI * 2);
   ctx.fill();
-  ctx.font = '700 13px Arial';
-  ctx.fillText('SUPER ACTIVE', 143, 351);
+  ctx.font = '700 29px Arial';
+  ctx.fillText('SUPER ACTIVE', 162, 422);
 }
 
 function drawProgress(ctx, config, stats) {
-  const x = 344;
-  const y = 170;
-  const width = 510;
-  const height = 26;
+  const x = 343;
+  const y = 171;
+  const width = 621;
+  const height = 40;
   const fillWidth = Math.round(width * stats.progress);
 
   ctx.textAlign = 'left';
   ctx.fillStyle = config.stat_label_color;
-  ctx.font = '700 14px Arial';
-  ctx.fillText('WEEKLY PROGRESS', x, 153);
+  ctx.font = '700 31px Arial';
+  ctx.fillText('WEEKLY PROGRESS', x, 145);
 
-  fillRoundRect(ctx, x, y, width, height, height / 2, config.progress_track_color);
-  fillRoundRect(ctx, x, y, fillWidth, height, height / 2, config.progress_start_color);
+  fillRoundRect(ctx, x, y, width, height, 20, config.progress_track_color);
+  fillRoundRect(ctx, x, y, fillWidth, height, 20, config.progress_start_color);
 
   ctx.fillStyle = config.progress_text_color;
-  ctx.font = '700 16px Arial';
+  ctx.font = '700 34px Arial';
   ctx.textAlign = 'center';
   ctx.fillText(
     `${compactNumber(stats.current)} / ${compactNumber(stats.needed)}`,
-    x + Math.max(90, fillWidth / 2),
-    y + 18
+    x + Math.max(130, fillWidth / 2),
+    y + 30
   );
 
   ctx.fillStyle = CARD.tertiary;
   ctx.textAlign = 'right';
-  ctx.fillText(`${Math.round(stats.progress * 100)}%`, x + width - 20, y + 18);
+  ctx.fillText(`${Math.round(stats.progress * 100)}%`, x + width - 10, y + 30);
 
   ctx.textAlign = 'left';
   ctx.fillStyle = config.username_color;
-  ctx.font = '600 15px Arial';
-  ctx.fillText(`${compactNumber(stats.remaining)} more for next role`, x, 234);
+  ctx.font = '600 31px Arial';
+  ctx.fillText(`${compactNumber(stats.remaining)} more for next role`, x + 30, 257);
 }
 
 function drawStats(ctx, config, stats) {
-  const top = 272;
-  const leftX = 344;
-  const rightX = 615;
+  const shellX = 343;
+  const shellY = 276;
+  const shellW = 621;
+  const shellH = 103;
+  const leftX = 445;
+  const rightX = 714;
+  const top = 321;
+
+  strokeRoundRect(ctx, shellX, shellY, shellW, shellH, 18, hexToRgba(config.panel_border_color, 0.2), 1);
 
   ctx.save();
   ctx.globalAlpha = 0.55;
   ctx.strokeStyle = CARD.tertiary;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(584, top - 4);
-  ctx.lineTo(584, top + 75);
+  ctx.moveTo(654, shellY + 15);
+  ctx.lineTo(654, shellY + shellH - 15);
   ctx.stroke();
   ctx.restore();
+
+  fillRoundRect(ctx, 367, 293, 52, 52, 12, hexToRgba(config.panel_color, 0.95));
+  strokeRoundRect(ctx, 367, 293, 52, 52, 12, hexToRgba(config.panel_border_color, 0.35), 1);
+  fillRoundRect(ctx, 682, 293, 52, 52, 12, hexToRgba(config.panel_color, 0.95));
+  strokeRoundRect(ctx, 682, 293, 52, 52, 12, hexToRgba(config.panel_border_color, 0.35), 1);
 
   drawStat(ctx, leftX, top, 'DAILY XP', compactNumber(stats.daily), stats.daily.toLocaleString(), config);
   drawStat(ctx, rightX, top, 'LIFETIME XP', compactNumber(stats.lifetime), stats.lifetime.toLocaleString(), config);
@@ -316,16 +327,41 @@ function drawStats(ctx, config, stats) {
 function drawStat(ctx, x, y, label, value, raw, config) {
   ctx.textAlign = 'left';
   ctx.fillStyle = config.stat_label_color;
-  ctx.font = '700 14px Arial';
-  ctx.fillText(label, x, y);
+  ctx.font = '700 31px Arial';
+  ctx.fillText(label, x, y - 20);
 
   ctx.fillStyle = config.stat_value_color;
-  ctx.font = '900 38px Arial';
-  ctx.fillText(value, x, y + 38);
+  ctx.font = '900 51px Arial';
+  ctx.fillText(value, x, y + 18);
 
   ctx.fillStyle = CARD.tertiary;
-  ctx.font = '600 14px Arial';
-  ctx.fillText(raw, x, y + 59);
+  ctx.font = '600 31px Arial';
+  ctx.fillText(raw, x, y + 48);
+}
+
+function drawFooterMeta(ctx, config) {
+  const y = 430;
+  ctx.save();
+  ctx.strokeStyle = hexToRgba(config.panel_border_color, 0.2);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(343, 391);
+  ctx.lineTo(964, 391);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.fillStyle = config.rank_label_color;
+  ctx.font = '500 23px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText('Member since', 383, y);
+  ctx.fillText('Activity streak', 627, y);
+  ctx.fillText('Last active', 857, y);
+
+  ctx.fillStyle = config.stat_value_color;
+  ctx.font = '600 32px Arial';
+  ctx.fillText('Jan 12, 2024', 383, y + 32);
+  ctx.fillText('28 days', 627, y + 32);
+  ctx.fillText('5m ago', 857, y + 32);
 }
 
 function drawRankCardPng({ user, avatar, config, stats }) {
@@ -337,16 +373,16 @@ function drawRankCardPng({ user, avatar, config, stats }) {
   ctx.fillRect(0, 0, CARD.width, CARD.height);
   drawSubtleGrid(ctx, config.grid_color);
 
-  fillRoundRect(ctx, 15, 15, 870, 370, 16, config.background_color);
-  strokeRoundRect(ctx, 15, 15, 870, 370, 16, hexToRgba(config.panel_border_color, 0.55), 1.2);
+  fillRoundRect(ctx, 15, 15, CARD.width - 30, CARD.height - 30, 18, config.background_color);
+  strokeRoundRect(ctx, 15, 15, CARD.width - 30, CARD.height - 30, 18, hexToRgba(config.panel_border_color, 0.55), 1.2);
 
   ctx.save();
   ctx.globalAlpha = 0.42;
   ctx.strokeStyle = CARD.tertiary;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(309, 48);
-  ctx.lineTo(309, 354);
+  ctx.moveTo(308, 48);
+  ctx.lineTo(308, CARD.height - 48);
   ctx.stroke();
   ctx.restore();
 
@@ -354,15 +390,23 @@ function drawRankCardPng({ user, avatar, config, stats }) {
 
   ctx.textAlign = 'left';
   ctx.fillStyle = config.display_name_color;
-  ctx.font = '900 40px Arial';
-  drawTextFit(ctx, displayName, 344, 88, 410);
+  ctx.font = '900 57px Arial';
+  drawTextFit(ctx, displayName, 343, 86, 470);
 
   ctx.fillStyle = config.username_color;
-  ctx.font = '600 16px Arial';
-  drawTextFit(ctx, `@${user.username}`, 344, 117, 420);
+  ctx.font = '600 34px Arial';
+  drawTextFit(ctx, `@${user.username}`, 343, 125, 490);
+
+  fillRoundRect(ctx, 857, 48, 130, 34, 10, hexToRgba(config.panel_color, 0.95));
+  strokeRoundRect(ctx, 857, 48, 130, 34, 10, hexToRgba(config.panel_border_color, 0.3), 1);
+  ctx.fillStyle = config.rank_label_color;
+  ctx.font = '700 17px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('RANKED USER', 922, 71);
 
   drawProgress(ctx, config, stats);
   drawStats(ctx, config, stats);
+  drawFooterMeta(ctx, config);
 
   return canvas.toBuffer('image/png');
 }
