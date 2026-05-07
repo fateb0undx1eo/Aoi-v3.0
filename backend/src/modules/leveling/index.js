@@ -5,40 +5,48 @@ import fs from 'fs/promises';
 import fssync from 'fs';
 
 // ============================================================================
-// CONFIG
+// PATHS
 // ============================================================================
 
 const ROOT_DIR = process.cwd();
 
-const FONT_DIR = path.join(ROOT_DIR, 'src/modules/leveling/assets/fonts');
-const DATA_DIR = path.join(ROOT_DIR, 'src/modules/leveling/data');
+const FONT_DIR = path.join(
+  ROOT_DIR,
+  'src/modules/leveling/assets/fonts'
+);
+
+const DATA_DIR = path.join(
+  ROOT_DIR,
+  'src/modules/leveling/data'
+);
+
 const DATA_FILE = path.join(DATA_DIR, 'levels.json');
+
+// ============================================================================
+// DEBUG
+// ============================================================================
 
 const DEBUG = process.env.NODE_ENV !== 'production';
 
-// ============================================================================
-// GLOBAL ERROR SAFETY
-// ============================================================================
-
-process.on('unhandledRejection', (err) => {
-  console.error('[UNHANDLED REJECTION]', err);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('[UNCAUGHT EXCEPTION]', err);
-});
-
-// ============================================================================
-// LOGGING
-// ============================================================================
-
-function log(...m) {
-  if (DEBUG) console.log('[LEVELING]', ...m);
+function log(...a) {
+  if (DEBUG) console.log('[LEVELING]', ...a);
 }
 
-function error(...m) {
-  console.error('[LEVELING ERROR]', ...m);
+function error(...a) {
+  console.error('[LEVELING ERROR]', ...a);
 }
+
+// ============================================================================
+// SAFE GLOBAL ERRORS
+// ============================================================================
+
+process.on('unhandledRejection', (e) => {
+  console.error('[UNHANDLED]', e);
+});
+
+process.on('uncaughtException', (e) => {
+  console.error('[CRASH]', e);
+});
 
 // ============================================================================
 // STORAGE
@@ -64,7 +72,7 @@ async function writeDB(db) {
 }
 
 // ============================================================================
-// XP SYSTEM (REAL)
+// XP SYSTEM
 // ============================================================================
 
 async function getStats(userId) {
@@ -77,7 +85,6 @@ async function getStats(userId) {
   const user = db[userId];
 
   const needed = 5000 + user.level * 1200;
-
   const progress = user.xp / needed;
 
   return {
@@ -85,13 +92,12 @@ async function getStats(userId) {
     current: user.xp,
     needed,
     progress: Math.min(progress, 1),
-    remaining: Math.max(needed - user.xp, 0),
-    daily: 3000 + user.level * 50,
-    lifetime: user.xp
+    lifetime: user.xp,
+    daily: 3000 + user.level * 50
   };
 }
 
-// Optional XP add hook
+// optional XP hook
 export async function addXP(userId, amount = 10) {
   const db = await readDB();
 
@@ -110,10 +116,10 @@ export async function addXP(userId, amount = 10) {
 }
 
 // ============================================================================
-// FONT SETUP
+// FONTS
 // ============================================================================
 
-function registerFonts() {
+function loadFonts() {
   try {
     registerFont(path.join(FONT_DIR, 'Satoshi-Black.otf'), {
       family: 'Satoshi',
@@ -123,11 +129,6 @@ function registerFonts() {
     registerFont(path.join(FONT_DIR, 'Satoshi-Bold.otf'), {
       family: 'Satoshi',
       weight: '700'
-    });
-
-    registerFont(path.join(FONT_DIR, 'Inter_24pt-SemiBold.ttf'), {
-      family: 'Inter',
-      weight: '600'
     });
 
     registerFont(path.join(FONT_DIR, 'Inter_24pt-Regular.ttf'), {
@@ -141,7 +142,7 @@ function registerFonts() {
   }
 }
 
-registerFonts();
+loadFonts();
 
 // ============================================================================
 // AVATAR CACHE
@@ -162,58 +163,61 @@ async function getAvatar(user) {
     const res = await fetch(url);
     if (!res.ok) return null;
 
-    const buffer = Buffer.from(await res.arrayBuffer());
-    const img = await loadImage(buffer);
+    const img = await loadImage(
+      Buffer.from(await res.arrayBuffer())
+    );
 
     avatarCache.set(user.id, img);
-
     return img;
   } catch (e) {
-    error('Avatar fetch failed', e);
+    error('Avatar failed', e);
     return null;
   }
 }
 
 // ============================================================================
-// CANVAS HELPERS
+// CARD CONFIG
 // ============================================================================
 
-const CARD = { width: 1034, height: 491 };
+const CARD = {
+  width: 1034,
+  height: 491
+};
+
+// ============================================================================
+// HELPERS
+// ============================================================================
 
 function roundRect(ctx, x, y, w, h, r) {
-  const radius = Math.min(r, w / 2, h / 2);
+  const rr = Math.min(r, w / 2, h / 2);
 
   ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.arcTo(x + w, y, x + w, y + h, radius);
-  ctx.arcTo(x + w, y + h, x, y + h, radius);
-  ctx.arcTo(x, y + h, x, y, radius);
-  ctx.arcTo(x, y, x + w, y, radius);
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
   ctx.closePath();
 }
 
-function fillRR(ctx, x, y, w, h, r, col) {
+function fill(ctx, x, y, w, h, r, color) {
   roundRect(ctx, x, y, w, h, r);
-  ctx.fillStyle = col;
+  ctx.fillStyle = color;
   ctx.fill();
-}
-
-function compact(n) {
-  return n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n);
 }
 
 // ============================================================================
 // FALLBACK AVATAR
 // ============================================================================
 
-function drawFallback(ctx, user, x, y, size) {
+function drawInitial(ctx, user, x, y, size) {
   const letter = (user.username || 'U')[0].toUpperCase();
 
-  const grad = ctx.createLinearGradient(x, y, x + size, y + size);
-  grad.addColorStop(0, '#9333EA');
-  grad.addColorStop(1, '#C084FC');
+  const g = ctx.createLinearGradient(x, y, x + size, y + size);
+  g.addColorStop(0, '#9333EA');
+  g.addColorStop(1, '#C084FC');
 
-  ctx.fillStyle = grad;
+  ctx.fillStyle = g;
   ctx.beginPath();
   ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
   ctx.fill();
@@ -226,7 +230,7 @@ function drawFallback(ctx, user, x, y, size) {
 }
 
 // ============================================================================
-// RENDER
+// RENDER CARD
 // ============================================================================
 
 function render({ user, avatar, stats }) {
@@ -235,20 +239,20 @@ function render({ user, avatar, stats }) {
 
   try {
     // background
-    const g = ctx.createLinearGradient(0, 0, CARD.width, CARD.height);
-    g.addColorStop(0, '#040611');
-    g.addColorStop(1, '#0A0416');
+    const bg = ctx.createLinearGradient(0, 0, CARD.width, CARD.height);
+    bg.addColorStop(0, '#040611');
+    bg.addColorStop(1, '#0A0416');
 
-    ctx.fillStyle = g;
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, CARD.width, CARD.height);
 
-    fillRR(ctx, 15, 15, CARD.width - 30, CARD.height - 30, 22, 'rgba(5,8,22,0.85)');
+    fill(ctx, 15, 15, CARD.width - 30, CARD.height - 30, 22, 'rgba(5,8,22,0.85)');
 
     // avatar
     const x = 52, y = 46, size = 170;
 
     if (!avatar) {
-      drawFallback(ctx, user, x, y, size);
+      drawInitial(ctx, user, x, y, size);
     } else {
       ctx.save();
       ctx.beginPath();
@@ -258,13 +262,13 @@ function render({ user, avatar, stats }) {
       ctx.restore();
     }
 
-    // text
+    // name
     ctx.fillStyle = '#fff';
     ctx.font = '900 56px Satoshi';
     ctx.fillText(user.globalName || user.username, 344, 90);
 
     ctx.fillStyle = '#9CA3AF';
-    ctx.font = '600 24px Inter';
+    ctx.font = '400 24px Inter';
     ctx.fillText(`@${user.username}`, 344, 125);
 
     // level
@@ -279,23 +283,23 @@ function render({ user, avatar, stats }) {
     // progress
     const px = 344, py = 180;
 
-    fillRR(ctx, px, py, 620, 40, 22, 'rgba(17,24,39,0.9)');
+    fill(ctx, px, py, 620, 40, 22, 'rgba(17,24,39,0.9)');
 
     const prog = ctx.createLinearGradient(px, py, px + 620, py);
     prog.addColorStop(0, '#9333EA');
     prog.addColorStop(1, '#C084FC');
 
-    fillRR(ctx, px, py, Math.max(0, 620 * stats.progress), 40, 22, prog);
+    fill(ctx, px, py, 620 * stats.progress, 40, 22, prog);
 
     ctx.fillStyle = '#fff';
     ctx.font = '700 18px Inter';
-    ctx.fillText(`${compact(stats.current)} / ${compact(stats.needed)}`, 365, 206);
+    ctx.fillText(`${stats.current} / ${stats.needed}`, 365, 206);
 
     return canvas.toBuffer('image/png');
 
-  } catch (err) {
-    error('Render crash:', err);
-    throw err;
+  } catch (e) {
+    error('Render crash', e);
+    throw e;
   }
 }
 
@@ -321,11 +325,10 @@ async function buildRank(user) {
 export default {
   name: 'leveling',
 
-  configSchema: LEVELING_SCHEMA,
-
   commands: [
     {
       name: 'rank',
+
       async execute(interaction) {
         const start = Date.now();
 
@@ -338,13 +341,14 @@ export default {
             files: [attachment]
           });
 
-          console.log(`[RANK] success ${Date.now() - start}ms`);
+          console.log(`[RANK] OK ${Date.now() - start}ms`);
+
         } catch (err) {
           console.error('[RANK ERROR]', err);
 
           const msg =
             `❌ Failed to generate rank card\n\n` +
-            `\`\`\`\n${err?.stack || err}\n\`\`\``;
+            `\`\`\`\n${err?.stack || err}\`\`\``;
 
           if (interaction.deferred || interaction.replied) {
             await interaction.editReply({ content: msg });
@@ -356,6 +360,5 @@ export default {
     }
   ],
 
-  // ✅ THIS IS REQUIRED BY YOUR LOADER
   events: []
 };
