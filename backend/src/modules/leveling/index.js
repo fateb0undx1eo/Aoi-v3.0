@@ -1,454 +1,573 @@
 import { AttachmentBuilder } from 'discord.js';
-import { createCanvas, loadImage } from 'canvas';
+import {
+  createCanvas,
+  loadImage,
+  registerFont
+} from 'canvas';
+import path from 'path';
+import fs from 'fs';
 
-const CARD = Object.freeze({
+// ============================================================================
+// OPTIONAL FONT REGISTRATION
+// ============================================================================
+// Drop fonts into ./assets/fonts for best visual quality.
+// Recommended:
+// - Satoshi-Bold.ttf
+// - Satoshi-Black.ttf
+// - Inter-SemiBold.ttf
+// - Inter-Regular.ttf
+
+const FONT_DIR = path.join(process.cwd(), 'assets', 'fonts');
+
+function tryRegister(name, file, weight = 'normal') {
+  try {
+    const full = path.join(FONT_DIR, file);
+    if (fs.existsSync(full)) {
+      registerFont(full, {
+        family: name,
+        weight
+      });
+    }
+  } catch {}
+}
+
+tryRegister('Satoshi', 'Satoshi-Black.ttf', '900');
+tryRegister('Satoshi', 'Satoshi-Bold.ttf', '700');
+tryRegister('Inter', 'Inter-SemiBold.ttf', '600');
+tryRegister('Inter', 'Inter-Regular.ttf', '400');
+
+// ============================================================================
+// CARD CONFIG
+// ============================================================================
+
+const CARD = {
   width: 1034,
   height: 491,
-  accent: '#A855F7',
-  background: '#0B0F14',
-  surface: '#11161C',
-  progressTrack: '#1A1F26',
-  primary: '#FFFFFF',
+  radius: 24,
+
+  background: '#050816',
+  background2: '#090B1E',
+  purple: '#A855F7',
+  purpleBright: '#C084FC',
+  purpleSoft: '#7C3AED',
+  white: '#FFFFFF',
   secondary: '#9CA3AF',
   tertiary: '#6B7280',
-  activeBg: '#112A1F',
-  activeText: '#22C55E'
-});
-
-const LEVELING_SCHEMA = {
-  type: 'object',
-  properties: {
-    rank_card: {
-      type: 'object',
-      properties: {
-        background_color: { type: 'string' },
-        panel_color: { type: 'string' },
-        panel_border_color: { type: 'string' },
-        display_name_color: { type: 'string' },
-        username_color: { type: 'string' },
-        rank_color: { type: 'string' },
-        rank_label_color: { type: 'string' },
-        progress_track_color: { type: 'string' },
-        progress_start_color: { type: 'string' },
-        progress_end_color: { type: 'string' },
-        progress_text_color: { type: 'string' },
-        stat_card_color: { type: 'string' },
-        stat_label_color: { type: 'string' },
-        stat_value_color: { type: 'string' },
-        status_color: { type: 'string' },
-        grid_color: { type: 'string' }
-      }
-    }
-  }
+  green: '#22C55E'
 };
 
-const DEFAULT_RANK_CARD_CONFIG = Object.freeze({
-  background_color: CARD.background,
-  panel_color: CARD.surface,
-  panel_border_color: CARD.accent,
-  display_name_color: CARD.primary,
-  username_color: CARD.secondary,
-  rank_color: CARD.primary,
-  rank_label_color: CARD.secondary,
-  progress_track_color: CARD.progressTrack,
-  progress_start_color: CARD.accent,
-  progress_end_color: CARD.accent,
-  progress_text_color: CARD.primary,
-  stat_card_color: CARD.surface,
-  stat_label_color: CARD.secondary,
-  stat_value_color: CARD.primary,
-  status_color: CARD.activeText,
-  grid_color: CARD.primary
-});
+// ============================================================================
+// HELPERS
+// ============================================================================
 
-function cleanHex(value, fallback) {
-  const text = String(value ?? '').trim();
-  return /^#[0-9a-fA-F]{6}$/.test(text) ? text.toUpperCase() : fallback;
-}
+function roundRect(ctx, x, y, w, h, r) {
+  const radius = Math.min(r, w / 2, h / 2);
 
-function getRankCardConfig(configCache, guildId) {
-  const cached = configCache?.getModuleConfig?.(guildId, 'leveling');
-  const rankCard = cached?.config?.rank_card ?? {};
-
-  return Object.fromEntries(
-    Object.entries(DEFAULT_RANK_CARD_CONFIG).map(([key, fallback]) => [
-      key,
-      cleanHex(rankCard[key], fallback)
-    ])
-  );
-}
-
-function hexToRgba(hex, alpha) {
-  const value = Number.parseInt(String(hex).replace('#', ''), 16);
-  const r = (value >> 16) & 255;
-  const g = (value >> 8) & 255;
-  const b = value & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-function compactNumber(value) {
-  if (value >= 1000) {
-    const compact = value / 1000;
-    return `${compact % 1 === 0 ? compact.toFixed(0) : compact.toFixed(1)}K`;
-  }
-  return String(value);
-}
-
-function getDeterministicStats(userId) {
-  const digits = String(userId ?? '').replace(/\D/g, '');
-  const seed = Number.parseInt(digits.slice(-6) || '421337', 10);
-  const needed = 5000;
-  const current = 2600 + (seed % 600);
-  const daily = 3000 + (seed % 900);
-  const lifetime = 84000 + (seed % 9000);
-  const rank = 1 + (seed % 99);
-
-  return {
-    rank,
-    current,
-    needed,
-    remaining: Math.max(needed - current, 0),
-    daily,
-    lifetime,
-    progress: Math.min(current / needed, 1)
-  };
-}
-
-async function loadUserAvatar(user) {
-  const url = user.displayAvatarURL({ extension: 'png', size: 256 });
-  const response = await fetch(url);
-  if (!response.ok) return null;
-  return loadImage(Buffer.from(await response.arrayBuffer()));
-}
-
-function roundRect(ctx, x, y, width, height, radius) {
-  const r = Math.min(radius, width / 2, height / 2);
   ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + width, y, x + width, y + height, r);
-  ctx.arcTo(x + width, y + height, x, y + height, r);
-  ctx.arcTo(x, y + height, x, y, r);
-  ctx.arcTo(x, y, x + width, y, r);
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + w, y, x + w, y + h, radius);
+  ctx.arcTo(x + w, y + h, x, y + h, radius);
+  ctx.arcTo(x, y + h, x, y, radius);
+  ctx.arcTo(x, y, x + w, y, radius);
   ctx.closePath();
 }
 
-function fillRoundRect(ctx, x, y, width, height, radius, color) {
-  roundRect(ctx, x, y, width, height, radius);
-  ctx.fillStyle = color;
+function fillRoundRect(ctx, x, y, w, h, r, fill) {
+  roundRect(ctx, x, y, w, h, r);
+  ctx.fillStyle = fill;
   ctx.fill();
 }
 
-function strokeRoundRect(ctx, x, y, width, height, radius, color, lineWidth = 1) {
-  roundRect(ctx, x, y, width, height, radius);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = lineWidth;
+function strokeRoundRect(ctx, x, y, w, h, r, stroke, width = 1) {
+  roundRect(ctx, x, y, w, h, r);
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = width;
   ctx.stroke();
+}
+
+function rgba(hex, alpha) {
+  const value = parseInt(hex.replace('#', ''), 16);
+
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 function drawTextFit(ctx, text, x, y, maxWidth) {
-  const source = String(text ?? '');
-  if (ctx.measureText(source).width <= maxWidth) {
-    ctx.fillText(source, x, y);
-    return;
+  let value = String(text ?? '');
+
+  while (ctx.measureText(value).width > maxWidth && value.length > 0) {
+    value = value.slice(0, -1);
   }
 
-  let output = source;
-  while (output.length > 1 && ctx.measureText(`${output}...`).width > maxWidth) {
-    output = output.slice(0, -1);
+  if (value !== text) value += '...';
+
+  ctx.fillText(value, x, y);
+}
+
+function setFont(ctx, weight, size, family = 'Satoshi') {
+  ctx.font = `${weight} ${size}px "${family}", sans-serif`;
+}
+
+function compactNumber(num) {
+  if (num >= 1000) {
+    const k = num / 1000;
+    return `${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K`;
   }
-  ctx.fillText(`${output}...`, x, y);
+
+  return String(num);
 }
 
-function setFittedFont(ctx, weight, startSize, minSize, family, text, maxWidth) {
-  let size = startSize;
-  while (size > minSize) {
-    ctx.font = `${weight} ${size}px ${family}`;
-    if (ctx.measureText(String(text ?? '')).width <= maxWidth) return size;
-    size -= 1;
+function getStats(userId) {
+  const seed = Number(String(userId).slice(-6));
+
+  const needed = 5000;
+  const current = 2900 + (seed % 450);
+
+  return {
+    rank: 1 + (seed % 99),
+    current,
+    needed,
+    progress: current / needed,
+    remaining: needed - current,
+    daily: 3500,
+    lifetime: 89121
+  };
+}
+
+async function fetchAvatar(user) {
+  try {
+    const url = user.displayAvatarURL({ extension: 'png', size: 512 });
+    const response = await fetch(url);
+
+    if (!response.ok) return null;
+
+    return await loadImage(Buffer.from(await response.arrayBuffer()));
+  } catch {
+    return null;
   }
-  ctx.font = `${weight} ${minSize}px ${family}`;
-  return minSize;
 }
 
-function drawCoverImage(ctx, image, x, y, width, height) {
-  const scale = Math.max(width / image.width, height / image.height);
-  const sourceWidth = width / scale;
-  const sourceHeight = height / scale;
-  const sourceX = (image.width - sourceWidth) / 2;
-  const sourceY = (image.height - sourceHeight) / 2;
-  ctx.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
-}
+function drawBackground(ctx) {
+  // Main bg
+  const bg = ctx.createLinearGradient(0, 0, CARD.width, CARD.height);
+  bg.addColorStop(0, '#030510');
+  bg.addColorStop(0.5, '#060916');
+  bg.addColorStop(1, '#0A0416');
 
-function drawSubtleGrid(ctx, color) {
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, CARD.width, CARD.height);
+
+  // Purple ambient glow right
+  const glow1 = ctx.createRadialGradient(900, 120, 50, 900, 120, 320);
+  glow1.addColorStop(0, rgba('#A855F7', 0.32));
+  glow1.addColorStop(1, rgba('#A855F7', 0));
+
+  ctx.fillStyle = glow1;
+  ctx.fillRect(0, 0, CARD.width, CARD.height);
+
+  // Left glow
+  const glow2 = ctx.createRadialGradient(90, 240, 30, 90, 240, 250);
+  glow2.addColorStop(0, rgba('#7C3AED', 0.20));
+  glow2.addColorStop(1, rgba('#7C3AED', 0));
+
+  ctx.fillStyle = glow2;
+  ctx.fillRect(0, 0, CARD.width, CARD.height);
+
+  // Main shell
+  fillRoundRect(ctx, 15, 15, CARD.width - 30, CARD.height - 30, 22, rgba('#050816', 0.80));
+
+  // Border
+  strokeRoundRect(ctx, 15, 15, CARD.width - 30, CARD.height - 30, 22, rgba('#C084FC', 0.45), 1.2);
+
+  // Tiny stars/noise dots
   ctx.save();
-  ctx.globalAlpha = 0.035;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.18;
 
-  for (let x = 40; x < CARD.width; x += 44) {
-    ctx.beginPath();
-    ctx.moveTo(x, 24);
-    ctx.lineTo(x, CARD.height - 24);
-    ctx.stroke();
-  }
+  for (let i = 0; i < 180; i++) {
+    const x = Math.random() * CARD.width;
+    const y = Math.random() * CARD.height;
 
-  for (let y = 32; y < CARD.height; y += 44) {
-    ctx.beginPath();
-    ctx.moveTo(24, y);
-    ctx.lineTo(CARD.width - 24, y);
-    ctx.stroke();
+    ctx.fillStyle = i % 4 === 0 ? rgba('#A855F7', 0.5) : rgba('#FFFFFF', 0.3);
+    ctx.fillRect(x, y, 1.1, 1.1);
   }
 
   ctx.restore();
+
+  // Vertical separator
+  ctx.save();
+  ctx.strokeStyle = rgba('#FFFFFF', 0.10);
+  ctx.beginPath();
+  ctx.moveTo(310, 48);
+  ctx.lineTo(310, 440);
+  ctx.stroke();
+  ctx.restore();
 }
 
-function drawAvatar(ctx, avatar, user, config) {
-  const x = 59;
-  const y = 53;
+async function drawAvatar(ctx, avatar) {
+  const x = 52;
+  const y = 46;
   const size = 170;
-  const center = x + size / 2;
-  const radius = size / 2;
 
+  const centerX = x + size / 2;
+  const centerY = y + size / 2;
+
+  // Glow
   ctx.save();
-  ctx.shadowColor = hexToRgba(config.progress_start_color, 0.32);
+  ctx.shadowColor = '#A855F7';
   ctx.shadowBlur = 40;
+
   ctx.beginPath();
-  ctx.arc(center, y + radius, radius + 14, 0, Math.PI * 2);
-  ctx.strokeStyle = config.progress_start_color;
-  ctx.lineWidth = 8;
+  ctx.arc(centerX, centerY, 97, 0, Math.PI * 2);
+  ctx.strokeStyle = rgba('#A855F7', 0.95);
+  ctx.lineWidth = 10;
   ctx.stroke();
   ctx.restore();
 
+  // Outer ring
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, 92, 0, Math.PI * 2);
+  ctx.strokeStyle = '#A855F7';
+  ctx.lineWidth = 7;
+  ctx.stroke();
+
+  // Inner white ring
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, 84, 0, Math.PI * 2);
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 8;
+  ctx.stroke();
+
+  // Clip avatar
   ctx.save();
   ctx.beginPath();
-  ctx.arc(center, y + radius, radius, 0, Math.PI * 2);
+  ctx.arc(centerX, centerY, 76, 0, Math.PI * 2);
   ctx.clip();
 
   if (avatar) {
-    drawCoverImage(ctx, avatar, x, y, size, size);
+    ctx.drawImage(avatar, x + 9, y + 9, 152, 152);
   } else {
-    ctx.fillStyle = config.panel_color;
-    ctx.fillRect(x, y, size, size);
-    ctx.fillStyle = config.display_name_color;
-    ctx.font = '700 62px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(String(user.username || 'A').slice(0, 1).toUpperCase(), center, y + radius + 2);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(x + 9, y + 9, 152, 152);
   }
 
   ctx.restore();
+
+  // Floating sparkle badge
+  ctx.save();
+
+  ctx.shadowColor = '#A855F7';
+  ctx.shadowBlur = 20;
+
+  fillRoundRect(ctx, 188, 176, 42, 42, 21, '#0B1022');
+
+  ctx.fillStyle = '#A855F7';
+  setFont(ctx, 900, 18);
+  ctx.textAlign = 'center';
+  ctx.fillText('✦', 209, 204);
+
+  ctx.restore();
 }
 
-function drawLeftColumn(ctx, avatar, user, config, stats) {
-  drawAvatar(ctx, avatar, user, config);
-
-  const rankNumber = String(stats.rank);
-
+function drawRankSection(ctx, stats) {
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = config.rank_color;
-  const rankText = `#${rankNumber}`;
-  setFittedFont(ctx, 900, 82, 52, 'Arial', rankText, 210);
-  ctx.fillText(`#${rankNumber}`, 145, 322);
 
+  // Giant shadow number
   ctx.save();
-  ctx.globalAlpha = 0.07;
-  ctx.fillStyle = config.rank_color;
-  ctx.font = '900 95px Arial';
-  ctx.fillText(rankNumber, 212, 322);
+  ctx.globalAlpha = 0.05;
+  setFont(ctx, 900, 120);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText(String(stats.rank), 200, 334);
   ctx.restore();
 
-  ctx.fillStyle = config.rank_label_color;
-  setFittedFont(ctx, 700, 30, 16, 'Arial', 'GLOBAL RANK', 215);
-  ctx.fillText('GLOBAL RANK', 165, 372);
+  // Main rank
+  ctx.fillStyle = '#FFFFFF';
+  setFont(ctx, 900, 82);
+  ctx.fillText(`#${stats.rank}`, 145, 320);
 
-  fillRoundRect(ctx, 45, 395, 220, 42, 21, CARD.activeBg);
-  strokeRoundRect(ctx, 45, 395, 220, 42, 21, hexToRgba(config.status_color, 0.5), 1.2);
-  ctx.fillStyle = CARD.activeText;
+  // Global rank label
+  ctx.fillStyle = '#A855F7';
+  setFont(ctx, 700, 28, 'Inter');
+  ctx.fillText('GLOBAL RANK', 157, 372);
+
+  // Status badge
+  fillRoundRect(ctx, 50, 394, 195, 44, 24, rgba('#22C55E', 0.08));
+  strokeRoundRect(ctx, 50, 394, 195, 44, 24, rgba('#22C55E', 0.45), 1);
+
   ctx.beginPath();
-  ctx.arc(71, 416, 6, 0, Math.PI * 2);
+  ctx.arc(78, 416, 6, 0, Math.PI * 2);
+  ctx.fillStyle = '#22C55E';
   ctx.fill();
-  setFittedFont(ctx, 700, 29, 16, 'Arial', 'SUPER ACTIVE', 170);
-  ctx.fillText('SUPER ACTIVE', 162, 422);
+
+  ctx.fillStyle = '#22C55E';
+  setFont(ctx, 700, 24, 'Inter');
+  ctx.fillText('SUPER ACTIVE', 147, 423);
 }
 
-function drawProgress(ctx, config, stats) {
-  const x = 343;
-  const y = 171;
-  const width = 621;
-  const height = 40;
-  const fillWidth = Math.round(width * stats.progress);
+function drawTopUser(ctx, user) {
+  const name = user.globalName || user.displayName || user.username;
 
   ctx.textAlign = 'left';
-  ctx.fillStyle = config.stat_label_color;
-  setFittedFont(ctx, 700, 31, 18, 'Arial', 'WEEKLY PROGRESS', width);
-  ctx.fillText('WEEKLY PROGRESS', x, 145);
 
-  fillRoundRect(ctx, x, y, width, height, 20, config.progress_track_color);
-  fillRoundRect(ctx, x, y, fillWidth, height, 20, config.progress_start_color);
+  // Name
+  ctx.fillStyle = '#FFFFFF';
+  setFont(ctx, 900, 56);
+  drawTextFit(ctx, name, 344, 85, 360);
 
-  ctx.fillStyle = config.progress_text_color;
-  const progressText = `${compactNumber(stats.current)} / ${compactNumber(stats.needed)}`;
-  setFittedFont(ctx, 700, 34, 16, 'Arial', progressText, Math.max(80, fillWidth - 20));
+  // Username
+  ctx.fillStyle = '#9CA3AF';
+  setFont(ctx, 600, 26, 'Inter');
+  drawTextFit(ctx, `@${user.username}`, 344, 121, 400);
+
+  // Ranked user badge
+  fillRoundRect(ctx, 836, 50, 150, 36, 11, rgba('#12162A', 0.95));
+  strokeRoundRect(ctx, 836, 50, 150, 36, 11, rgba('#A855F7', 0.28), 1);
+
+  ctx.fillStyle = '#C4B5FD';
+  setFont(ctx, 700, 16, 'Inter');
+  ctx.textAlign = 'center';
+  ctx.fillText('👥  RANKED USER', 911, 73);
+}
+
+function drawProgress(ctx, stats) {
+  const x = 344;
+  const y = 170;
+  const w = 620;
+  const h = 40;
+
+  // Label
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#9CA3AF';
+  setFont(ctx, 700, 17, 'Inter');
+  ctx.fillText('WEEKLY PROGRESS', x, 144);
+
+  // Track
+  fillRoundRect(ctx, x, y, w, h, 22, rgba('#111827', 0.95));
+
+  // Gradient fill
+  const gradient = ctx.createLinearGradient(x, y, x + w, y);
+  gradient.addColorStop(0, '#9333EA');
+  gradient.addColorStop(0.5, '#A855F7');
+  gradient.addColorStop(1, '#C084FC');
+
+  const progressWidth = Math.max(120, w * stats.progress);
+
+  // Glow
+  ctx.save();
+  ctx.shadowColor = '#A855F7';
+  ctx.shadowBlur = 24;
+
+  fillRoundRect(ctx, x, y, progressWidth, h, 22, gradient);
+
+  ctx.restore();
+
+  // Progress text
+  ctx.fillStyle = '#FFFFFF';
+  setFont(ctx, 700, 18, 'Inter');
   ctx.textAlign = 'center';
   ctx.fillText(
-    progressText,
-    x + Math.max(130, fillWidth / 2),
-    y + 30
+    `${compactNumber(stats.current)} / ${compactNumber(stats.needed)}`,
+    x + progressWidth - 70,
+    y + 26
   );
 
-  ctx.fillStyle = CARD.tertiary;
+  // Percent
   ctx.textAlign = 'right';
-  ctx.fillText(`${Math.round(stats.progress * 100)}%`, x + width - 10, y + 30);
+  ctx.fillStyle = '#6B7280';
+  ctx.fillText(`${Math.round(stats.progress * 100)}%`, x + w - 12, y + 26);
 
+  // Hint
   ctx.textAlign = 'left';
-  ctx.fillStyle = config.username_color;
-  const hintText = `${compactNumber(stats.remaining)} more for next role`;
-  setFittedFont(ctx, 600, 31, 15, 'Arial', hintText, width - 40);
-  ctx.fillText(hintText, x + 30, 257);
+  ctx.fillStyle = '#9CA3AF';
+  setFont(ctx, 600, 15, 'Inter');
+  ctx.fillText(
+    `↗  ${compactNumber(stats.remaining)} more for next role`,
+    x,
+    257
+  );
 }
 
-function drawStats(ctx, config, stats) {
-  const shellX = 343;
-  const shellY = 276;
-  const shellW = 621;
-  const shellH = 103;
-  const leftX = 445;
-  const rightX = 714;
-  const top = 321;
+function drawStatsCard(ctx, stats) {
+  const x = 344;
+  const y = 276;
+  const w = 620;
+  const h = 104;
 
-  strokeRoundRect(ctx, shellX, shellY, shellW, shellH, 18, hexToRgba(config.panel_border_color, 0.2), 1);
+  // Shell
+  fillRoundRect(ctx, x, y, w, h, 22, rgba('#0B1020', 0.72));
+  strokeRoundRect(ctx, x, y, w, h, 22, rgba('#A855F7', 0.12), 1);
 
+  // Divider
   ctx.save();
-  ctx.globalAlpha = 0.55;
-  ctx.strokeStyle = CARD.tertiary;
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = rgba('#FFFFFF', 0.10);
   ctx.beginPath();
-  ctx.moveTo(654, shellY + 15);
-  ctx.lineTo(654, shellY + shellH - 15);
+  ctx.moveTo(654, y + 15);
+  ctx.lineTo(654, y + h - 15);
   ctx.stroke();
   ctx.restore();
 
-  fillRoundRect(ctx, 367, 293, 52, 52, 12, hexToRgba(config.panel_color, 0.95));
-  strokeRoundRect(ctx, 367, 293, 52, 52, 12, hexToRgba(config.panel_border_color, 0.35), 1);
-  fillRoundRect(ctx, 682, 293, 52, 52, 12, hexToRgba(config.panel_color, 0.95));
-  strokeRoundRect(ctx, 682, 293, 52, 52, 12, hexToRgba(config.panel_border_color, 0.35), 1);
+  // Left icon shell
+  fillRoundRect(ctx, 366, 293, 56, 56, 16, rgba('#111827', 0.90));
+  strokeRoundRect(ctx, 366, 293, 56, 56, 16, rgba('#A855F7', 0.22), 1);
 
-  drawStat(ctx, leftX, top, 'DAILY XP', compactNumber(stats.daily), stats.daily.toLocaleString(), config);
-  drawStat(ctx, rightX, top, 'LIFETIME XP', compactNumber(stats.lifetime), stats.lifetime.toLocaleString(), config);
+  // Right icon shell
+  fillRoundRect(ctx, 681, 293, 56, 56, 16, rgba('#111827', 0.90));
+  strokeRoundRect(ctx, 681, 293, 56, 56, 16, rgba('#A855F7', 0.22), 1);
+
+  // Fake icons
+  ctx.fillStyle = '#A855F7';
+
+  setFont(ctx, 900, 28);
+  ctx.fillText('✉', 381, 328);
+  ctx.fillText('🏆', 696, 328);
+
+  // Left stat
+  drawStatBlock(
+    ctx,
+    450,
+    321,
+    'DAILY XP',
+    compactNumber(stats.daily),
+    stats.daily.toLocaleString()
+  );
+
+  // Right stat
+  drawStatBlock(
+    ctx,
+    764,
+    321,
+    'LIFETIME XP',
+    compactNumber(stats.lifetime),
+    stats.lifetime.toLocaleString()
+  );
 }
 
-function drawStat(ctx, x, y, label, value, raw, config) {
+function drawStatBlock(ctx, x, y, label, value, raw) {
   ctx.textAlign = 'left';
-  ctx.fillStyle = config.stat_label_color;
-  setFittedFont(ctx, 700, 31, 16, 'Arial', label, 190);
-  ctx.fillText(label, x, y - 20);
 
-  ctx.fillStyle = config.stat_value_color;
-  setFittedFont(ctx, 900, 51, 24, 'Arial', value, 200);
+  ctx.fillStyle = '#9CA3AF';
+  setFont(ctx, 700, 15, 'Inter');
+  ctx.fillText(label, x, y - 18);
+
+  ctx.fillStyle = '#FFFFFF';
+  setFont(ctx, 900, 42);
   ctx.fillText(value, x, y + 18);
 
-  ctx.fillStyle = CARD.tertiary;
-  setFittedFont(ctx, 600, 31, 14, 'Arial', raw, 200);
-  ctx.fillText(raw, x, y + 48);
+  ctx.fillStyle = '#6B7280';
+  setFont(ctx, 500, 16, 'Inter');
+  ctx.fillText(raw, x, y + 44);
 }
 
-function drawFooterMeta(ctx, config) {
-  const y = 430;
+function drawFooter(ctx) {
   ctx.save();
-  ctx.strokeStyle = hexToRgba(config.panel_border_color, 0.2);
-  ctx.lineWidth = 1;
+
+  ctx.strokeStyle = rgba('#FFFFFF', 0.08);
   ctx.beginPath();
-  ctx.moveTo(343, 391);
-  ctx.lineTo(964, 391);
+  ctx.moveTo(344, 392);
+  ctx.lineTo(964, 392);
   ctx.stroke();
+
   ctx.restore();
 
-  const meta = [
-    { x: 383, label: 'Member since', value: 'Jan 12, 2024', width: 220 },
-    { x: 627, label: 'Activity streak', value: '28 days', width: 190 },
-    { x: 857, label: 'Last active', value: '5m ago', width: 100 }
+  const items = [
+    {
+      x: 382,
+      icon: '🗓',
+      label: 'Member since',
+      value: 'Jan 12, 2024'
+    },
+    {
+      x: 625,
+      icon: '⚡',
+      label: 'Activity streak',
+      value: '28 days'
+    },
+    {
+      x: 865,
+      icon: '◔',
+      label: 'Last active',
+      value: '5m ago'
+    }
   ];
 
-  ctx.textAlign = 'left';
-  for (const item of meta) {
-    ctx.fillStyle = config.rank_label_color;
-    setFittedFont(ctx, 500, 23, 12, 'Arial', item.label, item.width);
-    ctx.fillText(item.label, item.x, y);
-    ctx.fillStyle = config.stat_value_color;
-    setFittedFont(ctx, 600, 32, 14, 'Arial', item.value, item.width);
-    ctx.fillText(item.value, item.x, y + 32);
+  for (const item of items) {
+    ctx.textAlign = 'left';
+
+    ctx.fillStyle = '#9CA3AF';
+    setFont(ctx, 500, 14, 'Inter');
+    ctx.fillText(`${item.icon}  ${item.label}`, item.x, 420);
+
+    ctx.fillStyle = '#FFFFFF';
+    setFont(ctx, 700, 22, 'Inter');
+    ctx.fillText(item.value, item.x, 446);
   }
 }
 
-function drawRankCardPng({ user, avatar, config, stats }) {
+function renderCard({ user, avatar, stats }) {
   const canvas = createCanvas(CARD.width, CARD.height);
   const ctx = canvas.getContext('2d');
-  const displayName = user.globalName || user.displayName || user.username || 'AOI User';
 
-  ctx.fillStyle = config.background_color;
-  ctx.fillRect(0, 0, CARD.width, CARD.height);
-  drawSubtleGrid(ctx, config.grid_color);
+  ctx.antialias = 'subpixel';
+  ctx.patternQuality = 'best';
+  ctx.quality = 'best';
+  ctx.textDrawingMode = 'glyph';
 
-  fillRoundRect(ctx, 15, 15, CARD.width - 30, CARD.height - 30, 18, config.background_color);
-  strokeRoundRect(ctx, 15, 15, CARD.width - 30, CARD.height - 30, 18, hexToRgba(config.panel_border_color, 0.55), 1.2);
+  drawBackground(ctx);
 
-  ctx.save();
-  ctx.globalAlpha = 0.42;
-  ctx.strokeStyle = CARD.tertiary;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(308, 48);
-  ctx.lineTo(308, CARD.height - 48);
-  ctx.stroke();
-  ctx.restore();
-
-  drawLeftColumn(ctx, avatar, user, config, stats);
-
-  ctx.textAlign = 'left';
-  ctx.fillStyle = config.display_name_color;
-  setFittedFont(ctx, 900, 57, 26, 'Arial', displayName, 470);
-  drawTextFit(ctx, displayName, 343, 86, 470);
-
-  ctx.fillStyle = config.username_color;
-  const handle = `@${user.username}`;
-  setFittedFont(ctx, 600, 34, 18, 'Arial', handle, 490);
-  drawTextFit(ctx, handle, 343, 125, 490);
-
-  fillRoundRect(ctx, 857, 48, 130, 34, 10, hexToRgba(config.panel_color, 0.95));
-  strokeRoundRect(ctx, 857, 48, 130, 34, 10, hexToRgba(config.panel_border_color, 0.3), 1);
-  ctx.fillStyle = config.rank_label_color;
-  setFittedFont(ctx, 700, 17, 11, 'Arial', 'RANKED USER', 112);
-  ctx.textAlign = 'center';
-  ctx.fillText('RANKED USER', 922, 71);
-
-  drawProgress(ctx, config, stats);
-  drawStats(ctx, config, stats);
-  drawFooterMeta(ctx, config);
+  drawAvatar(ctx, avatar);
+  drawRankSection(ctx, stats);
+  drawTopUser(ctx, user);
+  drawProgress(ctx, stats);
+  drawStatsCard(ctx, stats);
+  drawFooter(ctx);
 
   return canvas.toBuffer('image/png');
 }
 
-async function buildRankAttachment(user, config) {
-  const stats = getDeterministicStats(user.id);
-  const avatar = await loadUserAvatar(user).catch(() => null);
-  const png = drawRankCardPng({ user, avatar, config, stats });
-  return new AttachmentBuilder(png, { name: `rank-${user.id}.png` });
+// ============================================================================
+// MAIN BUILD FUNCTION
+// ============================================================================
+
+async function buildRankAttachment(user) {
+  const avatar = await fetchAvatar(user);
+  const stats = getStats(user.id);
+
+  const png = renderCard({
+    user,
+    avatar,
+    stats
+  });
+
+  return new AttachmentBuilder(png, {
+    name: `rank-${user.id}.png`
+  });
 }
+
+// ============================================================================
+// EXPORT
+// ============================================================================
 
 export default {
   name: 'leveling',
-  configSchema: LEVELING_SCHEMA,
+
   commands: [
     {
       name: 'rank',
-      description: 'Show your rank card',
-      async execute(interaction, { configCache }) {
-        const config = getRankCardConfig(configCache, interaction.guildId);
-        const attachment = await buildRankAttachment(interaction.user, config);
-        await interaction.editReply({ files: [attachment] });
+      description: 'Show your premium rank card',
+
+      async execute(interaction) {
+        await interaction.deferReply();
+
+        const attachment = await buildRankAttachment(interaction.user);
+
+        await interaction.editReply({
+          files: [attachment]
+        });
       }
     }
   ],
+
   events: []
 };
