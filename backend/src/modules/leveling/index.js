@@ -10,7 +10,7 @@ import fs from 'fs';
 const LEVELING_SCHEMA = {
   type: 'object',
   properties: {},
-  additionalProperties: true
+  additionalProperties: true,
 };
 
 // ============================================================================
@@ -19,11 +19,7 @@ const LEVELING_SCHEMA = {
 
 const FONT_DIR = path.join(
   process.cwd(),
-  'src',
-  'modules',
-  'leveling',
-  'assets',
-  'fonts'
+  'src', 'modules', 'leveling', 'assets', 'fonts'
 );
 
 // ============================================================================
@@ -40,18 +36,16 @@ const err = (...a) => console.error('[LEVELING]', ...a);
 function loadFonts() {
   try {
     if (!fs.existsSync(FONT_DIR)) return;
-
     const load = (file, family, weight) => {
       const full = path.join(FONT_DIR, file);
       if (!fs.existsSync(full)) return;
       registerFont(full, { family, weight });
       log('Font loaded:', file);
     };
-
-    load('Satoshi-Black.otf', 'Satoshi', '900');
-    load('Satoshi-Bold.otf', 'Satoshi', '700');
-    load('Inter_24pt-SemiBold.ttf', 'Inter', '600');
-    load('Inter_24pt-Regular.ttf', 'Inter', '400');
+    load('Satoshi-Black.otf',        'Satoshi', '900');
+    load('Satoshi-Bold.otf',         'Satoshi', '700');
+    load('Inter_24pt-SemiBold.ttf',  'Inter',   '600');
+    load('Inter_24pt-Regular.ttf',   'Inter',   '400');
   } catch (e) {
     err('Font load error:', e);
   }
@@ -60,91 +54,73 @@ function loadFonts() {
 loadFonts();
 
 // ============================================================================
-// COLOR PALETTE — edit here to retheme the entire card
+// THEME — single source of truth, edit anything here to retheme
 // ============================================================================
 
-const COLORS = {
-  // Backgrounds
-  background:        '#000000',
-  cardBg:            'rgba(20, 20, 20, 0.6)',   // left panel + stat cards
-  cardBgStroke:      'rgba(255, 255, 255, 0.06)',
+const T = {
+  // Canvas
+  canvasW: 1400,
+  canvasH: 560,
 
-  // Accent / brand
-  primary:           '#a855f7',
-  primaryLight:      '#8b5cf6',
-  primaryMid:        '#9333ea',
-  primaryGlow:       'rgba(139, 92, 246, 0.15)',
-  primaryGlowSoft:   'rgba(139, 92, 246, 0.05)',
-  primaryBorder:     'rgba(168, 85, 247, 0.3)',
-  primaryIconBg:     'rgba(168, 85, 247, 0.12)',
+  // Palette
+  bg:           '#080a0f',
+  accent:       '#00d4c8',
+  accentDim:    'rgba(0,212,200,0.18)',
+  accentGlow:   'rgba(0,212,200,0.08)',
+  accentStrong: 'rgba(0,212,200,0.55)',
 
-  // Status
-  active:            '#22c55e',
-  activeBg:          'rgba(34, 197, 94, 0.1)',
-  activeBorder:      'rgba(34, 197, 94, 0.5)',
+  gold:         '#f0c060',
+  goldDim:      'rgba(240,192,96,0.15)',
 
-  // Text
-  textPrimary:       '#ffffff',
-  textSecondary:     '#d1d5db',
-  textTertiary:      '#6b7280',
-  textMuted:         '#4b5563',
+  green:        '#1eed8a',
+  greenDim:     'rgba(30,237,138,0.12)',
+  greenBorder:  'rgba(30,237,138,0.45)',
 
-  // Misc overlays
-  overlayLight:      'rgba(255, 255, 255, 0.05)',
-  overlayPure:       'rgba(0, 0, 0, 0)',
+  border:       'rgba(255,255,255,0.07)',
 
-  // Avatar ring
-  avatarRingA:       '#a855f7',
-  avatarRingB:       '#ec4899',
-  avatarRingC:       '#8b5cf6',
-  avatarRingInner:   '#0a0e1f',
+  textHero:      '#ffffff',
+  textPrimary:   '#e8eaf0',
+  textSecondary: '#8892a4',
+  textMuted:     '#48515f',
 
-  // Icon inner fill (cutout colour)
-  iconCutout:        '#0a0e1f',
-};
-
-// ============================================================================
-// CARD CONFIG
-// ============================================================================
-
-const CARD = {
-  w: 1360,
-  h: 692
+  avatarStripW: 360,
+  pad:          40,
 };
 
 // ============================================================================
 // HELPERS
 // ============================================================================
 
-function round(ctx, x, y, w, h, r) {
+function rr(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
+  ctx.arcTo(x + w, y,     x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x,     y + h, r);
+  ctx.arcTo(x,     y + h, x,     y,     r);
+  ctx.arcTo(x,     y,     x + w, y,     r);
   ctx.closePath();
 }
 
 function box(ctx, x, y, w, h, r, c) {
-  round(ctx, x, y, w, h, r);
+  rr(ctx, x, y, w, h, r);
   ctx.fillStyle = c;
   ctx.fill();
 }
 
-function stroke(ctx, x, y, w, h, r, c, lw = 1) {
-  round(ctx, x, y, w, h, r);
+function strk(ctx, x, y, w, h, r, c, lw = 1) {
+  rr(ctx, x, y, w, h, r);
   ctx.strokeStyle = c;
-  ctx.lineWidth = lw;
+  ctx.lineWidth   = lw;
   ctx.stroke();
 }
 
-function font(ctx, w, s, f = 'Satoshi') {
-  ctx.font = `${w} ${s}px "${f}", sans-serif`;
+function setFont(ctx, weight, size, family = 'Satoshi') {
+  ctx.font = `${weight} ${size}px "${family}", sans-serif`;
 }
 
 function fmt(n) {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1000)      return `${(n / 1000).toFixed(1)}K`;
   return String(n);
 }
 
@@ -152,41 +128,35 @@ function fmtComma(n) {
   return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
-// ============================================================================
-// NOISE TEXTURE
-// ============================================================================
-
-function addNoise(ctx, x, y, w, h, opacity = 0.03) {
-  const imageData = ctx.getImageData(x, y, w, h);
-  const data = imageData.data;
-  for (let i = 0; i < data.length; i += 4) {
-    const noise = (Math.random() - 0.5) * 255 * opacity;
-    data[i]     += noise;
-    data[i + 1] += noise;
-    data[i + 2] += noise;
+function addNoise(ctx, x, y, w, h, opacity = 0.025) {
+  const d = ctx.getImageData(x, y, w, h);
+  for (let i = 0; i < d.data.length; i += 4) {
+    const v = (Math.random() - 0.5) * 255 * opacity;
+    d.data[i]     += v;
+    d.data[i + 1] += v;
+    d.data[i + 2] += v;
   }
-  ctx.putImageData(imageData, x, y);
+  ctx.putImageData(d, x, y);
 }
 
 // ============================================================================
-// STATS (TEMP)
+// STATS
 // ============================================================================
 
 function getStats(id) {
-  const seed = Number(String(id).slice(-6));
+  const seed    = Number(String(id).slice(-6));
   const current = 2900 + (seed % 500);
   const needed  = 5000;
-
   return {
-    rank: 43,
+    rank:        43,
     current,
     needed,
-    progress: current / needed,
-    daily: 3521,
-    life: 89121,
+    progress:    current / needed,
+    daily:       3521,
+    life:        89121,
     memberSince: 'Jan 12, 2024',
-    streak: 28,
-    lastActive: '5m ago'
+    streak:      28,
+    lastActive:  '5m ago',
   };
 }
 
@@ -197,10 +167,9 @@ function getStats(id) {
 async function getAvatar(user) {
   try {
     const url = user.displayAvatarURL({ extension: 'png', size: 512 });
-    const res  = await fetch(url);
+    const res = await fetch(url);
     if (!res.ok) return null;
-    const buf  = Buffer.from(await res.arrayBuffer());
-    return await loadImage(buf);
+    return await loadImage(Buffer.from(await res.arrayBuffer()));
   } catch (e) {
     err('Avatar error:', e);
     return null;
@@ -208,452 +177,326 @@ async function getAvatar(user) {
 }
 
 // ============================================================================
-// BACKGROUND  — no outer border ring
+// DRAW: BACKGROUND
 // ============================================================================
 
-function drawBg(ctx) {
-  // Pure black canvas
-  ctx.fillStyle = COLORS.background;
-  ctx.fillRect(0, 0, CARD.w, CARD.h);
+function drawBackground(ctx) {
+  const W = T.canvasW;
+  const H = T.canvasH;
 
-  // Subtle corner glow (top-right)
-  const glowGradient = ctx.createRadialGradient(
-    CARD.w - 100, 100, 50,
-    CARD.w - 100, 100, 400
-  );
-  glowGradient.addColorStop(0, COLORS.primaryGlow);
-  glowGradient.addColorStop(0.5, COLORS.primaryGlowSoft);
-  glowGradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
-  ctx.fillStyle = glowGradient;
-  ctx.fillRect(0, 0, CARD.w, CARD.h);
+  ctx.fillStyle = T.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Ambient teal glow — top right
+  const g1 = ctx.createRadialGradient(W * 0.78, -40, 60, W * 0.78, -40, 520);
+  g1.addColorStop(0,   'rgba(0,212,200,0.09)');
+  g1.addColorStop(0.5, 'rgba(0,212,200,0.03)');
+  g1.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = g1;
+  ctx.fillRect(0, 0, W, H);
+
+  // Warm gold glow — bottom left
+  const g2 = ctx.createRadialGradient(120, H + 60, 20, 120, H + 60, 380);
+  g2.addColorStop(0, 'rgba(240,192,96,0.07)');
+  g2.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g2;
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle dot grid — content area only
+  ctx.strokeStyle = 'rgba(255,255,255,0.028)';
+  ctx.lineWidth   = 1;
+  const gs = 52;
+  for (let gx = T.avatarStripW + gs; gx < W; gx += gs) {
+    for (let gy = gs; gy < H; gy += gs) {
+      ctx.beginPath();
+      ctx.arc(gx, gy, 1, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  addNoise(ctx, 0, 0, W, H, 0.018);
 }
 
 // ============================================================================
-// LEFT SECTION CARD — same colour as stat cards
+// DRAW: AVATAR FULL-BLEED PANEL
 // ============================================================================
 
-function drawLeftCard(ctx) {
-  const x = 40;
-  const y = 40;
-  const w = 420;
-  const h = CARD.h - 80;
-  const r = 20;
-
-  box(ctx, x, y, w, h, r, COLORS.cardBg);
-  addNoise(ctx, x, y, w, h, 0.05);
-  stroke(ctx, x, y, w, h, r, COLORS.cardBgStroke, 1);
-}
-
-// ============================================================================
-// AVATAR WITH GRADIENT RING
-// ============================================================================
-
-function drawAvatar(ctx, img) {
-  const x    = 90;
-  const y    = 80;
-  const size = 280;
-  const cx   = x + size / 2;
-  const cy   = y + size / 2;
-  const radius = size / 2;
-
-  const gradient = ctx.createLinearGradient(x, y, x + size, y + size);
-  gradient.addColorStop(0, COLORS.avatarRingA);
-  gradient.addColorStop(0.5, COLORS.avatarRingB);
-  gradient.addColorStop(1, COLORS.avatarRingC);
-
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius + 8, 0, Math.PI * 2);
-  ctx.fillStyle = gradient;
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius + 4, 0, Math.PI * 2);
-  ctx.fillStyle = COLORS.avatarRingInner;
-  ctx.fill();
+function drawAvatarPanel(ctx, img) {
+  const H  = T.canvasH;
+  const sw = T.avatarStripW;
 
   ctx.save();
   ctx.beginPath();
-  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.rect(0, 0, sw, H);
   ctx.clip();
 
   if (img) {
-    ctx.drawImage(img, x, y, size, size);
+    const scale = H / img.height;
+    const iw    = img.width  * scale;
+    const ih    = img.height * scale;
+    const ix    = (sw - iw) / 2;
+    ctx.drawImage(img, ix, 0, iw, ih);
   } else {
-    ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(x, y, size, size);
+    const pg = ctx.createLinearGradient(0, 0, sw, H);
+    pg.addColorStop(0, '#0d1018');
+    pg.addColorStop(1, '#141820');
+    ctx.fillStyle = pg;
+    ctx.fillRect(0, 0, sw, H);
   }
 
-  ctx.restore();
+  // Right-edge fade into bg
+  const fade = ctx.createLinearGradient(sw - 140, 0, sw, 0);
+  fade.addColorStop(0,   'rgba(8,10,15,0)');
+  fade.addColorStop(0.55,'rgba(8,10,15,0.65)');
+  fade.addColorStop(1,   'rgba(8,10,15,1)');
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, 0, sw, H);
 
-  drawSparkle(ctx, x + size + 10, y + size - 30);
-}
+  // Top vignette
+  const tv = ctx.createLinearGradient(0, 0, 0, 90);
+  tv.addColorStop(0, 'rgba(8,10,15,0.75)');
+  tv.addColorStop(1, 'rgba(8,10,15,0)');
+  ctx.fillStyle = tv;
+  ctx.fillRect(0, 0, sw, H);
 
-// ============================================================================
-// SPARKLE ICON
-// ============================================================================
+  // Bottom vignette
+  const bv = ctx.createLinearGradient(0, H - 110, 0, H);
+  bv.addColorStop(0, 'rgba(8,10,15,0)');
+  bv.addColorStop(1, 'rgba(8,10,15,0.85)');
+  ctx.fillStyle = bv;
+  ctx.fillRect(0, 0, sw, H);
 
-function drawSparkle(ctx, x, y) {
-  const size = 28;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.shadowColor = 'rgba(168, 85, 247, 0.6)';
-  ctx.shadowBlur  = 10;
-  ctx.fillStyle   = COLORS.primary;
+  // Accent border line
+  const linG = ctx.createLinearGradient(0, 0, 0, H);
+  linG.addColorStop(0,    'rgba(0,212,200,0)');
+  linG.addColorStop(0.3,  T.accent);
+  linG.addColorStop(0.7,  T.accent);
+  linG.addColorStop(1,    'rgba(0,212,200,0)');
+  ctx.strokeStyle = linG;
+  ctx.lineWidth   = 1.5;
   ctx.beginPath();
+  ctx.moveTo(sw - 1, 0);
+  ctx.lineTo(sw - 1, H);
+  ctx.stroke();
 
-  for (let i = 0; i < 4; i++) {
-    const angle = (i * Math.PI / 2) - Math.PI / 4;
-    const x1    = Math.cos(angle) * size;
-    const y1    = Math.sin(angle) * size;
-    const x2    = Math.cos(angle + Math.PI / 4) * (size * 0.4);
-    const y2    = Math.sin(angle + Math.PI / 4) * (size * 0.4);
-    if (i === 0) ctx.moveTo(x1, y1);
-    else         ctx.lineTo(x1, y1);
-    ctx.lineTo(x2, y2);
-  }
-
-  ctx.closePath();
-  ctx.fill();
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur  = 0;
   ctx.restore();
 }
 
 // ============================================================================
-// USER INFO
+// DRAW: RANK GHOST WATERMARK
 // ============================================================================
 
-function drawUserInfo(ctx, user) {
-  const x = 520;
-  const y = 140;
-
-  ctx.fillStyle = COLORS.textPrimary;
-  font(ctx, 900, 68, 'Satoshi');
-  ctx.fillText(user.globalName || user.username, x, y);
-
-  ctx.fillStyle = COLORS.textTertiary;
-  font(ctx, 400, 28, 'Inter');
-  ctx.fillText(`@${user.username}`, x, y + 50);
-}
-
-// ============================================================================
-// WEEKLY PROGRESS
-// — label above bar at the LEFT, percentage badge removed
-// ============================================================================
-
-function drawWeeklyProgress(ctx, stats) {
-  const x    = 520;
-  const y    = 260;
-  const barW = 550;
-  const barH = 50;
-
-  // Label — left-aligned, above the bar
-  ctx.fillStyle = COLORS.textTertiary;
-  font(ctx, 600, 20, 'Inter');
-  ctx.fillText('WEEKLY PROGRESS', x, y - 14);
-
-  // Bar background
-  box(ctx, x, y, barW, barH, 25, COLORS.overlayLight);
-
-  // Bar fill
-  const fillW    = Math.max(80, barW * stats.progress);
-  const gradient = ctx.createLinearGradient(x, y, x + fillW, y);
-  gradient.addColorStop(0, COLORS.primary);
-  gradient.addColorStop(1, COLORS.primaryLight);
-  box(ctx, x, y, fillW, barH, 25, gradient);
-
-  // XP text centred on bar
-  ctx.fillStyle = COLORS.textPrimary;
-  font(ctx, 700, 24, 'Inter');
-  const progressText = `${fmt(stats.current)} / ${fmt(stats.needed)}`;
-  ctx.fillText(
-    progressText,
-    x + barW / 2 - ctx.measureText(progressText).width / 2,
-    y + 34
-  );
-
-  // "More for next role" hint
-  ctx.fillStyle = COLORS.primary;
-  font(ctx, 400, 20, 'Inter');
-  const needed = stats.needed - stats.current;
-  ctx.fillText(`↗ ${fmt(needed)} more for next role`, x, y + 75);
-}
-
-// ============================================================================
-// RANK NUMBER
-// ============================================================================
-
-function drawRankNumber(ctx, rank) {
-  const x = 90;
-  const y = 500;
-
-  const gradient = ctx.createLinearGradient(x, y - 100, x, y);
-  gradient.addColorStop(0, COLORS.textPrimary);
-  gradient.addColorStop(1, COLORS.primary);
-
-  ctx.fillStyle = gradient;
-  font(ctx, 900, 120, 'Satoshi');
-  ctx.fillText(`#${rank}`, x, y);
-
-  ctx.fillStyle = COLORS.primary;
-  font(ctx, 700, 22, 'Inter');
-  ctx.fillText('GLOBAL RANK', x, y + 35);
-}
-
-// ============================================================================
-// STATUS BADGE — compact, fits "SUPER ACTIVE" comfortably
-// ============================================================================
-
-function drawStatusBadge(ctx) {
-  const x   = 90;
-  const y   = 570;
-  const h   = 42;
-  const pad = 22;
-
-  // Measure text width so badge auto-sizes
-  font(ctx, 700, 20, 'Inter');
-  const dotDiameter = 12;
-  const gap         = 10;
-  const textW       = ctx.measureText('SUPER ACTIVE').width;
-  const w           = pad + dotDiameter + gap + textW + pad;
-
-  box(ctx, x, y, w, h, 21, COLORS.activeBg);
-  stroke(ctx, x, y, w, h, 21, COLORS.activeBorder, 1.5);
-
-  // Green dot
-  ctx.fillStyle = COLORS.active;
-  ctx.beginPath();
-  ctx.arc(x + pad + dotDiameter / 2, y + h / 2, dotDiameter / 2, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Text
-  ctx.fillStyle = COLORS.active;
-  ctx.fillText('SUPER ACTIVE', x + pad + dotDiameter + gap, y + h / 2 + 7);
-}
-
-// ============================================================================
-// STAT CARD — with better SVG-style path icons
-// ============================================================================
-
-function drawStatCard(ctx, x, y, icon, label, value, subtext) {
-  const w = 260;
-  const h = 150;
-  const r = 20;
-
-  box(ctx, x, y, w, h, r, COLORS.cardBg);
-  stroke(ctx, x, y, w, h, r, COLORS.cardBgStroke, 1);
-
-  const iconSize = 60;
-  const iconX    = x + 30;
-  const iconY    = y + 30;
-  box(ctx, iconX, iconY, iconSize, iconSize, 12, COLORS.primaryIconBg);
-
-  ctx.fillStyle   = COLORS.primary;
-  ctx.strokeStyle = COLORS.primary;
-  drawIcon(ctx, icon, iconX + iconSize / 2, iconY + iconSize / 2);
-
-  const textX = iconX + iconSize + 20;
-
-  ctx.fillStyle = COLORS.textTertiary;
-  font(ctx, 600, 16, 'Inter');
-  ctx.fillText(label, textX, y + 45);
-
-  ctx.fillStyle = COLORS.textPrimary;
-  font(ctx, 700, 38, 'Inter');
-  ctx.fillText(value, textX, y + 85);
-
-  if (subtext) {
-    ctx.fillStyle = COLORS.textMuted;
-    font(ctx, 400, 16, 'Inter');
-    ctx.fillText(subtext, textX, y + 110);
-  }
-}
-
-// ============================================================================
-// ICON DRAWING — clean SVG-style path icons
-// ============================================================================
-
-function drawIcon(ctx, type, cx, cy) {
+function drawRankWatermark(ctx, rank) {
+  const H  = T.canvasH;
+  const rx = T.avatarStripW + 24;
   ctx.save();
-  ctx.translate(cx, cy);
-
-  switch (type) {
-
-    // Outlined chat bubble with tail
-    case 'chat': {
-      ctx.lineWidth   = 2.5;
-      ctx.lineJoin    = 'round';
-      ctx.lineCap     = 'round';
-      ctx.strokeStyle = COLORS.primary;
-      round(ctx, -14, -13, 28, 20, 5);
-      ctx.stroke();
-      // Tail
-      ctx.beginPath();
-      ctx.moveTo(-6, 7);
-      ctx.lineTo(-10, 14);
-      ctx.lineTo(-1, 7);
-      ctx.stroke();
-      // Dots inside
-      ctx.fillStyle = COLORS.primary;
-      [-8, 0, 8].forEach(dx => {
-        ctx.beginPath();
-        ctx.arc(dx, -3, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-      });
-      break;
-    }
-
-    // Clean trophy outline
-    case 'trophy': {
-      ctx.lineWidth   = 2.5;
-      ctx.lineJoin    = 'round';
-      ctx.lineCap     = 'round';
-      ctx.strokeStyle = COLORS.primary;
-
-      // Cup body
-      ctx.beginPath();
-      ctx.moveTo(-10, -14);
-      ctx.lineTo(-10,  2);
-      ctx.quadraticCurveTo(-10, 10, 0, 10);
-      ctx.quadraticCurveTo(10, 10, 10, 2);
-      ctx.lineTo(10, -14);
-      ctx.closePath();
-      ctx.stroke();
-
-      // Handles
-      ctx.beginPath();
-      ctx.moveTo(-10, -8);
-      ctx.quadraticCurveTo(-17, -8, -17, -2);
-      ctx.quadraticCurveTo(-17, 4, -10, 4);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(10, -8);
-      ctx.quadraticCurveTo(17, -8, 17, -2);
-      ctx.quadraticCurveTo(17, 4, 10, 4);
-      ctx.stroke();
-
-      // Stem + base
-      ctx.beginPath();
-      ctx.moveTo(0, 10);
-      ctx.lineTo(0, 15);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(-9, 15);
-      ctx.lineTo(9, 15);
-      ctx.stroke();
-      break;
-    }
-
-    // Calendar icon with rings and grid dots
-    case 'calendar': {
-      ctx.lineWidth   = 2.5;
-      ctx.lineJoin    = 'round';
-      ctx.lineCap     = 'round';
-      ctx.strokeStyle = COLORS.primary;
-
-      // Body
-      round(ctx, -13, -10, 26, 24, 4);
-      ctx.stroke();
-
-      // Top bar
-      ctx.beginPath();
-      ctx.moveTo(-13, -3);
-      ctx.lineTo(13, -3);
-      ctx.stroke();
-
-      // Rings
-      [-6, 6].forEach(dx => {
-        ctx.beginPath();
-        ctx.moveTo(dx, -14);
-        ctx.lineTo(dx, -7);
-        ctx.stroke();
-      });
-
-      // Grid dots (2×2)
-      ctx.fillStyle = COLORS.primary;
-      [[-6, 3], [0, 3], [6, 3], [-6, 9], [0, 9], [6, 9]].forEach(([dx, dy]) => {
-        ctx.beginPath();
-        ctx.arc(dx, dy, 2, 0, Math.PI * 2);
-        ctx.fill();
-      });
-      break;
-    }
-
-    // Lightning bolt — filled
-    case 'bolt': {
-      ctx.fillStyle = COLORS.primary;
-      ctx.beginPath();
-      ctx.moveTo(3,  -16);
-      ctx.lineTo(-7,  2);
-      ctx.lineTo(-1,  2);
-      ctx.lineTo(-5,  16);
-      ctx.lineTo(9,  -4);
-      ctx.lineTo(3,  -4);
-      ctx.closePath();
-      ctx.fill();
-      break;
-    }
-
-    // Clock with hands
-    case 'clock': {
-      ctx.lineWidth   = 2.5;
-      ctx.lineJoin    = 'round';
-      ctx.lineCap     = 'round';
-      ctx.strokeStyle = COLORS.primary;
-
-      ctx.beginPath();
-      ctx.arc(0, 0, 13, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Hour hand (pointing ~10 o'clock)
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(-5, -7);
-      ctx.stroke();
-
-      // Minute hand (pointing ~2 o'clock)
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(7, -4);
-      ctx.stroke();
-
-      // Centre dot
-      ctx.fillStyle = COLORS.primary;
-      ctx.beginPath();
-      ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-      break;
-    }
-  }
-
+  setFont(ctx, 900, 320, 'Satoshi');
+  ctx.fillStyle = 'rgba(0,212,200,0.035)';
+  ctx.fillText(`#${rank}`, rx, H * 0.88);
   ctx.restore();
 }
 
 // ============================================================================
-// FOOTER INFO
+// DRAW: CONTENT
 // ============================================================================
 
-function drawFooter(ctx, stats) {
-  const y       = 590;
-  const spacing = 280;
+function drawContent(ctx, user, stats) {
+  const W  = T.canvasW;
+  const H  = T.canvasH;
+  const lx = T.avatarStripW + 52;
 
-  drawFooterItem(ctx, 540,              y, 'calendar', 'Member since',   stats.memberSince);
-  drawFooterItem(ctx, 540 + spacing,    y, 'bolt',     'Activity streak', `${stats.streak} days`);
-  drawFooterItem(ctx, 540 + spacing * 2, y, 'clock',   'Last active',    stats.lastActive);
+  // ── NAME ────────────────────────────────────────────────────────────────
+  const nameY = 108;
+  setFont(ctx, 900, 72, 'Satoshi');
+  ctx.fillStyle = T.textHero;
+  ctx.fillText(user.globalName || user.username, lx, nameY);
+
+  setFont(ctx, 400, 23, 'Inter');
+  ctx.fillStyle = T.textMuted;
+  ctx.fillText(`@${user.username}`, lx + 2, nameY + 34);
+
+  // ── RANK BADGE inline with name ─────────────────────────────────────────
+  setFont(ctx, 900, 72, 'Satoshi');
+  const nameW  = ctx.measureText(user.globalName || user.username).width;
+  const badgeX = lx + nameW + 20;
+  const badgeY = nameY - 50;
+
+  setFont(ctx, 700, 13, 'Inter');
+  const rankLabel = `RANK  #${stats.rank}`;
+  const bw = ctx.measureText(rankLabel).width + 26;
+  const bh = 30;
+  box(ctx, badgeX, badgeY, bw, bh, 7, T.goldDim);
+  strk(ctx, badgeX, badgeY, bw, bh, 7, 'rgba(240,192,96,0.38)', 1);
+  ctx.fillStyle = T.gold;
+  ctx.fillText(rankLabel, badgeX + 13, badgeY + bh / 2 + 5);
+
+  // ── STATUS PILL ─────────────────────────────────────────────────────────
+  const spY = nameY + 56;
+  setFont(ctx, 600, 13, 'Inter');
+  const spLabel = '● SUPER ACTIVE';
+  const spW     = ctx.measureText(spLabel).width + 24;
+  const spH     = 26;
+  box(ctx, lx, spY, spW, spH, 13, T.greenDim);
+  strk(ctx, lx, spY, spW, spH, 13, T.greenBorder, 1);
+  ctx.fillStyle = T.green;
+  ctx.fillText(spLabel, lx + 12, spY + 18);
+
+  // ── PROGRESS ────────────────────────────────────────────────────────────
+  const prY  = spY + 70;
+  const barW = 572;
+  const barH = 9;
+
+  // Labels
+  setFont(ctx, 600, 12, 'Inter');
+  ctx.fillStyle = T.textMuted;
+  ctx.fillText('LEVEL PROGRESS', lx, prY);
+
+  const xpText = `${fmtComma(stats.current)} / ${fmtComma(stats.needed)} XP`;
+  setFont(ctx, 600, 12, 'Inter');
+  const xpW = ctx.measureText(xpText).width;
+  ctx.fillStyle = T.accent;
+  ctx.fillText(xpText, lx + barW - xpW, prY);
+
+  // Track
+  const bY = prY + 10;
+  box(ctx, lx, bY, barW, barH, 5, 'rgba(255,255,255,0.07)');
+
+  // Fill
+  const fillW = Math.max(barH, barW * stats.progress);
+  const barG  = ctx.createLinearGradient(lx, bY, lx + fillW, bY);
+  barG.addColorStop(0,   '#00d4c8');
+  barG.addColorStop(0.65,'#00aaff');
+  barG.addColorStop(1,   '#7c6dff');
+  box(ctx, lx, bY, fillW, barH, 5, barG);
+
+  // Sheen on fill
+  ctx.save();
+  rr(ctx, lx, bY, fillW, barH, 5);
+  ctx.clip();
+  const sheen = ctx.createLinearGradient(lx, bY, lx, bY + barH);
+  sheen.addColorStop(0,   'rgba(255,255,255,0.32)');
+  sheen.addColorStop(0.5, 'rgba(255,255,255,0)');
+  ctx.fillStyle = sheen;
+  ctx.fillRect(lx, bY, fillW, barH);
+  ctx.restore();
+
+  // End dot
+  const dotX = lx + fillW;
+  const dotY = bY + barH / 2;
+  ctx.beginPath();
+  ctx.arc(dotX, dotY, 5.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(dotX, dotY, 3, 0, Math.PI * 2);
+  ctx.fillStyle = T.accent;
+  ctx.fill();
+
+  // Hint
+  setFont(ctx, 400, 12, 'Inter');
+  ctx.fillStyle = T.textMuted;
+  const rem = stats.needed - stats.current;
+  ctx.fillText(`${fmtComma(rem)} XP until next role`, lx, bY + barH + 18);
+
+  // ── STAT PILLS ──────────────────────────────────────────────────────────
+  const statY  = prY + 88;
+  const pillW  = 168;
+  const pillH  = 80;
+  const pillGp = 16;
+
+  const statsData = [
+    { label: 'DAILY XP',    value: fmt(stats.daily), sub: fmtComma(stats.daily)  },
+    { label: 'LIFETIME XP', value: fmt(stats.life),  sub: fmtComma(stats.life)   },
+    { label: 'STREAK',      value: `${stats.streak}d`, sub: 'day streak'          },
+  ];
+
+  statsData.forEach((s, i) => {
+    const px = lx + i * (pillW + pillGp);
+    const py = statY;
+
+    box(ctx, px, py, pillW, pillH, 12, 'rgba(255,255,255,0.038)');
+    strk(ctx, px, py, pillW, pillH, 12, T.border, 1);
+
+    // Top accent line
+    const acLine = ctx.createLinearGradient(px, py, px + pillW, py);
+    acLine.addColorStop(0,   'rgba(0,212,200,0)');
+    acLine.addColorStop(0.5, T.accent);
+    acLine.addColorStop(1,   'rgba(0,212,200,0)');
+    ctx.strokeStyle = acLine;
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(px + 12, py);
+    ctx.lineTo(px + pillW - 12, py);
+    ctx.stroke();
+
+    setFont(ctx, 600, 10, 'Inter');
+    ctx.fillStyle = T.textMuted;
+    ctx.fillText(s.label, px + 14, py + 20);
+
+    setFont(ctx, 900, 26, 'Satoshi');
+    ctx.fillStyle = T.textHero;
+    ctx.fillText(s.value, px + 14, py + 51);
+
+    setFont(ctx, 400, 11, 'Inter');
+    ctx.fillStyle = T.textMuted;
+    ctx.fillText(s.sub, px + 14, py + 68);
+  });
+
+  // ── FOOTER META ─────────────────────────────────────────────────────────
+  const metaY = H - 28;
+
+  ctx.strokeStyle = T.border;
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  ctx.moveTo(lx, H - 58);
+  ctx.lineTo(W - T.pad, H - 58);
+  ctx.stroke();
+
+  const metaItems = [
+    { label: 'MEMBER SINCE', value: stats.memberSince },
+    { label: 'LAST ACTIVE',  value: stats.lastActive  },
+  ];
+
+  metaItems.forEach((m, i) => {
+    const mx = lx + i * 240;
+    setFont(ctx, 600, 10, 'Inter');
+    ctx.fillStyle = T.textMuted;
+    ctx.fillText(m.label, mx, metaY - 14);
+    setFont(ctx, 600, 14, 'Inter');
+    ctx.fillStyle = T.textSecondary;
+    ctx.fillText(m.value, mx, metaY + 2);
+  });
+
+  // Brand mark
+  setFont(ctx, 900, 12, 'Satoshi');
+  ctx.fillStyle  = 'rgba(0,212,200,0.28)';
+  ctx.textAlign  = 'right';
+  ctx.fillText('✦ RANK CARD', W - T.pad, metaY + 2);
+  ctx.textAlign  = 'left';
 }
 
-function drawFooterItem(ctx, x, y, icon, label, value) {
-  ctx.fillStyle   = COLORS.textMuted;
-  ctx.strokeStyle = COLORS.textMuted;
-  drawIcon(ctx, icon, x, y);
+// ============================================================================
+// DRAW: CORNER ACCENT BRACKETS
+// ============================================================================
 
-  ctx.fillStyle = COLORS.textMuted;
-  font(ctx, 400, 16, 'Inter');
-  ctx.fillText(label, x + 35, y - 4);
+function drawCornerAccents(ctx) {
+  const W = T.canvasW;
+  const H = T.canvasH;
+  const s = 20;
+  const m = 16;
 
-  ctx.fillStyle = COLORS.textSecondary;
-  font(ctx, 600, 18, 'Inter');
-  ctx.fillText(value, x + 35, y + 18);
+  ctx.strokeStyle = T.accent;
+  ctx.lineWidth   = 1.5;
+  ctx.lineCap     = 'square';
+
+  // top-left
+  ctx.beginPath(); ctx.moveTo(m + s, m); ctx.lineTo(m, m); ctx.lineTo(m, m + s); ctx.stroke();
+  // top-right
+  ctx.beginPath(); ctx.moveTo(W - m - s, m); ctx.lineTo(W - m, m); ctx.lineTo(W - m, m + s); ctx.stroke();
+  // bottom-left
+  ctx.beginPath(); ctx.moveTo(m + s, H - m); ctx.lineTo(m, H - m); ctx.lineTo(m, H - m - s); ctx.stroke();
+  // bottom-right
+  ctx.beginPath(); ctx.moveTo(W - m - s, H - m); ctx.lineTo(W - m, H - m); ctx.lineTo(W - m, H - m - s); ctx.stroke();
 }
 
 // ============================================================================
@@ -661,18 +504,11 @@ function drawFooterItem(ctx, x, y, icon, label, value) {
 // ============================================================================
 
 function draw(ctx, user, avatar, stats) {
-  drawBg(ctx);
-  drawLeftCard(ctx);
-  drawAvatar(ctx, avatar);
-  drawUserInfo(ctx, user);
-  drawWeeklyProgress(ctx, stats);
-  drawRankNumber(ctx, stats.rank);
-  drawStatusBadge(ctx);
-
-  drawStatCard(ctx, 540, 370, 'chat',   'DAILY XP',    fmt(stats.daily), fmtComma(stats.daily));
-  drawStatCard(ctx, 830, 370, 'trophy', 'LIFETIME XP', fmt(stats.life),  fmtComma(stats.life));
-
-  drawFooter(ctx, stats);
+  drawBackground(ctx);
+  drawRankWatermark(ctx, stats.rank);
+  drawAvatarPanel(ctx, avatar);
+  drawContent(ctx, user, stats);
+  drawCornerAccents(ctx);
 }
 
 // ============================================================================
@@ -680,7 +516,7 @@ function draw(ctx, user, avatar, stats) {
 // ============================================================================
 
 function render({ user, avatar, stats }) {
-  const canvas = createCanvas(CARD.w, CARD.h);
+  const canvas = createCanvas(T.canvasW, T.canvasH);
   const ctx    = canvas.getContext('2d');
   draw(ctx, user, avatar, stats);
   return canvas.toBuffer('image/png');
@@ -702,22 +538,20 @@ async function build(user) {
 
 export default {
   name: 'leveling',
-
   configSchema: LEVELING_SCHEMA,
   events: [],
 
   commands: [
     {
-      name: 'rank',
+      name:        'rank',
       description: 'Show rank card',
 
       async execute(interaction) {
         try {
           log('/rank used by', interaction.user.username);
-
           const png  = await build(interaction.user);
           const file = new AttachmentBuilder(png, {
-            name: `rank-${interaction.user.id}.png`
+            name: `rank-${interaction.user.id}.png`,
           });
 
           if (interaction.deferred || interaction.replied) {
@@ -725,15 +559,10 @@ export default {
           } else {
             await interaction.reply({ files: [file] });
           }
-
         } catch (e) {
           err('CARD ERROR:', e);
-
-          const msg =
-            '❌ Card generation failed.\n```' +
-            (e?.stack?.slice(0, 1800) || e) +
-            '```';
-
+          const msg = '❌ Card generation failed.\n```' +
+            (e?.stack?.slice(0, 1800) || e) + '```';
           try {
             if (interaction.deferred || interaction.replied) {
               await interaction.editReply({ content: msg });
@@ -744,8 +573,8 @@ export default {
             err('Failed sending error:', sendErr);
           }
         }
-      }
-    }
-  ]
+      },
+    },
+  ],
 };
 
