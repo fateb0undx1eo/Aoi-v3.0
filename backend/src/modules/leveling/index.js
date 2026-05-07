@@ -26,8 +26,8 @@ const FONT_DIR = path.join(
   'src',
   'modules',
   'leveling',
-  'Assests',
-  'Fonts'
+  'assets',
+  'fonts'
 );
 
 function tryRegister(name, file, weight = 'normal') {
