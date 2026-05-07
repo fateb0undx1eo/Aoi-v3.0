@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 
 // ============================================================================
-// REQUIRED CONFIG SCHEMA (DO NOT REMOVE - LOADER NEEDS THIS)
+// REQUIRED SCHEMA (LOADER FIX)
 // ============================================================================
 
 const LEVELING_SCHEMA = {
@@ -17,47 +17,55 @@ const LEVELING_SCHEMA = {
 // PATHS
 // ============================================================================
 
-const FONT_DIR = path.join(process.cwd(), 'src', 'modules', 'leveling', 'assets', 'fonts');
+const FONT_DIR = path.join(
+  process.cwd(),
+  'src',
+  'modules',
+  'leveling',
+  'assets',
+  'fonts'
+);
 
 // ============================================================================
-// LOGGER
+// LOGGING
 // ============================================================================
 
 const log = (...a) => console.log('[LEVELING]', ...a);
 const err = (...a) => console.error('[LEVELING]', ...a);
 
 // ============================================================================
-// FONT SAFE REGISTER
+// FONT LOADER (SAFE)
 // ============================================================================
 
-function registerFonts() {
+function loadFont(file, family, weight) {
   try {
-    if (!fs.existsSync(FONT_DIR)) {
-      err('Font dir missing:', FONT_DIR);
+    const full = path.join(FONT_DIR, file);
+
+    if (!fs.existsSync(full)) {
+      err('Missing font:', file);
       return;
     }
 
-    const fonts = fs.readdirSync(FONT_DIR);
-
-    const load = (file, family, weight) => {
-      const full = path.join(FONT_DIR, file);
-      if (!fs.existsSync(full)) return;
-
-      registerFont(full, { family, weight });
-      log('Loaded font:', file);
-    };
-
-    load('Satoshi-Black.otf', 'Satoshi', '900');
-    load('Satoshi-Bold.otf', 'Satoshi', '700');
-    load('Inter_24pt-SemiBold.ttf', 'Inter', '600');
-    load('Inter_24pt-Regular.ttf', 'Inter', '400');
-
+    registerFont(full, { family, weight });
+    log('Loaded font:', file);
   } catch (e) {
-    err('Font register crash', e);
+    err('Font error:', file, e);
   }
 }
 
-registerFonts();
+function initFonts() {
+  if (!fs.existsSync(FONT_DIR)) {
+    err('Font directory missing:', FONT_DIR);
+    return;
+  }
+
+  loadFont('Satoshi-Black.otf', 'Satoshi', '900');
+  loadFont('Satoshi-Bold.otf', 'Satoshi', '700');
+  loadFont('Inter_24pt-SemiBold.ttf', 'Inter', '600');
+  loadFont('Inter_24pt-Regular.ttf', 'Inter', '400');
+}
+
+initFonts();
 
 // ============================================================================
 // CARD CONFIG
@@ -105,29 +113,30 @@ function fmt(n) {
 }
 
 // ============================================================================
-// STATS (TEMP MOCK)
+// STATS (TEMP LOGIC)
 // ============================================================================
 
-function stats(id) {
+function getStats(id) {
   const seed = Number(String(id).slice(-6));
-  const cur = 2800 + (seed % 500);
-  const need = 5000;
+
+  const current = 2800 + (seed % 500);
+  const needed = 5000;
 
   return {
     rank: (seed % 99) + 1,
-    current: cur,
-    needed: need,
-    progress: cur / need,
+    current,
+    needed,
+    progress: current / needed,
     daily: 3200,
     life: 90210
   };
 }
 
 // ============================================================================
-// AVATAR SAFE FETCH
+// AVATAR SAFE
 // ============================================================================
 
-async function avatar(user) {
+async function getAvatar(user) {
   try {
     const url = user.displayAvatarURL({
       extension: 'png',
@@ -139,9 +148,8 @@ async function avatar(user) {
 
     const buf = Buffer.from(await res.arrayBuffer());
     return await loadImage(buf);
-
   } catch (e) {
-    err('Avatar fail:', e);
+    err('Avatar error:', e);
     return null;
   }
 }
@@ -150,7 +158,7 @@ async function avatar(user) {
 // BACKGROUND
 // ============================================================================
 
-function bg(ctx) {
+function drawBg(ctx) {
   const g = ctx.createLinearGradient(0, 0, CARD.w, CARD.h);
   g.addColorStop(0, '#050816');
   g.addColorStop(1, '#0A0416');
@@ -170,9 +178,12 @@ function drawAvatar(ctx, img) {
   const x = 70;
   const y = 70;
 
+  const cx = x + 80;
+  const cy = y + 80;
+
   ctx.save();
   ctx.beginPath();
-  ctx.arc(x + 80, y + 80, 78, 0, Math.PI * 2);
+  ctx.arc(cx, cy, 78, 0, Math.PI * 2);
   ctx.clip();
 
   if (img) ctx.drawImage(img, x, y, 160, 160);
@@ -185,7 +196,7 @@ function drawAvatar(ctx, img) {
 }
 
 // ============================================================================
-// MAIN TEXT
+// MAIN DRAW
 // ============================================================================
 
 function draw(ctx, user, s) {
@@ -201,9 +212,10 @@ function draw(ctx, user, s) {
   font(ctx, 900, 70);
   ctx.fillText(`#${s.rank}`, 70, 320);
 
-  // bar
+  // progress bar bg
   box(ctx, 320, 180, 600, 30, 20, 'rgba(255,255,255,0.08)');
 
+  // progress fill
   box(
     ctx,
     320,
@@ -228,14 +240,14 @@ function draw(ctx, user, s) {
 // ============================================================================
 
 function render({ user, avatar, stats }) {
-  const c = createCanvas(CARD.w, CARD.h);
-  const ctx = c.getContext('2d');
+  const canvas = createCanvas(CARD.w, CARD.h);
+  const ctx = canvas.getContext('2d');
 
-  bg(ctx);
+  drawBg(ctx);
   drawAvatar(ctx, avatar);
   draw(ctx, user, stats);
 
-  return c.toBuffer('image/png');
+  return canvas.toBuffer('image/png');
 }
 
 // ============================================================================
@@ -243,20 +255,21 @@ function render({ user, avatar, stats }) {
 // ============================================================================
 
 async function build(user) {
-  const av = await avatar(user);
-  const st = stats(user.id);
+  const avatar = await getAvatar(user);
+  const stats = getStats(user.id);
 
-  return render({ user, avatar: av, stats: st });
+  return render({ user, avatar, stats });
 }
 
 // ============================================================================
-// MODULE EXPORT
+// MODULE
 // ============================================================================
 
 export default {
   name: 'leveling',
 
   configSchema: LEVELING_SCHEMA,
+  events: [],
 
   commands: [
     {
@@ -265,7 +278,12 @@ export default {
 
       async execute(interaction) {
         try {
-          await interaction.deferReply();
+          log('/rank used by', interaction.user.username);
+
+          // ✅ FIX: prevent double reply crash
+          if (!interaction.deferred && !interaction.replied) {
+            await interaction.deferReply();
+          }
 
           const png = await build(interaction.user);
 
@@ -278,26 +296,24 @@ export default {
           });
 
         } catch (e) {
-          err('CARD ERROR:', e);
+          err('CARD FAILED:', e);
 
           const msg =
             '❌ Card generation failed.\n```' +
-            (e?.stack?.slice(0, 1500) || e) +
+            (e?.stack?.slice(0, 1800) || e) +
             '```';
 
           try {
-            if (interaction.deferred) {
+            if (interaction.deferred || interaction.replied) {
               await interaction.editReply({ content: msg });
             } else {
               await interaction.reply({ content: msg, ephemeral: true });
             }
           } catch (sendErr) {
-            err('Failed sending error to Discord', sendErr);
+            err('Discord error send failed:', sendErr);
           }
         }
       }
     }
-  ],
-
-  events: []
+  ]
 };
