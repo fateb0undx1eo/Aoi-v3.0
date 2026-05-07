@@ -321,10 +321,11 @@ async function buildRank(user) {
 export default {
   name: 'leveling',
 
+  configSchema: LEVELING_SCHEMA,
+
   commands: [
     {
       name: 'rank',
-
       async execute(interaction) {
         const start = Date.now();
 
@@ -337,8 +338,7 @@ export default {
             files: [attachment]
           });
 
-          console.log(`[RANK] success in ${Date.now() - start}ms`);
-
+          console.log(`[RANK] success ${Date.now() - start}ms`);
         } catch (err) {
           console.error('[RANK ERROR]', err);
 
@@ -354,5 +354,8 @@ export default {
         }
       }
     }
-  ]
+  ],
+
+  // ✅ THIS IS REQUIRED BY YOUR LOADER
+  events: []
 };
