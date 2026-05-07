@@ -159,6 +159,17 @@ function drawTextFit(ctx, text, x, y, maxWidth) {
   ctx.fillText(`${output}...`, x, y);
 }
 
+function setFittedFont(ctx, weight, startSize, minSize, family, text, maxWidth) {
+  let size = startSize;
+  while (size > minSize) {
+    ctx.font = `${weight} ${size}px ${family}`;
+    if (ctx.measureText(String(text ?? '')).width <= maxWidth) return size;
+    size -= 1;
+  }
+  ctx.font = `${weight} ${minSize}px ${family}`;
+  return minSize;
+}
+
 function drawCoverImage(ctx, image, x, y, width, height) {
   const scale = Math.max(width / image.width, height / image.height);
   const sourceWidth = width / scale;
@@ -236,7 +247,8 @@ function drawLeftColumn(ctx, avatar, user, config, stats) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = config.rank_color;
-  ctx.font = '900 82px Arial';
+  const rankText = `#${rankNumber}`;
+  setFittedFont(ctx, 900, 82, 52, 'Arial', rankText, 210);
   ctx.fillText(`#${rankNumber}`, 145, 322);
 
   ctx.save();
@@ -247,7 +259,7 @@ function drawLeftColumn(ctx, avatar, user, config, stats) {
   ctx.restore();
 
   ctx.fillStyle = config.rank_label_color;
-  ctx.font = '700 30px Arial';
+  setFittedFont(ctx, 700, 30, 16, 'Arial', 'GLOBAL RANK', 215);
   ctx.fillText('GLOBAL RANK', 165, 372);
 
   fillRoundRect(ctx, 45, 395, 220, 42, 21, CARD.activeBg);
@@ -256,7 +268,7 @@ function drawLeftColumn(ctx, avatar, user, config, stats) {
   ctx.beginPath();
   ctx.arc(71, 416, 6, 0, Math.PI * 2);
   ctx.fill();
-  ctx.font = '700 29px Arial';
+  setFittedFont(ctx, 700, 29, 16, 'Arial', 'SUPER ACTIVE', 170);
   ctx.fillText('SUPER ACTIVE', 162, 422);
 }
 
@@ -269,17 +281,18 @@ function drawProgress(ctx, config, stats) {
 
   ctx.textAlign = 'left';
   ctx.fillStyle = config.stat_label_color;
-  ctx.font = '700 31px Arial';
+  setFittedFont(ctx, 700, 31, 18, 'Arial', 'WEEKLY PROGRESS', width);
   ctx.fillText('WEEKLY PROGRESS', x, 145);
 
   fillRoundRect(ctx, x, y, width, height, 20, config.progress_track_color);
   fillRoundRect(ctx, x, y, fillWidth, height, 20, config.progress_start_color);
 
   ctx.fillStyle = config.progress_text_color;
-  ctx.font = '700 34px Arial';
+  const progressText = `${compactNumber(stats.current)} / ${compactNumber(stats.needed)}`;
+  setFittedFont(ctx, 700, 34, 16, 'Arial', progressText, Math.max(80, fillWidth - 20));
   ctx.textAlign = 'center';
   ctx.fillText(
-    `${compactNumber(stats.current)} / ${compactNumber(stats.needed)}`,
+    progressText,
     x + Math.max(130, fillWidth / 2),
     y + 30
   );
@@ -290,8 +303,9 @@ function drawProgress(ctx, config, stats) {
 
   ctx.textAlign = 'left';
   ctx.fillStyle = config.username_color;
-  ctx.font = '600 31px Arial';
-  ctx.fillText(`${compactNumber(stats.remaining)} more for next role`, x + 30, 257);
+  const hintText = `${compactNumber(stats.remaining)} more for next role`;
+  setFittedFont(ctx, 600, 31, 15, 'Arial', hintText, width - 40);
+  ctx.fillText(hintText, x + 30, 257);
 }
 
 function drawStats(ctx, config, stats) {
@@ -327,15 +341,15 @@ function drawStats(ctx, config, stats) {
 function drawStat(ctx, x, y, label, value, raw, config) {
   ctx.textAlign = 'left';
   ctx.fillStyle = config.stat_label_color;
-  ctx.font = '700 31px Arial';
+  setFittedFont(ctx, 700, 31, 16, 'Arial', label, 190);
   ctx.fillText(label, x, y - 20);
 
   ctx.fillStyle = config.stat_value_color;
-  ctx.font = '900 51px Arial';
+  setFittedFont(ctx, 900, 51, 24, 'Arial', value, 200);
   ctx.fillText(value, x, y + 18);
 
   ctx.fillStyle = CARD.tertiary;
-  ctx.font = '600 31px Arial';
+  setFittedFont(ctx, 600, 31, 14, 'Arial', raw, 200);
   ctx.fillText(raw, x, y + 48);
 }
 
@@ -350,18 +364,21 @@ function drawFooterMeta(ctx, config) {
   ctx.stroke();
   ctx.restore();
 
-  ctx.fillStyle = config.rank_label_color;
-  ctx.font = '500 23px Arial';
-  ctx.textAlign = 'left';
-  ctx.fillText('Member since', 383, y);
-  ctx.fillText('Activity streak', 627, y);
-  ctx.fillText('Last active', 857, y);
+  const meta = [
+    { x: 383, label: 'Member since', value: 'Jan 12, 2024', width: 220 },
+    { x: 627, label: 'Activity streak', value: '28 days', width: 190 },
+    { x: 857, label: 'Last active', value: '5m ago', width: 100 }
+  ];
 
-  ctx.fillStyle = config.stat_value_color;
-  ctx.font = '600 32px Arial';
-  ctx.fillText('Jan 12, 2024', 383, y + 32);
-  ctx.fillText('28 days', 627, y + 32);
-  ctx.fillText('5m ago', 857, y + 32);
+  ctx.textAlign = 'left';
+  for (const item of meta) {
+    ctx.fillStyle = config.rank_label_color;
+    setFittedFont(ctx, 500, 23, 12, 'Arial', item.label, item.width);
+    ctx.fillText(item.label, item.x, y);
+    ctx.fillStyle = config.stat_value_color;
+    setFittedFont(ctx, 600, 32, 14, 'Arial', item.value, item.width);
+    ctx.fillText(item.value, item.x, y + 32);
+  }
 }
 
 function drawRankCardPng({ user, avatar, config, stats }) {
@@ -390,17 +407,18 @@ function drawRankCardPng({ user, avatar, config, stats }) {
 
   ctx.textAlign = 'left';
   ctx.fillStyle = config.display_name_color;
-  ctx.font = '900 57px Arial';
+  setFittedFont(ctx, 900, 57, 26, 'Arial', displayName, 470);
   drawTextFit(ctx, displayName, 343, 86, 470);
 
   ctx.fillStyle = config.username_color;
-  ctx.font = '600 34px Arial';
-  drawTextFit(ctx, `@${user.username}`, 343, 125, 490);
+  const handle = `@${user.username}`;
+  setFittedFont(ctx, 600, 34, 18, 'Arial', handle, 490);
+  drawTextFit(ctx, handle, 343, 125, 490);
 
   fillRoundRect(ctx, 857, 48, 130, 34, 10, hexToRgba(config.panel_color, 0.95));
   strokeRoundRect(ctx, 857, 48, 130, 34, 10, hexToRgba(config.panel_border_color, 0.3), 1);
   ctx.fillStyle = config.rank_label_color;
-  ctx.font = '700 17px Arial';
+  setFittedFont(ctx, 700, 17, 11, 'Arial', 'RANKED USER', 112);
   ctx.textAlign = 'center';
   ctx.fillText('RANKED USER', 922, 71);
 
