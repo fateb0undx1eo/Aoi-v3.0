@@ -1,309 +1,130 @@
-import { AttachmentBuilder } from 'discord.js';
-import { createCanvas, loadImage, registerFont } from 'canvas';
-import path from 'path';
-import fs from 'fs';
+import { AttachmentBuilder } from 'discord.js'; import { createCanvas, loadImage, registerFont } from 'canvas'; import path from 'path'; import fs from 'fs';
 
-// ============================================================================
-// REQUIRED FOR LOADER
-// ============================================================================
+// ============================================================================ // MODULE CONFIG (FIXED FOR LOADER) // ============================================================================
 
-const LEVELING_SCHEMA = {
-  type: 'object',
-  properties: {},
-  additionalProperties: true
-};
+const configSchema = { type: 'object', properties: {} };
 
-// ============================================================================
-// PATHS
-// ============================================================================
+const events = [];
 
-const FONT_DIR = path.join(
-  process.cwd(),
-  'src',
-  'modules',
-  'leveling',
-  'assets',
-  'fonts'
-);
+// ============================================================================ // PATHS // ============================================================================
 
-// ============================================================================
-// LOGGING
-// ============================================================================
+const ROOT = process.cwd(); const FONT_DIR = path.join(ROOT, 'src', 'modules', 'leveling', 'assets', 'fonts');
 
-const log = (...a) => console.log('[LEVELING]', ...a);
-const err = (...a) => console.error('[LEVELING]', ...a);
+// ============================================================================ // LOG // ============================================================================
 
-// ============================================================================
-// FONTS
-// ============================================================================
+const log = (...a) => console.log('[LEVELING]', ...a); const err = (...a) => console.error('[LEVELING]', ...a);
 
-function loadFonts() {
-  try {
-    if (!fs.existsSync(FONT_DIR)) return;
+// ============================================================================ // FONTS // ============================================================================
 
-    const load = (file, family, weight) => {
-      const full = path.join(FONT_DIR, file);
-      if (!fs.existsSync(full)) return;
-      registerFont(full, { family, weight });
-      log('Font loaded:', file);
-    };
+function loadFont(name, file, weight='normal') { try { const p = path.join(FONT_DIR, file); if (!fs.existsSync(p)) return; registerFont(p, { family: name, weight }); log('Font loaded', file); } catch (e) { err('Font error', file, e); } }
 
-    load('Satoshi-Black.otf', 'Satoshi', '900');
-    load('Satoshi-Bold.otf', 'Satoshi', '700');
-    load('Inter_24pt-SemiBold.ttf', 'Inter', '600');
-    load('Inter_24pt-Regular.ttf', 'Inter', '400');
-  } catch (e) {
-    err('Font load error:', e);
+loadFont('Satoshi','Satoshi-Black.otf','900'); loadFont('Satoshi','Satoshi-Bold.otf','700'); loadFont('Inter','Inter_24pt-SemiBold.ttf','600'); loadFont('Inter','Inter_24pt-Regular.ttf','400');
+
+// ============================================================================ // CARD SIZE // ============================================================================
+
+const CARD = { w: 1034, h: 491 };
+
+// ============================================================================ // HELPERS // ============================================================================
+
+const rr = (ctx,x,y,w,h,r)=>{ const R=Math.min(r,w/2,h/2); ctx.beginPath(); ctx.moveTo(x+R,y); ctx.arcTo(x+w,y,x+w,y+h,R); ctx.arcTo(x+w,y+h,x,y+h,R); ctx.arcTo(x,y+h,x,y,R); ctx.arcTo(x,y,x+w,y,R); ctx.closePath(); };
+
+const fr = (ctx,...a)=>{rr(ctx,...a);ctx.fillStyle=a[5];ctx.fill();}; const sr = (ctx,x,y,w,h,r,c,l=1)=>{rr(ctx,x,y,w,h,r);ctx.strokeStyle=c;ctx.lineWidth=l;ctx.stroke();};
+
+const rgba=(h,a)=>{ const v=parseInt(h.slice(1),16); return rgba(${v>>16&255},${v>>8&255},${v&255},${a}); };
+
+const font=(ctx,w,s,f='Satoshi')=>ctx.font=${w} ${s}px "${f}";
+
+const fit=(ctx,t,x,y,m)=>{ let s=String(t); while(ctx.measureText(s).width>m&&s.length>0)s=s.slice(0,-1); if(s!==t)s+='...'; ctx.fillText(s,x,y); };
+
+const k=num=>num>=1000?(num/1000).toFixed(num%1000?1:0)+'K':String(num);
+
+// ============================================================================ // STATS // ============================================================================
+
+function stats(id){ const seed=Number(String(id).slice(-6)); const cur=2900+(seed%450); const need=5000; return { rank:1+(seed%99), current:cur, needed:need, progress:cur/need, daily:3500, lifetime:89121 }; }
+
+// ============================================================================ // AVATAR // ============================================================================
+
+async function avatar(u){ try{ const url=u.displayAvatarURL({extension:'png',size:512}); const r=await fetch(url); if(!r.ok)return null; return await loadImage(Buffer.from(await r.arrayBuffer())); }catch{return null;} }
+
+// ============================================================================ // BACKGROUND (GLASS + NEON GRID) // ============================================================================
+
+function bg(ctx){ const g=ctx.createLinearGradient(0,0,CARD.w,CARD.h); g.addColorStop(0,'#05060F'); g.addColorStop(1,'#12081F'); ctx.fillStyle=g; ctx.fillRect(0,0,CARD.w,CARD.h);
+
+// glow const glow=ctx.createRadialGradient(850,150,50,850,150,400); glow.addColorStop(0,rgba('#A855F7',0.25)); glow.addColorStop(1,'transparent'); ctx.fillStyle=glow; ctx.fillRect(0,0,CARD.w,CARD.h);
+
+// glass base fr(ctx,20,20,CARD.w-40,CARD.h-40,28,rgba('#0B0F1A',0.75)); sr(ctx,20,20,CARD.w-40,CARD.h-40,28,rgba('#C084FC',0.35),1.2);
+
+// grid ctx.save(); ctx.globalAlpha=0.06; ctx.strokeStyle='#fff'; for(let i=0;i<20;i++){ ctx.beginPath();ctx.moveTo(i60,0);ctx.lineTo(i60,CARD.h);ctx.stroke(); } ctx.restore(); }
+
+// ============================================================================ // AVATAR // ============================================================================
+
+function drawAvatar(ctx,a){ const x=60,y=60,r=85; const cx=x+r,cy=y+r;
+
+ctx.save(); ctx.shadowColor='#A855F7'; ctx.shadowBlur=40; ctx.beginPath();ctx.arc(cx,cy,92,0,Math.PI*2); ctx.strokeStyle=rgba('#A855F7',0.9); ctx.lineWidth=10;ctx.stroke();ctx.restore();
+
+ctx.beginPath();ctx.arc(cx,cy,76,0,Math.PI*2);ctx.clip();
+
+if(a)ctx.drawImage(a,x+8,y+8,160,160); else ctx.fillRect(x,y,160,160); }
+
+// ============================================================================ // MAIN UI // ============================================================================
+
+function draw(ctx,u,s){ const name=u.globalName||u.username;
+
+// username ctx.fillStyle='#fff';font(ctx,'900',54);fit(ctx,name,360,90,400);
+
+ctx.fillStyle='#A78BFA';font(ctx,'600',22,'Inter');ctx.fillText('@'+u.username,360,120);
+
+// rank big ctx.fillStyle='#fff';font(ctx,'900',90);ctx.fillText('#'+s.rank,70,330); ctx.fillStyle='#A855F7';font(ctx,'700',26,'Inter');ctx.fillText('GLOBAL RANK',70,370);
+
+// status pill fr(ctx,70,390,200,42,22,rgba('#14532D',0.35)); ctx.fillStyle='#22C55E';font(ctx,'700',18,'Inter');ctx.fillText('● SUPER ACTIVE',95,418);
+
+// progress const x=360,y=160,w=600,h=40; fr(ctx,x,y,w,h,22,rgba('#111827',0.9));
+
+const p=ctx.createLinearGradient(x,y,x+w,y); p.addColorStop(0,'#9333EA');p.addColorStop(1,'#C084FC');
+
+fr(ctx,x,y,w*s.progress,h,22,p);
+
+ctx.fillStyle='#fff';font(ctx,'700',16,'Inter'); ctx.fillText(${k(s.current)} / ${k(s.needed)},x+20,y+26); ctx.fillText(${Math.round(s.progress*100)}%,x+w-60,y+26);
+
+// stats panel fr(ctx,360,260,600,120,22,rgba('#0B1020',0.75));
+
+ctx.fillStyle='#fff';font(ctx,'900',38); ctx.fillText(k(s.daily),420,320); ctx.fillText(k(s.lifetime),720,320);
+
+ctx.fillStyle='#9CA3AF';font(ctx,'600',14,'Inter'); ctx.fillText('DAILY XP',420,290); ctx.fillText('LIFETIME XP',720,290); }
+
+// ============================================================================ // RENDER // ============================================================================
+
+function render(u,a,s){ const c=createCanvas(CARD.w,CARD.h); const ctx=c.getContext('2d');
+
+bg(ctx); drawAvatar(ctx,a); draw(ctx,u,s);
+
+return c.toBuffer('image/png'); }
+
+// ============================================================================ // BUILD // ============================================================================
+
+async function build(user){ const a=await avatar(user); const s=stats(user.id); return new AttachmentBuilder(render(user,a,s),{name:rank-${user.id}.png}); }
+
+// ============================================================================ // EXPORT MODULE // ============================================================================
+
+export default { name:'leveling', configSchema, events,
+
+commands:[{ name:'rank', description:'rank card',
+
+async execute(i){
+  try{
+    if(!i.deferred&&!i.replied) await i.deferReply();
+
+    const file=await build(i.user);
+    await i.editReply({files:[file]});
+
+  }catch(e){
+    console.error('[LEVELING ERROR]',e);
+
+    if(i.deferred||i.replied)
+      await i.editReply('❌ Card generation failed');
+    else
+      await i.reply({content:'❌ Failed',ephemeral:true});
   }
 }
 
-loadFonts();
-
-// ============================================================================
-// CARD CONFIG
-// ============================================================================
-
-const CARD = {
-  w: 1034,
-  h: 491
-};
-
-// ============================================================================
-// HELPERS
-// ============================================================================
-
-function round(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
-function box(ctx, x, y, w, h, r, c) {
-  round(ctx, x, y, w, h, r);
-  ctx.fillStyle = c;
-  ctx.fill();
-}
-
-function stroke(ctx, x, y, w, h, r, c, lw = 1) {
-  round(ctx, x, y, w, h, r);
-  ctx.strokeStyle = c;
-  ctx.lineWidth = lw;
-  ctx.stroke();
-}
-
-function font(ctx, w, s, f = 'Satoshi') {
-  ctx.font = `${w} ${s}px "${f}", sans-serif`;
-}
-
-function fmt(n) {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
-  return String(n);
-}
-
-// ============================================================================
-// STATS (TEMP)
-// ============================================================================
-
-function getStats(id) {
-  const seed = Number(String(id).slice(-6));
-
-  const current = 2800 + (seed % 500);
-  const needed = 5000;
-
-  return {
-    rank: (seed % 99) + 1,
-    current,
-    needed,
-    progress: current / needed,
-    daily: 3200,
-    life: 90210
-  };
-}
-
-// ============================================================================
-// AVATAR
-// ============================================================================
-
-async function getAvatar(user) {
-  try {
-    const url = user.displayAvatarURL({
-      extension: 'png',
-      size: 256
-    });
-
-    const res = await fetch(url);
-    if (!res.ok) return null;
-
-    const buf = Buffer.from(await res.arrayBuffer());
-    return await loadImage(buf);
-  } catch (e) {
-    err('Avatar error:', e);
-    return null;
-  }
-}
-
-// ============================================================================
-// BACKGROUND
-// ============================================================================
-
-function drawBg(ctx) {
-  const g = ctx.createLinearGradient(0, 0, CARD.w, CARD.h);
-  g.addColorStop(0, '#050816');
-  g.addColorStop(1, '#0A0416');
-
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, CARD.w, CARD.h);
-
-  box(ctx, 15, 15, CARD.w - 30, CARD.h - 30, 22, 'rgba(10,10,25,0.85)');
-  stroke(ctx, 15, 15, CARD.w - 30, CARD.h - 30, 22, 'rgba(168,85,247,0.4)', 1.2);
-}
-
-// ============================================================================
-// AVATAR DRAW
-// ============================================================================
-
-function drawAvatar(ctx, img) {
-  const x = 70;
-  const y = 70;
-
-  const cx = x + 80;
-  const cy = y + 80;
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, 78, 0, Math.PI * 2);
-  ctx.clip();
-
-  if (img) ctx.drawImage(img, x, y, 160, 160);
-  else {
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(x, y, 160, 160);
-  }
-
-  ctx.restore();
-}
-
-// ============================================================================
-// DRAW TEXT
-// ============================================================================
-
-function draw(ctx, user, s) {
-  ctx.fillStyle = '#fff';
-  font(ctx, 900, 52);
-  ctx.fillText(user.globalName || user.username, 320, 100);
-
-  ctx.fillStyle = '#aaa';
-  font(ctx, 500, 22, 'Inter');
-  ctx.fillText(`@${user.username}`, 320, 135);
-
-  ctx.fillStyle = '#fff';
-  font(ctx, 900, 70);
-  ctx.fillText(`#${s.rank}`, 70, 320);
-
-  box(ctx, 320, 180, 600, 30, 20, 'rgba(255,255,255,0.08)');
-
-  box(
-    ctx,
-    320,
-    180,
-    Math.max(80, 600 * s.progress),
-    30,
-    20,
-    '#A855F7'
-  );
-
-  ctx.fillStyle = '#fff';
-  font(ctx, 600, 18, 'Inter');
-  ctx.fillText(`${fmt(s.current)} / ${fmt(s.needed)}`, 350, 202);
-
-  ctx.fillStyle = '#aaa';
-  ctx.fillText(`${fmt(s.daily)} XP daily`, 320, 260);
-  ctx.fillText(`${fmt(s.life)} XP total`, 600, 260);
-}
-
-// ============================================================================
-// RENDER
-// ============================================================================
-
-function render({ user, avatar, stats }) {
-  const canvas = createCanvas(CARD.w, CARD.h);
-  const ctx = canvas.getContext('2d');
-
-  drawBg(ctx);
-  drawAvatar(ctx, avatar);
-  draw(ctx, user, stats);
-
-  return canvas.toBuffer('image/png');
-}
-
-// ============================================================================
-// BUILD
-// ============================================================================
-
-async function build(user) {
-  const avatar = await getAvatar(user);
-  const stats = getStats(user.id);
-
-  return render({ user, avatar, stats });
-}
-
-// ============================================================================
-// MODULE EXPORT
-// ============================================================================
-
-export default {
-  name: 'leveling',
-
-  configSchema: LEVELING_SCHEMA,
-  events: [],
-
-  commands: [
-    {
-      name: 'rank',
-      description: 'Show rank card',
-
-      async execute(interaction) {
-        try {
-          log('/rank used by', interaction.user.username);
-
-          // ❌ IMPORTANT: DO NOT deferReply here (router already does it)
-
-          const png = await build(interaction.user);
-
-          const file = new AttachmentBuilder(png, {
-            name: `rank-${interaction.user.id}.png`
-          });
-
-          // SAFE RESPONSE HANDLING
-          if (interaction.deferred || interaction.replied) {
-            await interaction.editReply({ files: [file] });
-          } else {
-            await interaction.reply({ files: [file] });
-          }
-
-        } catch (e) {
-          err('CARD ERROR:', e);
-
-          const msg =
-            '❌ Card generation failed.\n```' +
-            (e?.stack?.slice(0, 1800) || e) +
-            '```';
-
-          try {
-            if (interaction.deferred || interaction.replied) {
-              await interaction.editReply({ content: msg });
-            } else {
-              await interaction.reply({ content: msg, ephemeral: true });
-            }
-          } catch (sendErr) {
-            err('Failed sending error:', sendErr);
-          }
-        }
-      }
-    }
-  ]
-};
+]} };
