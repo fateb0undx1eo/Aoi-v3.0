@@ -109,6 +109,24 @@ function fmtComma(n) {
 }
 
 // ============================================================================
+// NOISE TEXTURE
+// ============================================================================
+
+function addNoise(ctx, x, y, w, h, opacity = 0.03) {
+  const imageData = ctx.getImageData(x, y, w, h);
+  const data = imageData.data;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const noise = (Math.random() - 0.5) * 255 * opacity;
+    data[i] += noise;     // R
+    data[i + 1] += noise; // G
+    data[i + 2] += noise; // B
+  }
+
+  ctx.putImageData(imageData, x, y);
+}
+
+// ============================================================================
 // STATS (TEMP)
 // ============================================================================
 
@@ -158,37 +176,61 @@ async function getAvatar(user) {
 // ============================================================================
 
 function drawBg(ctx) {
-  // Main gradient background
-  const g = ctx.createRadialGradient(CARD.w / 2, CARD.h / 2, 0, CARD.w / 2, CARD.h / 2, CARD.w);
-  g.addColorStop(0, '#0f1729');
-  g.addColorStop(0.5, '#0a0e1f');
-  g.addColorStop(1, '#1a0a2e');
-
-  ctx.fillStyle = g;
+  // Pure black background
+  ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, CARD.w, CARD.h);
 
-  // Card container with border
   const cardX = 30;
   const cardY = 30;
   const cardW = CARD.w - 60;
   const cardH = CARD.h - 60;
   const cardR = 28;
 
-  // Outer glow
-  ctx.shadowColor = 'rgba(168, 85, 247, 0.3)';
-  ctx.shadowBlur = 30;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
+  // Subtle corner glow (right side only)
+  const glowGradient = ctx.createRadialGradient(CARD.w - 100, 100, 50, CARD.w - 100, 100, 400);
+  glowGradient.addColorStop(0, 'rgba(139, 92, 246, 0.15)');
+  glowGradient.addColorStop(0.5, 'rgba(139, 92, 246, 0.05)');
+  glowGradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
+  
+  ctx.fillStyle = glowGradient;
+  ctx.fillRect(0, 0, CARD.w, CARD.h);
 
-  // Card background
-  box(ctx, cardX, cardY, cardW, cardH, cardR, 'rgba(10, 10, 25, 0.95)');
+  // Card background (pure black)
+  box(ctx, cardX, cardY, cardW, cardH, cardR, '#000000');
 
-  // Reset shadow
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
+  // Subtle border
+  stroke(ctx, cardX, cardY, cardW, cardH, cardR, 'rgba(168, 85, 247, 0.3)', 1.5);
 
-  // Border
-  stroke(ctx, cardX, cardY, cardW, cardH, cardR, 'rgba(168, 85, 247, 0.5)', 2);
+  // Whitish polish on right edge
+  const polishGradient = ctx.createLinearGradient(CARD.w - 150, 0, CARD.w - 50, 0);
+  polishGradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+  polishGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.03)');
+  polishGradient.addColorStop(1, 'rgba(255, 255, 255, 0.08)');
+  
+  ctx.fillStyle = polishGradient;
+  round(ctx, CARD.w - 150, cardY, 120, cardH, cardR);
+  ctx.fill();
+}
+
+// ============================================================================
+// LEFT SECTION CARD (with noise texture)
+// ============================================================================
+
+function drawLeftCard(ctx) {
+  const x = 60;
+  const y = 60;
+  const w = 400;
+  const h = 572;
+  const r = 20;
+
+  // Black card background
+  box(ctx, x, y, w, h, r, '#000000');
+
+  // Add noise texture
+  addNoise(ctx, x, y, w, h, 0.05);
+
+  // Subtle border
+  stroke(ctx, x, y, w, h, r, 'rgba(255, 255, 255, 0.05)', 1);
 }
 
 // ============================================================================
@@ -311,7 +353,7 @@ function drawRankedBadge(ctx) {
 
 function drawUserInfo(ctx, user) {
   const x = 520;
-  const y = 120;
+  const y = 140; // Moved down from 120
 
   // Username
   ctx.fillStyle = '#ffffff';
@@ -319,7 +361,7 @@ function drawUserInfo(ctx, user) {
   ctx.fillText(user.globalName || user.username, x, y);
 
   // Handle
-  ctx.fillStyle = '#888899';
+  ctx.fillStyle = '#6b7280';
   font(ctx, 400, 28, 'Inter');
   ctx.fillText(`@${user.username}`, x, y + 50);
 }
@@ -330,17 +372,17 @@ function drawUserInfo(ctx, user) {
 
 function drawWeeklyProgress(ctx, stats) {
   const x = 520;
-  const y = 240;
+  const y = 260; // Adjusted position
   const barW = 550;
   const barH = 50;
 
   // Label
-  ctx.fillStyle = '#888899';
+  ctx.fillStyle = '#6b7280';
   font(ctx, 600, 20, 'Inter');
   ctx.fillText('WEEKLY PROGRESS', x, y - 10);
 
   // Progress bar background
-  box(ctx, x, y, barW, barH, 25, 'rgba(255, 255, 255, 0.06)');
+  box(ctx, x, y, barW, barH, 25, 'rgba(255, 255, 255, 0.05)');
 
   // Progress bar fill
   const fillW = Math.max(80, barW * stats.progress);
@@ -357,7 +399,7 @@ function drawWeeklyProgress(ctx, stats) {
   ctx.fillText(progressText, x + barW / 2 - ctx.measureText(progressText).width / 2, y + 34);
 
   // Percentage
-  ctx.fillStyle = '#888899';
+  ctx.fillStyle = '#6b7280';
   font(ctx, 600, 22, 'Inter');
   const percentage = `${Math.round(stats.progress * 100)}%`;
   ctx.fillText(percentage, x + barW + 30, y + 34);
@@ -427,22 +469,22 @@ function drawStatCard(ctx, x, y, icon, label, value, subtext) {
   const h = 150;
   const r = 20;
 
-  // Card background
-  box(ctx, x, y, w, h, r, 'rgba(255, 255, 255, 0.03)');
-  stroke(ctx, x, y, w, h, r, 'rgba(255, 255, 255, 0.08)', 1);
+  // Card background - darker for black theme
+  box(ctx, x, y, w, h, r, 'rgba(20, 20, 20, 0.6)');
+  stroke(ctx, x, y, w, h, r, 'rgba(255, 255, 255, 0.06)', 1);
 
   // Icon background
   const iconSize = 60;
   const iconX = x + 30;
   const iconY = y + 30;
-  box(ctx, iconX, iconY, iconSize, iconSize, 12, 'rgba(168, 85, 247, 0.15)');
+  box(ctx, iconX, iconY, iconSize, iconSize, 12, 'rgba(168, 85, 247, 0.12)');
 
   // Draw icon
   ctx.fillStyle = '#a855f7';
   drawIcon(ctx, icon, iconX + iconSize / 2, iconY + iconSize / 2);
 
   // Label
-  ctx.fillStyle = '#888899';
+  ctx.fillStyle = '#6b7280';
   font(ctx, 600, 16, 'Inter');
   ctx.fillText(label, x + iconX + iconSize + 20 - x, y + 45);
 
@@ -453,7 +495,7 @@ function drawStatCard(ctx, x, y, icon, label, value, subtext) {
 
   // Subtext
   if (subtext) {
-    ctx.fillStyle = '#666677';
+    ctx.fillStyle = '#4b5563';
     font(ctx, 400, 16, 'Inter');
     ctx.fillText(subtext, x + iconX + iconSize + 20 - x, y + 110);
   }
@@ -551,7 +593,7 @@ function drawIcon(ctx, type, x, y) {
 // ============================================================================
 
 function drawFooter(ctx, stats) {
-  const y = 620;
+  const y = 590; // Moved up from 620
   const iconSize = 24;
   const spacing = 280;
 
@@ -567,16 +609,16 @@ function drawFooter(ctx, stats) {
 
 function drawFooterItem(ctx, x, y, icon, label, value) {
   // Icon
-  ctx.fillStyle = '#666677';
+  ctx.fillStyle = '#4b5563';
   drawIcon(ctx, icon, x, y);
 
   // Label
-  ctx.fillStyle = '#666677';
+  ctx.fillStyle = '#4b5563';
   font(ctx, 400, 16, 'Inter');
   ctx.fillText(label, x + 35, y - 4);
 
   // Value
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = '#d1d5db';
   font(ctx, 600, 18, 'Inter');
   ctx.fillText(value, x + 35, y + 18);
 }
@@ -587,6 +629,7 @@ function drawFooterItem(ctx, x, y, icon, label, value) {
 
 function draw(ctx, user, avatar, stats) {
   drawBg(ctx);
+  drawLeftCard(ctx); // Draw the textured left section card first
   drawAvatar(ctx, avatar);
   drawRankedBadge(ctx);
   drawUserInfo(ctx, user);
@@ -680,3 +723,4 @@ export default {
     }
   ]
 };
+
