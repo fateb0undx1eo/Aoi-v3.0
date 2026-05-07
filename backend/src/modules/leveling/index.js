@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 
 // ============================================================================
-// REQUIRED SCHEMA (LOADER FIX)
+// REQUIRED FOR LOADER
 // ============================================================================
 
 const LEVELING_SCHEMA = {
@@ -34,38 +34,30 @@ const log = (...a) => console.log('[LEVELING]', ...a);
 const err = (...a) => console.error('[LEVELING]', ...a);
 
 // ============================================================================
-// FONT LOADER (SAFE)
+// FONTS
 // ============================================================================
 
-function loadFont(file, family, weight) {
+function loadFonts() {
   try {
-    const full = path.join(FONT_DIR, file);
+    if (!fs.existsSync(FONT_DIR)) return;
 
-    if (!fs.existsSync(full)) {
-      err('Missing font:', file);
-      return;
-    }
+    const load = (file, family, weight) => {
+      const full = path.join(FONT_DIR, file);
+      if (!fs.existsSync(full)) return;
+      registerFont(full, { family, weight });
+      log('Font loaded:', file);
+    };
 
-    registerFont(full, { family, weight });
-    log('Loaded font:', file);
+    load('Satoshi-Black.otf', 'Satoshi', '900');
+    load('Satoshi-Bold.otf', 'Satoshi', '700');
+    load('Inter_24pt-SemiBold.ttf', 'Inter', '600');
+    load('Inter_24pt-Regular.ttf', 'Inter', '400');
   } catch (e) {
-    err('Font error:', file, e);
+    err('Font load error:', e);
   }
 }
 
-function initFonts() {
-  if (!fs.existsSync(FONT_DIR)) {
-    err('Font directory missing:', FONT_DIR);
-    return;
-  }
-
-  loadFont('Satoshi-Black.otf', 'Satoshi', '900');
-  loadFont('Satoshi-Bold.otf', 'Satoshi', '700');
-  loadFont('Inter_24pt-SemiBold.ttf', 'Inter', '600');
-  loadFont('Inter_24pt-Regular.ttf', 'Inter', '400');
-}
-
-initFonts();
+loadFonts();
 
 // ============================================================================
 // CARD CONFIG
@@ -113,7 +105,7 @@ function fmt(n) {
 }
 
 // ============================================================================
-// STATS (TEMP LOGIC)
+// STATS (TEMP)
 // ============================================================================
 
 function getStats(id) {
@@ -133,7 +125,7 @@ function getStats(id) {
 }
 
 // ============================================================================
-// AVATAR SAFE
+// AVATAR
 // ============================================================================
 
 async function getAvatar(user) {
@@ -196,7 +188,7 @@ function drawAvatar(ctx, img) {
 }
 
 // ============================================================================
-// MAIN DRAW
+// DRAW TEXT
 // ============================================================================
 
 function draw(ctx, user, s) {
@@ -212,10 +204,8 @@ function draw(ctx, user, s) {
   font(ctx, 900, 70);
   ctx.fillText(`#${s.rank}`, 70, 320);
 
-  // progress bar bg
   box(ctx, 320, 180, 600, 30, 20, 'rgba(255,255,255,0.08)');
 
-  // progress fill
   box(
     ctx,
     320,
@@ -262,7 +252,7 @@ async function build(user) {
 }
 
 // ============================================================================
-// MODULE
+// MODULE EXPORT
 // ============================================================================
 
 export default {
@@ -280,10 +270,7 @@ export default {
         try {
           log('/rank used by', interaction.user.username);
 
-          // ✅ FIX: prevent double reply crash
-          if (!interaction.deferred && !interaction.replied) {
-            await interaction.deferReply();
-          }
+          // ❌ IMPORTANT: DO NOT deferReply here (router already does it)
 
           const png = await build(interaction.user);
 
@@ -291,12 +278,15 @@ export default {
             name: `rank-${interaction.user.id}.png`
           });
 
-          await interaction.editReply({
-            files: [file]
-          });
+          // SAFE RESPONSE HANDLING
+          if (interaction.deferred || interaction.replied) {
+            await interaction.editReply({ files: [file] });
+          } else {
+            await interaction.reply({ files: [file] });
+          }
 
         } catch (e) {
-          err('CARD FAILED:', e);
+          err('CARD ERROR:', e);
 
           const msg =
             '❌ Card generation failed.\n```' +
@@ -310,7 +300,7 @@ export default {
               await interaction.reply({ content: msg, ephemeral: true });
             }
           } catch (sendErr) {
-            err('Discord error send failed:', sendErr);
+            err('Failed sending error:', sendErr);
           }
         }
       }
