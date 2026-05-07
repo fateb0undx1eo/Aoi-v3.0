@@ -23,7 +23,6 @@ const LEVELING_SCHEMA = {
 
 const FONT_DIR = path.join(
   process.cwd(),
-  'backend',
   'src',
   'modules',
   'leveling',
