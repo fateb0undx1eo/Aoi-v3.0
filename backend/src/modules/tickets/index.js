@@ -29,18 +29,18 @@ const TICKET_TAGS = [
   {
     label: 'General Support',
     value: 'general_support',
-    description: 'Help with server-related questions',
+    description: 'Help with server related questions',
     emoji: { name: 'Wump', id: '1503037895382929580' }
   },
   {
     label: 'Report a User',
     value: 'report_user',
-    description: 'Report rule-breaking members',
+    description: 'Report rule breaking members',
     emoji: { name: 'Exclamation', id: '1503038935645945876' }
   },
   {
-    label: 'Booster Perk Claims',
-    value: 'booster_perk_claims',
+    label: 'Claim Booster Perks',
+    value: 'claim_booster_perks',
     description: 'Claim your booster rewards',
     emoji: { name: 'Heart', id: '1503038224044527739' }
   },
@@ -88,11 +88,10 @@ function buildTicketPanelPayload() {
     components: [
       {
         type: COMPONENT_TYPES.Container,
-        accent_color: 0x5865f2,
         components: [
           {
             type: COMPONENT_TYPES.TextDisplay,
-            content: '# <:Empty:1503044372487471328><:Empty:1503044372487471328><:Empty:1503044372487471328><:Ticket1:1503003731887788072><:Ticket2:1503003714213118104>'
+            content: '# <:Empty:1503044372487471328><:Empty:1503044372487471328><:Empty:1503044372487471328><:Empty:1503044372487471328><:Ticket1:1503003731887788072><:Ticket2:1503003714213118104>'
           },
           {
             type: COMPONENT_TYPES.TextDisplay,
