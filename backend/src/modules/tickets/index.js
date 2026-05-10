@@ -7,9 +7,7 @@ const TICKET_STAFF_ROLE_IDS = [
 ];
 
 const CUSTOM_IDS = {
-  openTicketModal: 'tickets:open-modal',
-  ticketTagSelect: 'tickets:tag-select',
-  ticketTagModal: 'tickets:tag-modal'
+  ticketTagSelect: 'tickets:tag-select'
 };
 
 const COMPONENT_TYPES = {
@@ -19,10 +17,6 @@ const COMPONENT_TYPES = {
   TextDisplay: 10,
   Container: 17,
   Label: 18
-};
-
-const BUTTON_STYLES = {
-  Secondary: 2
 };
 
 const TICKET_TAGS = [
@@ -95,45 +89,22 @@ function buildTicketPanelPayload() {
           },
           {
             type: COMPONENT_TYPES.TextDisplay,
-            content: '**Need help with something?**\nCreate a support ticket by clicking the button below and our staff team will assist you as soon as possible.'
+            content: '**Need help with something?**\nCreate a support ticket by selecting a category below and our staff team will assist you as soon as possible.'
           },
           {
             type: COMPONENT_TYPES.ActionRow,
             components: [
               {
-                type: COMPONENT_TYPES.Button,
-                style: BUTTON_STYLES.Secondary,
-                custom_id: CUSTOM_IDS.openTicketModal,
-                emoji: {
-                  name: 'Ticket',
-                  id: '1503005499342323823'
-                }
+                type: COMPONENT_TYPES.StringSelect,
+                custom_id: CUSTOM_IDS.ticketTagSelect,
+                placeholder: 'Select a ticket tag',
+                min_values: 1,
+                max_values: 1,
+                options: TICKET_TAGS
               }
             ]
           }
         ]
-      }
-    ]
-  };
-}
-
-function buildTicketTagModal() {
-  return {
-    title: 'Create a Ticket',
-    custom_id: CUSTOM_IDS.ticketTagModal,
-    components: [
-      {
-        type: COMPONENT_TYPES.Label,
-        label: 'Choose a ticket tag',
-        description: 'Pick the category that best matches your request.',
-        component: {
-          type: COMPONENT_TYPES.StringSelect,
-          custom_id: CUSTOM_IDS.ticketTagSelect,
-          placeholder: 'Select a ticket tag',
-          min_values: 1,
-          max_values: 1,
-          options: TICKET_TAGS
-        }
       }
     ]
   };
@@ -152,16 +123,10 @@ async function executePendingTicketCommand(interaction) {
   await interaction.editReply('This ticket command is registered, but its behavior is not wired yet.');
 }
 
-async function handleTicketButton(interaction) {
-  if (!interaction.isButton() || interaction.customId !== CUSTOM_IDS.openTicketModal) return;
+async function handleTicketTagSelect(interaction) {
+  if (!interaction.isStringSelectMenu() || interaction.customId !== CUSTOM_IDS.ticketTagSelect) return;
 
-  await interaction.showModal(buildTicketTagModal());
-}
-
-async function handleTicketTagSubmit(interaction) {
-  if (!interaction.isModalSubmit() || interaction.customId !== CUSTOM_IDS.ticketTagModal) return;
-
-  const [selectedValue] = interaction.fields.getStringSelectValues(CUSTOM_IDS.ticketTagSelect);
+  const [selectedValue] = interaction.values;
   const selectedTag = TICKET_TAGS.find((tag) => tag.value === selectedValue);
 
   await interaction.reply({
@@ -203,8 +168,7 @@ export default {
           return;
         }
 
-        await handleTicketButton(interaction);
-        await handleTicketTagSubmit(interaction);
+        await handleTicketTagSelect(interaction);
       }
     }
   ]
