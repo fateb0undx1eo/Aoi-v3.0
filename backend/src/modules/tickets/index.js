@@ -409,9 +409,9 @@ function buildTicketWelcomePayload(tag, creatorId) {
 
                 custom_id: buildResolvedCustomId(creatorId),
 
-                label: 'RESOLVED',
+                label: 'HANDLED',
                 emoji: {
-                  name: 'Resolved',
+                  name: 'Handled',
                   id: '1503284846980632647'
                 }
               },
@@ -419,7 +419,7 @@ function buildTicketWelcomePayload(tag, creatorId) {
               {
                 type: COMPONENT_TYPES.Button,
 
-                style: ButtonStyle.Secondary,
+                style: ButtonStyle.Success,
 
                 custom_id: buildAddUsersCustomId(creatorId),
 
@@ -433,7 +433,7 @@ function buildTicketWelcomePayload(tag, creatorId) {
               {
                 type: COMPONENT_TYPES.Button,
 
-                style: ButtonStyle.Secondary,
+                style: ButtonStyle.Danger,
 
                 custom_id: buildRemoveUsersCustomId(creatorId),
 
