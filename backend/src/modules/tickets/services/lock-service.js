@@ -1,4 +1,4 @@
-import redisClient from '../../../core/redis.js';
+import { redisClient } from '../../../core/redis.js';
 
 export class LockService {
   constructor() {

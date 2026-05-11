@@ -1,7 +1,7 @@
 import { ticketService } from './ticket-service.js';
 import { webhookService } from './webhook-service.js';
 import { lockService } from './lock-service.js';
-import redisClient from '../../../core/redis.js';
+import { redisClient } from '../../../core/redis.js';
 
 /**
  * Discord REST safety service

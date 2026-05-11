@@ -3,7 +3,7 @@ import { cooldownService } from './cooldown-service.js';
 import { lockService } from './lock-service.js';
 import { discordRestService } from './discord-rest-service.js';
 import { reconciliationService } from './reconciliation-service.js';
-import redisClient from '../../../core/redis.js';
+import { redisClient } from '../../../core/redis.js';
 
 /**
  * Cleanup service with singleton safety and guards

@@ -3,7 +3,7 @@ import { cooldownService } from '../services/cooldown-service.js';
 import { loggingService } from '../services/logging-service.js';
 import { metricsService } from '../services/metrics-service.js';
 import { generateRedisKey } from '../utils/redis-keys.js';
-import { redisClient } from '../../../../../core/redis.js';
+import { redisClient } from '../../../core/redis.js';
 import { 
   RECONCILIATION_INTERVAL,
   RECONCILIATION_BATCH_SIZE,

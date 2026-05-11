@@ -49,7 +49,7 @@ export async function registerCommands(client) {
  * Register all ticket-related event handlers with the Discord client
  * @param {Object} client - Discord client instance
  */
-export function registerEvents(client) {
+export async function registerEvents(client) {
   const context = {
     operation: 'register_events',
     startTime: new Date().toISOString()

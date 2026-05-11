@@ -34,7 +34,7 @@ import {
   generateRedisKey,
   LOCK_KEYS 
 } from '../utils/redis-keys.js';
-import { redisClient } from '../../../../core/redis.js';
+import { redisClient } from '../../../core/redis.js';
 
 /**
  * Enterprise-grade ticket creation handler

@@ -22,11 +22,13 @@ import {
 import { isTicketStaffFromInteraction } from '../utils/permissions.js';
 import { 
   validateInteraction,
-  validateThreadState,
+  validateThreadState
+} from '../utils/validators.js';
+import { 
   generateRedisKey,
   LOCK_KEYS 
 } from '../utils/redis-keys.js';
-import { redisClient } from '../../../../core/redis.js';
+import { redisClient } from '../../../core/redis.js';
 
 /**
  * Enterprise-grade ticket resolution handler

@@ -1,4 +1,4 @@
-import redisClient from '../../../core/redis.js';
+import { redisClient } from '../../../core/redis.js';
 
 /**
  * Structured logger for ticket system operations

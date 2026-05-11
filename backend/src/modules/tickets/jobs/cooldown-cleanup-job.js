@@ -3,7 +3,7 @@ import { cooldownRepository } from '../repositories/cooldown-repository.js';
 import { loggingService } from '../services/logging-service.js';
 import { metricsService } from '../services/metrics-service.js';
 import { generateRedisKey } from '../utils/redis-keys.js';
-import { redisClient } from '../../../../../core/redis.js';
+import { redisClient } from '../../../core/redis.js';
 import { 
   COOLDOWN_CLEANUP_INTERVAL,
   COOLDOWN_CLEANUP_BATCH_SIZE,

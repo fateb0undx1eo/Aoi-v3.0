@@ -1,6 +1,6 @@
 import { ticketService } from './ticket-service.js';
 import { lockService } from './lock-service.js';
-import redisClient from '../../../core/redis.js';
+import { redisClient } from '../../../core/redis.js';
 
 /**
  * Discord state reconciliation service

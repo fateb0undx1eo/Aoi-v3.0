@@ -143,6 +143,30 @@ export function isValidDiscordId(id) {
 }
 
 /**
+ * Parse ticket tag from custom ID
+ */
+export function parseTicketTagFromCustomId(customId) {
+  if (!customId?.startsWith('ticket_tag:')) {
+    return null;
+  }
+
+  const parts = customId.split(':');
+  return parts.length > 1 ? parts[1] : null;
+}
+
+/**
+ * Parse thread ID from resolved confirmation custom ID
+ */
+export function parseResolvedConfirmThreadId(customId) {
+  if (!customId?.startsWith(`${CUSTOM_IDS.resolvedConfirm}:`)) {
+    return null;
+  }
+
+  const threadId = customId.slice(`${CUSTOM_IDS.resolvedConfirm}:`.length);
+  return /^\d{16,20}$/.test(threadId) ? threadId : null;
+}
+
+/**
  * Extract thread ID from any ticket-related custom ID
  */
 export function extractThreadIdFromCustomId(customId) {
