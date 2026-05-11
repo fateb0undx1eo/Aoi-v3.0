@@ -4,7 +4,8 @@ import {
   EmbedBuilder,
   MessageFlags,
   PermissionFlagsBits,
-  ActionRowBuilder,
+  ModalBuilder,
+  LabelBuilder,
   UserSelectMenuBuilder
 } from 'discord.js';
 
@@ -22,9 +23,15 @@ const TICKET_LOG_CHANNEL_ID = '1485668403132760243';
 const THREAD_PREFIX_CLOSED = '✗';
 
 const CUSTOM_IDS = {
-  ticketTagSelect: 'tickets:tag-select',
-  resolvedPrefix:  'tickets:resolved',
-  addUserSelect:   'tickets:add-user-select'
+  ticketTagSelect:   'tickets:tag-select',
+
+  resolvedPrefix:    'tickets:resolved',
+
+  manageUsersPrefix: 'tickets:manage-users',
+  manageUsersModal:  'tickets:manage-users-modal',
+
+  addUserSelect:     'tickets:add-user-select',
+  removeUserSelect:  'tickets:remove-user-select'
 };
 
 const COMPONENT_TYPES = {
@@ -71,7 +78,13 @@ const TICKET_TAGS = [
   }
 ];
 
-const TICKET_COMMAND_NAMES = new Set(['ticket', 'claim', 'unclaim', 'close', 'reopen']);
+const TICKET_COMMAND_NAMES = new Set([
+  'ticket',
+  'claim',
+  'unclaim',
+  'close',
+  'reopen'
+]);
 
 // ─── Cooldown ─────────────────────────────────────────────────────────────────
 const cooldownMap = new Map();
@@ -82,12 +95,16 @@ function setCooldown(userId) {
 
 function getRemainingCooldown(userId) {
   const closedAt = cooldownMap.get(userId);
+
   if (!closedAt) return 0;
+
   const elapsed = Date.now() - closedAt;
+
   if (elapsed >= TICKET_COOLDOWN_MS) {
     cooldownMap.delete(userId);
     return 0;
   }
+
   return TICKET_COOLDOWN_MS - elapsed;
 }
 
@@ -96,35 +113,81 @@ let cachedLogWebhook = null;
 
 async function getOrCreateLogWebhook(logChannel) {
   if (cachedLogWebhook) return cachedLogWebhook;
+
   const hooks = await logChannel.fetchWebhooks().catch(() => null);
+
   const existing = hooks?.find(
-    (hook) => hook.owner?.id === logChannel.client.user.id && hook.name === 'Ticket Logs'
+    hook =>
+      hook.owner?.id === logChannel.client.user.id &&
+      hook.name === 'Ticket Logs'
   );
-  cachedLogWebhook = existing ?? await logChannel.createWebhook({ name: 'Ticket Logs' }).catch(() => null);
+
+  cachedLogWebhook =
+    existing ??
+    await logChannel
+      .createWebhook({ name: 'Ticket Logs' })
+      .catch(() => null);
+
   return cachedLogWebhook;
 }
 
 // ─── Permission Helpers ───────────────────────────────────────────────────────
 function isTicketStaffLike(member, guild, userId) {
   if (!member || !guild || !userId) return false;
+
   if (guild.ownerId === userId) return true;
-  if (member.permissions?.has(PermissionFlagsBits.Administrator)) return true;
-  return TICKET_STAFF_ROLE_IDS.some((roleId) => member.roles?.cache?.has(roleId));
+
+  if (member.permissions?.has(PermissionFlagsBits.Administrator)) {
+    return true;
+  }
+
+  return TICKET_STAFF_ROLE_IDS.some(roleId =>
+    member.roles?.cache?.has(roleId)
+  );
 }
 
 function isTicketStaffFromInteraction(interaction) {
   if (!interaction.inGuild()) return false;
-  return isTicketStaffLike(interaction.member, interaction.guild, interaction.user?.id);
+
+  return isTicketStaffLike(
+    interaction.member,
+    interaction.guild,
+    interaction.user?.id
+  );
+}
+
+function isProtectedTicketMember(member, guild) {
+  if (!member) return false;
+
+  if (guild.ownerId === member.id) {
+    return true;
+  }
+
+  if (member.permissions.has(PermissionFlagsBits.Administrator)) {
+    return true;
+  }
+
+  return TICKET_STAFF_ROLE_IDS.some(roleId =>
+    member.roles.cache.has(roleId)
+  );
 }
 
 async function requireTicketStaff(interaction) {
   if (isTicketStaffFromInteraction(interaction)) return true;
-  const payload = { content: 'You are not allowed to use ticket commands.' };
+
+  const payload = {
+    content: 'You are not allowed to use ticket commands.'
+  };
+
   if (interaction.deferred || interaction.replied) {
     await interaction.editReply(payload);
   } else {
-    await interaction.reply({ ...payload, ephemeral: true });
+    await interaction.reply({
+      ...payload,
+      ephemeral: true
+    });
   }
+
   return false;
 }
 
@@ -134,19 +197,50 @@ function buildResolvedCustomId(creatorId) {
 }
 
 function parseResolvedCreatorId(customId) {
-  if (!customId?.startsWith(`${CUSTOM_IDS.resolvedPrefix}:`)) return null;
-  const creatorId = customId.slice(`${CUSTOM_IDS.resolvedPrefix}:`.length);
-  return /^\d{16,20}$/.test(creatorId) ? creatorId : null;
+  if (!customId?.startsWith(`${CUSTOM_IDS.resolvedPrefix}:`)) {
+    return null;
+  }
+
+  const creatorId =
+    customId.slice(`${CUSTOM_IDS.resolvedPrefix}:`.length);
+
+  return /^\d{16,20}$/.test(creatorId)
+    ? creatorId
+    : null;
 }
 
-function buildAddUserSelectCustomId(creatorId) {
-  return `${CUSTOM_IDS.addUserSelect}:${creatorId}`;
+function buildManageUsersCustomId(creatorId) {
+  return `${CUSTOM_IDS.manageUsersPrefix}:${creatorId}`;
 }
 
-function parseAddUserSelectCreatorId(customId) {
-  if (!customId?.startsWith(`${CUSTOM_IDS.addUserSelect}:`)) return null;
-  const creatorId = customId.slice(`${CUSTOM_IDS.addUserSelect}:`.length);
-  return /^\d{16,20}$/.test(creatorId) ? creatorId : null;
+function parseManageUsersCreatorId(customId) {
+  if (!customId?.startsWith(`${CUSTOM_IDS.manageUsersPrefix}:`)) {
+    return null;
+  }
+
+  const creatorId =
+    customId.slice(`${CUSTOM_IDS.manageUsersPrefix}:`.length);
+
+  return /^\d{16,20}$/.test(creatorId)
+    ? creatorId
+    : null;
+}
+
+function buildManageUsersModalCustomId(creatorId) {
+  return `${CUSTOM_IDS.manageUsersModal}:${creatorId}`;
+}
+
+function parseManageUsersModalCreatorId(customId) {
+  if (!customId?.startsWith(`${CUSTOM_IDS.manageUsersModal}:`)) {
+    return null;
+  }
+
+  const creatorId =
+    customId.slice(`${CUSTOM_IDS.manageUsersModal}:`.length);
+
+  return /^\d{16,20}$/.test(creatorId)
+    ? creatorId
+    : null;
 }
 
 function buildThreadLink(guildId, threadId) {
@@ -155,12 +249,18 @@ function buildThreadLink(guildId, threadId) {
 
 // ─── Thread State via Name ────────────────────────────────────────────────────
 function markThreadNameClosed(name) {
-  if (name.startsWith(THREAD_PREFIX_CLOSED)) return name;
-  return `${THREAD_PREFIX_CLOSED}${name}`;
+  if (name.startsWith(THREAD_PREFIX_CLOSED)) {
+    return name;
+  }
+
+  return `${THREAD_PREFIX_CLOSED}${name}`.slice(0, 100);
 }
 
 function markThreadNameOpen(name) {
-  if (!name.startsWith(THREAD_PREFIX_CLOSED)) return name;
+  if (!name.startsWith(THREAD_PREFIX_CLOSED)) {
+    return name;
+  }
+
   return name.slice(THREAD_PREFIX_CLOSED.length);
 }
 
@@ -172,35 +272,48 @@ function isThreadNameClosed(name) {
 function buildTicketPanelPayload() {
   return {
     flags: MessageFlags.IsComponentsV2,
+
     components: [
       {
         type: COMPONENT_TYPES.Container,
+
         components: [
           {
             type: COMPONENT_TYPES.TextDisplay,
+
             content:
               '# <:Empty:1503044372487471328><:Empty:1503044372487471328><:Empty:1503044372487471328><a:Sparkle2:1503090874417152020><:Ticket1:1503003731887788072><:Ticket2:1503003714213118104><a:Sparkle2:1503090874417152020>'
           },
+
           {
             type: COMPONENT_TYPES.TextDisplay,
+
             content:
               '**Need help with something?**\nCreate a support ticket by selecting a category below and our staff team will assist you as soon as possible.'
           },
+
           {
             type: COMPONENT_TYPES.ActionRow,
+
             components: [
               {
                 type: COMPONENT_TYPES.StringSelect,
+
                 custom_id: CUSTOM_IDS.ticketTagSelect,
+
                 placeholder: 'Select a ticket category',
+
                 min_values: 1,
                 max_values: 1,
-                options: TICKET_TAGS.map(({ label, value, description, emoji }) => ({
-                  label,
-                  value,
-                  description,
-                  emoji
-                }))
+
+                options: TICKET_TAGS.map(
+                  ({ label, value, description, emoji }) => ({
+                    label,
+                    value,
+                    description,
+                    emoji
+                  })
+                )
               }
             ]
           }
@@ -213,23 +326,29 @@ function buildTicketPanelPayload() {
 function buildTicketWelcomePayload(tag, creatorId) {
   return {
     flags: MessageFlags.IsComponentsV2,
+
     components: [
       {
         type: COMPONENT_TYPES.Container,
+
         components: [
           {
             type: COMPONENT_TYPES.TextDisplay,
             content: `# ${tag.label}`
           },
+
           {
             type: COMPONENT_TYPES.TextDisplay,
+
             content:
               `Thank you for opening a support ticket.\n` +
               `${tag.intro}\n` +
               `A staff member will respond as soon as possible.`
           },
+
           {
             type: COMPONENT_TYPES.TextDisplay,
+
             content:
               `## General Guidelines\n` +
               `${POINTER} Explain your issue clearly and include full details.\n` +
@@ -237,26 +356,29 @@ function buildTicketWelcomePayload(tag, creatorId) {
               `${POINTER} Keep all context in this thread so staff can help quickly.\n` +
               `${POINTER} Avoid pings and wait for a response from staff.`
           },
+
           {
             type: COMPONENT_TYPES.ActionRow,
+
             components: [
               {
                 type: COMPONENT_TYPES.Button,
+
                 style: ButtonStyle.Secondary,
+
                 custom_id: buildResolvedCustomId(creatorId),
-                label: 'RESOLVED'
-              }
-            ]
-          },
-          {
-            type: COMPONENT_TYPES.ActionRow,
-            components: [
+
+                label: 'Resolve'
+              },
+
               {
-                type: COMPONENT_TYPES.UserSelect,
-                custom_id: buildAddUserSelectCustomId(creatorId),
-                placeholder: 'Add a user to this ticket',
-                min_values: 1,
-                max_values: 1
+                type: COMPONENT_TYPES.Button,
+
+                style: ButtonStyle.Secondary,
+
+                custom_id: buildManageUsersCustomId(creatorId),
+
+                label: 'ADD/REMOVE'
               }
             ]
           }
@@ -268,71 +390,114 @@ function buildTicketWelcomePayload(tag, creatorId) {
 
 // ─── Thread Utilities ─────────────────────────────────────────────────────────
 function generateThreadName(prefix) {
-  const suffix = Math.random().toString(16).slice(2, 6).toUpperCase();
+  const suffix =
+    Math.random()
+      .toString(16)
+      .slice(2, 6)
+      .toUpperCase();
+
   return `${prefix}-${suffix}`;
 }
 
 async function addStaffMembersToThread(thread) {
   const guild = thread.guild;
-  await guild.members.fetch().catch(() => null);
+
   const staffUserIds = new Set();
+
   for (const roleId of TICKET_STAFF_ROLE_IDS) {
     const role = guild.roles.cache.get(roleId);
+
     if (!role) continue;
-    for (const member of role.members.values()) staffUserIds.add(member.id);
+
+    for (const member of role.members.values()) {
+      staffUserIds.add(member.id);
+    }
   }
+
   for (const userId of staffUserIds) {
     await thread.members.add(userId).catch(() => null);
   }
 }
 
 async function getCreatorIdFromThread(thread) {
-  const messages = await thread.messages.fetch({ limit: 30 }).catch(() => null);
+  const messages =
+    await thread.messages.fetch({ limit: 30 }).catch(() => null);
+
   if (!messages) return null;
+
   for (const message of messages.values()) {
     for (const row of message.components ?? []) {
       for (const component of row.components ?? []) {
-        const id = component.customId ?? component.custom_id ?? null;
-        const creatorId = parseResolvedCreatorId(id);
+        const id =
+          component.customId ??
+          component.custom_id ??
+          null;
+
+        const creatorId =
+          parseResolvedCreatorId(id);
+
         if (creatorId) return creatorId;
       }
     }
   }
+
   return null;
 }
 
-async function hasOpenTicketInChannel(parentChannel, userId, botUserId) {
-  const active = await parentChannel.threads.fetchActive().catch(() => null);
+async function hasOpenTicketInChannel(parentChannel, userId) {
+  const active =
+    await parentChannel.threads.fetchActive().catch(() => null);
+
   if (!active) return false;
 
   for (const thread of active.threads.values()) {
     if (thread.type !== ChannelType.PrivateThread) continue;
-    if (thread.ownerId !== botUserId) continue;
+
     if (isThreadNameClosed(thread.name)) continue;
+
     if (thread.locked || thread.archived) continue;
 
-    const creatorId = await getCreatorIdFromThread(thread);
-    if (creatorId === userId) return true;
+    const creatorId =
+      await getCreatorIdFromThread(thread);
+
+    if (creatorId === userId) {
+      return true;
+    }
   }
 
   return false;
 }
 
 async function sendOpeningPing(thread, creatorId) {
-  const roleMentions = TICKET_STAFF_ROLE_IDS.map((roleId) => `<@&${roleId}>`).join(' ');
+  const roleMentions =
+    TICKET_STAFF_ROLE_IDS.map(
+      roleId => `<@&${roleId}>`
+    ).join(' ');
+
   await thread.send({
     content: `<@${creatorId}> ${roleMentions}`.trim(),
-    allowedMentions: { users: [creatorId], roles: TICKET_STAFF_ROLE_IDS }
+
+    allowedMentions: {
+      users: [creatorId],
+      roles: TICKET_STAFF_ROLE_IDS
+    }
   }).catch(() => null);
 }
 
 // ─── Logging ──────────────────────────────────────────────────────────────────
 async function sendTicketLog(thread, title, color, lines) {
   if (!TICKET_LOG_CHANNEL_ID) return;
-  const logChannel = await thread.guild.channels.fetch(TICKET_LOG_CHANNEL_ID).catch(() => null);
+
+  const logChannel =
+    await thread.guild.channels
+      .fetch(TICKET_LOG_CHANNEL_ID)
+      .catch(() => null);
+
   if (!logChannel?.isTextBased?.()) return;
 
-  const webhook = await getOrCreateLogWebhook(logChannel).catch(() => null);
+  const webhook =
+    await getOrCreateLogWebhook(logChannel).catch(() => null);
+
   if (!webhook) return;
 
   const embed = new EmbedBuilder()
@@ -341,7 +506,13 @@ async function sendTicketLog(thread, title, color, lines) {
     .setDescription(lines.join('\n'))
     .setTimestamp();
 
-  await webhook.send({ embeds: [embed], allowedMentions: { parse: [] } }).catch(() => null);
+  await webhook.send({
+    embeds: [embed],
+
+    allowedMentions: {
+      parse: []
+    }
+  }).catch(() => null);
 }
 
 // ─── Core Ticket Logic ────────────────────────────────────────────────────────
@@ -349,48 +520,88 @@ async function createTicketFromTag(interaction, tag) {
   const parentChannel = interaction.channel;
 
   if (!parentChannel?.threads?.create) {
-    await interaction.editReply({ content: 'Tickets can only be created from a text channel panel.' });
+    await interaction.editReply({
+      content:
+        'Tickets can only be created from a text channel panel.'
+    });
+
     return;
   }
 
-  const remaining = getRemainingCooldown(interaction.user.id);
+  const remaining =
+    getRemainingCooldown(interaction.user.id);
+
   if (remaining > 0) {
-    const readyAt = Math.floor((Date.now() + remaining) / 1000);
+    const readyAt =
+      Math.floor((Date.now() + remaining) / 1000);
+
     await interaction.editReply({
-      content: `You recently closed a ticket. You can open another <t:${readyAt}:R>.`
+      content:
+        `You recently closed a ticket. ` +
+        `You can open another <t:${readyAt}:R>.`
     });
+
     return;
   }
 
-  if (await hasOpenTicketInChannel(parentChannel, interaction.user.id, interaction.client.user.id)) {
+  if (
+    await hasOpenTicketInChannel(
+      parentChannel,
+      interaction.user.id
+    )
+  ) {
     await interaction.editReply({
-      content: 'You already have an active ticket in this channel. Resolve it first before opening another.'
+      content:
+        'You already have an active ticket in this channel. Resolve it first before opening another.'
     });
+
     return;
   }
 
-  const threadName = generateThreadName(tag.namePrefix);
-  const thread = await parentChannel.threads
-    .create({
-      name: threadName,
-      type: ChannelType.PrivateThread,
-      invitable: false,
-      autoArchiveDuration: AUTO_ARCHIVE_24H,
-      reason: `Ticket created by ${interaction.user.id} (${tag.value})`
-    })
-    .catch(() => null);
+  const threadName =
+    generateThreadName(tag.namePrefix);
+
+  const thread =
+    await parentChannel.threads
+      .create({
+        name: threadName,
+
+        type: ChannelType.PrivateThread,
+
+        invitable: false,
+
+        autoArchiveDuration: AUTO_ARCHIVE_24H,
+
+        reason:
+          `Ticket created by ${interaction.user.id} ` +
+          `(${tag.value})`
+      })
+      .catch(() => null);
 
   if (!thread) {
-    await interaction.editReply({ content: 'Failed to create ticket thread. Check bot thread permissions.' });
+    await interaction.editReply({
+      content:
+        'Failed to create ticket thread. Check bot thread permissions.'
+    });
+
     return;
   }
 
-  await thread.members.add(interaction.user.id).catch(() => null);
-  await addStaffMembersToThread(thread);
-  await sendOpeningPing(thread, interaction.user.id);
-  await thread.send(buildTicketWelcomePayload(tag, interaction.user.id)).catch(() => null);
+  await thread.members
+    .add(interaction.user.id)
+    .catch(() => null);
 
-  const createdAtUnix = Math.floor(Date.now() / 1000);
+  await addStaffMembersToThread(thread);
+
+  await sendOpeningPing(thread, interaction.user.id);
+
+  await thread
+    .send(buildTicketWelcomePayload(tag, interaction.user.id))
+    .catch(() => null);
+
+  const createdAtUnix =
+    Math.floor(Date.now() / 1000);
+
   await sendTicketLog(thread, 'Ticket Created', 0x8b2b2b, [
     `Created By: <@${interaction.user.id}>`,
     `Created At: <t:${createdAtUnix}:F>`,
@@ -398,110 +609,407 @@ async function createTicketFromTag(interaction, tag) {
     `Thread Link: ${buildThreadLink(interaction.guildId, thread.id)}`
   ]);
 
-  await interaction.editReply({ content: `Ticket created: <#${thread.id}>` });
+  await interaction.editReply({
+    content: `Ticket created: <#${thread.id}>`
+  });
 }
 
 async function toggleResolved(interaction, creatorId) {
-  if (!interaction.inGuild() || !interaction.channel?.isThread?.()) {
-    await interaction.reply({ content: 'This button only works inside ticket threads.', ephemeral: true });
+  if (
+    !interaction.inGuild() ||
+    !interaction.channel?.isThread?.()
+  ) {
+    await interaction.reply({
+      content:
+        'This button only works inside ticket threads.',
+
+      ephemeral: true
+    });
+
     return;
   }
 
   if (!isTicketStaffFromInteraction(interaction)) {
-    await interaction.reply({ content: 'Only support staff can use this button.', ephemeral: true });
+    await interaction.reply({
+      content:
+        'Only support staff can use this button.',
+
+      ephemeral: true
+    });
+
     return;
   }
 
   const thread = interaction.channel;
-  const isClosed = isThreadNameClosed(thread.name);
+
+  const isClosed =
+    isThreadNameClosed(thread.name);
 
   if (!isClosed) {
-    const closedName = markThreadNameClosed(thread.name);
+    const closedName =
+      markThreadNameClosed(thread.name);
+
     await thread.setName(closedName).catch(() => null);
-    await thread.members.remove(creatorId).catch(() => null);
+
+    await thread.members
+      .remove(creatorId)
+      .catch(() => null);
+
     setCooldown(creatorId);
+
     await sendTicketLog(thread, 'Ticket Resolved', 0x2fa44f, [
       `Resolved By: <@${interaction.user.id}>`,
       `Thread Link: ${buildThreadLink(interaction.guildId, thread.id)}`
     ]);
-    await interaction.reply({ content: 'Ticket marked as resolved.', ephemeral: true });
+
+    await interaction.reply({
+      content: 'Ticket marked as resolved.',
+      ephemeral: true
+    });
+
     return;
   }
 
-  const openName = markThreadNameOpen(thread.name);
+  const openName =
+    markThreadNameOpen(thread.name);
+
   await thread.setName(openName).catch(() => null);
-  await thread.members.add(creatorId).catch(() => null);
+
+  await thread.members
+    .add(creatorId)
+    .catch(() => null);
+
   cooldownMap.delete(creatorId);
+
   await sendTicketLog(thread, 'Ticket Reopened', 0xdca12d, [
     `Reopened By: <@${interaction.user.id}>`,
     `Thread Link: ${buildThreadLink(interaction.guildId, thread.id)}`
   ]);
-  await interaction.reply({ content: 'Ticket reopened.', ephemeral: true });
-}
-
-async function handleAddUserSelect(interaction) {
-  if (!interaction.inGuild() || !interaction.channel?.isThread?.()) return;
-
-  // Staff check — even though the select is in the thread, non-staff
-  // members who are added later could technically see and use it
-  if (!isTicketStaffFromInteraction(interaction)) {
-    await interaction.reply({ content: 'Only support staff can add users to a ticket.', ephemeral: true });
-    return;
-  }
-
-  const selectedUserId = interaction.values[0];
-  if (!selectedUserId) return;
-
-  const thread = interaction.channel;
-
-  const member = await interaction.guild.members.fetch(selectedUserId).catch(() => null);
-  if (!member) {
-    await interaction.reply({ content: 'That user was not found in this server.', ephemeral: true });
-    return;
-  }
-
-  await thread.members.add(selectedUserId).catch(() => null);
-
-  await sendTicketLog(thread, 'User Added to Ticket', 0x5865f2, [
-    `Added By: <@${interaction.user.id}>`,
-    `Added User: <@${selectedUserId}>`,
-    `Thread Link: ${buildThreadLink(interaction.guildId, thread.id)}`
-  ]);
 
   await interaction.reply({
-    content: `<@${selectedUserId}> has been added to this ticket.`,
+    content: 'Ticket reopened.',
     ephemeral: true
   });
 }
 
+async function handleManageUsersButton(interaction, creatorId) {
+  if (
+    !interaction.inGuild() ||
+    !interaction.channel?.isThread?.()
+  ) {
+    await interaction.reply({
+      content:
+        'This button only works inside ticket threads.',
+
+      ephemeral: true
+    });
+
+    return;
+  }
+
+  if (!isTicketStaffFromInteraction(interaction)) {
+    await interaction.reply({
+      content:
+        'Only support staff can manage users.',
+
+      ephemeral: true
+    });
+
+    return;
+  }
+
+  const addSelect = new UserSelectMenuBuilder()
+    .setCustomId(CUSTOM_IDS.addUserSelect)
+    .setPlaceholder('Select a user to add')
+    .setMinValues(0)
+    .setMaxValues(1)
+    .setRequired(false);
+
+  const removeSelect = new UserSelectMenuBuilder()
+    .setCustomId(CUSTOM_IDS.removeUserSelect)
+    .setPlaceholder('Select a user to remove')
+    .setMinValues(0)
+    .setMaxValues(1)
+    .setRequired(false);
+
+  const addLabel = new LabelBuilder()
+    .setLabel('Add User')
+    .setDescription('Select a user to add to this ticket')
+    .setUserSelectMenuComponent(addSelect);
+
+  const removeLabel = new LabelBuilder()
+    .setLabel('Remove User')
+    .setDescription('Select a user to remove from this ticket')
+    .setUserSelectMenuComponent(removeSelect);
+
+  const modal = new ModalBuilder()
+    .setCustomId(buildManageUsersModalCustomId(creatorId))
+    .setTitle('Manage Ticket Users')
+    .addLabelComponents(addLabel, removeLabel);
+
+  await interaction.showModal(modal);
+}
+
+async function handleManageUsersModalSubmit(
+  interaction,
+  creatorId
+) {
+  if (
+    !interaction.inGuild() ||
+    !interaction.channel?.isThread?.()
+  ) {
+    return;
+  }
+
+  if (!isTicketStaffFromInteraction(interaction)) {
+    await interaction.reply({
+      content:
+        'Only support staff can manage users.',
+
+      ephemeral: true
+    });
+
+    return;
+  }
+
+  const thread = interaction.channel;
+
+  const addUserIds =
+    interaction.fields.getUserSelectValues(
+      CUSTOM_IDS.addUserSelect
+    );
+
+  const removeUserIds =
+    interaction.fields.getUserSelectValues(
+      CUSTOM_IDS.removeUserSelect
+    );
+
+  const addUserId =
+    addUserIds?.[0] ?? null;
+
+  const removeUserId =
+    removeUserIds?.[0] ?? null;
+
+  if (!addUserId && !removeUserId) {
+    await interaction.reply({
+      content:
+        'Please select a user to add or remove.',
+
+      ephemeral: true
+    });
+
+    return;
+  }
+
+  if (addUserId && removeUserId) {
+    await interaction.reply({
+      content:
+        'Please only perform one action at a time.',
+
+      ephemeral: true
+    });
+
+    return;
+  }
+
+  // ─── ADD USER ─────────────────────────────────────────────────────────────
+  if (addUserId) {
+    const member =
+      await interaction.guild.members
+        .fetch(addUserId)
+        .catch(() => null);
+
+    if (!member) {
+      await interaction.reply({
+        content:
+          'That user was not found in this server.',
+
+        ephemeral: true
+      });
+
+      return;
+    }
+
+    await thread.members
+      .add(addUserId)
+      .catch(() => null);
+
+    await sendTicketLog(
+      thread,
+      'User Added to Ticket',
+      0x5865f2,
+      [
+        `Added By: <@${interaction.user.id}>`,
+        `Added User: <@${addUserId}>`,
+        `Thread Link: ${buildThreadLink(interaction.guildId, thread.id)}`
+      ]
+    );
+
+    await interaction.reply({
+      content:
+        `<@${addUserId}> has been added to this ticket.`,
+
+      ephemeral: true
+    });
+
+    return;
+  }
+
+  // ─── REMOVE USER ──────────────────────────────────────────────────────────
+  if (removeUserId) {
+    if (removeUserId === creatorId) {
+      await interaction.reply({
+        content:
+          'You cannot remove the ticket creator.',
+
+        ephemeral: true
+      });
+
+      return;
+    }
+
+    const member =
+      await interaction.guild.members
+        .fetch(removeUserId)
+        .catch(() => null);
+
+    if (!member) {
+      await interaction.reply({
+        content:
+          'That user was not found in this server.',
+
+        ephemeral: true
+      });
+
+      return;
+    }
+
+    if (
+      isProtectedTicketMember(
+        member,
+        interaction.guild
+      )
+    ) {
+      await interaction.reply({
+        content:
+          'You cannot remove support staff, administrators, or the server owner.',
+
+        ephemeral: true
+      });
+
+      return;
+    }
+
+    await thread.members
+      .remove(removeUserId)
+      .catch(() => null);
+
+    await sendTicketLog(
+      thread,
+      'User Removed from Ticket',
+      0xed4245,
+      [
+        `Removed By: <@${interaction.user.id}>`,
+        `Removed User: <@${removeUserId}>`,
+        `Thread Link: ${buildThreadLink(interaction.guildId, thread.id)}`
+      ]
+    );
+
+    await interaction.reply({
+      content:
+        `<@${removeUserId}> has been removed from this ticket.`,
+
+      ephemeral: true
+    });
+  }
+}
+
 // ─── Command Handlers ─────────────────────────────────────────────────────────
 async function executeTicketPanelCommand(interaction) {
-  if (!(await requireTicketStaff(interaction))) return;
-  await interaction.channel.send(buildTicketPanelPayload());
-  await interaction.editReply('Ticket panel sent in this channel.');
+  if (!(await requireTicketStaff(interaction))) {
+    return;
+  }
+
+  await interaction.channel.send(
+    buildTicketPanelPayload()
+  );
+
+  await interaction.editReply(
+    'Ticket panel sent in this channel.'
+  );
 }
 
 async function executePendingTicketCommand(interaction) {
-  if (!(await requireTicketStaff(interaction))) return;
-  await interaction.editReply('This command is intentionally unused in the current ticket workflow.');
+  if (!(await requireTicketStaff(interaction))) {
+    return;
+  }
+
+  await interaction.editReply(
+    'This command is intentionally unused in the current ticket workflow.'
+  );
 }
 
 // ─── Interaction Router ───────────────────────────────────────────────────────
 async function handleTicketTagSelect(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({
+    ephemeral: true
+  });
+
   const [selectedValue] = interaction.values;
-  const selectedTag = TICKET_TAGS.find((tag) => tag.value === selectedValue);
+
+  const selectedTag =
+    TICKET_TAGS.find(
+      tag => tag.value === selectedValue
+    );
+
   if (!selectedTag) {
-    await interaction.editReply({ content: 'Unknown ticket category selected.' });
+    await interaction.editReply({
+      content:
+        'Unknown ticket category selected.'
+    });
+
     return;
   }
-  await createTicketFromTag(interaction, selectedTag);
+
+  await createTicketFromTag(
+    interaction,
+    selectedTag
+  );
 }
 
 async function handleButton(interaction) {
-  const resolvedCreatorId = parseResolvedCreatorId(interaction.customId);
+  const resolvedCreatorId =
+    parseResolvedCreatorId(interaction.customId);
+
   if (resolvedCreatorId) {
-    await toggleResolved(interaction, resolvedCreatorId);
+    await toggleResolved(
+      interaction,
+      resolvedCreatorId
+    );
+
+    return;
+  }
+
+  const manageUsersCreatorId =
+    parseManageUsersCreatorId(interaction.customId);
+
+  if (manageUsersCreatorId) {
+    await handleManageUsersButton(
+      interaction,
+      manageUsersCreatorId
+    );
+  }
+}
+
+async function handleModalSubmit(interaction) {
+  const creatorId =
+    parseManageUsersModalCreatorId(interaction.customId);
+
+  if (creatorId) {
+    await handleManageUsersModalSubmit(
+      interaction,
+      creatorId
+    );
   }
 }
 
@@ -510,8 +1018,11 @@ function buildTicketCommand(name, description, execute) {
   return {
     name,
     description,
+
     ephemeral: true,
+
     options: [],
+
     async execute(interaction) {
       await execute(interaction);
     }
@@ -521,29 +1032,72 @@ function buildTicketCommand(name, description, execute) {
 // ─── Module Export ────────────────────────────────────────────────────────────
 export default {
   name: 'tickets',
+
   configSchema: {
     type: 'object',
+
     properties: {}
   },
+
   commands: [
-    buildTicketCommand('ticket', 'Send the ticket creation panel', executeTicketPanelCommand),
-    buildTicketCommand('claim', 'Claim the current ticket', executePendingTicketCommand),
-    buildTicketCommand('unclaim', 'Unclaim the current ticket', executePendingTicketCommand),
-    buildTicketCommand('close', 'Close the current ticket', executePendingTicketCommand),
-    buildTicketCommand('reopen', 'Reopen the current ticket', executePendingTicketCommand)
+    buildTicketCommand(
+      'ticket',
+      'Send the ticket creation panel',
+      executeTicketPanelCommand
+    ),
+
+    buildTicketCommand(
+      'claim',
+      'Claim the current ticket',
+      executePendingTicketCommand
+    ),
+
+    buildTicketCommand(
+      'unclaim',
+      'Unclaim the current ticket',
+      executePendingTicketCommand
+    ),
+
+    buildTicketCommand(
+      'close',
+      'Close the current ticket',
+      executePendingTicketCommand
+    ),
+
+    buildTicketCommand(
+      'reopen',
+      'Reopen the current ticket',
+      executePendingTicketCommand
+    )
   ],
+
   events: [
     {
       name: 'interactionCreate',
-      async execute(interaction) {
-        if (interaction.isChatInputCommand() && TICKET_COMMAND_NAMES.has(interaction.commandName)) return;
 
-        if (interaction.isStringSelectMenu() && interaction.customId === CUSTOM_IDS.ticketTagSelect) {
+      async execute(interaction) {
+        if (
+          interaction.isChatInputCommand() &&
+          TICKET_COMMAND_NAMES.has(
+            interaction.commandName
+          )
+        ) {
+          return;
+        }
+
+        if (
+          interaction.isStringSelectMenu() &&
+          interaction.customId === CUSTOM_IDS.ticketTagSelect
+        ) {
           await handleTicketTagSelect(interaction);
-        } else if (interaction.isUserSelectMenu() && parseAddUserSelectCreatorId(interaction.customId)) {
-          await handleAddUserSelect(interaction);
-        } else if (interaction.isButton()) {
+        }
+
+        else if (interaction.isButton()) {
           await handleButton(interaction);
+        }
+
+        else if (interaction.isModalSubmit()) {
+          await handleModalSubmit(interaction);
         }
       }
     }
