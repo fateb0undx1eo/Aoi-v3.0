@@ -2,6 +2,8 @@ import { lockService } from '../services/lock-service.js';
 import { TICKET_COMMAND_NAMES } from '../utils/constants.js';
 import { 
   parseResolvedCreatorId,
+  parseResolvedConfirmYesCreatorId,
+  parseResolvedConfirmNoCreatorId,
   parseAddUsersThreadId,
   parseRemoveUsersThreadId,
   parseAddUsersModalThreadId,
@@ -9,7 +11,12 @@ import {
   CUSTOM_IDS
 } from '../utils/custom-id-utils.js';
 import { createTicketFromTag } from '../handlers/ticket-creation.js';
-import { toggleResolved } from '../handlers/ticket-resolution.js';
+import { 
+  toggleResolved,
+  handleResolvedButton,
+  handleResolvedConfirmYes,
+  handleResolvedConfirmNo
+} from '../handlers/ticket-resolution.js';
 import { 
   handleAddUsersButton,
   handleRemoveUsersButton,
@@ -82,10 +89,24 @@ export async function handleTicketTagSelect(interaction) {
 export async function handleButton(interaction) {
   const customId = interaction.customId;
 
-  // Handle resolved button
+  // Handle resolved button (show confirmation)
   const resolvedCreatorId = parseResolvedCreatorId(customId);
   if (resolvedCreatorId) {
-    await toggleResolved(interaction, resolvedCreatorId);
+    await handleResolvedButton(interaction, resolvedCreatorId);
+    return;
+  }
+
+  // Handle resolved confirmation YES
+  const confirmYesCreatorId = parseResolvedConfirmYesCreatorId(customId);
+  if (confirmYesCreatorId) {
+    await handleResolvedConfirmYes(interaction, confirmYesCreatorId);
+    return;
+  }
+
+  // Handle resolved confirmation NO
+  const confirmNoCreatorId = parseResolvedConfirmNoCreatorId(customId);
+  if (confirmNoCreatorId) {
+    await handleResolvedConfirmNo(interaction, confirmNoCreatorId);
     return;
   }
 

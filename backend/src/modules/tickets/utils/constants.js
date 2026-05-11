@@ -56,6 +56,21 @@ export const COMPONENT_TYPES = {
   Container: 17
 };
 
+// Custom ID patterns for confirmation flow
+export const CUSTOM_IDS = {
+  ticketTagSelect: 'tickets:tag-select',
+  resolvedPrefix: 'tickets:resolved',
+  resolvedConfirm: 'tickets:resolved-confirm',
+  resolvedConfirmYes: 'tickets:resolved-confirm-yes',
+  resolvedConfirmNo: 'tickets:resolved-confirm-no',
+  addUsersPrefix: 'tickets:add-users',
+  removeUsersPrefix: 'tickets:remove-users',
+  addUsersModal: 'tickets:add-users-modal',
+  removeUsersModal: 'tickets:remove-users-modal',
+  addUserSelect: 'tickets:add-user-select-modal',
+  removeUserSelect: 'tickets:remove-user-select-modal'
+};
+
 export const POINTER = '<:Pointer:1502993771317694655>';
 
 // Time constants
@@ -65,6 +80,7 @@ export const TICKET_CREATION_LOCK_MS = 8000; // 8 seconds
 // Auto-archive durations (in minutes)
 export const AUTO_ARCHIVE_24H = 1440;
 export const AUTO_ARCHIVE_1H = 60;
+export const DEFAULT_ARCHIVE_DURATION = AUTO_ARCHIVE_1H; // Changed to 1 hour
 
 // Redis TTLs
 export const REDIS_TTL = {
@@ -97,7 +113,6 @@ export const ERROR_MESSAGES = {
 export const SUCCESS_MESSAGES = {
   TICKET_CREATED: (threadId) => `Ticket created: <#${threadId}>`,
   TICKET_RESOLVED: 'Ticket marked as resolved.',
-  TICKET_REOPENED: 'Ticket reopened.',
   USER_ADDED: (userId) => `Added <@${userId}>`,
   USER_REMOVED: (userId) => `Removed <@${userId}>`,
   PANEL_SENT: 'Ticket panel sent in this channel.'
@@ -108,6 +123,5 @@ export const LOG_COLORS = {
   CREATED: 0x8b2b2b,
   RESOLVED: 0x2fa44f,
   USER_ADDED: 0x57f287,
-  USER_REMOVED: 0xed4245,
-  REOPENED: 0x5865f2
+  USER_REMOVED: 0xed4245
 };

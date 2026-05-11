@@ -7,7 +7,7 @@ import {
   TICKET_TAGS, 
   ERROR_MESSAGES, 
   SUCCESS_MESSAGES,
-  AUTO_ARCHIVE_24H,
+  DEFAULT_ARCHIVE_DURATION,
   ADD_STAFF_MEMBERS_TO_THREAD,
   TICKET_STAFF_ROLE_IDS
 } from '../utils/constants.js';
@@ -33,11 +33,14 @@ export async function createTicketFromTag(interaction, tag) {
     return;
   }
 
-  // Check cooldown using new service
-  const remaining = await cooldownService.getRemainingCooldown(
-    interaction.guildId,
-    interaction.user.id
-  );
+  // Give immediate feedback that we're processing
+  await interaction.deferReply();
+
+  // Run validation checks in parallel
+  const [remaining, existingTicket] = await Promise.all([
+    cooldownService.getRemainingCooldown(interaction.guildId, interaction.user.id),
+    ticketService.getOpenTicket(interaction.guildId, interaction.user.id)
+  ]);
 
   if (remaining > 0) {
     const readyAt = Math.floor((Date.now() + remaining) / 1000);
@@ -46,12 +49,6 @@ export async function createTicketFromTag(interaction, tag) {
     });
     return;
   }
-
-  // Check for existing open ticket using database lookup
-  const existingTicket = await ticketService.getOpenTicket(
-    interaction.guildId,
-    interaction.user.id
-  );
 
   if (existingTicket) {
     await interaction.editReply({
@@ -68,17 +65,12 @@ export async function createTicketFromTag(interaction, tag) {
     thread = await parentChannel.threads.create({
       name: threadName,
       type: ChannelType.PrivateThread,
-      invitable: false,
-      autoArchiveDuration: AUTO_ARCHIVE_24H,
+      invitable: true, // Allow users to invite others if needed
+      autoArchiveDuration: DEFAULT_ARCHIVE_DURATION,
       reason: `Ticket created by ${interaction.user.id} (${tag.value})`
     });
-  } catch {
-    await interaction.editReply({
-      content: ERROR_MESSAGES.FAILED_THREAD_CREATION
-    });
-    return;
-  }
 
+  // Add user to thread immediately with proper permissions
   try {
     await thread.members.add(interaction.user.id);
   } catch {
@@ -88,74 +80,76 @@ export async function createTicketFromTag(interaction, tag) {
     return;
   }
 
-  // Create ticket record in database
-  try {
-    await ticketService.createTicket({
-      guildId: interaction.guildId,
-      threadId: thread.id,
-      creatorId: interaction.user.id,
-      tag: tag.value,
-      tagLabel: tag.label,
-      threadName: threadName,
-      autoArchiveDuration: AUTO_ARCHIVE_24H
-    });
-  } catch (error) {
-    console.error('Failed to create ticket record:', error);
-    // Continue with creation but log the error
-  }
-
+  // Give immediate success feedback
   await interaction.editReply({
     content: SUCCESS_MESSAGES.TICKET_CREATED(thread.id)
   });
 
-  // Handle post-creation tasks asynchronously
+  // Create database record in parallel with post-creation tasks
+  const dbPromise = ticketService.createTicket({
+    guildId: interaction.guildId,
+    threadId: thread.id,
+    creatorId: interaction.user.id,
+    tag: tag.value,
+    tagLabel: tag.label,
+    threadName: threadName,
+    autoArchiveDuration: DEFAULT_ARCHIVE_DURATION
+  }).catch(error => {
+    console.error('Failed to create ticket record:', error);
+  });
+
+  // Handle post-creation tasks in parallel for maximum speed
   queueMicrotask(async () => {
-    try {
+    // Run all post-creation tasks in parallel
+    const tasks = [
       // Send mention message
-      await thread.send({
+      thread.send({
         content: buildTicketMentions(interaction.user.id),
         allowedMentions: {
           users: [interaction.user.id],
-          roles: TICKET_TAGS.flatMap(t => t.emoji?.id ? [] : []) // Will be updated with actual role IDs
+          roles: TICKET_STAFF_ROLE_IDS
         }
-      });
-    } catch (error) {
-      console.error('Failed to send mention message:', error);
-    }
+      }).catch(error => {
+        console.error('Failed to send mention message:', error);
+      }),
 
-    let welcomeMessageId = null;
-    try {
-      // Send welcome message with Components V2
-      const welcomeMessage = await thread.send(
-        buildTicketWelcomePayload(tag, interaction.user.id)
-      );
-      welcomeMessageId = welcomeMessage.id;
-      
-      // Update ticket record with welcome message ID
-      await ticketService.updateWelcomeMessageId(thread.id, welcomeMessageId);
-    } catch (error) {
-      console.error('Failed to send welcome message:', error);
-    }
+      // Send welcome message and update database
+      (async () => {
+        try {
+          const welcomeMessage = await thread.send(
+            buildTicketWelcomePayload(tag, interaction.user.id)
+          );
+          
+          // Update welcome message ID in database
+          await ticketService.updateWelcomeMessageId(thread.id, welcomeMessage.id);
+        } catch (error) {
+          console.error('Failed to send welcome message:', error);
+        }
+      })(),
 
-    try {
       // Send log message
-      await sendTicketLog(thread, {
+      sendTicketLog(thread, {
         creatorId: interaction.user.id,
-        tagLabel: tag.label,
-        welcomeMessageId
-      });
-    } catch (error) {
-      console.error('Failed to send ticket log:', error);
+        tagLabel: tag.label
+      }).catch(error => {
+        console.error('Failed to send ticket log:', error);
+      })
+    ];
+
+    // Add staff members if enabled (in parallel with others)
+    if (ADD_STAFF_MEMBERS_TO_THREAD) {
+      tasks.push(
+        addStaffMembersToThread(thread).catch(error => {
+          console.error('Failed to add staff members:', error);
+        })
+      );
     }
 
-    // Add staff members if enabled
-    if (ADD_STAFF_MEMBERS_TO_THREAD) {
-      try {
-        await addStaffMembersToThread(thread);
-      } catch (error) {
-        console.error('Failed to add staff members to thread:', error);
-      }
-    }
+    // Wait for all tasks to complete (but don't block the user)
+    await Promise.allSettled(tasks);
+
+    // Ensure database record is created before we finish
+    await dbPromise;
   });
 }
 

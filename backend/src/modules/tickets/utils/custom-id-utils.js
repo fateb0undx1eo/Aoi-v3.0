@@ -5,6 +5,9 @@
 export const CUSTOM_IDS = {
   ticketTagSelect: 'tickets:tag-select',
   resolvedPrefix: 'tickets:resolved',
+  resolvedConfirm: 'tickets:resolved-confirm',
+  resolvedConfirmYes: 'tickets:resolved-confirm-yes',
+  resolvedConfirmNo: 'tickets:resolved-confirm-no',
   addUsersPrefix: 'tickets:add-users',
   removeUsersPrefix: 'tickets:remove-users',
   addUsersModal: 'tickets:add-users-modal',
@@ -29,6 +32,30 @@ export function parseResolvedCreatorId(customId) {
   }
 
   const creatorId = customId.slice(`${CUSTOM_IDS.resolvedPrefix}:`.length);
+  return /^\d{16,20}$/.test(creatorId) ? creatorId : null;
+}
+
+/**
+ * Parse creator ID from resolved confirmation YES custom ID
+ */
+export function parseResolvedConfirmYesCreatorId(customId) {
+  if (!customId?.startsWith(`${CUSTOM_IDS.resolvedConfirmYes}:`)) {
+    return null;
+  }
+
+  const creatorId = customId.slice(`${CUSTOM_IDS.resolvedConfirmYes}:`.length);
+  return /^\d{16,20}$/.test(creatorId) ? creatorId : null;
+}
+
+/**
+ * Parse creator ID from resolved confirmation NO custom ID
+ */
+export function parseResolvedConfirmNoCreatorId(customId) {
+  if (!customId?.startsWith(`${CUSTOM_IDS.resolvedConfirmNo}:`)) {
+    return null;
+  }
+
+  const creatorId = customId.slice(`${CUSTOM_IDS.resolvedConfirmNo}:`.length);
   return /^\d{16,20}$/.test(creatorId) ? creatorId : null;
 }
 

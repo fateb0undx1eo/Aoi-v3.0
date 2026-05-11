@@ -847,66 +847,6 @@ async function handleRemoveUsersModalSubmit(interaction, threadId) {
   await interaction.editReply({ content: `Removed <@${removeUserId}>` }).catch(() => null);
 }
 
-// ───────────────── Commands ─────────────────
-
-async function executeTicketCommand(interaction) {
-  if (!(await requireTicketStaff(interaction))) return;
-
-  let group = null;
-  let subcommand = null;
-  try { group = interaction.options.getSubcommandGroup(false); } catch {}
-  try { subcommand = interaction.options.getSubcommand(false); } catch {}
-
-  // /ticket panel
-  if (subcommand === 'panel') {
-    if (!isAdminOrOwnerFromInteraction(interaction)) {
-      await interaction.editReply('Only server owner or admins can use `/ticket panel`.');
-      return;
-    }
-    await interaction.channel.send(buildTicketPanelPayload());
-    await interaction.editReply('Ticket panel sent in this channel.');
-    return;
-  }
-
-  // FIX: /ticket manage users  (was /ticket user manage)
-  if (group === 'manage' && subcommand === 'users') {
-    if (!interaction.channel?.isThread?.()) {
-      await interaction.editReply('Run this inside a ticket thread.');
-      return;
-    }
-
-    const threadId = interaction.channelId;
-
-    await interaction.editReply({
-      content: 'Ticket user controls:',
-      components: [
-        {
-          type: COMPONENT_TYPES.ActionRow,
-          components: [
-            {
-              type: COMPONENT_TYPES.Button,
-              style: ButtonStyle.Secondary,
-              // Stateless — threadId baked in, no server-side state needed
-              custom_id: buildAddUsersCustomId(threadId),
-              label: 'ADD USER',
-              emoji: { name: 'Add', id: '1503290197079752745' }
-            },
-            {
-              type: COMPONENT_TYPES.Button,
-              style: ButtonStyle.Secondary,
-              custom_id: buildRemoveUsersCustomId(threadId),
-              label: 'REMOVE USER',
-              emoji: { name: 'Remove', id: '1503290199281635391' }
-            }
-          ]
-        }
-      ]
-    });
-    return;
-  }
-
-  await interaction.editReply('Use `/ticket panel` or `/ticket manage users`.');
-}
 
 // ───────────────── Router ─────────────────
 
@@ -993,46 +933,16 @@ export default {
     properties: {}
   },
 
-  commands: [
-    buildTicketCommand(
-      'ticket',
-      'Manage the ticket system',
-      executeTicketCommand,
-      [
-        {
-          name: 'panel',
-          type: 1,
-          description: 'Send the ticket creation panel'
-        },
-        // FIX: Renamed from /ticket user manage → /ticket manage users
-        {
-          name: 'manage',
-          type: 2,
-          description: 'Ticket management controls',
-          options: [
-            {
-              name: 'users',
-              type: 1,
-              description: 'Open add/remove user controls for this ticket thread'
-            }
-          ]
-        }
-      ]
-    )
-  ],
+  commands: [],
 
   events: [
     {
       name: 'interactionCreate',
 
       async execute(interaction) {
-        // FIX: Was accidentally returning early for ALL slash commands in the set,
-        // meaning /ticket commands were silently dropped. Now correctly routes them.
-        if (
-          interaction.isChatInputCommand() &&
-          TICKET_COMMAND_NAMES.has(interaction.commandName)
-        ) {
-          await executeTicketCommand(interaction);
+        // Handle interactions through the new router
+        if (interaction.isChatInputCommand() && TICKET_COMMAND_NAMES.has(interaction.commandName)) {
+          // Commands are now handled by the new command system
           return;
         }
 
