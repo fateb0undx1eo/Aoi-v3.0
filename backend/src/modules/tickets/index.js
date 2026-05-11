@@ -429,7 +429,7 @@ function buildTicketWelcomePayload(tag, creatorId) {
                 type: COMPONENT_TYPES.Button,
                 style: ButtonStyle.Secondary,
                 custom_id: buildAddUsersCustomId(creatorId),
-                label: 'USER',
+                label: '⠀USER⠀',
                 emoji: {
                   name: 'Add',
                   id: '1503290197079752745'
@@ -439,7 +439,7 @@ function buildTicketWelcomePayload(tag, creatorId) {
                 type: COMPONENT_TYPES.Button,
                 style: ButtonStyle.Secondary,
                 custom_id: buildRemoveUsersCustomId(creatorId),
-                label: 'USER',
+                label: '⠀USER⠀',
                 emoji: {
                   name: 'Remove',
                   id: '1503290199281635391'
