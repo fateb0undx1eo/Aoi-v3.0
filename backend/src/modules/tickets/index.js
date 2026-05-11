@@ -409,9 +409,9 @@ function buildTicketWelcomePayload(tag, creatorId) {
 
                 custom_id: buildResolvedCustomId(creatorId),
 
-                label: 'SOLVED',
+                label: 'RESOLVED',
                 emoji: {
-                  name: 'Handled',
+                  name: 'Resolved',
                   id: '1503284846980632647'
                 }
               }
@@ -666,7 +666,13 @@ async function createTicketFromTag(interaction, tag) {
     await addStaffMembersToThread(thread);
   }
 
-  await thread
+  const welcomePayload =
+    buildTicketWelcomePayload(
+      tag,
+      interaction.user.id
+    );
+
+  const combinedMessage = await thread
     .send({
       content: buildTicketMentions(
         interaction.user.id
@@ -675,12 +681,25 @@ async function createTicketFromTag(interaction, tag) {
         users: [interaction.user.id],
         roles: TICKET_STAFF_ROLE_IDS
       },
-      ...buildTicketWelcomePayload(
-        tag,
-        interaction.user.id
-      )
+      ...welcomePayload
     })
     .catch(() => null);
+
+  if (!combinedMessage) {
+    await thread
+      .send({
+        content: buildTicketMentions(
+          interaction.user.id
+        ),
+        allowedMentions: {
+          users: [interaction.user.id],
+          roles: TICKET_STAFF_ROLE_IDS
+        }
+      })
+      .catch(() => null);
+
+    await thread.send(welcomePayload).catch(() => null);
+  }
 
   const createdAtUnix = Math.floor(
     Date.now() / 1000
