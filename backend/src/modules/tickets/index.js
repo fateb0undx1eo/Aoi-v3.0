@@ -880,7 +880,7 @@ async function handleTicketTagSelect(interaction) {
 async function handleButton(interaction) {
   const resolvedCreatorId = parseResolvedCreatorId(interaction.customId);
   if (resolvedCreatorId) {
-    await toggleResolved(interaction, resolvedCreatorId);
+    await handleResolvedButton(interaction, resolvedCreatorId);
     return;
   }
 
