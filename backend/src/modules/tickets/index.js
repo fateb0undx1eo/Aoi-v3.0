@@ -179,6 +179,14 @@ function isTicketStaffFromInteraction(interaction) {
   );
 }
 
+function isAdminOrOwnerFromInteraction(interaction) {
+  if (!interaction.inGuild()) return false;
+  if (interaction.guild?.ownerId === interaction.user?.id) return true;
+  return interaction.memberPermissions?.has?.(
+    PermissionFlagsBits.Administrator
+  );
+}
+
 async function requireTicketStaff(interaction) {
   if (isTicketStaffFromInteraction(interaction)) return true;
 
@@ -862,28 +870,28 @@ async function toggleResolved(
   interaction,
   creatorId
 ) {
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ ephemeral: true }).catch(() => null);
+  }
+
+  const reply = async (content) => {
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply({ content }).catch(() => null);
+      return;
+    }
+    await interaction.reply({ content, ephemeral: true }).catch(() => null);
+  };
+
   if (
     !interaction.inGuild() ||
     !interaction.channel?.isThread?.()
   ) {
-    await interaction.reply({
-      content:
-        'This button only works inside ticket threads.',
-
-      ephemeral: true
-    });
-
+    await reply('This button only works inside ticket threads.');
     return;
   }
 
   if (!isTicketStaffFromInteraction(interaction)) {
-    await interaction.reply({
-      content:
-        'Only support staff can use this button.',
-
-      ephemeral: true
-    });
-
+    await reply('Only support staff can use this button.');
     return;
   }
 
@@ -922,10 +930,7 @@ async function toggleResolved(
       tagLabel: 'Unknown'
     });
 
-    await interaction.reply({
-      content: 'Ticket marked as resolved.',
-      ephemeral: true
-    });
+    await reply('Ticket marked as resolved.');
 
     return;
   }
@@ -954,10 +959,7 @@ async function toggleResolved(
 
   await resetLogToCreated(thread, creatorId);
 
-  await interaction.reply({
-    content: 'Ticket reopened.',
-    ephemeral: true
-  });
+  await reply('Ticket reopened.');
 }
 
 // ───────────────── Manage Users ─────────────────
@@ -1295,6 +1297,10 @@ async function executeTicketPanelCommand(
   try { subcommand = interaction.options.getSubcommand(false); } catch {}
 
   if (subcommand === 'panel') {
+    if (!isAdminOrOwnerFromInteraction(interaction)) {
+      await interaction.editReply('Only server owner or admins can use `/ticket panel`.');
+      return;
+    }
     await interaction.channel.send(buildTicketPanelPayload());
     await interaction.editReply('Ticket panel sent in this channel.');
     return;
