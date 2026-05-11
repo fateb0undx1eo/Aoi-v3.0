@@ -69,6 +69,12 @@ export async function createTicketFromTag(interaction, tag) {
       autoArchiveDuration: DEFAULT_ARCHIVE_DURATION,
       reason: `Ticket created by ${interaction.user.id} (${tag.value})`
     });
+  } catch {
+    await interaction.editReply({
+      content: ERROR_MESSAGES.FAILED_THREAD_CREATION
+    });
+    return;
+  }
 
   // Add user to thread immediately with proper permissions
   try {
