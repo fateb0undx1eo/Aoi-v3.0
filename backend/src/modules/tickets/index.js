@@ -13,6 +13,7 @@ import { validateInteraction } from './utils/validators.js';
 /**
  * Enterprise-grade ticket module entry point
  * Only registers commands and events, delegates all logic to interaction router
+ * Version 3.14 - Fixed module loader compatibility
  */
 
 // Export the main ticket command for registration
