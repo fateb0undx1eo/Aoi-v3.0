@@ -4,6 +4,7 @@ import { env } from './config/env.js';
 /**
  * Redis client wrapper for distributed caching and locking
  * Provides connection management, error handling, and utility methods
+ * Gracefully degrades when Redis is unavailable
  */
 
 class RedisClient {
@@ -13,32 +14,70 @@ class RedisClient {
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;
     this.reconnectDelay = 1000; // Start with 1 second
+    this.lastErrorLog = 0;
+    this.errorLogInterval = 30000; // Only log errors every 30 seconds
+    this.isConnecting = false;
+    this.connectionFailed = false;
+  }
+
+  /**
+   * Rate-limited error logging to prevent spam
+   */
+  logError(message, error) {
+    const now = Date.now();
+    if (now - this.lastErrorLog > this.errorLogInterval) {
+      console.error(message, error?.message || error);
+      this.lastErrorLog = now;
+    }
   }
 
   /**
    * Initialize Redis connection
    */
   async connect() {
+    // Prevent duplicate connection attempts
+    if (this.isConnecting || this.client?.isOpen) {
+      return this.isConnected;
+    }
+
+    // If connection previously failed permanently, don't retry
+    if (this.connectionFailed) {
+      return false;
+    }
+
+    this.isConnecting = true;
+
     try {
+      const isRenderRedis = env.redis.url?.includes('rediss://') || env.redis.url?.includes('render.com');
+
       this.client = createClient({
         url: env.redis.url || 'redis://localhost:6379',
         socket: {
           reconnectStrategy: (retries) => {
             if (retries > this.maxReconnectAttempts) {
-              console.error('Redis max reconnection attempts reached');
+              console.error('Redis max reconnection attempts reached. Redis features disabled.');
+              this.connectionFailed = true;
               return new Error('Redis connection failed');
             }
-            const delay = Math.min(retries * this.reconnectDelay, 30000);
-            console.log(`Redis reconnecting in ${delay}ms (attempt ${retries})`);
+            const delay = Math.min(retries * this.reconnectDelay, 10000);
+            if (retries <= 3) {
+              console.log(`Redis reconnecting in ${delay}ms (attempt ${retries}/${this.maxReconnectAttempts})`);
+            }
             return delay;
           },
           connectTimeout: 5000,
-          lazyConnect: true
+          lazyConnect: true,
+          // Enable TLS for Render Redis
+          ...(isRenderRedis && {
+            tls: true,
+            rejectUnauthorized: false
+          })
         }
       });
 
       this.client.on('error', (err) => {
-        console.error('Redis Client Error:', err);
+        // Rate-limit error logging
+        this.logError('Redis Client Error:', err);
         this.isConnected = false;
       });
 
@@ -46,10 +85,18 @@ class RedisClient {
         console.log('Redis Client Connected');
         this.isConnected = true;
         this.reconnectAttempts = 0;
+        this.connectionFailed = false;
       });
 
       this.client.on('ready', () => {
         console.log('Redis Client Ready');
+      });
+
+      this.client.on('reconnecting', () => {
+        this.reconnectAttempts++;
+        if (this.reconnectAttempts <= 3) {
+          console.log(`Redis reconnecting... (attempt ${this.reconnectAttempts})`);
+        }
       });
 
       this.client.on('end', () => {
@@ -58,19 +105,31 @@ class RedisClient {
       });
 
       await this.client.connect();
+      this.isConnected = true;
       return true;
     } catch (error) {
-      console.error('Failed to connect to Redis:', error);
+      this.logError('Failed to connect to Redis:', error);
       this.isConnected = false;
+      this.connectionFailed = true;
       return false;
+    } finally {
+      this.isConnecting = false;
     }
   }
 
   /**
-   * Check if Redis is connected
+   * Check if Redis is connected and ready for operations
    */
   isReady() {
     return this.isConnected && this.client && this.client.isOpen;
+  }
+
+  /**
+   * Check if Redis is enabled (not permanently failed)
+   * Use this to decide whether to use Redis features or fall back
+   */
+  isEnabled() {
+    return !this.connectionFailed;
   }
 
   /**
@@ -324,9 +383,15 @@ class RedisClient {
 // Create singleton instance
 export const redisClient = new RedisClient();
 
-// Initialize connection when module is imported
-redisClient.connect().catch((error) => {
-  console.error('Failed to initialize Redis connection:', error);
+// Initialize connection when module is imported (non-blocking)
+redisClient.connect().then((connected) => {
+  if (connected) {
+    console.log('✅ Redis initialized successfully');
+  } else {
+    console.log('⚠️ Redis unavailable - features will be disabled');
+  }
+}).catch((error) => {
+  console.error('Redis initialization error:', error.message);
 });
 
 export default redisClient;
