@@ -63,5 +63,8 @@ export const env = {
     clientId: process.env.REDDIT_CLIENT_ID ?? '',
     clientSecret: process.env.REDDIT_CLIENT_SECRET ?? '',
     userAgent: process.env.REDDIT_USER_AGENT ?? 'discord:aoisenpai:1.0 (by /u/Few-Plankton-4201)'
+  },
+  redis: {
+    url: process.env.REDIS_URL ?? 'redis://localhost:6379'
   }
 };
