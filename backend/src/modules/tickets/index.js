@@ -3,10 +3,7 @@ import {
   ChannelType,
   EmbedBuilder,
   MessageFlags,
-  PermissionFlagsBits,
-  ActionRowBuilder,
-  ModalBuilder,
-  UserSelectMenuBuilder
+  PermissionFlagsBits
 } from 'discord.js';
 
 const POINTER = '<:Pointer:1502993771317694655>';
@@ -764,42 +761,44 @@ async function handleManageUsersButton(
     return;
   }
 
-  const addSelect = new UserSelectMenuBuilder()
-    .setCustomId(CUSTOM_IDS.addUserSelect)
-    .setPlaceholder('Select user to add')
-    .setMinValues(0)
-    .setMaxValues(1);
-
-  const removeSelect =
-    new UserSelectMenuBuilder()
-      .setCustomId(
-        CUSTOM_IDS.removeUserSelect
-      )
-      .setPlaceholder(
-        'Select user to remove'
-      )
-      .setMinValues(0)
-      .setMaxValues(1);
-
-  const modal = new ModalBuilder()
-    .setCustomId(
-      buildManageUsersModalCustomId(
-        creatorId
-      )
-    )
-    .setTitle('Manage Ticket Users');
-
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(
-      addSelect
+  await interaction.showModal({
+    custom_id: buildManageUsersModalCustomId(
+      creatorId
     ),
-
-    new ActionRowBuilder().addComponents(
-      removeSelect
-    )
-  );
-
-  await interaction.showModal(modal);
+    title: 'Manage Ticket Users',
+    components: [
+      {
+        type: 18,
+        label: 'Add User',
+        description:
+          'Pick a user to add to this ticket',
+        component: {
+          type: 5,
+          custom_id: CUSTOM_IDS.addUserSelect,
+          placeholder: 'Select user to add',
+          min_values: 0,
+          max_values: 1,
+          required: false
+        }
+      },
+      {
+        type: 18,
+        label: 'Remove User',
+        description:
+          'Pick a user to remove from this ticket',
+        component: {
+          type: 5,
+          custom_id:
+            CUSTOM_IDS.removeUserSelect,
+          placeholder:
+            'Select user to remove',
+          min_values: 0,
+          max_values: 1,
+          required: false
+        }
+      }
+    ]
+  });
 }
 
 async function handleManageUsersModalSubmit(
