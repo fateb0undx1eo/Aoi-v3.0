@@ -152,7 +152,7 @@ function buildTicketPanelPayload() {
           {
             type: COMPONENT_TYPES.TextDisplay,
             content:
-              '# <:Empty:1503044372487471328><:Empty:1503044372487471328><:Empty:1503044372487471328><:Ticket1:1503003731887788072><:Ticket2:1503003714213118104>'
+              '# <:Empty:1503044372487471328><:Empty:1503044372487471328><:Empty:1503044372487471328><a:Sparkle2:1503090874417152020><:Ticket1:1503003731887788072><:Ticket2:1503003714213118104><a:Sparkle2:1503090874417152020>'
           },
           {
             type: COMPONENT_TYPES.TextDisplay,
