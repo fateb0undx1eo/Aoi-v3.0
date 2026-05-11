@@ -74,7 +74,7 @@ export function buildTicketCommand(name, description, execute, options = []) {
  */
 export const ticketCommand = buildTicketCommand(
   'ticket',
-  'Send the ticket creation panel',
+  'Manage the ticket system',
   executeTicketPanelCommand,
   [
     {
