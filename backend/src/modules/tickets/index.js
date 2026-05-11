@@ -1,5 +1,4 @@
 import {
-  AutoArchiveDuration,
   ButtonStyle,
   ChannelType,
   EmbedBuilder,
@@ -8,6 +7,7 @@ import {
 } from 'discord.js';
 
 const POINTER = '<:Pointer:1502993771317694655>';
+const AUTO_ARCHIVE_24H = 1440;
 
 // Put the role IDs allowed to use ticket staff commands here.
 // Server admins and the guild owner are always allowed.
@@ -322,7 +322,7 @@ async function createTicketFromTag(interaction, tag) {
     name: threadName,
     type: ChannelType.PrivateThread,
     invitable: false,
-    autoArchiveDuration: AutoArchiveDuration.OneDay,
+    autoArchiveDuration: AUTO_ARCHIVE_24H,
     reason: `Ticket created by ${interaction.user.id} (${tag.value})`
   }).catch(() => null);
 
