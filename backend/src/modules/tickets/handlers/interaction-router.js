@@ -43,6 +43,11 @@ export async function handleCommand(interaction) {
     const { commandName } = interaction;
 
     switch (commandName) {
+      case 'ticket':
+        // Handle ticket command - delegate to ticket command execution
+        const { executeTicketPanelCommand } = await import('../commands/ticket-command.js');
+        await executeTicketPanelCommand(interaction);
+        break;
       default:
         await interaction.reply({
           content: 'Unknown command.',

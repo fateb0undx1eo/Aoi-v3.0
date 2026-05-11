@@ -32,8 +32,15 @@ export async function executeTicketPanelCommand(interaction) {
     }
 
     if (!(await isTicketStaffFromInteraction(interaction))) {
+      await interaction.reply({
+        content: ERROR_MESSAGES.INSUFFICIENT_PERMISSIONS,
+        ephemeral: true
+      });
       return;
     }
+
+    // Defer the interaction to avoid timeout
+    await interaction.deferReply({ ephemeral: true });
 
     let group = null;
     let subcommand = null;
