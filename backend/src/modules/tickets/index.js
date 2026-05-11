@@ -220,71 +220,71 @@ function parseResolvedCreatorId(customId) {
     : null;
 }
 
-function buildAddUsersCustomId(creatorId) {
-  return `${CUSTOM_IDS.addUsersPrefix}:${creatorId}`;
+function buildAddUsersCustomId(threadId) {
+  return `${CUSTOM_IDS.addUsersPrefix}:${threadId}`;
 }
 
-function parseAddUsersCreatorId(customId) {
+function parseAddUsersThreadId(customId) {
   if (!customId?.startsWith(`${CUSTOM_IDS.addUsersPrefix}:`)) {
     return null;
   }
 
-  const creatorId =
+  const threadId =
     customId.slice(`${CUSTOM_IDS.addUsersPrefix}:`.length);
 
-  return /^\d{16,20}$/.test(creatorId)
-    ? creatorId
+  return /^\d{16,20}$/.test(threadId)
+    ? threadId
     : null;
 }
 
-function buildRemoveUsersCustomId(creatorId) {
-  return `${CUSTOM_IDS.removeUsersPrefix}:${creatorId}`;
+function buildRemoveUsersCustomId(threadId) {
+  return `${CUSTOM_IDS.removeUsersPrefix}:${threadId}`;
 }
 
-function parseRemoveUsersCreatorId(customId) {
+function parseRemoveUsersThreadId(customId) {
   if (!customId?.startsWith(`${CUSTOM_IDS.removeUsersPrefix}:`)) {
     return null;
   }
 
-  const creatorId =
+  const threadId =
     customId.slice(`${CUSTOM_IDS.removeUsersPrefix}:`.length);
 
-  return /^\d{16,20}$/.test(creatorId)
-    ? creatorId
+  return /^\d{16,20}$/.test(threadId)
+    ? threadId
     : null;
 }
 
-function buildAddUsersModalCustomId(creatorId) {
-  return `${CUSTOM_IDS.addUsersModal}:${creatorId}`;
+function buildAddUsersModalCustomId(threadId) {
+  return `${CUSTOM_IDS.addUsersModal}:${threadId}`;
 }
 
-function parseAddUsersModalCreatorId(customId) {
+function parseAddUsersModalThreadId(customId) {
   if (!customId?.startsWith(`${CUSTOM_IDS.addUsersModal}:`)) {
     return null;
   }
 
-  const creatorId =
+  const threadId =
     customId.slice(`${CUSTOM_IDS.addUsersModal}:`.length);
 
-  return /^\d{16,20}$/.test(creatorId)
-    ? creatorId
+  return /^\d{16,20}$/.test(threadId)
+    ? threadId
     : null;
 }
 
-function buildRemoveUsersModalCustomId(creatorId) {
-  return `${CUSTOM_IDS.removeUsersModal}:${creatorId}`;
+function buildRemoveUsersModalCustomId(threadId) {
+  return `${CUSTOM_IDS.removeUsersModal}:${threadId}`;
 }
 
-function parseRemoveUsersModalCreatorId(customId) {
+function parseRemoveUsersModalThreadId(customId) {
   if (!customId?.startsWith(`${CUSTOM_IDS.removeUsersModal}:`)) {
     return null;
   }
 
-  const creatorId =
+  const threadId =
     customId.slice(`${CUSTOM_IDS.removeUsersModal}:`.length);
 
-  return /^\d{16,20}$/.test(creatorId)
-    ? creatorId
+  return /^\d{16,20}$/.test(threadId)
+    ? threadId
     : null;
 }
 
@@ -364,7 +364,10 @@ function buildTicketPanelPayload() {
   };
 }
 
-function buildTicketWelcomePayload(tag, creatorId) {
+function buildTicketWelcomePayload(
+  tag,
+  creatorId
+) {
   return {
     flags: MessageFlags.IsComponentsV2,
 
@@ -418,36 +421,9 @@ function buildTicketWelcomePayload(tag, creatorId) {
             ]
           }
         ]
-      },
-      {
-        type: COMPONENT_TYPES.Container,
-        components: [
-          {
-            type: COMPONENT_TYPES.ActionRow,
-            components: [
-              {
-                type: COMPONENT_TYPES.Button,
-                style: ButtonStyle.Secondary,
-                custom_id: buildAddUsersCustomId(creatorId),
-                label: '⠀USER⠀',
-                emoji: {
-                  name: 'Add',
-                  id: '1503290197079752745'
-                }
-              },
-              {
-                type: COMPONENT_TYPES.Button,
-                style: ButtonStyle.Secondary,
-                custom_id: buildRemoveUsersCustomId(creatorId),
-                label: '⠀USER⠀',
-                emoji: {
-                  name: 'Remove',
-                  id: '1503290199281635391'
-                }
-              }
-            ]
-          }
-        ]
+
+=======
+>>>>>>> 2dbf62f (ticket system minor changes 2.9)
       }
     ]
   };
@@ -571,8 +547,7 @@ async function sendTicketLog(
   const embed = new EmbedBuilder()
     .setTitle(title)
     .setColor(color)
-    .setDescription(lines.join('\n'))
-    .setTimestamp();
+    .setDescription(lines.join('\n'));
 
   await webhook
     .send({
@@ -580,6 +555,194 @@ async function sendTicketLog(
       allowedMentions: { parse: [] }
     })
     .catch(() => null);
+}
+
+async function findTicketLogMessage(
+  logChannel,
+  threadLink
+) {
+  const messages = await logChannel.messages
+    .fetch({ limit: 100 })
+    .catch(() => null);
+  if (!messages) return null;
+
+  for (const message of messages.values()) {
+    const embed = message.embeds?.[0];
+    if (!embed?.description) continue;
+    if (!embed.description.includes(threadLink)) continue;
+    if (
+      embed.title === 'Created' ||
+      embed.title === 'Resolved'
+    ) {
+      return message;
+    }
+  }
+
+  return null;
+}
+
+function parseLogDescriptionField(
+  description,
+  label
+) {
+  const match = description.match(
+    new RegExp(`${label}:\\s*(.+)`)
+  );
+  return match?.[1]?.trim() ?? null;
+}
+
+async function upsertCreatedLog(
+  thread,
+  {
+    creatorId,
+    tagLabel,
+    createdAtUnix = Math.floor(Date.now() / 1000)
+  }
+) {
+  const threadLink = buildThreadLink(
+    thread.guildId,
+    thread.id
+  );
+  const lines = [
+    `${POINTER} Created By: <@${creatorId}>`,
+    `${POINTER} Created At: <t:${createdAtUnix}:F>`,
+    `${POINTER} Resolved At: -`,
+    `${POINTER} Resolved By: -`,
+    `${POINTER} Ticket Tag: ${tagLabel}`,
+    `${POINTER} Thread Link: ${threadLink}`
+  ];
+
+  await sendTicketLog(
+    thread,
+    'Created',
+    0x8b2b2b,
+    lines
+  );
+}
+
+async function upsertResolvedLog(
+  thread,
+  {
+    creatorId,
+    resolverId,
+    tagLabel
+  }
+) {
+  if (!TICKET_LOG_CHANNEL_ID) return;
+
+  const logChannel = await thread.guild.channels
+    .fetch(TICKET_LOG_CHANNEL_ID)
+    .catch(() => null);
+  if (!logChannel?.isTextBased?.()) return;
+
+  const webhook = await getOrCreateLogWebhook(
+    logChannel
+  ).catch(() => null);
+  if (!webhook) return;
+
+  const threadLink = buildThreadLink(
+    thread.guildId,
+    thread.id
+  );
+  const now = Math.floor(Date.now() / 1000);
+
+  const existing = await findTicketLogMessage(
+    logChannel,
+    threadLink
+  );
+
+  if (!existing) {
+    const lines = [
+      `${POINTER} Created By: <@${creatorId}>`,
+      `${POINTER} Created At: <t:${now}:F>`,
+      `${POINTER} Resolved At: <t:${now}:F>`,
+      `${POINTER} Resolved By: <@${resolverId}>`,
+      `${POINTER} Ticket Tag: ${tagLabel}`,
+      `${POINTER} Thread Link: ${threadLink}`
+    ];
+    await sendTicketLog(thread, 'Resolved', 0x2fa44f, lines);
+    return;
+  }
+
+  const existingDescription = existing.embeds?.[0]?.description ?? '';
+  const createdBy =
+    parseLogDescriptionField(existingDescription, 'Created By') ??
+    `<@${creatorId}>`;
+  const createdAt =
+    parseLogDescriptionField(existingDescription, 'Created At') ??
+    `<t:${now}:F>`;
+  const storedTag =
+    parseLogDescriptionField(existingDescription, 'Ticket Tag') ??
+    tagLabel;
+
+  const lines = [
+    `${POINTER} Created By: ${createdBy}`,
+    `${POINTER} Created At: ${createdAt}`,
+    `${POINTER} Resolved At: <t:${now}:F>`,
+    `${POINTER} Resolved By: <@${resolverId}>`,
+    `${POINTER} Ticket Tag: ${storedTag}`,
+    `${POINTER} Thread Link: ${threadLink}`
+  ];
+
+  const embed = new EmbedBuilder()
+    .setTitle('Resolved')
+    .setColor(0x2fa44f)
+    .setDescription(lines.join('\n'));
+
+  await webhook
+    .editMessage(existing.id, {
+      embeds: [embed],
+      allowedMentions: { parse: [] }
+    })
+    .catch(() => null);
+}
+
+async function resetLogToCreated(thread, creatorId) {
+  if (!TICKET_LOG_CHANNEL_ID) return;
+  const logChannel = await thread.guild.channels
+    .fetch(TICKET_LOG_CHANNEL_ID)
+    .catch(() => null);
+  if (!logChannel?.isTextBased?.()) return;
+
+  const webhook = await getOrCreateLogWebhook(logChannel).catch(() => null);
+  if (!webhook) return;
+
+  const threadLink = buildThreadLink(thread.guildId, thread.id);
+  const existing = await findTicketLogMessage(logChannel, threadLink);
+  if (!existing) {
+    await upsertCreatedLog(thread, { creatorId, tagLabel: 'Unknown' });
+    return;
+  }
+
+  const existingDescription = existing.embeds?.[0]?.description ?? '';
+  const createdBy =
+    parseLogDescriptionField(existingDescription, 'Created By') ??
+    `<@${creatorId}>`;
+  const createdAt =
+    parseLogDescriptionField(existingDescription, 'Created At') ??
+    `<t:${Math.floor(Date.now() / 1000)}:F>`;
+  const storedTag =
+    parseLogDescriptionField(existingDescription, 'Ticket Tag') ??
+    'Unknown';
+
+  const lines = [
+    `${POINTER} Created By: ${createdBy}`,
+    `${POINTER} Created At: ${createdAt}`,
+    `${POINTER} Resolved At: -`,
+    `${POINTER} Resolved By: -`,
+    `${POINTER} Ticket Tag: ${storedTag}`,
+    `${POINTER} Thread Link: ${threadLink}`
+  ];
+
+  const embed = new EmbedBuilder()
+    .setTitle('Created')
+    .setColor(0x8b2b2b)
+    .setDescription(lines.join('\n'));
+
+  await webhook.editMessage(existing.id, {
+    embeds: [embed],
+    allowedMentions: { parse: [] }
+  }).catch(() => null);
 }
 
 // ───────────────── Ticket Creation ─────────────────
@@ -701,24 +864,10 @@ async function createTicketFromTag(interaction, tag) {
     await thread.send(welcomePayload).catch(() => null);
   }
 
-  const createdAtUnix = Math.floor(
-    Date.now() / 1000
-  );
-
-  await sendTicketLog(
-    thread,
-    'Ticket Created',
-    0x8b2b2b,
-    [
-      `Created By: <@${interaction.user.id}>`,
-      `Created At: <t:${createdAtUnix}:F>`,
-      `Ticket Tag: ${tag.label}`,
-      `Thread Link: ${buildThreadLink(
-        interaction.guildId,
-        thread.id
-      )}`
-    ]
-  );
+  await upsertCreatedLog(thread, {
+    creatorId: interaction.user.id,
+    tagLabel: tag.label
+  });
 
   await interaction.editReply({
     content: `Ticket created: <#${thread.id}>`
@@ -773,18 +922,11 @@ async function toggleResolved(
 
     setCooldown(creatorId);
 
-    await sendTicketLog(
-      thread,
-      'Ticket Resolved',
-      0x2fa44f,
-      [
-        `Resolved By: <@${interaction.user.id}>`,
-        `Thread Link: ${buildThreadLink(
-          interaction.guildId,
-          thread.id
-        )}`
-      ]
-    );
+    await upsertResolvedLog(thread, {
+      creatorId,
+      resolverId: interaction.user.id,
+      tagLabel: 'Unknown'
+    });
 
     await interaction.reply({
       content: 'Ticket marked as resolved.',
@@ -804,18 +946,7 @@ async function toggleResolved(
 
   cooldownMap.delete(creatorId);
 
-  await sendTicketLog(
-    thread,
-    'Ticket Reopened',
-    0xdca12d,
-    [
-      `Reopened By: <@${interaction.user.id}>`,
-      `Thread Link: ${buildThreadLink(
-        interaction.guildId,
-        thread.id
-      )}`
-    ]
-  );
+  await resetLogToCreated(thread, creatorId);
 
   await interaction.reply({
     content: 'Ticket reopened.',
@@ -827,7 +958,7 @@ async function toggleResolved(
 
 async function handleAddUsersButton(
   interaction,
-  creatorId
+  threadId
 ) {
   if (
     !interaction.inGuild() ||
@@ -854,10 +985,16 @@ async function handleAddUsersButton(
     return;
   }
 
+  if (interaction.channelId !== threadId) {
+    await interaction.reply({
+      content: 'This control only works in its original thread.',
+      ephemeral: true
+    });
+    return;
+  }
+
   await interaction.showModal({
-    custom_id: buildAddUsersModalCustomId(
-      creatorId
-    ),
+    custom_id: buildAddUsersModalCustomId(threadId),
     title: 'Add User',
     components: [
       {
@@ -880,7 +1017,7 @@ async function handleAddUsersButton(
 
 async function handleRemoveUsersButton(
   interaction,
-  creatorId
+  threadId
 ) {
   if (
     !interaction.inGuild() ||
@@ -907,10 +1044,16 @@ async function handleRemoveUsersButton(
     return;
   }
 
+  if (interaction.channelId !== threadId) {
+    await interaction.reply({
+      content: 'This control only works in its original thread.',
+      ephemeral: true
+    });
+    return;
+  }
+
   await interaction.showModal({
-    custom_id: buildRemoveUsersModalCustomId(
-      creatorId
-    ),
+    custom_id: buildRemoveUsersModalCustomId(threadId),
     title: 'Remove User',
     components: [
       {
@@ -935,7 +1078,7 @@ async function handleRemoveUsersButton(
 
 async function handleAddUsersModalSubmit(
   interaction,
-  creatorId
+  threadId
 ) {
   if (
     !interaction.inGuild() ||
@@ -946,9 +1089,17 @@ async function handleAddUsersModalSubmit(
 
   const thread = interaction.channel;
 
-  if (!creatorId) {
+  if (!threadId) {
     await interaction.reply({
       content: 'Invalid ticket state.',
+      ephemeral: true
+    });
+    return;
+  }
+
+  if (interaction.channelId !== threadId) {
+    await interaction.reply({
+      content: 'This modal only works in its original thread.',
       ephemeral: true
     });
     return;
@@ -1018,7 +1169,7 @@ async function handleAddUsersModalSubmit(
 
 async function handleRemoveUsersModalSubmit(
   interaction,
-  creatorId
+  threadId
 ) {
   if (
     !interaction.inGuild() ||
@@ -1029,9 +1180,17 @@ async function handleRemoveUsersModalSubmit(
 
   const thread = interaction.channel;
 
-  if (!creatorId) {
+  if (!threadId) {
     await interaction.reply({
       content: 'Invalid ticket state.',
+      ephemeral: true
+    });
+    return;
+  }
+
+  if (interaction.channelId !== threadId) {
+    await interaction.reply({
+      content: 'This modal only works in its original thread.',
       ephemeral: true
     });
     return;
@@ -1124,13 +1283,47 @@ async function executeTicketPanelCommand(
     return;
   }
 
-  await interaction.channel.send(
-    buildTicketPanelPayload()
-  );
+  let group = null;
+  let subcommand = null;
+  try { group = interaction.options.getSubcommandGroup(false); } catch {}
+  try { subcommand = interaction.options.getSubcommand(false); } catch {}
 
-  await interaction.editReply(
-    'Ticket panel sent in this channel.'
-  );
+  if (group === 'user' && subcommand === 'manage') {
+    if (!interaction.channel?.isThread?.()) {
+      await interaction.editReply('Run this inside a ticket thread.');
+      return;
+    }
+
+    const threadId = interaction.channelId;
+    await interaction.editReply({
+      content: 'Ticket user controls:',
+      components: [
+        {
+          type: COMPONENT_TYPES.ActionRow,
+          components: [
+            {
+              type: COMPONENT_TYPES.Button,
+              style: ButtonStyle.Secondary,
+              custom_id: buildAddUsersCustomId(threadId),
+              label: 'USER',
+              emoji: { name: 'Add', id: '1503290197079752745' }
+            },
+            {
+              type: COMPONENT_TYPES.Button,
+              style: ButtonStyle.Secondary,
+              custom_id: buildRemoveUsersCustomId(threadId),
+              label: 'USER',
+              emoji: { name: 'Remove', id: '1503290199281635391' }
+            }
+          ]
+        }
+      ]
+    });
+    return;
+  }
+
+  await interaction.channel.send(buildTicketPanelPayload());
+  await interaction.editReply('Ticket panel sent in this channel.');
 }
 
 async function executePendingTicketCommand(
@@ -1208,28 +1401,28 @@ async function handleButton(interaction) {
     return;
   }
 
-  const addCreatorId =
-    parseAddUsersCreatorId(
+  const addThreadId =
+    parseAddUsersThreadId(
       interaction.customId
     );
 
-  if (addCreatorId) {
+  if (addThreadId) {
     await handleAddUsersButton(
       interaction,
-      addCreatorId
+      addThreadId
     );
     return;
   }
 
-  const removeCreatorId =
-    parseRemoveUsersCreatorId(
+  const removeThreadId =
+    parseRemoveUsersThreadId(
       interaction.customId
     );
 
-  if (removeCreatorId) {
+  if (removeThreadId) {
     await handleRemoveUsersButton(
       interaction,
-      removeCreatorId
+      removeThreadId
     );
   }
 }
@@ -1237,28 +1430,28 @@ async function handleButton(interaction) {
 async function handleModalSubmit(
   interaction
 ) {
-  const addCreatorId =
-    parseAddUsersModalCreatorId(
+  const addThreadId =
+    parseAddUsersModalThreadId(
       interaction.customId
     );
 
-  if (addCreatorId) {
+  if (addThreadId) {
     await handleAddUsersModalSubmit(
       interaction,
-      addCreatorId
+      addThreadId
     );
     return;
   }
 
-  const removeCreatorId =
-    parseRemoveUsersModalCreatorId(
+  const removeThreadId =
+    parseRemoveUsersModalThreadId(
       interaction.customId
     );
 
-  if (removeCreatorId) {
+  if (removeThreadId) {
     await handleRemoveUsersModalSubmit(
       interaction,
-      removeCreatorId
+      removeThreadId
     );
   }
 }
@@ -1268,7 +1461,8 @@ async function handleModalSubmit(
 function buildTicketCommand(
   name,
   description,
-  execute
+  execute,
+  options = []
 ) {
   return {
     name,
@@ -1276,7 +1470,7 @@ function buildTicketCommand(
 
     ephemeral: true,
 
-    options: [],
+    options,
 
     async execute(interaction) {
       await execute(interaction);
@@ -1298,7 +1492,21 @@ export default {
     buildTicketCommand(
       'ticket',
       'Send the ticket creation panel',
-      executeTicketPanelCommand
+      executeTicketPanelCommand,
+      [
+        {
+          name: 'user',
+          type: 2,
+          description: 'Ticket user controls',
+          options: [
+            {
+              name: 'manage',
+              type: 1,
+              description: 'Open add/remove controls for this thread'
+            }
+          ]
+        }
+      ]
     ),
 
     buildTicketCommand(
