@@ -18,6 +18,7 @@ const TICKET_STAFF_ROLE_IDS = [
 ];
 
 const TICKET_LOG_CHANNEL_ID = '1485668403132760243';
+const ADD_STAFF_MEMBERS_TO_THREAD = false;
 
 const THREAD_PREFIX_CLOSED = '[CLOSED] ';
 
@@ -592,7 +593,9 @@ async function createTicketFromTag(interaction, tag) {
     .add(interaction.user.id)
     .catch(() => null);
 
-  await addStaffMembersToThread(thread);
+  if (ADD_STAFF_MEMBERS_TO_THREAD) {
+    await addStaffMembersToThread(thread);
+  }
 
   await sendOpeningPing(
     thread,
@@ -800,7 +803,8 @@ async function handleManageUsersButton(
 }
 
 async function handleManageUsersModalSubmit(
-  interaction
+  interaction,
+  creatorId
 ) {
   if (
     !interaction.inGuild() ||
@@ -810,6 +814,22 @@ async function handleManageUsersModalSubmit(
   }
 
   const thread = interaction.channel;
+
+  if (!creatorId) {
+    await interaction.reply({
+      content: 'Invalid ticket state.',
+      ephemeral: true
+    });
+    return;
+  }
+
+  if (!isTicketStaffFromInteraction(interaction)) {
+    await interaction.reply({
+      content: 'Only support staff can manage users.',
+      ephemeral: true
+    });
+    return;
+  }
 
   const addUsers =
     interaction.fields.getSelectedUsers(
@@ -1025,7 +1045,8 @@ async function handleModalSubmit(
 
   if (creatorId) {
     await handleManageUsersModalSubmit(
-      interaction
+      interaction,
+      creatorId
     );
   }
 }
