@@ -11,12 +11,10 @@ const AUTO_ARCHIVE_24H = 1440;
 
 // Put the role IDs allowed to use ticket staff commands here.
 // Server admins and the guild owner are always allowed.
-const TICKET_STAFF_ROLE_IDS = [
-  // '123456789012345678'
-];
+const TICKET_STAFF_ROLE_IDS = ['1457403601512169724'];
 
 // Put the ticket log channel ID here.
-const TICKET_LOG_CHANNEL_ID = '';
+const TICKET_LOG_CHANNEL_ID = '1485668403132760243';
 
 const CUSTOM_IDS = {
   ticketTagSelect: 'tickets:tag-select',
