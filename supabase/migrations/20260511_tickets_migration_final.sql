@@ -104,63 +104,296 @@ DO $$
 BEGIN
     -- Check if old tickets table exists and has data
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'tickets' AND table_schema = 'public') THEN
-        -- Migrate existing data with new enterprise fields
-        INSERT INTO tickets_new (
-            guild_id, thread_id, creator_id, tag, tag_label, status, 
-            created_at, updated_at, resolved_at, resolved_by,
-            thread_name, original_thread_name, is_archived, is_locked,
-            auto_archive_duration, last_activity_at, priority
-        )
-        SELECT 
-            guild_id,
-            channel_id as thread_id, -- Map old channel_id to new thread_id
-            user_id as creator_id, -- Map old user_id to new creator_id
-            COALESCE(tag, 'general_support') as tag, -- Default tag if missing
-            COALESCE(tag_label, 'General Support') as tag_label, -- Default label
-            CASE 
-                WHEN status = 'closed' THEN 'resolved'
-                WHEN status = 'archived' THEN 'closed'
-                ELSE COALESCE(status, 'open')
-            END as status,
-            created_at,
-            COALESCE(updated_at, created_at) as updated_at,
-            closed_at as resolved_at,
-            NULL as resolved_by, -- Will be populated later if needed
-            thread_name,
-            thread_name as original_thread_name,
-            COALESCE(is_archived, FALSE) as is_archived,
-            COALESCE(is_locked, FALSE) as is_locked,
-            COALESCE(auto_archive_duration, 1440) as auto_archive_duration,
-            COALESCE(last_activity_at, created_at) as last_activity_at,
-            COALESCE(priority, 'normal') as priority
-        FROM tickets
-        ON CONFLICT (thread_id) DO NOTHING; -- Avoid duplicates
-        
-        RAISE NOTICE 'Migrated existing tickets data to new enterprise schema';
+        -- Check what columns actually exist in the old table
+        DECLARE
+            has_thread_id_column BOOLEAN := FALSE;
+            has_channel_id_column BOOLEAN := FALSE;
+            has_user_id_column BOOLEAN := FALSE;
+            has_creator_id_column BOOLEAN := FALSE;
+            has_updated_at_column BOOLEAN := FALSE;
+            has_closed_at_column BOOLEAN := FALSE;
+            has_tag_column BOOLEAN := FALSE;
+            has_tag_label_column BOOLEAN := FALSE;
+            has_thread_name_column BOOLEAN := FALSE;
+            has_is_archived_column BOOLEAN := FALSE;
+            has_is_locked_column BOOLEAN := FALSE;
+            has_auto_archive_duration_column BOOLEAN := FALSE;
+            has_last_activity_at_column BOOLEAN := FALSE;
+            has_priority_column BOOLEAN := FALSE;
+        BEGIN
+            -- Check for all relevant columns
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'tickets' AND column_name = 'thread_id'
+            ) INTO has_thread_id_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'tickets' AND column_name = 'channel_id'
+            ) INTO has_channel_id_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'tickets' AND column_name = 'user_id'
+            ) INTO has_user_id_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'tickets' AND column_name = 'creator_id'
+            ) INTO has_creator_id_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'tickets' AND column_name = 'updated_at'
+            ) INTO has_updated_at_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'tickets' AND column_name = 'closed_at'
+            ) INTO has_closed_at_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'tickets' AND column_name = 'tag'
+            ) INTO has_tag_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'tickets' AND column_name = 'tag_label'
+            ) INTO has_tag_label_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'tickets' AND column_name = 'thread_name'
+            ) INTO has_thread_name_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'tickets' AND column_name = 'is_archived'
+            ) INTO has_is_archived_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'tickets' AND column_name = 'is_locked'
+            ) INTO has_is_locked_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'tickets' AND column_name = 'auto_archive_duration'
+            ) INTO has_auto_archive_duration_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'tickets' AND column_name = 'last_activity_at'
+            ) INTO has_last_activity_at_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'tickets' AND column_name = 'priority'
+            ) INTO has_priority_column;
+            
+            -- Build dynamic migration query based on available columns
+            IF has_thread_id_column OR has_channel_id_column THEN
+                -- Use different query strategies based on available columns
+                IF has_tag_column AND has_tag_label_column AND has_updated_at_column AND has_closed_at_column AND has_thread_name_column AND has_is_archived_column AND has_is_locked_column AND has_auto_archive_duration_column AND has_last_activity_at_column AND has_priority_column THEN
+                    -- Full migration with all columns
+                    EXECUTE format('
+                        INSERT INTO tickets_new (
+                            guild_id, thread_id, creator_id, tag, tag_label, status, 
+                            created_at, updated_at, resolved_at, resolved_by,
+                            thread_name, original_thread_name, is_archived, is_locked,
+                            auto_archive_duration, last_activity_at, priority
+                        )
+                        SELECT 
+                            guild_id,
+                            %I as thread_id,
+                            %I as creator_id,
+                            COALESCE(tag, ''general_support'') as tag,
+                            COALESCE(tag_label, ''General Support'') as tag_label,
+                            CASE 
+                                WHEN status = ''closed'' THEN ''resolved''
+                                WHEN status = ''archived'' THEN ''closed''
+                                ELSE COALESCE(status, ''open'')
+                            END as status,
+                            created_at,
+                            COALESCE(updated_at, created_at) as updated_at,
+                            COALESCE(closed_at, NULL) as resolved_at,
+                            NULL as resolved_by,
+                            COALESCE(thread_name, ''Unknown Thread'') as thread_name,
+                            COALESCE(thread_name, ''Unknown Thread'') as original_thread_name,
+                            COALESCE(is_archived, FALSE) as is_archived,
+                            COALESCE(is_locked, FALSE) as is_locked,
+                            COALESCE(auto_archive_duration, 1440) as auto_archive_duration,
+                            COALESCE(last_activity_at, created_at) as last_activity_at,
+                            COALESCE(priority, ''normal'') as priority
+                        FROM tickets
+                        ON CONFLICT (thread_id) DO NOTHING
+                    ', 
+                    CASE WHEN has_thread_id_column THEN 'thread_id' ELSE 'channel_id' END,
+                    CASE WHEN has_creator_id_column THEN 'creator_id' ELSE 'user_id' END
+                    );
+                ELSE
+                    -- Basic migration with minimal columns and hardcoded defaults
+                    EXECUTE format('
+                        INSERT INTO tickets_new (
+                            guild_id, thread_id, creator_id, tag, tag_label, status, 
+                            created_at, updated_at, resolved_at, resolved_by,
+                            thread_name, original_thread_name, is_archived, is_locked,
+                            auto_archive_duration, last_activity_at, priority
+                        )
+                        SELECT 
+                            guild_id,
+                            %I as thread_id,
+                            %I as creator_id,
+                            ''general_support'' as tag,
+                            ''General Support'' as tag_label,
+                            CASE 
+                                WHEN status = ''closed'' THEN ''resolved''
+                                WHEN status = ''archived'' THEN ''closed''
+                                ELSE COALESCE(status, ''open'')
+                            END as status,
+                            created_at,
+                            created_at as updated_at,
+                            NULL as resolved_at,
+                            NULL as resolved_by,
+                            ''Unknown Thread'' as thread_name,
+                            ''Unknown Thread'' as original_thread_name,
+                            FALSE as is_archived,
+                            FALSE as is_locked,
+                            1440 as auto_archive_duration,
+                            created_at as last_activity_at,
+                            ''normal'' as priority
+                        FROM tickets
+                        ON CONFLICT (thread_id) DO NOTHING
+                    ', 
+                    CASE WHEN has_thread_id_column THEN 'thread_id' ELSE 'channel_id' END,
+                    CASE WHEN has_creator_id_column THEN 'creator_id' ELSE 'user_id' END
+                    );
+                END IF;
+                
+                RAISE NOTICE 'Migrated existing tickets data to new enterprise schema';
+            ELSE
+                RAISE WARNING 'Old tickets table exists but has no recognizable ID columns. Manual migration may be required.';
+            END IF;
+        END;
     END IF;
 END $$;
 
 -- Step 5: Create enhanced ticket cooldowns table with enterprise features
-CREATE TABLE IF NOT EXISTS ticket_cooldowns (
-    id SERIAL PRIMARY KEY,
-    guild_id TEXT NOT NULL,
-    user_id TEXT NOT NULL,
-    cooldown_type TEXT DEFAULT 'ticket_creation' CHECK (cooldown_type IN ('ticket_creation', 'user_management', 'escalation')),
-    cooldown_until TIMESTAMP WITH TIME ZONE NOT NULL,
-    duration_ms INTEGER NOT NULL, -- Store original duration for metrics
-    reason TEXT, -- Reason for cooldown
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by TEXT, -- Staff member who created the cooldown
-    is_active BOOLEAN DEFAULT TRUE,
-    metadata JSONB DEFAULT '{}',
-    
-    -- Enterprise constraints
-    CONSTRAINT ticket_cooldowns_guild_user_type_unique UNIQUE (guild_id, user_id, cooldown_type),
-    CONSTRAINT ticket_cooldowns_valid_duration CHECK (duration_ms > 0),
-    CONSTRAINT ticket_cooldowns_valid_user_id CHECK (user_id ~ '^\d{17,19}$'),
-    CONSTRAINT ticket_cooldowns_valid_creator CHECK (created_by IS NULL OR created_by ~ '^\d{17,19}$')
-);
+DO $$
+BEGIN
+    -- Check if old ticket_cooldowns table exists
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ticket_cooldowns' AND table_schema = 'public') THEN
+        -- Check if it has the old schema (without cooldown_type)
+        DECLARE
+            has_cooldown_type_column BOOLEAN := FALSE;
+            has_duration_ms_column BOOLEAN := FALSE;
+            has_reason_column BOOLEAN := FALSE;
+            has_created_by_column BOOLEAN := FALSE;
+            has_is_active_column BOOLEAN := FALSE;
+            has_metadata_column BOOLEAN := FALSE;
+        BEGIN
+            -- Check for new columns
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'ticket_cooldowns' AND column_name = 'cooldown_type'
+            ) INTO has_cooldown_type_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'ticket_cooldowns' AND column_name = 'duration_ms'
+            ) INTO has_duration_ms_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'ticket_cooldowns' AND column_name = 'reason'
+            ) INTO has_reason_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'ticket_cooldowns' AND column_name = 'created_by'
+            ) INTO has_created_by_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'ticket_cooldowns' AND column_name = 'is_active'
+            ) INTO has_is_active_column;
+            
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'ticket_cooldowns' AND column_name = 'metadata'
+            ) INTO has_metadata_column;
+            
+            -- If table has old schema, migrate to new schema
+            IF NOT has_cooldown_type_column THEN
+                -- Rename old table
+                ALTER TABLE ticket_cooldowns RENAME TO ticket_cooldowns_old;
+                
+                -- Create new enhanced table
+                CREATE TABLE ticket_cooldowns (
+                    id SERIAL PRIMARY KEY,
+                    guild_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    cooldown_type TEXT DEFAULT 'ticket_creation' CHECK (cooldown_type IN ('ticket_creation', 'user_management', 'escalation')),
+                    cooldown_until TIMESTAMP WITH TIME ZONE NOT NULL,
+                    duration_ms INTEGER NOT NULL,
+                    reason TEXT,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    created_by TEXT,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    metadata JSONB DEFAULT '{}',
+                    
+                    -- Enterprise constraints
+                    CONSTRAINT ticket_cooldowns_guild_user_type_unique UNIQUE (guild_id, user_id, cooldown_type),
+                    CONSTRAINT ticket_cooldowns_valid_duration CHECK (duration_ms > 0),
+                    CONSTRAINT ticket_cooldowns_valid_user_id CHECK (user_id ~ '^\d{17,19}$'),
+                    CONSTRAINT ticket_cooldowns_valid_creator CHECK (created_by IS NULL OR created_by ~ '^\d{17,19}$')
+                );
+                
+                -- Migrate data from old table
+                INSERT INTO ticket_cooldowns (
+                    guild_id, user_id, cooldown_until, duration_ms, created_at, updated_at
+                )
+                SELECT 
+                    guild_id,
+                    user_id,
+                    cooldown_until,
+                    EXTRACT(EPOCH FROM (cooldown_until - created_at)) * 1000 as duration_ms,
+                    created_at,
+                    created_at as updated_at
+                FROM ticket_cooldowns_old;
+                
+                -- Drop old table
+                DROP TABLE ticket_cooldowns_old;
+                
+                RAISE NOTICE 'Migrated ticket_cooldowns to new enterprise schema';
+            END IF;
+        END;
+    ELSE
+        -- Create new enhanced table if it doesn't exist
+        CREATE TABLE ticket_cooldowns (
+            id SERIAL PRIMARY KEY,
+            guild_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            cooldown_type TEXT DEFAULT 'ticket_creation' CHECK (cooldown_type IN ('ticket_creation', 'user_management', 'escalation')),
+            cooldown_until TIMESTAMP WITH TIME ZONE NOT NULL,
+            duration_ms INTEGER NOT NULL,
+            reason TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            created_by TEXT,
+            is_active BOOLEAN DEFAULT TRUE,
+            metadata JSONB DEFAULT '{}',
+            
+            -- Enterprise constraints
+            CONSTRAINT ticket_cooldowns_guild_user_type_unique UNIQUE (guild_id, user_id, cooldown_type),
+            CONSTRAINT ticket_cooldowns_valid_duration CHECK (duration_ms > 0),
+            CONSTRAINT ticket_cooldowns_valid_user_id CHECK (user_id ~ '^\d{17,19}$'),
+            CONSTRAINT ticket_cooldowns_valid_creator CHECK (created_by IS NULL OR created_by ~ '^\d{17,19}$')
+        );
+    END IF;
+END $$;
 
 -- Create indexes for cooldown performance
 CREATE INDEX IF NOT EXISTS idx_ticket_cooldowns_guild_id ON ticket_cooldowns(guild_id);
@@ -174,7 +407,8 @@ CREATE INDEX IF NOT EXISTS idx_ticket_cooldowns_guild_user_active ON ticket_cool
 -- Step 6: Create enterprise-grade functions and triggers for the new table
 
 -- Enhanced function to clean up expired cooldowns
-CREATE OR REPLACE FUNCTION cleanup_expired_cooldowns()
+DROP FUNCTION IF EXISTS cleanup_expired_cooldowns();
+CREATE FUNCTION cleanup_expired_cooldowns()
 RETURNS INTEGER AS $$
 DECLARE
     deleted_count INTEGER;
@@ -518,20 +752,42 @@ COMMENT ON VIEW ticket_statistics IS 'Guild-level ticket statistics and performa
 COMMENT ON VIEW staff_performance IS 'Staff performance metrics including resolution times and ticket handling statistics';
 
 -- Step 11: Final migration metadata and completion
-CREATE TABLE IF NOT EXISTS migration_metadata (
-    migration_name TEXT PRIMARY KEY,
-    completed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    version TEXT DEFAULT '2.0.0',
-    description TEXT
-);
-
--- Mark this enterprise migration as completed
-INSERT INTO migration_metadata (migration_name, version, description) 
-VALUES ('20260511_tickets_migration_final', '2.0.0', 'Enterprise-grade ticket system with sequences, constraints, triggers, and comprehensive metadata')
-ON CONFLICT (migration_name) DO UPDATE SET 
-    completed_at = NOW(),
-    version = EXCLUDED.version,
-    description = EXCLUDED.description;
+DO $$
+BEGIN
+    -- Check if migration_metadata table exists
+    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'migration_metadata' AND table_schema = 'public') THEN
+        -- Create new table with description column
+        CREATE TABLE migration_metadata (
+            migration_name TEXT PRIMARY KEY,
+            completed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            version TEXT DEFAULT '2.0.0',
+            description TEXT
+        );
+    ELSE
+        -- Check if description column exists
+        DECLARE
+            has_description_column BOOLEAN := FALSE;
+        BEGIN
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'migration_metadata' AND column_name = 'description'
+            ) INTO has_description_column;
+            
+            -- Add description column if it doesn't exist
+            IF NOT has_description_column THEN
+                ALTER TABLE migration_metadata ADD COLUMN description TEXT;
+            END IF;
+        END;
+    END IF;
+    
+    -- Mark this enterprise migration as completed
+    INSERT INTO migration_metadata (migration_name, version, description) 
+    VALUES ('20260511_tickets_migration_final', '2.0.0', 'Enterprise-grade ticket system with sequences, constraints, triggers, and comprehensive metadata')
+    ON CONFLICT (migration_name) DO UPDATE SET 
+        completed_at = NOW(),
+        version = EXCLUDED.version,
+        description = EXCLUDED.description;
+END $$;
 
 -- Create index for migration metadata
 CREATE INDEX IF NOT EXISTS idx_migration_metadata_completed_at ON migration_metadata(completed_at);
