@@ -117,16 +117,7 @@ function isTicketStaffLike(member, guild, userId) {
   return TICKET_STAFF_ROLE_IDS.some((roleId) => member.roles?.cache?.has(roleId));
 }
 
-function isTicketStaffFromInteraction(interaction) {
-  if (!interaction.inGuild()) return false;
-  return isTicketStaffLike(interaction.member, interaction.guild, interaction.user?.id);
-}
 
-function isAdminOrOwnerFromInteraction(interaction) {
-  if (!interaction.inGuild()) return false;
-  if (interaction.guild?.ownerId === interaction.user?.id) return true;
-  return interaction.memberPermissions?.has?.(PermissionFlagsBits.Administrator);
-}
 
 async function requireTicketStaff(interaction) {
   if (isTicketStaffFromInteraction(interaction)) return true;
