@@ -9,6 +9,7 @@ import {
 const POINTER = '<:Pointer:1502993771317694655>';
 const AUTO_ARCHIVE_24H = 1440;
 const TICKET_COOLDOWN_MS = 10 * 60 * 1000;
+const TICKET_CREATION_LOCK_MS = 8000;
 
 const TICKET_STAFF_ROLE_IDS = [
   '1457403601512169724'
@@ -86,6 +87,7 @@ const TICKET_COMMAND_NAMES = new Set([
 // ───────────────── Cooldown ─────────────────
 
 const cooldownMap = new Map();
+const creationLockMap = new Map();
 
 function setCooldown(userId) {
   cooldownMap.set(userId, Date.now());
@@ -104,6 +106,26 @@ function getRemainingCooldown(userId) {
   }
 
   return TICKET_COOLDOWN_MS - elapsed;
+}
+
+function hasActiveCreationLock(userId) {
+  const lockedAt = creationLockMap.get(userId);
+  if (!lockedAt) return false;
+
+  if (Date.now() - lockedAt >= TICKET_CREATION_LOCK_MS) {
+    creationLockMap.delete(userId);
+    return false;
+  }
+
+  return true;
+}
+
+function acquireCreationLock(userId) {
+  creationLockMap.set(userId, Date.now());
+}
+
+function releaseCreationLock(userId) {
+  creationLockMap.delete(userId);
 }
 
 // ───────────────── Webhook Cache ─────────────────
@@ -980,30 +1002,45 @@ async function executePendingTicketCommand(
 async function handleTicketTagSelect(
   interaction
 ) {
+  if (hasActiveCreationLock(interaction.user.id)) {
+    await interaction.reply({
+      content:
+        'A ticket creation is already in progress. Please wait a few seconds and try again.',
+      ephemeral: true
+    });
+    return;
+  }
+
+  acquireCreationLock(interaction.user.id);
+
   await interaction.deferReply({
     ephemeral: true
   });
 
-  const [selectedValue] =
-    interaction.values;
+  try {
+    const [selectedValue] =
+      interaction.values;
 
-  const selectedTag = TICKET_TAGS.find(
-    (tag) => tag.value === selectedValue
-  );
+    const selectedTag = TICKET_TAGS.find(
+      (tag) => tag.value === selectedValue
+    );
 
-  if (!selectedTag) {
-    await interaction.editReply({
-      content:
-        'Unknown ticket category selected.'
-    });
+    if (!selectedTag) {
+      await interaction.editReply({
+        content:
+          'Unknown ticket category selected.'
+      });
 
-    return;
+      return;
+    }
+
+    await createTicketFromTag(
+      interaction,
+      selectedTag
+    );
+  } finally {
+    releaseCreationLock(interaction.user.id);
   }
-
-  await createTicketFromTag(
-    interaction,
-    selectedTag
-  );
 }
 
 async function handleButton(interaction) {
