@@ -4,10 +4,8 @@ import {
   EmbedBuilder,
   MessageFlags,
   PermissionFlagsBits,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  ActionRowBuilder
+  ActionRowBuilder,
+  UserSelectMenuBuilder
 } from 'discord.js';
 
 const POINTER = '<:Pointer:1502993771317694655>';
@@ -21,18 +19,19 @@ const TICKET_STAFF_ROLE_IDS = [
 
 const TICKET_LOG_CHANNEL_ID = '1485668403132760243';
 
+const THREAD_PREFIX_CLOSED = '✗';
+
 const CUSTOM_IDS = {
   ticketTagSelect: 'tickets:tag-select',
   resolvedPrefix:  'tickets:resolved',
-  addUserPrefix:   'tickets:add-user',
-  addUserModal:    'tickets:add-user-modal',
-  addUserInput:    'tickets:add-user-input'
+  addUserSelect:   'tickets:add-user-select'
 };
 
 const COMPONENT_TYPES = {
   ActionRow:    1,
   Button:       2,
   StringSelect: 3,
+  UserSelect:   5,
   TextDisplay:  10,
   Container:    17
 };
@@ -92,6 +91,19 @@ function getRemainingCooldown(userId) {
   return TICKET_COOLDOWN_MS - elapsed;
 }
 
+// ─── Webhook Cache ────────────────────────────────────────────────────────────
+let cachedLogWebhook = null;
+
+async function getOrCreateLogWebhook(logChannel) {
+  if (cachedLogWebhook) return cachedLogWebhook;
+  const hooks = await logChannel.fetchWebhooks().catch(() => null);
+  const existing = hooks?.find(
+    (hook) => hook.owner?.id === logChannel.client.user.id && hook.name === 'Ticket Logs'
+  );
+  cachedLogWebhook = existing ?? await logChannel.createWebhook({ name: 'Ticket Logs' }).catch(() => null);
+  return cachedLogWebhook;
+}
+
 // ─── Permission Helpers ───────────────────────────────────────────────────────
 function isTicketStaffLike(member, guild, userId) {
   if (!member || !guild || !userId) return false;
@@ -127,18 +139,33 @@ function parseResolvedCreatorId(customId) {
   return /^\d{16,20}$/.test(creatorId) ? creatorId : null;
 }
 
-function buildAddUserCustomId(creatorId) {
-  return `${CUSTOM_IDS.addUserPrefix}:${creatorId}`;
+function buildAddUserSelectCustomId(creatorId) {
+  return `${CUSTOM_IDS.addUserSelect}:${creatorId}`;
 }
 
-function parseAddUserCreatorId(customId) {
-  if (!customId?.startsWith(`${CUSTOM_IDS.addUserPrefix}:`)) return null;
-  const creatorId = customId.slice(`${CUSTOM_IDS.addUserPrefix}:`.length);
+function parseAddUserSelectCreatorId(customId) {
+  if (!customId?.startsWith(`${CUSTOM_IDS.addUserSelect}:`)) return null;
+  const creatorId = customId.slice(`${CUSTOM_IDS.addUserSelect}:`.length);
   return /^\d{16,20}$/.test(creatorId) ? creatorId : null;
 }
 
 function buildThreadLink(guildId, threadId) {
   return `https://discord.com/channels/${guildId}/${threadId}`;
+}
+
+// ─── Thread State via Name ────────────────────────────────────────────────────
+function markThreadNameClosed(name) {
+  if (name.startsWith(THREAD_PREFIX_CLOSED)) return name;
+  return `${THREAD_PREFIX_CLOSED}${name}`;
+}
+
+function markThreadNameOpen(name) {
+  if (!name.startsWith(THREAD_PREFIX_CLOSED)) return name;
+  return name.slice(THREAD_PREFIX_CLOSED.length);
+}
+
+function isThreadNameClosed(name) {
+  return name.startsWith(THREAD_PREFIX_CLOSED);
 }
 
 // ─── Payload Builders ─────────────────────────────────────────────────────────
@@ -165,7 +192,7 @@ function buildTicketPanelPayload() {
               {
                 type: COMPONENT_TYPES.StringSelect,
                 custom_id: CUSTOM_IDS.ticketTagSelect,
-                placeholder: 'Select a ticket tag',
+                placeholder: 'Select a ticket category',
                 min_values: 1,
                 max_values: 1,
                 options: TICKET_TAGS.map(({ label, value, description, emoji }) => ({
@@ -218,12 +245,18 @@ function buildTicketWelcomePayload(tag, creatorId) {
                 style: ButtonStyle.Secondary,
                 custom_id: buildResolvedCustomId(creatorId),
                 label: 'RESOLVED'
-              },
+              }
+            ]
+          },
+          {
+            type: COMPONENT_TYPES.ActionRow,
+            components: [
               {
-                type: COMPONENT_TYPES.Button,
-                style: ButtonStyle.Secondary,
-                custom_id: buildAddUserCustomId(creatorId),
-                label: 'ADD'
+                type: COMPONENT_TYPES.UserSelect,
+                custom_id: buildAddUserSelectCustomId(creatorId),
+                placeholder: 'Add a user to this ticket',
+                min_values: 1,
+                max_values: 1
               }
             ]
           }
@@ -234,32 +267,9 @@ function buildTicketWelcomePayload(tag, creatorId) {
 }
 
 // ─── Thread Utilities ─────────────────────────────────────────────────────────
-async function fetchAllThreadNames(parentChannel) {
-  const names = new Set();
-  const active = await parentChannel.threads.fetchActive().catch(() => null);
-  for (const thread of active?.threads?.values?.() ?? []) names.add(thread.name);
-
-  const archivedPrivate = await parentChannel.threads
-    .fetchArchived({ type: 'private', limit: 100 })
-    .catch(() => null);
-  for (const thread of archivedPrivate?.threads?.values?.() ?? []) names.add(thread.name);
-
-  const archivedPublic = await parentChannel.threads
-    .fetchArchived({ type: 'public', limit: 100 })
-    .catch(() => null);
-  for (const thread of archivedPublic?.threads?.values?.() ?? []) names.add(thread.name);
-
-  return names;
-}
-
-async function generateUniqueThreadName(parentChannel, prefix) {
-  const existingNames = await fetchAllThreadNames(parentChannel);
-  for (let tries = 0; tries < 50; tries += 1) {
-    const id = Math.floor(1000 + Math.random() * 9000);
-    const candidate = `${prefix}-${id}`;
-    if (!existingNames.has(candidate)) return candidate;
-  }
-  return `${prefix}-${Date.now().toString().slice(-4)}`;
+function generateThreadName(prefix) {
+  const suffix = Math.random().toString(16).slice(2, 6).toUpperCase();
+  return `${prefix}-${suffix}`;
 }
 
 async function addStaffMembersToThread(thread) {
@@ -282,7 +292,8 @@ async function getCreatorIdFromThread(thread) {
   for (const message of messages.values()) {
     for (const row of message.components ?? []) {
       for (const component of row.components ?? []) {
-        const creatorId = parseResolvedCreatorId(component.customId);
+        const id = component.customId ?? component.custom_id ?? null;
+        const creatorId = parseResolvedCreatorId(id);
         if (creatorId) return creatorId;
       }
     }
@@ -297,13 +308,11 @@ async function hasOpenTicketInChannel(parentChannel, userId, botUserId) {
   for (const thread of active.threads.values()) {
     if (thread.type !== ChannelType.PrivateThread) continue;
     if (thread.ownerId !== botUserId) continue;
+    if (isThreadNameClosed(thread.name)) continue;
     if (thread.locked || thread.archived) continue;
 
     const creatorId = await getCreatorIdFromThread(thread);
-    if (creatorId !== userId) continue;
-
-    const members = await thread.members.fetch().catch(() => null);
-    if (members?.has(userId)) return true;
+    if (creatorId === userId) return true;
   }
 
   return false;
@@ -318,15 +327,6 @@ async function sendOpeningPing(thread, creatorId) {
 }
 
 // ─── Logging ──────────────────────────────────────────────────────────────────
-async function getOrCreateLogWebhook(logChannel) {
-  const hooks = await logChannel.fetchWebhooks().catch(() => null);
-  const existing = hooks?.find(
-    (hook) => hook.owner?.id === logChannel.client.user.id && hook.name === 'Ticket Logs'
-  );
-  if (existing) return existing;
-  return logChannel.createWebhook({ name: 'Ticket Logs' });
-}
-
 async function sendTicketLog(thread, title, color, lines) {
   if (!TICKET_LOG_CHANNEL_ID) return;
   const logChannel = await thread.guild.channels.fetch(TICKET_LOG_CHANNEL_ID).catch(() => null);
@@ -369,7 +369,7 @@ async function createTicketFromTag(interaction, tag) {
     return;
   }
 
-  const threadName = await generateUniqueThreadName(parentChannel, tag.namePrefix);
+  const threadName = generateThreadName(tag.namePrefix);
   const thread = await parentChannel.threads
     .create({
       name: threadName,
@@ -413,10 +413,11 @@ async function toggleResolved(interaction, creatorId) {
   }
 
   const thread = interaction.channel;
-  const memberMap = await thread.members.fetch().catch(() => null);
-  const isOpen = Boolean(memberMap?.has(creatorId));
+  const isClosed = isThreadNameClosed(thread.name);
 
-  if (isOpen) {
+  if (!isClosed) {
+    const closedName = markThreadNameClosed(thread.name);
+    await thread.setName(closedName).catch(() => null);
     await thread.members.remove(creatorId).catch(() => null);
     setCooldown(creatorId);
     await sendTicketLog(thread, 'Ticket Resolved', 0x2fa44f, [
@@ -427,6 +428,8 @@ async function toggleResolved(interaction, creatorId) {
     return;
   }
 
+  const openName = markThreadNameOpen(thread.name);
+  await thread.setName(openName).catch(() => null);
   await thread.members.add(creatorId).catch(() => null);
   cooldownMap.delete(creatorId);
   await sendTicketLog(thread, 'Ticket Reopened', 0xdca12d, [
@@ -436,64 +439,37 @@ async function toggleResolved(interaction, creatorId) {
   await interaction.reply({ content: 'Ticket reopened.', ephemeral: true });
 }
 
-async function handleAddUser(interaction, creatorId) {
-  if (!interaction.inGuild() || !interaction.channel?.isThread?.()) {
-    await interaction.reply({ content: 'This button only works inside ticket threads.', ephemeral: true });
-    return;
-  }
+async function handleAddUserSelect(interaction) {
+  if (!interaction.inGuild() || !interaction.channel?.isThread?.()) return;
 
+  // Staff check — even though the select is in the thread, non-staff
+  // members who are added later could technically see and use it
   if (!isTicketStaffFromInteraction(interaction)) {
     await interaction.reply({ content: 'Only support staff can add users to a ticket.', ephemeral: true });
     return;
   }
 
-  const modal = new ModalBuilder()
-    .setCustomId(`${CUSTOM_IDS.addUserModal}:${creatorId}`)
-    .setTitle('Add User to Ticket');
-
-  const input = new TextInputBuilder()
-    .setCustomId(CUSTOM_IDS.addUserInput)
-    .setLabel('User ID')
-    .setPlaceholder('Enter the user ID (e.g. 123456789012345678)')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMinLength(16)
-    .setMaxLength(20);
-
-  modal.addComponents(new ActionRowBuilder().addComponents(input));
-  await interaction.showModal(modal);
-}
-
-async function handleAddUserModalSubmit(interaction) {
-  const rawId = interaction.fields.getTextInputValue(CUSTOM_IDS.addUserInput).trim();
-
-  if (!/^\d{16,20}$/.test(rawId)) {
-    await interaction.reply({ content: 'That does not look like a valid user ID.', ephemeral: true });
-    return;
-  }
+  const selectedUserId = interaction.values[0];
+  if (!selectedUserId) return;
 
   const thread = interaction.channel;
-  if (!thread?.isThread?.()) {
-    await interaction.reply({ content: 'Could not find the ticket thread.', ephemeral: true });
-    return;
-  }
 
-  const member = await interaction.guild.members.fetch(rawId).catch(() => null);
+  const member = await interaction.guild.members.fetch(selectedUserId).catch(() => null);
   if (!member) {
     await interaction.reply({ content: 'That user was not found in this server.', ephemeral: true });
     return;
   }
 
-  await thread.members.add(rawId).catch(() => null);
+  await thread.members.add(selectedUserId).catch(() => null);
 
   await sendTicketLog(thread, 'User Added to Ticket', 0x5865f2, [
     `Added By: <@${interaction.user.id}>`,
-    `Added User: <@${rawId}>`,
+    `Added User: <@${selectedUserId}>`,
     `Thread Link: ${buildThreadLink(interaction.guildId, thread.id)}`
   ]);
 
   await interaction.reply({
-    content: `<@${rawId}> has been added to this ticket.`,
+    content: `<@${selectedUserId}> has been added to this ticket.`,
     ephemeral: true
   });
 }
@@ -512,39 +488,21 @@ async function executePendingTicketCommand(interaction) {
 
 // ─── Interaction Router ───────────────────────────────────────────────────────
 async function handleTicketTagSelect(interaction) {
-  if (!interaction.isStringSelectMenu() || interaction.customId !== CUSTOM_IDS.ticketTagSelect) return;
-
   await interaction.deferReply({ ephemeral: true });
-
   const [selectedValue] = interaction.values;
   const selectedTag = TICKET_TAGS.find((tag) => tag.value === selectedValue);
-
   if (!selectedTag) {
     await interaction.editReply({ content: 'Unknown ticket category selected.' });
     return;
   }
-
   await createTicketFromTag(interaction, selectedTag);
 }
 
-async function handleResolvedButton(interaction) {
-  if (!interaction.isButton()) return;
-  const creatorId = parseResolvedCreatorId(interaction.customId);
-  if (!creatorId) return;
-  await toggleResolved(interaction, creatorId);
-}
-
-async function handleAddUserButton(interaction) {
-  if (!interaction.isButton()) return;
-  const creatorId = parseAddUserCreatorId(interaction.customId);
-  if (!creatorId) return;
-  await handleAddUser(interaction, creatorId);
-}
-
-async function handleAddUserModal(interaction) {
-  if (!interaction.isModalSubmit()) return;
-  if (!interaction.customId.startsWith(`${CUSTOM_IDS.addUserModal}:`)) return;
-  await handleAddUserModalSubmit(interaction);
+async function handleButton(interaction) {
+  const resolvedCreatorId = parseResolvedCreatorId(interaction.customId);
+  if (resolvedCreatorId) {
+    await toggleResolved(interaction, resolvedCreatorId);
+  }
 }
 
 // ─── Command Builder ──────────────────────────────────────────────────────────
@@ -579,10 +537,14 @@ export default {
       name: 'interactionCreate',
       async execute(interaction) {
         if (interaction.isChatInputCommand() && TICKET_COMMAND_NAMES.has(interaction.commandName)) return;
-        await handleTicketTagSelect(interaction);
-        await handleResolvedButton(interaction);
-        await handleAddUserButton(interaction);
-        await handleAddUserModal(interaction);
+
+        if (interaction.isStringSelectMenu() && interaction.customId === CUSTOM_IDS.ticketTagSelect) {
+          await handleTicketTagSelect(interaction);
+        } else if (interaction.isUserSelectMenu() && parseAddUserSelectCreatorId(interaction.customId)) {
+          await handleAddUserSelect(interaction);
+        } else if (interaction.isButton()) {
+          await handleButton(interaction);
+        }
       }
     }
   ]
