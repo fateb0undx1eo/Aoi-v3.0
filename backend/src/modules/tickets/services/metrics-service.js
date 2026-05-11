@@ -1,449 +1,389 @@
-import redisClient from '../../../core/redis.js';
-import { logger, createTimer } from '../utils/logger.js';
+import { redisClient } from '../../../core/redis.js';
+import { METRICS_KEYS } from '../utils/redis-keys.js';
+import { METRICS } from '../utils/constants.js';
+import { loggingService } from './logging-service.js';
 
 /**
- * Operational metrics service for ticket system
- * Tracks performance, health, and operational metrics
+ * Enterprise-grade metrics service for ticket system
+ * Uses Redis lists for non-overwriting performance tracking
  */
 export class MetricsService {
-  constructor() {
-    this.metricsKey = 'ticket:metrics:operational';
-    this.retentionPeriod = 7 * 24 * 60 * 60 * 1000; // 7 days
-  }
-
   /**
    * Record ticket creation metric
+   * @param {number} duration - Operation duration in milliseconds
+   * @param {boolean} success - Whether operation succeeded
+   * @param {Object} metadata - Additional metadata
    */
   async recordTicketCreation(duration, success, metadata = {}) {
     const metric = {
-      type: 'ticket_creation',
-      timestamp: new Date().toISOString(),
+      operation: 'ticket_created',
       duration,
       success,
       guildId: metadata.guildId,
+      threadId: metadata.threadId,
       userId: metadata.userId,
       tag: metadata.tag,
-      error: metadata.error
+      error: metadata.error,
+      timestamp: new Date().toISOString()
     };
 
-    await this.addMetric(metric);
-    logger.logTicketOperation('creation', metadata.threadId, { duration, success });
+    await this.addMetric('ticket_created', metric);
+    
+    await loggingService.trackMetric('ticket_created', {
+      duration,
+      guildId: metadata.guildId,
+      threadId: metadata.threadId,
+      userId: metadata.userId,
+      success,
+      error: metadata.error
+    });
   }
 
   /**
    * Record ticket resolution metric
+   * @param {number} duration - Operation duration in milliseconds
+   * @param {boolean} success - Whether operation succeeded
+   * @param {Object} metadata - Additional metadata
    */
   async recordTicketResolution(duration, success, metadata = {}) {
     const metric = {
-      type: 'ticket_resolution',
-      timestamp: new Date().toISOString(),
+      operation: 'ticket_resolved',
       duration,
       success,
       guildId: metadata.guildId,
       threadId: metadata.threadId,
       resolverId: metadata.resolverId,
-      error: metadata.error
+      userId: metadata.userId,
+      error: metadata.error,
+      timestamp: new Date().toISOString()
     };
 
-    await this.addMetric(metric);
-    logger.logTicketOperation('resolution', metadata.threadId, { duration, success });
+    await this.addMetric('ticket_resolved', metric);
+    
+    await loggingService.trackMetric('ticket_resolved', {
+      duration,
+      guildId: metadata.guildId,
+      threadId: metadata.threadId,
+      userId: metadata.resolverId,
+      success,
+      error: metadata.error
+    });
   }
 
   /**
    * Record Discord API operation metric
+   * @param {string} operation - API operation name
+   * @param {number} duration - Operation duration in milliseconds
+   * @param {boolean} success - Whether operation succeeded
+   * @param {Object} metadata - Additional metadata
    */
   async recordDiscordOperation(operation, duration, success, metadata = {}) {
     const metric = {
-      type: 'discord_api',
-      timestamp: new Date().toISOString(),
-      operation,
+      operation: 'discord_api',
+      apiOperation: operation,
       duration,
       success,
-      httpStatus: metadata.httpStatus,
-      error: metadata.error
+      guildId: metadata.guildId,
+      threadId: metadata.threadId,
+      userId: metadata.userId,
+      error: metadata.error,
+      timestamp: new Date().toISOString()
     };
 
-    await this.addMetric(metric);
-    logger.logDiscordOperation(operation, { duration, success });
+    await this.addMetric('discord_api', metric);
+    
+    await loggingService.trackMetric('discord_api', {
+      duration,
+      guildId: metadata.guildId,
+      threadId: metadata.threadId,
+      userId: metadata.userId,
+      success,
+      error: metadata.error
+    });
   }
 
   /**
-   * Record database operation metric
+   * Record user management operation metric
+   * @param {string} operation - Operation name (add_user, remove_user)
+   * @param {number} duration - Operation duration in milliseconds
+   * @param {boolean} success - Whether operation succeeded
+   * @param {Object} metadata - Additional metadata
    */
-  async recordDatabaseOperation(operation, duration, success, metadata = {}) {
+  async recordUserManagement(operation, duration, success, metadata = {}) {
     const metric = {
-      type: 'database',
-      timestamp: new Date().toISOString(),
-      operation,
+      operation: `user_${operation}`,
       duration,
       success,
-      query: metadata.query,
-      error: metadata.error
+      guildId: metadata.guildId,
+      threadId: metadata.threadId,
+      targetUserId: metadata.targetUserId,
+      staffId: metadata.staffId,
+      error: metadata.error,
+      timestamp: new Date().toISOString()
     };
 
-    await this.addMetric(metric);
-    logger.logDatabaseOperation(operation, { duration, success });
+    await this.addMetric(`user_${operation}`, metric);
+    
+    await loggingService.trackMetric(`user_${operation}`, {
+      duration,
+      guildId: metadata.guildId,
+      threadId: metadata.threadId,
+      userId: metadata.staffId,
+      success,
+      error: metadata.error
+    });
   }
 
   /**
-   * Record Redis operation metric
+   * Record cooldown check metric
+   * @param {number} duration - Operation duration in milliseconds
+   * @param {boolean} success - Whether operation succeeded
+   * @param {Object} metadata - Additional metadata
    */
-  async recordRedisOperation(operation, duration, success, metadata = {}) {
+  async recordCooldownCheck(duration, success, metadata = {}) {
     const metric = {
-      type: 'redis',
-      timestamp: new Date().toISOString(),
-      operation,
+      operation: 'cooldown_check',
       duration,
       success,
-      key: metadata.key,
-      error: metadata.error
+      guildId: metadata.guildId,
+      userId: metadata.userId,
+      onCooldown: metadata.onCooldown,
+      error: metadata.error,
+      timestamp: new Date().toISOString()
     };
 
-    await this.addMetric(metric);
-    logger.logRedisOperation(operation, { duration, success });
-  }
-
-  /**
-   * Record lock operation metric
-   */
-  async recordLockOperation(operation, duration, success, metadata = {}) {
-    const metric = {
-      type: 'lock',
-      timestamp: new Date().toISOString(),
-      operation,
+    await this.addMetric('cooldown_check', metric);
+    
+    await loggingService.trackMetric('cooldown_check', {
       duration,
+      guildId: metadata.guildId,
+      userId: metadata.userId,
       success,
-      lockType: metadata.lockType,
-      lockKey: metadata.lockKey,
       error: metadata.error
-    };
-
-    await this.addMetric(metric);
+    });
   }
 
   /**
    * Record webhook operation metric
+   * @param {string} operation - Operation name (fetch, send, create)
+   * @param {number} duration - Operation duration in milliseconds
+   * @param {boolean} success - Whether operation succeeded
+   * @param {Object} metadata - Additional metadata
    */
   async recordWebhookOperation(operation, duration, success, metadata = {}) {
     const metric = {
-      type: 'webhook',
-      timestamp: new Date().toISOString(),
-      operation,
+      operation: 'webhook_fetch',
+      webhookOperation: operation,
       duration,
       success,
+      guildId: metadata.guildId,
       channelId: metadata.channelId,
+      error: metadata.error,
+      timestamp: new Date().toISOString()
+    };
+
+    await this.addMetric('webhook_fetch', metric);
+    
+    await loggingService.trackMetric('webhook_fetch', {
+      duration,
+      guildId: metadata.guildId,
+      userId: metadata.userId,
+      success,
       error: metadata.error
-    };
-
-    await this.addMetric(metric);
+    });
   }
 
   /**
-   * Add metric to storage
+   * Add metric to Redis list (non-overwriting)
+   * @param {string} operation - Operation name
+   * @param {Object} metric - Metric data
    */
-  async addMetric(metric) {
-    try {
-      const existing = await this.getMetrics();
-      existing.push(metric);
-      
-      // Keep only recent metrics (last 1000)
-      if (existing.length > 1000) {
-        existing.splice(0, existing.length - 1000);
+  async addMetric(operation, metric) {
+    const metricKey = METRICS_KEYS.operation(operation);
+    
+    // Store in Redis list (non-overwriting)
+    await redisClient.lPush(metricKey, JSON.stringify(metric));
+    
+    // Trim to keep only latest entries
+    await redisClient.lTrim(metricKey, 0, METRICS.MAX_ENTRIES - 1);
+    
+    // Set expiration for metric retention
+    await redisClient.expire(metricKey, METRICS.RETENTION_HOURS * 3600);
+  }
+
+  /**
+   * Get recent metrics for operation
+   * @param {string} operation - Operation name
+   * @param {number} count - Number of metrics to retrieve
+   * @returns {Promise<Array>} Array of metric entries
+   */
+  async getRecentMetrics(operation, count = 50) {
+    const metricKey = METRICS_KEYS.operation(operation);
+    const metrics = await redisClient.lRange(metricKey, 0, count - 1);
+    
+    return metrics.map(metric => {
+      try {
+        return JSON.parse(metric);
+      } catch (error) {
+        return { raw: metric, parseError: error.message };
       }
-      
-      await redisClient.setWithTTL(this.metricsKey, JSON.stringify(existing), this.retentionPeriod);
-    } catch (error) {
-      logger.warn('Failed to store metric', { error: error.message });
-    }
+    });
   }
 
   /**
-   * Get all metrics
+   * Get performance statistics for operation
+   * @param {string} operation - Operation name
+   * @returns {Promise<Object>} Performance statistics
    */
-  async getMetrics() {
-    try {
-      const metrics = await redisClient.get(this.metricsKey);
-      return metrics ? JSON.parse(metrics) : [];
-    } catch (error) {
-      logger.error('Failed to get metrics', { error: error.message });
-      return [];
-    }
-  }
-
-  /**
-   * Get metrics by type
-   */
-  async getMetricsByType(type, timeRange = 3600000) { // 1 hour default
-    const allMetrics = await this.getMetrics();
-    const cutoff = new Date(Date.now() - timeRange);
+  async getPerformanceStats(operation) {
+    const metrics = await this.getRecentMetrics(operation, 100);
     
-    return allMetrics.filter(metric => 
-      metric.type === type && 
-      new Date(metric.timestamp) > cutoff
-    );
-  }
-
-  /**
-   * Get performance statistics
-   */
-  async getPerformanceStats() {
-    const metrics = await this.getMetrics();
-    const cutoff = new Date(Date.now() - 3600000); // Last hour
-    
-    const recentMetrics = metrics.filter(m => new Date(m.timestamp) > cutoff);
-    
-    const stats = {
-      ticketCreation: this.calculateStats(recentMetrics.filter(m => m.type === 'ticket_creation')),
-      ticketResolution: this.calculateStats(recentMetrics.filter(m => m.type === 'ticket_resolution')),
-      discordApi: this.calculateStats(recentMetrics.filter(m => m.type === 'discord_api')),
-      database: this.calculateStats(recentMetrics.filter(m => m.type === 'database')),
-      redis: this.calculateStats(recentMetrics.filter(m => m.type === 'redis')),
-      locks: this.calculateStats(recentMetrics.filter(m => m.type === 'lock')),
-      webhooks: this.calculateStats(recentMetrics.filter(m => m.type === 'webhook'))
-    };
-
-    return stats;
-  }
-
-  /**
-   * Calculate statistics for metrics
-   */
-  calculateStats(metrics) {
     if (metrics.length === 0) {
       return {
         count: 0,
         successRate: 0,
-        avgDuration: 0,
+        averageDuration: 0,
         minDuration: 0,
         maxDuration: 0,
-        errorRate: 0
+        errorCount: 0
       };
     }
-
-    const successful = metrics.filter(m => m.success);
-    const durations = metrics.map(m => m.duration).filter(d => d != null);
+    
+    const successCount = metrics.filter(m => m.success).length;
+    const errorCount = metrics.filter(m => !m.success).length;
+    const durations = metrics.filter(m => m.duration).map(m => m.duration);
     
     return {
       count: metrics.length,
-      successRate: (successful.length / metrics.length) * 100,
-      avgDuration: durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0,
+      successRate: (successCount / metrics.length) * 100,
+      averageDuration: durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0,
       minDuration: durations.length > 0 ? Math.min(...durations) : 0,
       maxDuration: durations.length > 0 ? Math.max(...durations) : 0,
-      errorRate: ((metrics.length - successful.length) / metrics.length) * 100
+      errorCount,
+      p95Duration: this.calculatePercentile(durations, 95),
+      p99Duration: this.calculatePercentile(durations, 99)
     };
   }
 
   /**
-   * Get health summary
+   * Get all operations statistics
+   * @returns {Promise<Object>} All operations statistics
    */
-  async getHealthSummary() {
-    const stats = await this.getPerformanceStats();
-    const issues = [];
-
-    // Check for performance issues
-    if (stats.ticketCreation.avgDuration > 5000) {
-      issues.push('Ticket creation slow (>5s avg)');
-    }
-
-    if (stats.ticketResolution.avgDuration > 3000) {
-      issues.push('Ticket resolution slow (>3s avg)');
-    }
-
-    if (stats.discordApi.successRate < 95) {
-      issues.push('Discord API success rate low (<95%)');
-    }
-
-    if (stats.database.successRate < 98) {
-      issues.push('Database success rate low (<98%)');
-    }
-
-    if (stats.redis.successRate < 98) {
-      issues.push('Redis success rate low (<98%)');
-    }
-
-    return {
-      status: issues.length === 0 ? 'healthy' : 'degraded',
-      issues,
-      stats,
-      timestamp: new Date().toISOString()
-    };
-  }
-
-  /**
-   * Get active ticket count
-   */
-  async getActiveTicketCount() {
-    try {
-      const count = await redisClient.get('ticket:metrics:active_count');
-      return count ? parseInt(count) : 0;
-    } catch (error) {
-      return 0;
-    }
-  }
-
-  /**
-   * Update active ticket count
-   */
-  async updateActiveTicketCount(delta) {
-    try {
-      const current = await this.getActiveTicketCount();
-      const newCount = Math.max(0, current + delta);
-      await redisClient.setWithTTL('ticket:metrics:active_count', newCount.toString(), 24 * 60 * 60 * 1000);
-      return newCount;
-    } catch (error) {
-      logger.warn('Failed to update active ticket count', { error: error.message });
-      return 0;
-    }
-  }
-
-  /**
-   * Record cleanup job execution
-   */
-  async recordCleanupJob(jobName, duration, success, result) {
-    const metric = {
-      type: 'cleanup_job',
-      timestamp: new Date().toISOString(),
-      jobName,
-      duration,
-      success,
-      result
-    };
-
-    await this.addMetric(metric);
-    logger.info(`Cleanup job completed: ${jobName}`, { duration, success });
-  }
-
-  /**
-   * Get cleanup job statistics
-   */
-  async getCleanupJobStats() {
-    const metrics = await this.getMetricsByType('cleanup_job', 24 * 60 * 60 * 1000); // Last 24 hours
-    
+  async getAllStats() {
     const stats = {};
-    for (const metric of metrics) {
-      if (!stats[metric.jobName]) {
-        stats[metric.jobName] = {
-          executions: 0,
-          successes: 0,
-          failures: 0,
-          avgDuration: 0,
-          durations: []
-        };
-      }
-      
-      stats[metric.jobName].executions++;
-      if (metric.success) {
-        stats[metric.jobName].successes++;
-      } else {
-        stats[metric.jobName].failures++;
-      }
-      
-      if (metric.duration) {
-        stats[metric.jobName].durations.push(metric.duration);
-      }
+    
+    for (const operation of METRICS.OPERATIONS) {
+      stats[operation] = await this.getPerformanceStats(operation);
     }
-
-    // Calculate averages
-    for (const [jobName, stat] of Object.entries(stats)) {
-      if (stat.durations.length > 0) {
-        stat.avgDuration = stat.durations.reduce((a, b) => a + b, 0) / stat.durations.length;
-      }
-      stat.successRate = (stat.successes / stat.executions) * 100;
-      delete stat.durations; // Remove raw durations array
-    }
-
+    
     return stats;
   }
 
   /**
-   * Create performance monitor for operations
+   * Calculate percentile from array of numbers
+   * @param {Array} values - Array of numbers
+   * @param {number} percentile - Percentile to calculate (0-100)
+   * @returns {number} Percentile value
    */
-  createPerformanceMonitor(operation, metadata = {}) {
+  calculatePercentile(values, percentile) {
+    if (values.length === 0) return 0;
+    
+    const sorted = values.sort((a, b) => a - b);
+    const index = Math.ceil((percentile / 100) * sorted.length) - 1;
+    return sorted[Math.max(0, index)];
+  }
+
+  /**
+   * Clear metrics for operation
+   * @param {string} operation - Operation name
+   */
+  async clearMetrics(operation) {
+    const metricKey = METRICS_KEYS.operation(operation);
+    await redisClient.delete(metricKey);
+  }
+
+  /**
+   * Clear all metrics
+   */
+  async clearAllMetrics() {
+    for (const operation of METRICS.OPERATIONS) {
+      await this.clearMetrics(operation);
+    }
+  }
+
+  /**
+   * Get metrics summary for dashboard
+   * @returns {Promise<Object>} Dashboard summary
+   */
+  async getDashboardSummary() {
+    const summary = {
+      totalOperations: 0,
+      totalErrors: 0,
+      averageSuccessRate: 0,
+      operations: {}
+    };
+    
+    let totalSuccessRate = 0;
+    let operationCount = 0;
+    
+    for (const operation of METRICS.OPERATIONS) {
+      const stats = await this.getPerformanceStats(operation);
+      
+      summary.operations[operation] = stats;
+      summary.totalOperations += stats.count;
+      summary.totalErrors += stats.errorCount;
+      
+      if (stats.count > 0) {
+        totalSuccessRate += stats.successRate;
+        operationCount++;
+      }
+    }
+    
+    summary.averageSuccessRate = operationCount > 0 ? totalSuccessRate / operationCount : 0;
+    
+    return summary;
+  }
+
+  /**
+   * Create performance timer
+   * @returns {Object} Timer object with stop method
+   */
+  createTimer() {
     const startTime = Date.now();
     
     return {
-      end: async (success = true, error = null) => {
-        const duration = Date.now() - startTime;
-        
-        // Record based on operation type
-        if (operation.startsWith('ticket:')) {
-          const opType = operation.split(':')[1];
-          if (opType === 'creation') {
-            await this.recordTicketCreation(duration, success, { ...metadata, error });
-          } else if (opType === 'resolution') {
-            await this.recordTicketResolution(duration, success, { ...metadata, error });
-          }
-        } else if (operation.startsWith('discord:')) {
-          await this.recordDiscordOperation(operation, duration, success, { ...metadata, error });
-        } else if (operation.startsWith('database:')) {
-          await this.recordDatabaseOperation(operation, duration, success, { ...metadata, error });
-        } else if (operation.startsWith('redis:')) {
-          await this.recordRedisOperation(operation, duration, success, { ...metadata, error });
-        }
-        
+      stop: () => Date.now() - startTime,
+      
+      async record(operation, success, metadata = {}) {
+        const duration = this.stop();
+        await this.recordMetric(operation, duration, success, metadata);
         return duration;
       }
     };
   }
 
   /**
-   * Export metrics for external monitoring
+   * Record metric with timer
+   * @param {string} operation - Operation name
+   * @param {number} duration - Duration in milliseconds
+   * @param {boolean} success - Whether operation succeeded
+   * @param {Object} metadata - Additional metadata
    */
-  async exportMetrics(format = 'json') {
-    const stats = await this.getPerformanceStats();
-    const health = await this.getHealthSummary();
-    const activeCount = await this.getActiveTicketCount();
-    
-    const exportData = {
-      timestamp: new Date().toISOString(),
-      activeTickets: activeCount,
-      health,
-      performance: stats
+  async recordMetric(operation, duration, success, metadata = {}) {
+    const metric = {
+      operation,
+      duration,
+      success,
+      guildId: metadata.guildId,
+      threadId: metadata.threadId,
+      userId: metadata.userId,
+      error: metadata.error,
+      timestamp: new Date().toISOString()
     };
 
-    if (format === 'prometheus') {
-      return this.convertToPrometheusFormat(exportData);
-    }
-
-    return exportData;
-  }
-
-  /**
-   * Convert metrics to Prometheus format
-   */
-  convertToPrometheusFormat(data) {
-    const lines = [];
-    
-    // Active tickets
-    lines.push(`ticket_system_active_tickets ${data.activeTickets}`);
-    
-    // Performance metrics
-    for (const [type, stats] of Object.entries(data.performance)) {
-      lines.push(`ticket_system_${type}_operations_total ${stats.count}`);
-      lines.push(`ticket_system_${type}_success_rate ${stats.successRate}`);
-      lines.push(`ticket_system_${type}_duration_ms ${stats.avgDuration}`);
-      lines.push(`ticket_system_${type}_error_rate ${stats.errorRate}`);
-    }
-    
-    return lines.join('\n');
-  }
-
-  /**
-   * Cleanup old metrics
-   */
-  async cleanup() {
-    try {
-      const metrics = await this.getMetrics();
-      const cutoff = new Date(Date.now() - this.retentionPeriod);
-      
-      const filtered = metrics.filter(m => new Date(m.timestamp) > cutoff);
-      await redisClient.setWithTTL(this.metricsKey, JSON.stringify(filtered), this.retentionPeriod);
-      
-      logger.info('Cleaned up old metrics', { removed: metrics.length - filtered.length });
-    } catch (error) {
-      logger.error('Failed to cleanup metrics', { error: error.message });
-    }
+    await this.addMetric(operation, metric);
   }
 }
 
+// Export singleton instance
 export const metricsService = new MetricsService();

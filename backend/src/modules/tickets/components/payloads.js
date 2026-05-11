@@ -1,5 +1,5 @@
 import { ButtonStyle, MessageFlags } from 'discord.js';
-import { COMPONENT_TYPES, POINTER } from '../utils/constants.js';
+import { COMPONENT_TYPES, POINTER, TICKET_TAGS, CUSTOM_IDS } from '../utils/constants.js';
 
 /**
  * Build ticket panel payload (Components V2)
@@ -26,36 +26,16 @@ export function buildTicketPanelPayload() {
             components: [
               {
                 type: COMPONENT_TYPES.StringSelect,
-                custom_id: 'tickets:tag-select',
+                custom_id: CUSTOM_IDS.ticketTagSelect,
                 placeholder: 'Select a ticket category',
                 min_values: 1,
                 max_values: 1,
-                options: [
-                  {
-                    label: 'General Support',
-                    value: 'general_support',
-                    description: 'Help with server-related questions',
-                    emoji: { name: 'Wump', id: '1503037895382929580' }
-                  },
-                  {
-                    label: 'Report a User',
-                    value: 'report_user',
-                    description: 'Report rule-breaking members',
-                    emoji: { name: 'Exclamation', id: '1503038935645945876' }
-                  },
-                  {
-                    label: 'Partnership Requests',
-                    value: 'partnership_requests',
-                    description: 'Inquiries regarding collaborations',
-                    emoji: { name: 'Fistbump', id: '1503043689281355896' }
-                  },
-                  {
-                    label: 'Booster Perk Claims',
-                    value: 'booster_perk_claims',
-                    description: 'Claim your booster rewards',
-                    emoji: { name: 'Heart', id: '1503038224044527739' }
-                  }
-                ]
+                options: TICKET_TAGS.map(tag => ({
+                  label: tag.label,
+                  value: tag.value,
+                  description: tag.description,
+                  emoji: tag.emoji
+                }))
               }
             ]
           }
@@ -101,7 +81,7 @@ export function buildTicketWelcomePayload(tag, creatorId) {
               {
                 type: COMPONENT_TYPES.Button,
                 style: ButtonStyle.Secondary,
-                custom_id: `tickets:resolved:${creatorId}`,
+                custom_id: `${CUSTOM_IDS.resolvedPrefix}:${creatorId}`,
                 label: 'RESOLVED',
                 emoji: {
                   name: 'Resolved',
@@ -128,14 +108,14 @@ export function buildUserManagementPayload(threadId) {
           {
             type: COMPONENT_TYPES.Button,
             style: ButtonStyle.Secondary,
-            custom_id: `tickets:add-users:${threadId}`,
+            custom_id: `${CUSTOM_IDS.addUsersPrefix}:${threadId}`,
             label: 'USER',
             emoji: { name: 'Add', id: '1503290197079752745' }
           },
           {
             type: COMPONENT_TYPES.Button,
             style: ButtonStyle.Secondary,
-            custom_id: `tickets:remove-users:${threadId}`,
+            custom_id: `${CUSTOM_IDS.removeUsersPrefix}:${threadId}`,
             label: 'USER',
             emoji: { name: 'Remove', id: '1503290199281635391' }
           }

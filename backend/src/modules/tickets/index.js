@@ -1,63 +1,271 @@
-import {
-  ButtonStyle,
-  ChannelType,
-  EmbedBuilder,
-  MessageFlags,
-  PermissionFlagsBits
-} from 'discord.js';
-
-import {
-  TICKET_STAFF_ROLE_IDS,
-  TICKET_LOG_CHANNEL_ID,
-  TICKET_TAGS,
+import { SlashCommandBuilder } from 'discord.js';
+import { loggingService } from './services/logging-service.js';
+import { metricsService } from './services/metrics-service.js';
+import { errorHandler } from './utils/error-handler.js';
+import { routeInteraction, handleThreadUpdate, handleThreadMemberUpdate } from './handlers/interaction-router.js';
+import { ticketCommand } from './commands/ticket-command.js';
+import { 
   TICKET_COMMAND_NAMES,
-  ERROR_MESSAGES,
-  SUCCESS_MESSAGES,
-  LOG_COLORS,
-  COMPONENT_TYPES,
-  CUSTOM_IDS,
-  DEFAULT_ARCHIVE_DURATION
+  ERROR_MESSAGES
 } from './utils/constants.js';
+import { validateInteraction } from './utils/validators.js';
 
-import {
-  parseResolvedCreatorId,
-  parseAddUsersThreadId,
-  parseRemoveUsersThreadId,
-  parseAddUsersModalThreadId,
-  parseRemoveUsersModalThreadId
-} from './utils/custom-id-utils.js';
+/**
+ * Enterprise-grade ticket module entry point
+ * Only registers commands and events, delegates all logic to interaction router
+ */
 
-import { createTicketFromTag } from './handlers/ticket-creation.js';
+// Export the main ticket command for registration
+export { ticketCommand };
 
-import {
-  handleResolvedButton,
-  handleResolvedConfirmYes,
-  handleResolvedConfirmNo
-} from './handlers/ticket-resolution.js';
+/**
+ * Register all ticket-related commands with the Discord client
+ * @param {Object} client - Discord client instance
+ */
+export async function registerCommands(client) {
+  const context = {
+    operation: 'register_commands',
+    startTime: new Date().toISOString()
+  };
 
-import {
-  handleAddUsersButton,
-  handleRemoveUsersButton,
-  handleAddUsersModalSubmit,
-  handleRemoveUsersModalSubmit
-} from './handlers/user-management.js';
+  try {
+    // Register the main ticket command
+    await client.application.commands.create(ticketCommand);
+    
+    await loggingService.info({
+      operation: 'register_commands',
+      ...context,
+      message: 'Successfully registered ticket commands',
+      metadata: { commandCount: 1 }
+    });
 
-import { executeTicketPanelCommand } from './commands/ticket-command.js';
+  } catch (error) {
+    await errorHandler.handleServiceError(error, 'register_commands', 'ticket_module', context);
+    throw error;
+  }
+}
 
-import { ticketService } from './services/ticket-service.js';
-import { webhookService } from './services/webhook-service.js';
+/**
+ * Register all ticket-related event handlers with the Discord client
+ * @param {Object} client - Discord client instance
+ */
+export function registerEvents(client) {
+  const context = {
+    operation: 'register_events',
+    startTime: new Date().toISOString()
+  };
 
-import {
+  try {
+    // Register interaction handler
+    client.on('interactionCreate', async (interaction) => {
+      const timer = metricsService.createTimer();
+      
+      try {
+        await routeInteraction(interaction);
+        
+        const duration = timer.stop();
+        await metricsService.recordInteraction('interaction_create', duration, true, {
+          interactionType: interaction.type,
+          guildId: interaction.guildId
+        });
+        
+      } catch (error) {
+        const duration = timer.stop();
+        await metricsService.recordInteraction('interaction_create', duration, false, {
+          interactionType: interaction.type,
+          guildId: interaction.guildId,
+          error: error.message
+        });
+        
+        await errorHandler.handleInteractionError(context, error, 'interaction_create');
+      }
+    });
+
+    // Register thread update handler
+    client.on('threadUpdate', async (oldThread, newThread) => {
+      const timer = metricsService.createTimer();
+      
+      try {
+        await handleThreadUpdate(oldThread, newThread);
+        
+        const duration = timer.stop();
+        await metricsService.recordInteraction('thread_update', duration, true, {
+          guildId: newThread.guildId,
+          threadId: newThread.id
+        });
+        
+      } catch (error) {
+        const duration = timer.stop();
+        await metricsService.recordInteraction('thread_update', duration, false, {
+          guildId: newThread.guildId,
+          threadId: newThread.id,
+          error: error.message
+        });
+        
+        await errorHandler.handleServiceError(error, 'thread_update', 'ticket_module', context);
+      }
+    });
+
+    // Register thread member update handler
+    client.on('threadMemberUpdate', async (oldMember, newMember) => {
+      const timer = metricsService.createTimer();
+      
+      try {
+        const thread = newMember.thread;
+        await handleThreadMemberUpdate(thread, newMember, 'update');
+        
+        const duration = timer.stop();
+        await metricsService.recordInteraction('thread_member_update', duration, true, {
+          guildId: thread.guildId,
+          threadId: thread.id,
+          userId: newMember.id
+        });
+        
+      } catch (error) {
+        const duration = timer.stop();
+        await metricsService.recordInteraction('thread_member_update', duration, false, {
+          error: error.message
+        });
+        
+        await errorHandler.handleServiceError(error, 'thread_member_update', 'ticket_module', context);
+      }
+    });
+
+    // Register thread member add handler
+    client.on('threadMemberAdd', async (threadMember) => {
+      const timer = metricsService.createTimer();
+      
+      try {
+        const thread = threadMember.thread;
+        await handleThreadMemberUpdate(thread, threadMember, 'add');
+        
+        const duration = timer.stop();
+        await metricsService.recordInteraction('thread_member_add', duration, true, {
+          guildId: thread.guildId,
+          threadId: thread.id,
+          userId: threadMember.id
+        });
+        
+      } catch (error) {
+        const duration = timer.stop();
+        await metricsService.recordInteraction('thread_member_add', duration, false, {
+          error: error.message
+        });
+        
+        await errorHandler.handleServiceError(error, 'thread_member_add', 'ticket_module', context);
+      }
+    });
+
+    // Register thread member remove handler
+    client.on('threadMemberRemove', async (threadMember) => {
+      const timer = metricsService.createTimer();
+      
+      try {
+        const thread = threadMember.thread;
+        await handleThreadMemberUpdate(thread, threadMember, 'remove');
+        
+        const duration = timer.stop();
+        await metricsService.recordInteraction('thread_member_remove', duration, true, {
+          guildId: thread.guildId,
+          threadId: thread.id,
+          userId: threadMember.id
+        });
+        
+      } catch (error) {
+        const duration = timer.stop();
+        await metricsService.recordInteraction('thread_member_remove', duration, false, {
+          error: error.message
+        });
+        
+        await errorHandler.handleServiceError(error, 'thread_member_remove', 'ticket_module', context);
+      }
+    });
+
+    await loggingService.info({
+      operation: 'register_events',
+      ...context,
+      message: 'Successfully registered ticket event handlers',
+      metadata: { eventCount: 5 }
+    });
+
+  } catch (error) {
+    await errorHandler.handleServiceError(error, 'register_events', 'ticket_module', context);
+    throw error;
+  }
+}
+
+/**
+ * Initialize the ticket module
+ * @param {Object} client - Discord client instance
+ */
+export async function initialize(client) {
+  const context = {
+    operation: 'initialize_ticket_module',
+    startTime: new Date().toISOString()
+  };
+
+  try {
+    // Register commands and events
+    await registerCommands(client);
+    registerEvents(client);
+
+    await loggingService.info({
+      operation: 'initialize_ticket_module',
+      ...context,
+      message: 'Ticket module initialized successfully',
+      metadata: { 
+        commandsRegistered: 1,
+        eventsRegistered: 5
+      }
+    });
+
+  } catch (error) {
+    await errorHandler.handleServiceError(error, 'initialize_ticket_module', 'ticket_module', context);
+    throw error;
+  }
+}
+
+/**
+ * Cleanup function for graceful shutdown
+ * @param {Object} client - Discord client instance
+ */
+export async function cleanup(client) {
+  const context = {
+    operation: 'cleanup_ticket_module',
+    startTime: new Date().toISOString()
+  };
+
+  try {
+    // Remove all event listeners
+    client.removeAllListeners('interactionCreate');
+    client.removeAllListeners('threadUpdate');
+    client.removeAllListeners('threadMemberUpdate');
+    client.removeAllListeners('threadMemberAdd');
+    client.removeAllListeners('threadMemberRemove');
+
+    await loggingService.info({
+      operation: 'cleanup_ticket_module',
+      ...context,
+      message: 'Ticket module cleaned up successfully'
+    });
+
+  } catch (error) {
+    await errorHandler.handleServiceError(error, 'cleanup_ticket_module', 'ticket_module', context);
+  }
+}
+
+// Legacy exports for backward compatibility
+export {
   isTicketStaffFromInteraction,
   isAdminOrOwnerFromInteraction
 } from './utils/permissions.js';
 
-import {
+export {
   buildTicketPanelPayload,
   buildUserManagementPayload
 } from './components/payloads.js';
 
-import {
+export {
   buildThreadLink,
   markThreadNameOpen,
   markThreadNameClosed,
@@ -65,582 +273,11 @@ import {
   generateThreadName
 } from './utils/thread-utils.js';
 
-const POINTER = '<:Pointer:1502993771317694655>';
-
-const TICKET_COOLDOWN_MS = 10 * 60 * 1000;
-const TICKET_CREATION_LOCK_MS = 8000;
-
-const ADD_STAFF_MEMBERS_TO_THREAD = false;
-const THREAD_PREFIX_CLOSED = '[CLOSED] ';
-
-const cooldownMap = new Map();
-const creationLockMap = new Map();
-
-// ───────────────── Cooldowns ─────────────────
-
-function setCooldown(userId) {
-  cooldownMap.set(userId, Date.now());
-}
-
-function getRemainingCooldown(userId) {
-  const closedAt = cooldownMap.get(userId);
-
-  if (!closedAt) return 0;
-
-  const elapsed = Date.now() - closedAt;
-
-  if (elapsed >= TICKET_COOLDOWN_MS) {
-    cooldownMap.delete(userId);
-    return 0;
-  }
-
-  return TICKET_COOLDOWN_MS - elapsed;
-}
-
-function hasActiveCreationLock(userId) {
-  const lockedAt = creationLockMap.get(userId);
-
-  if (!lockedAt) return false;
-
-  if (Date.now() - lockedAt >= TICKET_CREATION_LOCK_MS) {
-    creationLockMap.delete(userId);
-    return false;
-  }
-
-  return true;
-}
-
-function acquireCreationLock(userId) {
-  creationLockMap.set(userId, Date.now());
-}
-
-function releaseCreationLock(userId) {
-  creationLockMap.delete(userId);
-}
-
-// ───────────────── Webhook Cache ─────────────────
-
-let cachedLogWebhook = null;
-
-async function getOrCreateLogWebhook(logChannel) {
-  if (cachedLogWebhook) return cachedLogWebhook;
-
-  const hooks = await logChannel.fetchWebhooks().catch(() => null);
-
-  const existing = hooks?.find(
-    (hook) =>
-      hook.owner?.id === logChannel.client.user.id &&
-      hook.name === 'Ticket Logs'
-  );
-
-  cachedLogWebhook =
-    existing ??
-    (await logChannel
-      .createWebhook({
-        name: 'Ticket Logs'
-      })
-      .catch(() => null));
-
-  return cachedLogWebhook;
-}
-
-// ───────────────── Permissions ─────────────────
-
-function isTicketStaffLike(member, guild, userId) {
-  if (!member || !guild || !userId) return false;
-
-  if (guild.ownerId === userId) return true;
-
-  if (member.permissions?.has(PermissionFlagsBits.Administrator)) {
-    return true;
-  }
-
-  return TICKET_STAFF_ROLE_IDS.some((roleId) =>
-    member.roles?.cache?.has(roleId)
-  );
-}
-
-async function requireTicketStaff(interaction) {
-  if (isTicketStaffFromInteraction(interaction)) {
-    return true;
-  }
-
-  const payload = {
-    content: 'You are not allowed to use ticket commands.'
-  };
-
-  if (interaction.deferred || interaction.replied) {
-    await interaction.editReply(payload);
-  } else {
-    await interaction.reply({
-      ...payload,
-      ephemeral: true
-    });
-  }
-
-  return false;
-}
-
-// ───────────────── Thread Utilities ─────────────────
-
-async function addStaffMembersToThread(thread) {
-  const guild = thread.guild;
-
-  await guild.members.fetch().catch(() => null);
-
-  const staffUserIds = new Set();
-
-  for (const roleId of TICKET_STAFF_ROLE_IDS) {
-    const role = guild.roles.cache.get(roleId);
-
-    if (!role) continue;
-
-    for (const member of role.members.values()) {
-      staffUserIds.add(member.id);
-    }
-  }
-
-  await Promise.all(
-    [...staffUserIds].map((userId) =>
-      thread.members.add(userId).catch(() => null)
-    )
-  );
-}
-
-async function getCreatorIdFromThread(thread) {
-  const messages = await thread.messages
-    .fetch({ limit: 30 })
-    .catch(() => null);
-
-  if (!messages) return null;
-
-  for (const message of messages.values()) {
-    for (const row of message.components ?? []) {
-      for (const component of row.components ?? []) {
-        const id = component.customId ?? component.custom_id ?? null;
-
-        const creatorId = parseResolvedCreatorId(id);
-
-        if (creatorId) {
-          return creatorId;
-        }
-      }
-    }
-  }
-
-  return null;
-}
-
-async function hasOpenTicketInChannel(
-  parentChannel,
-  userId,
-  botUserId
-) {
-  const active = await parentChannel.threads
-    .fetchActive()
-    .catch(() => null);
-
-  if (!active) return false;
-
-  for (const thread of active.threads.values()) {
-    if (thread.type !== ChannelType.PrivateThread) continue;
-
-    if (thread.ownerId !== botUserId) continue;
-
-    if (isThreadNameClosed(thread.name)) continue;
-
-    if (thread.locked || thread.archived) continue;
-
-    const creatorId = await getCreatorIdFromThread(thread);
-
-    if (creatorId === userId) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-// ───────────────── Logging ─────────────────
-
-async function getLogWebhookAndChannel(guild) {
-  if (!TICKET_LOG_CHANNEL_ID) {
-    return {
-      webhook: null,
-      logChannel: null
-    };
-  }
-
-  const logChannel = await guild.channels
-    .fetch(TICKET_LOG_CHANNEL_ID)
-    .catch(() => null);
-
-  if (!logChannel?.isTextBased?.()) {
-    return {
-      webhook: null,
-      logChannel: null
-    };
-  }
-
-  const webhook = await getOrCreateLogWebhook(logChannel).catch(
-    () => null
-  );
-
-  return {
-    webhook,
-    logChannel
-  };
-}
-
-async function sendTicketLog(thread, title, color, lines) {
-  const { webhook } = await getLogWebhookAndChannel(thread.guild);
-
-  if (!webhook) return;
-
-  const embed = new EmbedBuilder()
-    .setTitle(title)
-    .setColor(color)
-    .setDescription(lines.join('\n'));
-
-  await webhook
-    .send({
-      embeds: [embed],
-      allowedMentions: {
-        parse: []
-      }
-    })
-    .catch(() => null);
-}
-
-async function findTicketLogMessageByTitle(
-  logChannel,
-  threadLink,
-  title
-) {
-  const messages = await logChannel.messages
-    .fetch({ limit: 100 })
-    .catch(() => null);
-
-  if (!messages) return null;
-
-  for (const message of messages.values()) {
-    const embed = message.embeds?.[0];
-
-    if (!embed?.description) continue;
-
-    if (!embed.description.includes(threadLink)) continue;
-
-    if (embed.title === title) {
-      return message;
-    }
-  }
-
-  return null;
-}
-
-function parseLogDescriptionField(description, label) {
-  const match = description.match(
-    new RegExp(`${label}:\\s*(.+)`)
-  );
-
-  return match?.[1]?.trim() ?? null;
-}
-
-async function sendCreatedLog(thread, {
-  creatorId,
-  tagLabel
-}) {
-  const createdAtUnix = Math.floor(Date.now() / 1000);
-
-  const threadLink = buildThreadLink(
-    thread.guildId,
-    thread.id
-  );
-
-  const lines = [
-    `${POINTER} Created By: <@${creatorId}>`,
-    `${POINTER} Created At: <t:${createdAtUnix}:F>`,
-    `${POINTER} Ticket Tag: ${tagLabel}`,
-    `${POINTER} Thread Link: ${threadLink}`
-  ];
-
-  await sendTicketLog(
-    thread,
-    'Created',
-    0x8b2b2b,
-    lines
-  );
-}
-
-async function upsertResolvedLog(
-  thread,
-  {
-    creatorId,
-    resolverId,
-    tagLabel
-  }
-) {
-  const { webhook, logChannel } =
-    await getLogWebhookAndChannel(thread.guild);
-
-  if (!webhook || !logChannel) return;
-
-  const threadLink = buildThreadLink(
-    thread.guildId,
-    thread.id
-  );
-
-  const now = Math.floor(Date.now() / 1000);
-
-  const lines = [
-    `${POINTER} Resolved By: <@${resolverId}>`,
-    `${POINTER} Resolved At: <t:${now}:F>`,
-    `${POINTER} Created By: <@${creatorId}>`,
-    `${POINTER} Ticket Tag: ${tagLabel}`,
-    `${POINTER} Thread Link: ${threadLink}`
-  ];
-
-  const existing = await findTicketLogMessageByTitle(
-    logChannel,
-    threadLink,
-    'Resolved'
-  );
-
-  if (existing) {
-    const embed = new EmbedBuilder()
-      .setTitle('Resolved')
-      .setColor(0x2fa44f)
-      .setDescription(lines.join('\n'));
-
-    await webhook
-      .editMessage(existing.id, {
-        embeds: [embed],
-        allowedMentions: {
-          parse: []
-        }
-      })
-      .catch(() => null);
-
-  } else {
-    await sendTicketLog(
-      thread,
-      'Resolved',
-      0x2fa44f,
-      lines
-    );
-  }
-}
-
-// ───────────────── Router ─────────────────
-
-async function handleTicketTagSelect(interaction) {
-  if (hasActiveCreationLock(interaction.user.id)) {
-    await interaction.reply({
-      content:
-        'A ticket creation is already in progress. Please wait a few seconds and try again.',
-      ephemeral: true
-    });
-
-    return;
-  }
-
-  acquireCreationLock(interaction.user.id);
-
-  await interaction.deferReply({
-    ephemeral: true
-  });
-
-  try {
-    const [selectedValue] = interaction.values;
-
-    const selectedTag = TICKET_TAGS.find(
-      (tag) => tag.value === selectedValue
-    );
-
-    if (!selectedTag) {
-      await interaction.editReply({
-        content: 'Unknown ticket category selected.'
-      });
-
-      return;
-    }
-
-    await createTicketFromTag(
-      interaction,
-      selectedTag
-    );
-
-  } finally {
-    releaseCreationLock(interaction.user.id);
-  }
-}
-
-async function handleButton(interaction) {
-  const resolvedCreatorId =
-    parseResolvedCreatorId(interaction.customId);
-
-  if (resolvedCreatorId) {
-    await handleResolvedButton(
-      interaction,
-      resolvedCreatorId
-    );
-
-    return;
-  }
-
-  const addThreadId =
-    parseAddUsersThreadId(interaction.customId);
-
-  if (addThreadId) {
-    await handleAddUsersButton(
-      interaction,
-      addThreadId
-    );
-
-    return;
-  }
-
-  const removeThreadId =
-    parseRemoveUsersThreadId(interaction.customId);
-
-  if (removeThreadId) {
-    await handleRemoveUsersButton(
-      interaction,
-      removeThreadId
-    );
-
-    return;
-  }
-}
-
-async function handleModalSubmit(interaction) {
-  const addThreadId =
-    parseAddUsersModalThreadId(interaction.customId);
-
-  if (addThreadId) {
-    await handleAddUsersModalSubmit(
-      interaction,
-      addThreadId
-    );
-
-    return;
-  }
-
-  const removeThreadId =
-    parseRemoveUsersModalThreadId(interaction.customId);
-
-  if (removeThreadId) {
-    await handleRemoveUsersModalSubmit(
-      interaction,
-      removeThreadId
-    );
-
-    return;
-  }
-}
-
-// ───────────────── Builder ─────────────────
-
-function buildTicketCommand(
-  name,
-  description,
-  execute,
-  options = []
-) {
-  return {
-    name,
-    description,
-    ephemeral: true,
-    options,
-
-    async execute(interaction) {
-      await execute(interaction);
-    }
-  };
-}
-
-// ───────────────── Export ─────────────────
-
+// Legacy export for backward compatibility - deprecated in favor of initialize()
 export default {
   name: 'tickets',
-
-  configSchema: {
-    type: 'object',
-    properties: {}
-  },
-
-  commands: [
-    buildTicketCommand(
-      'ticket',
-      'Manage the ticket system',
-
-      async (interaction) => {
-        await executeTicketPanelCommand(
-          interaction
-        );
-      },
-
-      [
-        {
-          name: 'panel',
-          type: 1,
-          description:
-            'Send the ticket creation panel'
-        },
-
-        {
-          name: 'manage',
-          type: 2,
-          description:
-            'Ticket management controls',
-
-          options: [
-            {
-              name: 'users',
-              type: 1,
-              description:
-                'Open add/remove user controls for this ticket thread'
-            }
-          ]
-        }
-      ]
-    )
-  ],
-
-  events: [
-    {
-      name: 'interactionCreate',
-
-      async execute(interaction) {
-        if (
-          interaction.isChatInputCommand() &&
-          TICKET_COMMAND_NAMES.has(
-            interaction.commandName
-          )
-        ) {
-          return;
-        }
-
-        if (
-          interaction.isStringSelectMenu() &&
-          interaction.customId ===
-            CUSTOM_IDS.ticketTagSelect
-        ) {
-          await handleTicketTagSelect(
-            interaction
-          );
-
-        } else if (interaction.isButton()) {
-          await handleButton(interaction);
-
-        } else if (
-          interaction.isModalSubmit()
-        ) {
-          await handleModalSubmit(
-            interaction
-          );
-        }
-      }
-    }
-  ]
+  initialize,
+  registerCommands,
+  registerEvents,
+  cleanup
 };

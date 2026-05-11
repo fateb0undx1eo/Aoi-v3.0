@@ -385,6 +385,175 @@ class RedisClient {
   }
 
   /**
+   * Push value to the left of a list
+   * @param {string} key - List key
+   * @param {string} value - Value to push
+   * @returns {Promise<number>} New list length
+   */
+  async lPush(key, value) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping lpush operation');
+      return 0;
+    }
+
+    try {
+      const result = await this.client.lPush(key, value);
+      return result;
+    } catch (error) {
+      console.error(`Failed to lpush to key ${key}:`, error);
+      return 0;
+    }
+  }
+
+  /**
+   * Trim list to keep only specified range
+   * @param {string} key - List key
+   * @param {number} start - Start index
+   * @param {number} stop - Stop index
+   * @returns {Promise<string>} OK response
+   */
+  async lTrim(key, start, stop) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping ltrim operation');
+      return null;
+    }
+
+    try {
+      const result = await this.client.lTrim(key, start, stop);
+      return result;
+    } catch (error) {
+      console.error(`Failed to ltrim key ${key}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Set expiration time on key
+   * @param {string} key - Key to set expiration on
+   * @param {number} ttl - Time to live in seconds
+   * @returns {Promise<boolean>} True if successful
+   */
+  async expire(key, ttl) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping expire operation');
+      return false;
+    }
+
+    try {
+      const result = await this.client.expire(key, ttl);
+      return result === 1;
+    } catch (error) {
+      console.error(`Failed to set expiration on key ${key}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Set key value only if key doesn't exist
+   * @param {string} key - Key to set
+   * @param {string} value - Value to set
+   * @returns {Promise<boolean>} True if key was set
+   */
+  async setNX(key, value) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping setnx operation');
+      return false;
+    }
+
+    try {
+      const result = await this.client.setNX(key, value);
+      return result === true;
+    } catch (error) {
+      console.error(`Failed to setnx key ${key}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Execute a pipeline of Redis commands
+   * @param {Function} pipelineFn - Function that receives pipeline object
+   * @returns {Promise<Array>} Array of results
+   */
+  async pipeline(pipelineFn) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping pipeline operation');
+      return [];
+    }
+
+    try {
+      const pipeline = this.client.multi();
+      pipelineFn(pipeline);
+      const results = await pipeline.exec();
+      return results || [];
+    } catch (error) {
+      console.error('Failed to execute Redis pipeline:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get range of elements from list
+   * @param {string} key - List key
+   * @param {number} start - Start index (0 = first)
+   * @param {number} stop - Stop index (-1 = last)
+   * @returns {Promise<Array>} Array of values
+   */
+  async lRange(key, start, stop) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping lrange operation');
+      return [];
+    }
+
+    try {
+      const result = await this.client.lRange(key, start, stop);
+      return result || [];
+    } catch (error) {
+      console.error(`Failed to lrange key ${key}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Remove and get first element of list
+   * @param {string} key - List key
+   * @returns {Promise<string|null>} First element or null
+   */
+  async lPop(key) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping lpop operation');
+      return null;
+    }
+
+    try {
+      const result = await this.client.lPop(key);
+      return result;
+    } catch (error) {
+      console.error(`Failed to lpop key ${key}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get list length
+   * @param {string} key - List key
+   * @returns {Promise<number>} List length
+   */
+  async lLen(key) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping llen operation');
+      return 0;
+    }
+
+    try {
+      const result = await this.client.lLen(key);
+      return result || 0;
+    } catch (error) {
+      console.error(`Failed to llen key ${key}:`, error);
+      return 0;
+    }
+  }
+
+  /**
    * Close Redis connection
    */
   async disconnect() {

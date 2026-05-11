@@ -1,6 +1,9 @@
 /**
- * Constants and configuration for ticket system
+ * Enterprise-grade constants and configuration for ticket system
+ * SINGLE SOURCE OF TRUTH - All constants consolidated here
  */
+
+// ==================== TICKET CONFIGURATION ====================
 
 export const TICKET_TAGS = [
   {
@@ -37,6 +40,8 @@ export const TICKET_TAGS = [
   }
 ];
 
+// ==================== DISCORD CONFIGURATION ====================
+
 export const TICKET_STAFF_ROLE_IDS = [
   '1457403601512169724'
 ];
@@ -48,6 +53,8 @@ export const TICKET_COMMAND_NAMES = new Set([
   'ticket'
 ]);
 
+// ==================== COMPONENT TYPES ====================
+
 export const COMPONENT_TYPES = {
   ActionRow: 1,
   Button: 2,
@@ -56,7 +63,8 @@ export const COMPONENT_TYPES = {
   Container: 17
 };
 
-// Custom ID patterns for confirmation flow
+// ==================== CUSTOM IDs ====================
+
 export const CUSTOM_IDS = {
   ticketTagSelect: 'tickets:tag-select',
   resolvedPrefix: 'tickets:resolved',
@@ -71,27 +79,39 @@ export const CUSTOM_IDS = {
   removeUserSelect: 'tickets:remove-user-select-modal'
 };
 
+// ==================== UI ELEMENTS ====================
+
 export const POINTER = '<:Pointer:1502993771317694655>';
 
-// Time constants
-export const TICKET_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
-export const TICKET_CREATION_LOCK_MS = 8000; // 8 seconds
+// ==================== THREAD CONFIGURATION ====================
+
+export const THREAD_PREFIX_CLOSED = '[CLOSED] ';
+export const THREAD_NAME_MAX_LENGTH = 100;
 
 // Auto-archive durations (in minutes)
 export const AUTO_ARCHIVE_24H = 1440;
 export const AUTO_ARCHIVE_1H = 60;
-export const DEFAULT_ARCHIVE_DURATION = AUTO_ARCHIVE_1H; // Changed to 1 hour
+export const DEFAULT_ARCHIVE_DURATION = AUTO_ARCHIVE_1H;
 
-// Redis TTLs
+// ==================== TIME CONSTANTS ====================
+
+export const TICKET_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+export const TICKET_CREATION_LOCK_MS = 8000; // 8 seconds
+
+// ==================== REDIS CONFIGURATION ====================
+
 export const REDIS_TTL = {
   CREATION_LOCK: TICKET_CREATION_LOCK_MS,
   RESOLVE_MUTEX: 30 * 1000, // 30 seconds
   WEBHOOK_LOCK: 5 * 1000, // 5 seconds
   WEBHOOK_CACHE: 30 * 60 * 1000, // 30 minutes
-  COOLDOWN: TICKET_COOLDOWN_MS
+  COOLDOWN: TICKET_COOLDOWN_MS,
+  METRICS: 60 * 60 * 1000, // 1 hour
+  LOGS: 24 * 60 * 60 * 1000 // 24 hours
 };
 
-// Error messages
+// ==================== ERROR MESSAGES ====================
+
 export const ERROR_MESSAGES = {
   NOT_IN_GUILD: 'This command only works in a server.',
   NOT_TICKET_THREAD: 'This command only works inside ticket threads.',
@@ -109,7 +129,8 @@ export const ERROR_MESSAGES = {
   FAILED_OPERATION: 'Operation failed. Please try again.'
 };
 
-// Success messages
+// ==================== SUCCESS MESSAGES ====================
+
 export const SUCCESS_MESSAGES = {
   TICKET_CREATED: (threadId) => `Ticket created: <#${threadId}>`,
   TICKET_RESOLVED: 'Ticket marked as resolved.',
@@ -118,10 +139,66 @@ export const SUCCESS_MESSAGES = {
   PANEL_SENT: 'Ticket panel sent in this channel.'
 };
 
-// Log colors (hex)
+// ==================== LOG COLORS ====================
+
 export const LOG_COLORS = {
   CREATED: 0x8b2b2b,
   RESOLVED: 0x2fa44f,
   USER_ADDED: 0x57f287,
   USER_REMOVED: 0xed4245
+};
+
+// ==================== DATABASE CONFIGURATION ====================
+
+export const DB_CONSTRAINTS = {
+  MAX_TICKETS_PER_USER: 1, // Open tickets per user
+  MAX_COOLDOWN_RECORDS: 1000,
+  BATCH_SIZE: 100
+};
+
+// ==================== RECONCILIATION CONFIGURATION ====================
+
+export const RECONCILIATION = {
+  INTERVAL_HOURS: 6, // Run reconciliation every 6 hours
+  BATCH_SIZE: 50,
+  MAX_AGE_DAYS: 30 // Don't reconcile tickets older than 30 days
+};
+
+// ==================== METRICS CONFIGURATION ====================
+
+export const METRICS = {
+  MAX_ENTRIES: 100, // Keep latest 100 metrics per operation
+  RETENTION_HOURS: 24,
+  OPERATIONS: [
+    'ticket_created',
+    'ticket_resolved',
+    'user_added',
+    'user_removed',
+    'cooldown_check',
+    'webhook_fetch'
+  ]
+};
+
+// ==================== LOGGING CONFIGURATION ====================
+
+export const LOGGING = {
+  MAX_ENTRIES: 100, // Keep latest 100 log entries
+  RETENTION_HOURS: 24,
+  LEVELS: {
+    ERROR: 'error',
+    WARN: 'warn',
+    INFO: 'info',
+    DEBUG: 'debug'
+  }
+};
+
+// ==================== VALIDATION CONFIGURATION ====================
+
+export const VALIDATION = {
+  MAX_THREAD_NAME_LENGTH: 100,
+  MAX_REASON_LENGTH: 1000,
+  MAX_MODAL_INPUT_LENGTH: 1000,
+  USER_ID_REGEX: /^\d{17,19}$/,
+  THREAD_ID_REGEX: /^\d{17,19}$/,
+  GUILD_ID_REGEX: /^\d{17,19}$/
 };
