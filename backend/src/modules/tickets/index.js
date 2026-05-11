@@ -8,6 +8,7 @@ import {
 
 const POINTER = '<:Pointer:1502993771317694655>';
 const AUTO_ARCHIVE_24H = 1440;
+const AUTO_ARCHIVE_1H = 60;
 const TICKET_COOLDOWN_MS = 10 * 60 * 1000;
 const TICKET_CREATION_LOCK_MS = 8000;
 
@@ -421,9 +422,6 @@ function buildTicketWelcomePayload(
             ]
           }
         ]
-
-=======
->>>>>>> 2dbf62f (ticket system minor changes 2.9)
       }
     ]
   };
@@ -796,61 +794,46 @@ async function createTicketFromTag(interaction, tag) {
     tag.namePrefix
   );
 
-  const thread = await parentChannel.threads
-    .create({
+  let thread;
+  try {
+    thread = await parentChannel.threads.create({
       name: threadName,
-
       type: ChannelType.PrivateThread,
-
       invitable: false,
-
       autoArchiveDuration: AUTO_ARCHIVE_24H,
-
       reason:
         `Ticket created by ${interaction.user.id} ` +
         `(${tag.value})`
-    })
-    .catch(() => null);
-
-  if (!thread) {
+    });
+  } catch {
     await interaction.editReply({
       content:
         'Failed to create ticket thread.'
     });
-
     return;
   }
 
-  await thread.members
-    .add(interaction.user.id)
-    .catch(() => null);
+  try {
+    await thread.members.add(interaction.user.id);
+  } catch {
+    await interaction.editReply({
+      content:
+        'Ticket thread was created, but I could not add you to it.'
+    });
+    return;
+  }
 
   if (ADD_STAFF_MEMBERS_TO_THREAD) {
     await addStaffMembersToThread(thread);
   }
 
-  const welcomePayload =
-    buildTicketWelcomePayload(
-      tag,
-      interaction.user.id
-    );
+  await interaction.editReply({
+    content: `Ticket created: <#${thread.id}>`
+  });
 
-  const combinedMessage = await thread
-    .send({
-      content: buildTicketMentions(
-        interaction.user.id
-      ),
-      allowedMentions: {
-        users: [interaction.user.id],
-        roles: TICKET_STAFF_ROLE_IDS
-      },
-      ...welcomePayload
-    })
-    .catch(() => null);
-
-  if (!combinedMessage) {
-    await thread
-      .send({
+  queueMicrotask(async () => {
+    try {
+      await thread.send({
         content: buildTicketMentions(
           interaction.user.id
         ),
@@ -858,19 +841,22 @@ async function createTicketFromTag(interaction, tag) {
           users: [interaction.user.id],
           roles: TICKET_STAFF_ROLE_IDS
         }
-      })
-      .catch(() => null);
+      });
+    } catch {}
 
-    await thread.send(welcomePayload).catch(() => null);
-  }
+    try {
+      await thread.send(
+        buildTicketWelcomePayload(
+          tag,
+          interaction.user.id
+        )
+      );
+    } catch {}
 
-  await upsertCreatedLog(thread, {
-    creatorId: interaction.user.id,
-    tagLabel: tag.label
-  });
-
-  await interaction.editReply({
-    content: `Ticket created: <#${thread.id}>`
+    await upsertCreatedLog(thread, {
+      creatorId: interaction.user.id,
+      tagLabel: tag.label
+    });
   });
 }
 
@@ -920,6 +906,18 @@ async function toggleResolved(
       .remove(creatorId)
       .catch(() => null);
 
+    await thread
+      .setAutoArchiveDuration(AUTO_ARCHIVE_1H)
+      .catch(() => null);
+
+    await thread
+      .setLocked(true)
+      .catch(() => null);
+
+    await thread
+      .setArchived(true)
+      .catch(() => null);
+
     setCooldown(creatorId);
 
     await upsertResolvedLog(thread, {
@@ -938,6 +936,18 @@ async function toggleResolved(
 
   await thread
     .setName(markThreadNameOpen(thread.name))
+    .catch(() => null);
+
+  await thread
+    .setArchived(false)
+    .catch(() => null);
+
+  await thread
+    .setLocked(false)
+    .catch(() => null);
+
+  await thread
+    .setAutoArchiveDuration(AUTO_ARCHIVE_24H)
     .catch(() => null);
 
   await thread.members
