@@ -414,29 +414,31 @@ function buildTicketWelcomePayload(tag, creatorId) {
                   name: 'Handled',
                   id: '1503284846980632647'
                 }
-              },
-
+              }
+            ]
+          }
+        ]
+      },
+      {
+        type: COMPONENT_TYPES.Container,
+        components: [
+          {
+            type: COMPONENT_TYPES.ActionRow,
+            components: [
               {
                 type: COMPONENT_TYPES.Button,
-
                 style: ButtonStyle.Secondary,
-
                 custom_id: buildAddUsersCustomId(creatorId),
-
                 label: 'USER',
                 emoji: {
                   name: 'Add',
                   id: '1503290197079752745'
                 }
               },
-
               {
                 type: COMPONENT_TYPES.Button,
-
                 style: ButtonStyle.Secondary,
-
                 custom_id: buildRemoveUsersCustomId(creatorId),
-
                 label: 'USER',
                 emoji: {
                   name: 'Remove',
@@ -537,21 +539,11 @@ async function hasOpenTicketInChannel(
   return false;
 }
 
-async function sendOpeningPing(thread, creatorId) {
+function buildTicketMentions(creatorId) {
   const roleMentions = TICKET_STAFF_ROLE_IDS
     .map((roleId) => `<@&${roleId}>`)
     .join(' ');
-
-  await thread
-    .send({
-      content: `<@${creatorId}> ${roleMentions}`.trim(),
-
-      allowedMentions: {
-        users: [creatorId],
-        roles: TICKET_STAFF_ROLE_IDS
-      }
-    })
-    .catch(() => null);
+  return `<@${creatorId}> ${roleMentions}`.trim();
 }
 
 // ───────────────── Logging ─────────────────
@@ -674,18 +666,20 @@ async function createTicketFromTag(interaction, tag) {
     await addStaffMembersToThread(thread);
   }
 
-  await sendOpeningPing(
-    thread,
-    interaction.user.id
-  );
-
   await thread
-    .send(
-      buildTicketWelcomePayload(
+    .send({
+      content: buildTicketMentions(
+        interaction.user.id
+      ),
+      allowedMentions: {
+        users: [interaction.user.id],
+        roles: TICKET_STAFF_ROLE_IDS
+      },
+      ...buildTicketWelcomePayload(
         tag,
         interaction.user.id
       )
-    )
+    })
     .catch(() => null);
 
   const createdAtUnix = Math.floor(
