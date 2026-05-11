@@ -933,7 +933,32 @@ export default {
     properties: {}
   },
 
-  commands: [],
+  commands: [
+    buildTicketCommand(
+      'ticket',
+      'Manage the ticket system',
+      executeTicketPanelCommand,
+      [
+        {
+          name: 'panel',
+          type: 1,
+          description: 'Send the ticket creation panel'
+        },
+        {
+          name: 'manage',
+          type: 2,
+          description: 'Ticket management controls',
+          options: [
+            {
+              name: 'users',
+              type: 1,
+              description: 'Open add/remove user controls for this ticket thread'
+            }
+          ]
+        }
+      ]
+    )
+  ],
 
   events: [
     {
@@ -942,7 +967,7 @@ export default {
       async execute(interaction) {
         // Handle interactions through the new router
         if (interaction.isChatInputCommand() && TICKET_COMMAND_NAMES.has(interaction.commandName)) {
-          // Commands are now handled by the new command system
+          await executeTicketPanelCommand(interaction);
           return;
         }
 
