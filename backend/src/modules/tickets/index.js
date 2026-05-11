@@ -59,7 +59,6 @@ import {
 
 import {
   buildThreadLink,
-  buildTicketMentions,
   markThreadNameOpen,
   markThreadNameClosed,
   isThreadNameClosed,
