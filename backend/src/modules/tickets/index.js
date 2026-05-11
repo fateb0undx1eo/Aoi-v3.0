@@ -937,7 +937,9 @@ export default {
     buildTicketCommand(
       'ticket',
       'Manage the ticket system',
-      executeTicketPanelCommand,
+      async (interaction) => {
+        await executeTicketPanelCommand(interaction);
+      },
       [
         {
           name: 'panel',
@@ -967,7 +969,7 @@ export default {
       async execute(interaction) {
         // Handle interactions through the new router
         if (interaction.isChatInputCommand() && TICKET_COMMAND_NAMES.has(interaction.commandName)) {
-          await executeTicketPanelCommand(interaction);
+          // Commands are now handled by the new command system
           return;
         }
 
