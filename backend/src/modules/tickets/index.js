@@ -25,12 +25,14 @@ const CUSTOM_IDS = {
 
   resolvedPrefix: 'tickets:resolved',
 
-  manageUsersPrefix: 'tickets:manage-users',
+  addUsersPrefix: 'tickets:add-users',
+  removeUsersPrefix: 'tickets:remove-users',
 
-  manageUsersModal: 'tickets:manage-users-modal',
+  addUsersModal: 'tickets:add-users-modal',
+  removeUsersModal: 'tickets:remove-users-modal',
 
-  addUserSelect: 'tickets:add-user-select',
-  removeUserSelect: 'tickets:remove-user-select'
+  addUserSelect: 'tickets:add-user-select-modal',
+  removeUserSelect: 'tickets:remove-user-select-modal'
 };
 
 const COMPONENT_TYPES = {
@@ -218,34 +220,68 @@ function parseResolvedCreatorId(customId) {
     : null;
 }
 
-function buildManageUsersCustomId(creatorId) {
-  return `${CUSTOM_IDS.manageUsersPrefix}:${creatorId}`;
+function buildAddUsersCustomId(creatorId) {
+  return `${CUSTOM_IDS.addUsersPrefix}:${creatorId}`;
 }
 
-function parseManageUsersCreatorId(customId) {
-  if (!customId?.startsWith(`${CUSTOM_IDS.manageUsersPrefix}:`)) {
+function parseAddUsersCreatorId(customId) {
+  if (!customId?.startsWith(`${CUSTOM_IDS.addUsersPrefix}:`)) {
     return null;
   }
 
   const creatorId =
-    customId.slice(`${CUSTOM_IDS.manageUsersPrefix}:`.length);
+    customId.slice(`${CUSTOM_IDS.addUsersPrefix}:`.length);
 
   return /^\d{16,20}$/.test(creatorId)
     ? creatorId
     : null;
 }
 
-function buildManageUsersModalCustomId(creatorId) {
-  return `${CUSTOM_IDS.manageUsersModal}:${creatorId}`;
+function buildRemoveUsersCustomId(creatorId) {
+  return `${CUSTOM_IDS.removeUsersPrefix}:${creatorId}`;
 }
 
-function parseManageUsersModalCreatorId(customId) {
-  if (!customId?.startsWith(`${CUSTOM_IDS.manageUsersModal}:`)) {
+function parseRemoveUsersCreatorId(customId) {
+  if (!customId?.startsWith(`${CUSTOM_IDS.removeUsersPrefix}:`)) {
     return null;
   }
 
   const creatorId =
-    customId.slice(`${CUSTOM_IDS.manageUsersModal}:`.length);
+    customId.slice(`${CUSTOM_IDS.removeUsersPrefix}:`.length);
+
+  return /^\d{16,20}$/.test(creatorId)
+    ? creatorId
+    : null;
+}
+
+function buildAddUsersModalCustomId(creatorId) {
+  return `${CUSTOM_IDS.addUsersModal}:${creatorId}`;
+}
+
+function parseAddUsersModalCreatorId(customId) {
+  if (!customId?.startsWith(`${CUSTOM_IDS.addUsersModal}:`)) {
+    return null;
+  }
+
+  const creatorId =
+    customId.slice(`${CUSTOM_IDS.addUsersModal}:`.length);
+
+  return /^\d{16,20}$/.test(creatorId)
+    ? creatorId
+    : null;
+}
+
+function buildRemoveUsersModalCustomId(creatorId) {
+  return `${CUSTOM_IDS.removeUsersModal}:${creatorId}`;
+}
+
+function parseRemoveUsersModalCreatorId(customId) {
+  if (!customId?.startsWith(`${CUSTOM_IDS.removeUsersModal}:`)) {
+    return null;
+  }
+
+  const creatorId =
+    customId.slice(`${CUSTOM_IDS.removeUsersModal}:`.length);
 
   return /^\d{16,20}$/.test(creatorId)
     ? creatorId
@@ -373,7 +409,11 @@ function buildTicketWelcomePayload(tag, creatorId) {
 
                 custom_id: buildResolvedCustomId(creatorId),
 
-                label: 'RESOLVED'
+                label: 'RESOLVED',
+                emoji: {
+                  name: 'Resolved',
+                  id: '1503284846980632647'
+                }
               },
 
               {
@@ -381,9 +421,27 @@ function buildTicketWelcomePayload(tag, creatorId) {
 
                 style: ButtonStyle.Secondary,
 
-                custom_id: buildManageUsersCustomId(creatorId),
+                custom_id: buildAddUsersCustomId(creatorId),
 
-                label: 'ADD/REMOVE'
+                label: 'USER',
+                emoji: {
+                  name: 'Add',
+                  id: '1503290197079752745'
+                }
+              },
+
+              {
+                type: COMPONENT_TYPES.Button,
+
+                style: ButtonStyle.Secondary,
+
+                custom_id: buildRemoveUsersCustomId(creatorId),
+
+                label: 'USER',
+                emoji: {
+                  name: 'Remove',
+                  id: '1503290199281635391'
+                }
               }
             ]
           }
@@ -754,7 +812,7 @@ async function toggleResolved(
 
 // ───────────────── Manage Users ─────────────────
 
-async function handleManageUsersButton(
+async function handleAddUsersButton(
   interaction,
   creatorId
 ) {
@@ -784,10 +842,10 @@ async function handleManageUsersButton(
   }
 
   await interaction.showModal({
-    custom_id: buildManageUsersModalCustomId(
+    custom_id: buildAddUsersModalCustomId(
       creatorId
     ),
-    title: 'Manage Ticket Users',
+    title: 'Add User',
     components: [
       {
         type: 18,
@@ -798,11 +856,50 @@ async function handleManageUsersButton(
           type: 5,
           custom_id: CUSTOM_IDS.addUserSelect,
           placeholder: 'Select user to add',
-          min_values: 0,
+          min_values: 1,
           max_values: 1,
-          required: false
+          required: true
         }
-      },
+      }
+    ]
+  });
+}
+
+async function handleRemoveUsersButton(
+  interaction,
+  creatorId
+) {
+  if (
+    !interaction.inGuild() ||
+    !interaction.channel?.isThread?.()
+  ) {
+    await interaction.reply({
+      content:
+        'This button only works inside ticket threads.',
+
+      ephemeral: true
+    });
+
+    return;
+  }
+
+  if (!isTicketStaffFromInteraction(interaction)) {
+    await interaction.reply({
+      content:
+        'Only support staff can manage users.',
+
+      ephemeral: true
+    });
+
+    return;
+  }
+
+  await interaction.showModal({
+    custom_id: buildRemoveUsersModalCustomId(
+      creatorId
+    ),
+    title: 'Remove User',
+    components: [
       {
         type: 18,
         label: 'Remove User',
@@ -814,16 +911,16 @@ async function handleManageUsersButton(
             CUSTOM_IDS.removeUserSelect,
           placeholder:
             'Select user to remove',
-          min_values: 0,
+          min_values: 1,
           max_values: 1,
-          required: false
+          required: true
         }
       }
     ]
   });
 }
 
-async function handleManageUsersModalSubmit(
+async function handleAddUsersModalSubmit(
   interaction,
   creatorId
 ) {
@@ -857,21 +954,96 @@ async function handleManageUsersModalSubmit(
       CUSTOM_IDS.addUserSelect
     );
 
+  const addUserId =
+    addUsers.first()?.id ?? null;
+
+  if (!addUserId) {
+    await interaction.reply({
+      content:
+        'Please select a user to add.',
+      ephemeral: true
+    });
+    return;
+  }
+
+  const results = [];
+
+  const member =
+    await interaction.guild.members
+      .fetch(addUserId)
+      .catch(() => null);
+
+  if (member) {
+    await thread.members
+      .add(addUserId)
+      .catch(() => null);
+
+    results.push(
+      `Added <@${addUserId}>`
+    );
+
+    await sendTicketLog(
+      thread,
+      'User Added',
+      0x57f287,
+      [
+        `Added By: <@${interaction.user.id}>`,
+        `Added User: <@${addUserId}>`,
+        `Thread Link: ${buildThreadLink(
+          interaction.guildId,
+          thread.id
+        )}`
+      ]
+    );
+  }
+
+  await interaction.reply({
+    content: results.join('\n') || 'Could not add that user.',
+    ephemeral: true
+  });
+}
+
+async function handleRemoveUsersModalSubmit(
+  interaction,
+  creatorId
+) {
+  if (
+    !interaction.inGuild() ||
+    !interaction.channel?.isThread?.()
+  ) {
+    return;
+  }
+
+  const thread = interaction.channel;
+
+  if (!creatorId) {
+    await interaction.reply({
+      content: 'Invalid ticket state.',
+      ephemeral: true
+    });
+    return;
+  }
+
+  if (!isTicketStaffFromInteraction(interaction)) {
+    await interaction.reply({
+      content: 'Only support staff can manage users.',
+      ephemeral: true
+    });
+    return;
+  }
+
   const removeUsers =
     interaction.fields.getSelectedUsers(
       CUSTOM_IDS.removeUserSelect
     );
 
-  const addUserId =
-    addUsers.first()?.id ?? null;
-
   const removeUserId =
     removeUsers.first()?.id ?? null;
 
-  if (!addUserId && !removeUserId) {
+  if (!removeUserId) {
     await interaction.reply({
       content:
-        'Please select at least one user.',
+        'Please select a user to remove.',
       ephemeral: true
     });
 
@@ -879,41 +1051,6 @@ async function handleManageUsersModalSubmit(
   }
 
   const results = [];
-
-  // ADD
-
-  if (addUserId) {
-    const member =
-      await interaction.guild.members
-        .fetch(addUserId)
-        .catch(() => null);
-
-    if (member) {
-      await thread.members
-        .add(addUserId)
-        .catch(() => null);
-
-      results.push(
-        `Added <@${addUserId}>`
-      );
-
-      await sendTicketLog(
-        thread,
-        'User Added',
-        0x57f287,
-        [
-          `Added By: <@${interaction.user.id}>`,
-          `Added User: <@${addUserId}>`,
-          `Thread Link: ${buildThreadLink(
-            interaction.guildId,
-            thread.id
-          )}`
-        ]
-      );
-    }
-  }
-
-  // REMOVE
 
   if (removeUserId) {
     const member =
@@ -958,7 +1095,7 @@ async function handleManageUsersModalSubmit(
   }
 
   await interaction.reply({
-    content: results.join('\n'),
+    content: results.join('\n') || 'Could not remove that user.',
     ephemeral: true
   });
 }
@@ -1058,15 +1195,28 @@ async function handleButton(interaction) {
     return;
   }
 
-  const manageCreatorId =
-    parseManageUsersCreatorId(
+  const addCreatorId =
+    parseAddUsersCreatorId(
       interaction.customId
     );
 
-  if (manageCreatorId) {
-    await handleManageUsersButton(
+  if (addCreatorId) {
+    await handleAddUsersButton(
       interaction,
-      manageCreatorId
+      addCreatorId
+    );
+    return;
+  }
+
+  const removeCreatorId =
+    parseRemoveUsersCreatorId(
+      interaction.customId
+    );
+
+  if (removeCreatorId) {
+    await handleRemoveUsersButton(
+      interaction,
+      removeCreatorId
     );
   }
 }
@@ -1074,15 +1224,28 @@ async function handleButton(interaction) {
 async function handleModalSubmit(
   interaction
 ) {
-  const creatorId =
-    parseManageUsersModalCreatorId(
+  const addCreatorId =
+    parseAddUsersModalCreatorId(
       interaction.customId
     );
 
-  if (creatorId) {
-    await handleManageUsersModalSubmit(
+  if (addCreatorId) {
+    await handleAddUsersModalSubmit(
       interaction,
-      creatorId
+      addCreatorId
+    );
+    return;
+  }
+
+  const removeCreatorId =
+    parseRemoveUsersModalCreatorId(
+      interaction.customId
+    );
+
+  if (removeCreatorId) {
+    await handleRemoveUsersModalSubmit(
+      interaction,
+      removeCreatorId
     );
   }
 }
