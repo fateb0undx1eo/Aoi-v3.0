@@ -279,5 +279,32 @@ export default {
   initialize,
   registerCommands,
   registerEvents,
-  cleanup
+  cleanup,
+  commands: [ticketCommand],
+  events: [
+    {
+      name: 'interactionCreate',
+      async execute(interaction) {
+        // Delegate to interaction router
+        const { routeInteraction } = await import('./handlers/interaction-router.js');
+        await routeInteraction(interaction);
+      }
+    },
+    {
+      name: 'threadUpdate',
+      async execute(oldThread, newThread) {
+        // Delegate to interaction router
+        const { handleThreadUpdate } = await import('./handlers/interaction-router.js');
+        await handleThreadUpdate(oldThread, newThread);
+      }
+    },
+    {
+      name: 'threadMemberUpdate',
+      async execute(oldMember, newMember) {
+        // Delegate to interaction router
+        const { handleThreadMemberUpdate } = await import('./handlers/interaction-router.js');
+        await handleThreadMemberUpdate(oldMember, newMember);
+      }
+    }
+  ]
 };
