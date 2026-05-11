@@ -137,11 +137,6 @@ async function requireTicketStaff(interaction) {
 
 // ───────────────── Thread Utilities ─────────────────
 
-function generateThreadName(prefix) {
-  const suffix = Math.random().toString(16).slice(2, 6).toUpperCase();
-  return `${prefix}-${suffix}`;
-}
-
 async function addStaffMembersToThread(thread) {
   const guild = thread.guild;
   await guild.members.fetch().catch(() => null);
@@ -195,10 +190,6 @@ async function hasOpenTicketInChannel(parentChannel, userId, botUserId) {
   return false;
 }
 
-function buildTicketMentions(creatorId) {
-  const roleMentions = TICKET_STAFF_ROLE_IDS.map((roleId) => `<@&${roleId}>`).join(' ');
-  return `<@${creatorId}> ${roleMentions}`.trim();
-}
 
 // ───────────────── Logging ─────────────────
 
