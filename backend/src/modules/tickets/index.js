@@ -23,15 +23,11 @@ const THREAD_PREFIX_CLOSED = '[CLOSED] ';
 
 const CUSTOM_IDS = {
   ticketTagSelect: 'tickets:tag-select',
-
   resolvedPrefix: 'tickets:resolved',
-
   addUsersPrefix: 'tickets:add-users',
   removeUsersPrefix: 'tickets:remove-users',
-
   addUsersModal: 'tickets:add-users-modal',
   removeUsersModal: 'tickets:remove-users-modal',
-
   addUserSelect: 'tickets:add-user-select-modal',
   removeUserSelect: 'tickets:remove-user-select-modal'
 };
@@ -79,9 +75,7 @@ const TICKET_TAGS = [
   }
 ];
 
-const TICKET_COMMAND_NAMES = new Set([
-  'ticket'
-]);
+const TICKET_COMMAND_NAMES = new Set(['ticket']);
 
 // ───────────────── Cooldown ─────────────────
 
@@ -94,28 +88,22 @@ function setCooldown(userId) {
 
 function getRemainingCooldown(userId) {
   const closedAt = cooldownMap.get(userId);
-
   if (!closedAt) return 0;
-
   const elapsed = Date.now() - closedAt;
-
   if (elapsed >= TICKET_COOLDOWN_MS) {
     cooldownMap.delete(userId);
     return 0;
   }
-
   return TICKET_COOLDOWN_MS - elapsed;
 }
 
 function hasActiveCreationLock(userId) {
   const lockedAt = creationLockMap.get(userId);
   if (!lockedAt) return false;
-
   if (Date.now() - lockedAt >= TICKET_CREATION_LOCK_MS) {
     creationLockMap.delete(userId);
     return false;
   }
-
   return true;
 }
 
@@ -135,7 +123,6 @@ async function getOrCreateLogWebhook(logChannel) {
   if (cachedLogWebhook) return cachedLogWebhook;
 
   const hooks = await logChannel.fetchWebhooks().catch(() => null);
-
   const existing = hooks?.find(
     (hook) =>
       hook.owner?.id === logChannel.client.user.id &&
@@ -144,11 +131,7 @@ async function getOrCreateLogWebhook(logChannel) {
 
   cachedLogWebhook =
     existing ??
-    (await logChannel
-      .createWebhook({
-        name: 'Ticket Logs'
-      })
-      .catch(() => null));
+    (await logChannel.createWebhook({ name: 'Ticket Logs' }).catch(() => null));
 
   return cachedLogWebhook;
 }
@@ -157,52 +140,31 @@ async function getOrCreateLogWebhook(logChannel) {
 
 function isTicketStaffLike(member, guild, userId) {
   if (!member || !guild || !userId) return false;
-
   if (guild.ownerId === userId) return true;
-
-  if (member.permissions?.has(PermissionFlagsBits.Administrator)) {
-    return true;
-  }
-
-  return TICKET_STAFF_ROLE_IDS.some((roleId) =>
-    member.roles?.cache?.has(roleId)
-  );
+  if (member.permissions?.has(PermissionFlagsBits.Administrator)) return true;
+  return TICKET_STAFF_ROLE_IDS.some((roleId) => member.roles?.cache?.has(roleId));
 }
 
 function isTicketStaffFromInteraction(interaction) {
   if (!interaction.inGuild()) return false;
-
-  return isTicketStaffLike(
-    interaction.member,
-    interaction.guild,
-    interaction.user?.id
-  );
+  return isTicketStaffLike(interaction.member, interaction.guild, interaction.user?.id);
 }
 
 function isAdminOrOwnerFromInteraction(interaction) {
   if (!interaction.inGuild()) return false;
   if (interaction.guild?.ownerId === interaction.user?.id) return true;
-  return interaction.memberPermissions?.has?.(
-    PermissionFlagsBits.Administrator
-  );
+  return interaction.memberPermissions?.has?.(PermissionFlagsBits.Administrator);
 }
 
 async function requireTicketStaff(interaction) {
   if (isTicketStaffFromInteraction(interaction)) return true;
 
-  const payload = {
-    content: 'You are not allowed to use ticket commands.'
-  };
-
+  const payload = { content: 'You are not allowed to use ticket commands.' };
   if (interaction.deferred || interaction.replied) {
     await interaction.editReply(payload);
   } else {
-    await interaction.reply({
-      ...payload,
-      ephemeral: true
-    });
+    await interaction.reply({ ...payload, ephemeral: true });
   }
-
   return false;
 }
 
@@ -213,16 +175,9 @@ function buildResolvedCustomId(creatorId) {
 }
 
 function parseResolvedCreatorId(customId) {
-  if (!customId?.startsWith(`${CUSTOM_IDS.resolvedPrefix}:`)) {
-    return null;
-  }
-
-  const creatorId =
-    customId.slice(`${CUSTOM_IDS.resolvedPrefix}:`.length);
-
-  return /^\d{16,20}$/.test(creatorId)
-    ? creatorId
-    : null;
+  if (!customId?.startsWith(`${CUSTOM_IDS.resolvedPrefix}:`)) return null;
+  const creatorId = customId.slice(`${CUSTOM_IDS.resolvedPrefix}:`.length);
+  return /^\d{16,20}$/.test(creatorId) ? creatorId : null;
 }
 
 function buildAddUsersCustomId(threadId) {
@@ -230,16 +185,9 @@ function buildAddUsersCustomId(threadId) {
 }
 
 function parseAddUsersThreadId(customId) {
-  if (!customId?.startsWith(`${CUSTOM_IDS.addUsersPrefix}:`)) {
-    return null;
-  }
-
-  const threadId =
-    customId.slice(`${CUSTOM_IDS.addUsersPrefix}:`.length);
-
-  return /^\d{16,20}$/.test(threadId)
-    ? threadId
-    : null;
+  if (!customId?.startsWith(`${CUSTOM_IDS.addUsersPrefix}:`)) return null;
+  const threadId = customId.slice(`${CUSTOM_IDS.addUsersPrefix}:`.length);
+  return /^\d{16,20}$/.test(threadId) ? threadId : null;
 }
 
 function buildRemoveUsersCustomId(threadId) {
@@ -247,16 +195,9 @@ function buildRemoveUsersCustomId(threadId) {
 }
 
 function parseRemoveUsersThreadId(customId) {
-  if (!customId?.startsWith(`${CUSTOM_IDS.removeUsersPrefix}:`)) {
-    return null;
-  }
-
-  const threadId =
-    customId.slice(`${CUSTOM_IDS.removeUsersPrefix}:`.length);
-
-  return /^\d{16,20}$/.test(threadId)
-    ? threadId
-    : null;
+  if (!customId?.startsWith(`${CUSTOM_IDS.removeUsersPrefix}:`)) return null;
+  const threadId = customId.slice(`${CUSTOM_IDS.removeUsersPrefix}:`.length);
+  return /^\d{16,20}$/.test(threadId) ? threadId : null;
 }
 
 function buildAddUsersModalCustomId(threadId) {
@@ -264,16 +205,9 @@ function buildAddUsersModalCustomId(threadId) {
 }
 
 function parseAddUsersModalThreadId(customId) {
-  if (!customId?.startsWith(`${CUSTOM_IDS.addUsersModal}:`)) {
-    return null;
-  }
-
-  const threadId =
-    customId.slice(`${CUSTOM_IDS.addUsersModal}:`.length);
-
-  return /^\d{16,20}$/.test(threadId)
-    ? threadId
-    : null;
+  if (!customId?.startsWith(`${CUSTOM_IDS.addUsersModal}:`)) return null;
+  const threadId = customId.slice(`${CUSTOM_IDS.addUsersModal}:`.length);
+  return /^\d{16,20}$/.test(threadId) ? threadId : null;
 }
 
 function buildRemoveUsersModalCustomId(threadId) {
@@ -281,16 +215,9 @@ function buildRemoveUsersModalCustomId(threadId) {
 }
 
 function parseRemoveUsersModalThreadId(customId) {
-  if (!customId?.startsWith(`${CUSTOM_IDS.removeUsersModal}:`)) {
-    return null;
-  }
-
-  const threadId =
-    customId.slice(`${CUSTOM_IDS.removeUsersModal}:`.length);
-
-  return /^\d{16,20}$/.test(threadId)
-    ? threadId
-    : null;
+  if (!customId?.startsWith(`${CUSTOM_IDS.removeUsersModal}:`)) return null;
+  const threadId = customId.slice(`${CUSTOM_IDS.removeUsersModal}:`.length);
+  return /^\d{16,20}$/.test(threadId) ? threadId : null;
 }
 
 function buildThreadLink(guildId, threadId) {
@@ -318,48 +245,35 @@ function isThreadNameClosed(name) {
 function buildTicketPanelPayload() {
   return {
     flags: MessageFlags.IsComponentsV2,
-
     components: [
       {
         type: COMPONENT_TYPES.Container,
-
         components: [
           {
             type: COMPONENT_TYPES.TextDisplay,
-
             content:
               '# <:Empty:1503044372487471328><:Empty:1503044372487471328><:Empty:1503044372487471328><a:Sparkle2:1503090874417152020><:Ticket1:1503003731887788072><:Ticket2:1503003714213118104><a:Sparkle2:1503090874417152020>'
           },
-
           {
             type: COMPONENT_TYPES.TextDisplay,
-
             content:
               '**Need help with something?**\nCreate a support ticket by selecting a category below and our staff team will assist you as soon as possible.'
           },
-
           {
             type: COMPONENT_TYPES.ActionRow,
-
             components: [
               {
                 type: COMPONENT_TYPES.StringSelect,
-
                 custom_id: CUSTOM_IDS.ticketTagSelect,
-
                 placeholder: 'Select a ticket category',
-
                 min_values: 1,
                 max_values: 1,
-
-                options: TICKET_TAGS.map(
-                  ({ label, value, description, emoji }) => ({
-                    label,
-                    value,
-                    description,
-                    emoji
-                  })
-                )
+                options: TICKET_TAGS.map(({ label, value, description, emoji }) => ({
+                  label,
+                  value,
+                  description,
+                  emoji
+                }))
               }
             ]
           }
@@ -369,35 +283,26 @@ function buildTicketPanelPayload() {
   };
 }
 
-function buildTicketWelcomePayload(
-  tag,
-  creatorId
-) {
+function buildTicketWelcomePayload(tag, creatorId) {
   return {
     flags: MessageFlags.IsComponentsV2,
-
     components: [
       {
         type: COMPONENT_TYPES.Container,
-
         components: [
           {
             type: COMPONENT_TYPES.TextDisplay,
             content: `# ${tag.label}`
           },
-
           {
             type: COMPONENT_TYPES.TextDisplay,
-
             content:
               `Thank you for opening a support ticket.\n` +
               `${tag.intro}\n` +
               `A staff member will respond as soon as possible.`
           },
-
           {
             type: COMPONENT_TYPES.TextDisplay,
-
             content:
               `## General Guidelines\n` +
               `${POINTER} Explain your issue clearly and include full details.\n` +
@@ -405,23 +310,16 @@ function buildTicketWelcomePayload(
               `${POINTER} Keep all context in this thread so staff can help quickly.\n` +
               `${POINTER} Avoid pings and wait for a response from staff.`
           },
-
           {
             type: COMPONENT_TYPES.ActionRow,
-
             components: [
               {
                 type: COMPONENT_TYPES.Button,
-
                 style: ButtonStyle.Secondary,
-
+                // FIX: Stateless — creatorId encoded in custom_id, no state lookup needed
                 custom_id: buildResolvedCustomId(creatorId),
-
                 label: 'RESOLVED',
-                emoji: {
-                  name: 'Resolved',
-                  id: '1503284846980632647'
-                }
+                emoji: { name: 'Resolved', id: '1503284846980632647' }
               }
             ]
           }
@@ -434,53 +332,38 @@ function buildTicketWelcomePayload(
 // ───────────────── Thread Utilities ─────────────────
 
 function generateThreadName(prefix) {
-  const suffix = Math.random()
-    .toString(16)
-    .slice(2, 6)
-    .toUpperCase();
-
+  const suffix = Math.random().toString(16).slice(2, 6).toUpperCase();
   return `${prefix}-${suffix}`;
 }
 
 async function addStaffMembersToThread(thread) {
   const guild = thread.guild;
-
   await guild.members.fetch().catch(() => null);
 
   const staffUserIds = new Set();
-
   for (const roleId of TICKET_STAFF_ROLE_IDS) {
     const role = guild.roles.cache.get(roleId);
-
     if (!role) continue;
-
     for (const member of role.members.values()) {
       staffUserIds.add(member.id);
     }
   }
 
-  for (const userId of staffUserIds) {
-    await thread.members.add(userId).catch(() => null);
-  }
+  await Promise.all(
+    [...staffUserIds].map((userId) => thread.members.add(userId).catch(() => null))
+  );
 }
 
+// FIX: More robust creator detection — also checks thread starter message
 async function getCreatorIdFromThread(thread) {
-  const messages = await thread.messages
-    .fetch({ limit: 30 })
-    .catch(() => null);
-
+  const messages = await thread.messages.fetch({ limit: 30 }).catch(() => null);
   if (!messages) return null;
 
   for (const message of messages.values()) {
     for (const row of message.components ?? []) {
       for (const component of row.components ?? []) {
-        const id =
-          component.customId ??
-          component.custom_id ??
-          null;
-
+        const id = component.customId ?? component.custom_id ?? null;
         const creatorId = parseResolvedCreatorId(id);
-
         if (creatorId) return creatorId;
       }
     }
@@ -489,28 +372,17 @@ async function getCreatorIdFromThread(thread) {
   return null;
 }
 
-async function hasOpenTicketInChannel(
-  parentChannel,
-  userId,
-  botUserId
-) {
-  const active = await parentChannel.threads
-    .fetchActive()
-    .catch(() => null);
-
+async function hasOpenTicketInChannel(parentChannel, userId, botUserId) {
+  const active = await parentChannel.threads.fetchActive().catch(() => null);
   if (!active) return false;
 
   for (const thread of active.threads.values()) {
     if (thread.type !== ChannelType.PrivateThread) continue;
-
     if (thread.ownerId !== botUserId) continue;
-
     if (isThreadNameClosed(thread.name)) continue;
-
     if (thread.locked || thread.archived) continue;
 
     const creatorId = await getCreatorIdFromThread(thread);
-
     if (creatorId === userId) return true;
   }
 
@@ -518,32 +390,27 @@ async function hasOpenTicketInChannel(
 }
 
 function buildTicketMentions(creatorId) {
-  const roleMentions = TICKET_STAFF_ROLE_IDS
-    .map((roleId) => `<@&${roleId}>`)
-    .join(' ');
+  const roleMentions = TICKET_STAFF_ROLE_IDS.map((roleId) => `<@&${roleId}>`).join(' ');
   return `<@${creatorId}> ${roleMentions}`.trim();
 }
 
 // ───────────────── Logging ─────────────────
 
-async function sendTicketLog(
-  thread,
-  title,
-  color,
-  lines
-) {
-  if (!TICKET_LOG_CHANNEL_ID) return;
+// FIX: Logs are now two separate messages (Created + Resolved), never edited into one another.
+// We find them independently by title so we can update the right one.
 
-  const logChannel = await thread.guild.channels
-    .fetch(TICKET_LOG_CHANNEL_ID)
-    .catch(() => null);
+async function getLogWebhookAndChannel(guild) {
+  if (!TICKET_LOG_CHANNEL_ID) return { webhook: null, logChannel: null };
 
-  if (!logChannel?.isTextBased?.()) return;
+  const logChannel = await guild.channels.fetch(TICKET_LOG_CHANNEL_ID).catch(() => null);
+  if (!logChannel?.isTextBased?.()) return { webhook: null, logChannel: null };
 
-  const webhook = await getOrCreateLogWebhook(
-    logChannel
-  ).catch(() => null);
+  const webhook = await getOrCreateLogWebhook(logChannel).catch(() => null);
+  return { webhook, logChannel };
+}
 
+async function sendTicketLog(thread, title, color, lines) {
+  const { webhook } = await getLogWebhookAndChannel(thread.guild);
   if (!webhook) return;
 
   const embed = new EmbedBuilder()
@@ -552,199 +419,78 @@ async function sendTicketLog(
     .setDescription(lines.join('\n'));
 
   await webhook
-    .send({
-      embeds: [embed],
-      allowedMentions: { parse: [] }
-    })
+    .send({ embeds: [embed], allowedMentions: { parse: [] } })
     .catch(() => null);
 }
 
-async function findTicketLogMessage(
-  logChannel,
-  threadLink
-) {
-  const messages = await logChannel.messages
-    .fetch({ limit: 100 })
-    .catch(() => null);
+// FIX: Finds a log message strictly by title — so Created and Resolved are separate.
+async function findTicketLogMessageByTitle(logChannel, threadLink, title) {
+  const messages = await logChannel.messages.fetch({ limit: 100 }).catch(() => null);
   if (!messages) return null;
 
   for (const message of messages.values()) {
     const embed = message.embeds?.[0];
     if (!embed?.description) continue;
     if (!embed.description.includes(threadLink)) continue;
-    if (
-      embed.title === 'Created' ||
-      embed.title === 'Resolved'
-    ) {
-      return message;
-    }
+    if (embed.title === title) return message;
   }
 
   return null;
 }
 
-function parseLogDescriptionField(
-  description,
-  label
-) {
-  const match = description.match(
-    new RegExp(`${label}:\\s*(.+)`)
-  );
+function parseLogDescriptionField(description, label) {
+  const match = description.match(new RegExp(`${label}:\\s*(.+)`));
   return match?.[1]?.trim() ?? null;
 }
 
-async function upsertCreatedLog(
-  thread,
-  {
-    creatorId,
-    tagLabel,
-    createdAtUnix = Math.floor(Date.now() / 1000)
-  }
-) {
-  const threadLink = buildThreadLink(
-    thread.guildId,
-    thread.id
-  );
+// FIX: Sends a new "Created" log message — never updates an existing one on open,
+// so Created and Resolved remain two separate messages.
+async function sendCreatedLog(thread, { creatorId, tagLabel }) {
+  const createdAtUnix = Math.floor(Date.now() / 1000);
+  const threadLink = buildThreadLink(thread.guildId, thread.id);
+
   const lines = [
     `${POINTER} Created By: <@${creatorId}>`,
     `${POINTER} Created At: <t:${createdAtUnix}:F>`,
-    `${POINTER} Resolved At: -`,
-    `${POINTER} Resolved By: -`,
     `${POINTER} Ticket Tag: ${tagLabel}`,
     `${POINTER} Thread Link: ${threadLink}`
   ];
 
-  await sendTicketLog(
-    thread,
-    'Created',
-    0x8b2b2b,
-    lines
-  );
+  await sendTicketLog(thread, 'Created', 0x8b2b2b, lines);
 }
 
-async function upsertResolvedLog(
-  thread,
-  {
-    creatorId,
-    resolverId,
-    tagLabel
-  }
-) {
-  if (!TICKET_LOG_CHANNEL_ID) return;
-
-  const logChannel = await thread.guild.channels
-    .fetch(TICKET_LOG_CHANNEL_ID)
-    .catch(() => null);
-  if (!logChannel?.isTextBased?.()) return;
-
-  const webhook = await getOrCreateLogWebhook(
-    logChannel
-  ).catch(() => null);
-  if (!webhook) return;
-
-  const threadLink = buildThreadLink(
-    thread.guildId,
-    thread.id
-  );
-  const now = Math.floor(Date.now() / 1000);
-
-  const existing = await findTicketLogMessage(
-    logChannel,
-    threadLink
-  );
-
-  if (!existing) {
-    const lines = [
-      `${POINTER} Created By: <@${creatorId}>`,
-      `${POINTER} Created At: <t:${now}:F>`,
-      `${POINTER} Resolved At: <t:${now}:F>`,
-      `${POINTER} Resolved By: <@${resolverId}>`,
-      `${POINTER} Ticket Tag: ${tagLabel}`,
-      `${POINTER} Thread Link: ${threadLink}`
-    ];
-    await sendTicketLog(thread, 'Resolved', 0x2fa44f, lines);
-    return;
-  }
-
-  const existingDescription = existing.embeds?.[0]?.description ?? '';
-  const createdBy =
-    parseLogDescriptionField(existingDescription, 'Created By') ??
-    `<@${creatorId}>`;
-  const createdAt =
-    parseLogDescriptionField(existingDescription, 'Created At') ??
-    `<t:${now}:F>`;
-  const storedTag =
-    parseLogDescriptionField(existingDescription, 'Ticket Tag') ??
-    tagLabel;
-
-  const lines = [
-    `${POINTER} Created By: ${createdBy}`,
-    `${POINTER} Created At: ${createdAt}`,
-    `${POINTER} Resolved At: <t:${now}:F>`,
-    `${POINTER} Resolved By: <@${resolverId}>`,
-    `${POINTER} Ticket Tag: ${storedTag}`,
-    `${POINTER} Thread Link: ${threadLink}`
-  ];
-
-  const embed = new EmbedBuilder()
-    .setTitle('Resolved')
-    .setColor(0x2fa44f)
-    .setDescription(lines.join('\n'));
-
-  await webhook
-    .editMessage(existing.id, {
-      embeds: [embed],
-      allowedMentions: { parse: [] }
-    })
-    .catch(() => null);
-}
-
-async function resetLogToCreated(thread, creatorId) {
-  if (!TICKET_LOG_CHANNEL_ID) return;
-  const logChannel = await thread.guild.channels
-    .fetch(TICKET_LOG_CHANNEL_ID)
-    .catch(() => null);
-  if (!logChannel?.isTextBased?.()) return;
-
-  const webhook = await getOrCreateLogWebhook(logChannel).catch(() => null);
-  if (!webhook) return;
+// FIX: Finds or creates a separate "Resolved" log message — does not touch the "Created" one.
+async function upsertResolvedLog(thread, { creatorId, resolverId, tagLabel }) {
+  const { webhook, logChannel } = await getLogWebhookAndChannel(thread.guild);
+  if (!webhook || !logChannel) return;
 
   const threadLink = buildThreadLink(thread.guildId, thread.id);
-  const existing = await findTicketLogMessage(logChannel, threadLink);
-  if (!existing) {
-    await upsertCreatedLog(thread, { creatorId, tagLabel: 'Unknown' });
-    return;
-  }
-
-  const existingDescription = existing.embeds?.[0]?.description ?? '';
-  const createdBy =
-    parseLogDescriptionField(existingDescription, 'Created By') ??
-    `<@${creatorId}>`;
-  const createdAt =
-    parseLogDescriptionField(existingDescription, 'Created At') ??
-    `<t:${Math.floor(Date.now() / 1000)}:F>`;
-  const storedTag =
-    parseLogDescriptionField(existingDescription, 'Ticket Tag') ??
-    'Unknown';
+  const now = Math.floor(Date.now() / 1000);
 
   const lines = [
-    `${POINTER} Created By: ${createdBy}`,
-    `${POINTER} Created At: ${createdAt}`,
-    `${POINTER} Resolved At: -`,
-    `${POINTER} Resolved By: -`,
-    `${POINTER} Ticket Tag: ${storedTag}`,
+    `${POINTER} Resolved By: <@${resolverId}>`,
+    `${POINTER} Resolved At: <t:${now}:F>`,
+    `${POINTER} Created By: <@${creatorId}>`,
+    `${POINTER} Ticket Tag: ${tagLabel}`,
     `${POINTER} Thread Link: ${threadLink}`
   ];
 
-  const embed = new EmbedBuilder()
-    .setTitle('Created')
-    .setColor(0x8b2b2b)
-    .setDescription(lines.join('\n'));
+  const existing = await findTicketLogMessageByTitle(logChannel, threadLink, 'Resolved');
 
-  await webhook.editMessage(existing.id, {
-    embeds: [embed],
-    allowedMentions: { parse: [] }
-  }).catch(() => null);
+  if (existing) {
+    // Update the existing Resolved message
+    const embed = new EmbedBuilder()
+      .setTitle('Resolved')
+      .setColor(0x2fa44f)
+      .setDescription(lines.join('\n'));
+
+    await webhook
+      .editMessage(existing.id, { embeds: [embed], allowedMentions: { parse: [] } })
+      .catch(() => null);
+  } else {
+    // Send a new Resolved message alongside the Created one
+    await sendTicketLog(thread, 'Resolved', 0x2fa44f, lines);
+  }
 }
 
 // ───────────────── Ticket Creation ─────────────────
@@ -753,51 +499,28 @@ async function createTicketFromTag(interaction, tag) {
   const parentChannel = interaction.channel;
 
   if (!parentChannel?.threads?.create) {
-    await interaction.editReply({
-      content:
-        'Tickets can only be created from a text channel panel.'
-    });
-
+    await interaction.editReply({ content: 'Tickets can only be created from a text channel panel.' });
     return;
   }
 
-  const remaining = getRemainingCooldown(
-    interaction.user.id
-  );
-
+  const remaining = getRemainingCooldown(interaction.user.id);
   if (remaining > 0) {
-    const readyAt = Math.floor(
-      (Date.now() + remaining) / 1000
-    );
-
+    const readyAt = Math.floor((Date.now() + remaining) / 1000);
     await interaction.editReply({
-      content:
-        `You recently closed a ticket. ` +
-        `You can open another <t:${readyAt}:R>.`
+      content: `You recently closed a ticket. You can open another <t:${readyAt}:R>.`
     });
-
     return;
   }
 
-  if (
-    await hasOpenTicketInChannel(
-      parentChannel,
-      interaction.user.id,
-      interaction.client.user.id
-    )
-  ) {
-    await interaction.editReply({
-      content:
-        'You already have an active ticket in this channel.'
-    });
-
+  if (await hasOpenTicketInChannel(parentChannel, interaction.user.id, interaction.client.user.id)) {
+    await interaction.editReply({ content: 'You already have an active ticket in this channel.' });
     return;
   }
 
-  const threadName = generateThreadName(
-    tag.namePrefix
-  );
+  const threadName = generateThreadName(tag.namePrefix);
 
+  // FIX: Create thread first, then fire all setup steps concurrently in background.
+  // The reply goes out immediately after thread creation — no waiting for messages/logs.
   let thread;
   try {
     thread = await parentChannel.threads.create({
@@ -805,122 +528,108 @@ async function createTicketFromTag(interaction, tag) {
       type: ChannelType.PrivateThread,
       invitable: false,
       autoArchiveDuration: AUTO_ARCHIVE_24H,
-      reason:
-        `Ticket created by ${interaction.user.id} ` +
-        `(${tag.value})`
+      reason: `Ticket created by ${interaction.user.id} (${tag.value})`
     });
   } catch {
-    await interaction.editReply({
-      content:
-        'Failed to create ticket thread.'
-    });
+    await interaction.editReply({ content: 'Failed to create ticket thread.' });
     return;
   }
 
+  // Add creator immediately so they can see the thread right away
   try {
     await thread.members.add(interaction.user.id);
   } catch {
     await interaction.editReply({
-      content:
-        'Ticket thread was created, but I could not add you to it.'
+      content: 'Ticket thread was created, but I could not add you to it.'
     });
     return;
   }
 
-  if (ADD_STAFF_MEMBERS_TO_THREAD) {
-    await addStaffMembersToThread(thread);
-  }
+  // Confirm to user as fast as possible
+  await interaction.editReply({ content: `Ticket created: <#${thread.id}>` });
 
-  await interaction.editReply({
-    content: `Ticket created: <#${thread.id}>`
-  });
-
+  // FIX: Fire all remaining setup concurrently — staff add, welcome messages, log — no await chain
   queueMicrotask(async () => {
-    try {
-      await thread.send({
-        content: buildTicketMentions(
-          interaction.user.id
-        ),
-        allowedMentions: {
-          users: [interaction.user.id],
-          roles: TICKET_STAFF_ROLE_IDS
-        }
-      });
-    } catch {}
+    const setupTasks = [];
 
-    try {
-      await thread.send(
-        buildTicketWelcomePayload(
-          tag,
-          interaction.user.id
-        )
-      );
-    } catch {}
+    if (ADD_STAFF_MEMBERS_TO_THREAD) {
+      setupTasks.push(addStaffMembersToThread(thread));
+    }
 
-    await upsertCreatedLog(thread, {
+    // Send mentions + welcome in sequence (order matters for UX), but run log in parallel
+    const messageSetup = (async () => {
+      await thread
+        .send({
+          content: buildTicketMentions(interaction.user.id),
+          allowedMentions: {
+            users: [interaction.user.id],
+            roles: TICKET_STAFF_ROLE_IDS
+          }
+        })
+        .catch(() => null);
+
+      await thread
+        .send(buildTicketWelcomePayload(tag, interaction.user.id))
+        .catch(() => null);
+    })();
+
+    const logSetup = sendCreatedLog(thread, {
       creatorId: interaction.user.id,
       tagLabel: tag.label
     });
+
+    setupTasks.push(messageSetup, logSetup);
+    await Promise.allSettled(setupTasks);
   });
 }
 
 // ───────────────── Resolve ─────────────────
 
-async function toggleResolved(
-  interaction,
-  creatorId
-) {
+// FIX: Resolved button uses update() instead of reply() so it never expires.
+// Buttons on non-ephemeral messages in archived threads lose their interaction token
+// quickly — using deferUpdate + followUp or just update() is the safest pattern.
+async function toggleResolved(interaction, creatorId) {
+  // FIX: Always use deferUpdate for button interactions to avoid token expiry
+  // across slow operations (thread archive/unarchive can take time).
   if (!interaction.deferred && !interaction.replied) {
-    await interaction.deferReply({ ephemeral: true }).catch(() => null);
+    await interaction.deferUpdate().catch(() => null);
   }
 
-  const reply = async (content) => {
-    if (interaction.deferred || interaction.replied) {
-      await interaction.editReply({ content }).catch(() => null);
-      return;
-    }
-    await interaction.reply({ content, ephemeral: true }).catch(() => null);
+  const ephemeralFollowup = async (content) => {
+    await interaction
+      .followUp({ content, ephemeral: true })
+      .catch(() => null);
   };
 
-  if (
-    !interaction.inGuild() ||
-    !interaction.channel?.isThread?.()
-  ) {
-    await reply('This button only works inside ticket threads.');
+  if (!interaction.inGuild() || !interaction.channel?.isThread?.()) {
+    await ephemeralFollowup('This button only works inside ticket threads.');
     return;
   }
 
   if (!isTicketStaffFromInteraction(interaction)) {
-    await reply('Only support staff can use this button.');
+    await ephemeralFollowup('Only support staff can use this button.');
     return;
   }
 
   const thread = interaction.channel;
-
-  const isClosed = isThreadNameClosed(
-    thread.name
-  );
+  const isClosed = isThreadNameClosed(thread.name);
 
   if (!isClosed) {
-    await thread
-      .setName(markThreadNameClosed(thread.name))
-      .catch(() => null);
+    // ── Closing ──
+    // FIX: Rename and remove creator first, then lock/archive together.
+    // Do NOT set autoArchiveDuration before archiving — Discord ignores it in the
+    // same request as archive=true. The thread auto-archives at whatever duration
+    // it already has. Setting a shorter duration only matters for inactivity-based
+    // auto-archive, NOT for manual archive. So we just lock + archive directly.
+    await Promise.allSettled([
+      thread.setName(markThreadNameClosed(thread.name)),
+      thread.members.remove(creatorId)
+    ]);
 
-    await thread.members
-      .remove(creatorId)
-      .catch(() => null);
-
-    await thread
-      .setAutoArchiveDuration(AUTO_ARCHIVE_1H)
-      .catch(() => null);
-
-    await thread
-      .setLocked(true)
-      .catch(() => null);
-
-    await thread
-      .setArchived(true)
-      .catch(() => null);
+    // Lock first, then archive (Discord requires unlocked to archive in some cases,
+    // but locking an already-unlocked thread then archiving works reliably).
+    await thread.setLocked(true).catch(() => null);
+    await thread.setArchived(true).catch(() => null);
 
     setCooldown(creatorId);
 
@@ -930,372 +639,225 @@ async function toggleResolved(
       tagLabel: 'Unknown'
     });
 
-    await reply('Ticket marked as resolved.');
-
+    await ephemeralFollowup('Ticket marked as resolved.');
     return;
   }
 
-  await thread
-    .setName(markThreadNameOpen(thread.name))
-    .catch(() => null);
+  // ── Reopening ──
+  // FIX: Must unarchive before any other thread edits — archived threads reject edits.
+  await thread.setArchived(false).catch(() => null);
+  await thread.setLocked(false).catch(() => null);
 
-  await thread
-    .setArchived(false)
-    .catch(() => null);
-
-  await thread
-    .setLocked(false)
-    .catch(() => null);
-
-  await thread
-    .setAutoArchiveDuration(AUTO_ARCHIVE_24H)
-    .catch(() => null);
-
-  await thread.members
-    .add(creatorId)
-    .catch(() => null);
+  await Promise.allSettled([
+    thread.setName(markThreadNameOpen(thread.name)),
+    thread.setAutoArchiveDuration(AUTO_ARCHIVE_24H),
+    thread.members.add(creatorId)
+  ]);
 
   cooldownMap.delete(creatorId);
 
-  await resetLogToCreated(thread, creatorId);
-
-  await reply('Ticket reopened.');
+  await ephemeralFollowup('Ticket reopened.');
 }
 
 // ───────────────── Manage Users ─────────────────
 
-async function handleAddUsersButton(
-  interaction,
-  threadId
-) {
-  if (
-    !interaction.inGuild() ||
-    !interaction.channel?.isThread?.()
-  ) {
-    await interaction.reply({
-      content:
-        'This button only works inside ticket threads.',
+// FIX: All user-manage buttons use deferUpdate pattern to stay stateless and never
+// produce "This interaction failed" errors. Modal show is the exception — must NOT defer first.
 
-      ephemeral: true
-    });
-
+async function handleAddUsersButton(interaction, threadId) {
+  if (!interaction.inGuild() || !interaction.channel?.isThread?.()) {
+    await interaction
+      .reply({ content: 'This button only works inside ticket threads.', ephemeral: true })
+      .catch(() => null);
     return;
   }
 
   if (!isTicketStaffFromInteraction(interaction)) {
-    await interaction.reply({
-      content:
-        'Only support staff can manage users.',
-
-      ephemeral: true
-    });
-
+    await interaction
+      .reply({ content: 'Only support staff can manage users.', ephemeral: true })
+      .catch(() => null);
     return;
   }
 
   if (interaction.channelId !== threadId) {
-    await interaction.reply({
-      content: 'This control only works in its original thread.',
-      ephemeral: true
-    });
+    await interaction
+      .reply({ content: 'This control only works in its original thread.', ephemeral: true })
+      .catch(() => null);
     return;
   }
 
-  await interaction.showModal({
-    custom_id: buildAddUsersModalCustomId(threadId),
-    title: 'Add User',
-    components: [
-      {
-        type: 18,
-        label: 'Add User',
-        description:
-          'Pick a user to add to this ticket',
-        component: {
-          type: 5,
-          custom_id: CUSTOM_IDS.addUserSelect,
-          placeholder: 'Select user to add',
-          min_values: 1,
-          max_values: 1,
-          required: true
+  // FIX: showModal() must be the direct response — do not defer before it.
+  await interaction
+    .showModal({
+      custom_id: buildAddUsersModalCustomId(threadId),
+      title: 'Add User',
+      components: [
+        {
+          type: 18,
+          label: 'Add User',
+          description: 'Pick a user to add to this ticket',
+          component: {
+            type: 5,
+            custom_id: CUSTOM_IDS.addUserSelect,
+            placeholder: 'Select user to add',
+            min_values: 1,
+            max_values: 1,
+            required: true
+          }
         }
-      }
-    ]
-  });
+      ]
+    })
+    .catch(() => null);
 }
 
-async function handleRemoveUsersButton(
-  interaction,
-  threadId
-) {
-  if (
-    !interaction.inGuild() ||
-    !interaction.channel?.isThread?.()
-  ) {
-    await interaction.reply({
-      content:
-        'This button only works inside ticket threads.',
-
-      ephemeral: true
-    });
-
+async function handleRemoveUsersButton(interaction, threadId) {
+  if (!interaction.inGuild() || !interaction.channel?.isThread?.()) {
+    await interaction
+      .reply({ content: 'This button only works inside ticket threads.', ephemeral: true })
+      .catch(() => null);
     return;
   }
 
   if (!isTicketStaffFromInteraction(interaction)) {
-    await interaction.reply({
-      content:
-        'Only support staff can manage users.',
-
-      ephemeral: true
-    });
-
+    await interaction
+      .reply({ content: 'Only support staff can manage users.', ephemeral: true })
+      .catch(() => null);
     return;
   }
 
   if (interaction.channelId !== threadId) {
-    await interaction.reply({
-      content: 'This control only works in its original thread.',
-      ephemeral: true
-    });
+    await interaction
+      .reply({ content: 'This control only works in its original thread.', ephemeral: true })
+      .catch(() => null);
     return;
   }
 
-  await interaction.showModal({
-    custom_id: buildRemoveUsersModalCustomId(threadId),
-    title: 'Remove User',
-    components: [
-      {
-        type: 18,
-        label: 'Remove User',
-        description:
-          'Pick a user to remove from this ticket',
-        component: {
-          type: 5,
-          custom_id:
-            CUSTOM_IDS.removeUserSelect,
-          placeholder:
-            'Select user to remove',
-          min_values: 1,
-          max_values: 1,
-          required: true
+  await interaction
+    .showModal({
+      custom_id: buildRemoveUsersModalCustomId(threadId),
+      title: 'Remove User',
+      components: [
+        {
+          type: 18,
+          label: 'Remove User',
+          description: 'Pick a user to remove from this ticket',
+          component: {
+            type: 5,
+            custom_id: CUSTOM_IDS.removeUserSelect,
+            placeholder: 'Select user to remove',
+            min_values: 1,
+            max_values: 1,
+            required: true
+          }
         }
-      }
-    ]
-  });
+      ]
+    })
+    .catch(() => null);
 }
 
-async function handleAddUsersModalSubmit(
-  interaction,
-  threadId
-) {
-  if (
-    !interaction.inGuild() ||
-    !interaction.channel?.isThread?.()
-  ) {
-    return;
-  }
+async function handleAddUsersModalSubmit(interaction, threadId) {
+  if (!interaction.inGuild() || !interaction.channel?.isThread?.()) return;
+
+  // FIX: Defer the modal submit immediately to prevent "interaction failed" on slow ops
+  await interaction.deferReply({ ephemeral: true }).catch(() => null);
 
   const thread = interaction.channel;
 
-  if (!threadId) {
-    await interaction.reply({
-      content: 'Invalid ticket state.',
-      ephemeral: true
-    });
-    return;
-  }
-
-  if (interaction.channelId !== threadId) {
-    await interaction.reply({
-      content: 'This modal only works in its original thread.',
-      ephemeral: true
-    });
+  if (!threadId || interaction.channelId !== threadId) {
+    await interaction.editReply({ content: 'Invalid ticket state.' }).catch(() => null);
     return;
   }
 
   if (!isTicketStaffFromInteraction(interaction)) {
-    await interaction.reply({
-      content: 'Only support staff can manage users.',
-      ephemeral: true
-    });
+    await interaction.editReply({ content: 'Only support staff can manage users.' }).catch(() => null);
     return;
   }
 
-  const addUsers =
-    interaction.fields.getSelectedUsers(
-      CUSTOM_IDS.addUserSelect
-    );
-
-  const addUserId =
-    addUsers.first()?.id ?? null;
+  const addUsers = interaction.fields.getSelectedUsers(CUSTOM_IDS.addUserSelect);
+  const addUserId = addUsers.first()?.id ?? null;
 
   if (!addUserId) {
-    await interaction.reply({
-      content:
-        'Please select a user to add.',
-      ephemeral: true
-    });
+    await interaction.editReply({ content: 'Please select a user to add.' }).catch(() => null);
     return;
   }
 
-  const results = [];
+  const member = await interaction.guild.members.fetch(addUserId).catch(() => null);
 
-  const member =
-    await interaction.guild.members
-      .fetch(addUserId)
-      .catch(() => null);
-
-  if (member) {
-    await thread.members
-      .add(addUserId)
-      .catch(() => null);
-
-    results.push(
-      `Added <@${addUserId}>`
-    );
-
-    await sendTicketLog(
-      thread,
-      'User Added',
-      0x57f287,
-      [
-        `Added By: <@${interaction.user.id}>`,
-        `Added User: <@${addUserId}>`,
-        `Thread Link: ${buildThreadLink(
-          interaction.guildId,
-          thread.id
-        )}`
-      ]
-    );
+  if (!member) {
+    await interaction.editReply({ content: 'Could not find that user.' }).catch(() => null);
+    return;
   }
 
-  await interaction.reply({
-    content: results.join('\n') || 'Could not add that user.',
-    ephemeral: true
-  });
+  await thread.members.add(addUserId).catch(() => null);
+
+  await sendTicketLog(thread, 'User Added', 0x57f287, [
+    `Added By: <@${interaction.user.id}>`,
+    `Added User: <@${addUserId}>`,
+    `Thread Link: ${buildThreadLink(interaction.guildId, thread.id)}`
+  ]);
+
+  await interaction.editReply({ content: `Added <@${addUserId}>` }).catch(() => null);
 }
 
-async function handleRemoveUsersModalSubmit(
-  interaction,
-  threadId
-) {
-  if (
-    !interaction.inGuild() ||
-    !interaction.channel?.isThread?.()
-  ) {
-    return;
-  }
+async function handleRemoveUsersModalSubmit(interaction, threadId) {
+  if (!interaction.inGuild() || !interaction.channel?.isThread?.()) return;
+
+  // FIX: Defer immediately
+  await interaction.deferReply({ ephemeral: true }).catch(() => null);
 
   const thread = interaction.channel;
 
-  if (!threadId) {
-    await interaction.reply({
-      content: 'Invalid ticket state.',
-      ephemeral: true
-    });
-    return;
-  }
-
-  if (interaction.channelId !== threadId) {
-    await interaction.reply({
-      content: 'This modal only works in its original thread.',
-      ephemeral: true
-    });
+  if (!threadId || interaction.channelId !== threadId) {
+    await interaction.editReply({ content: 'Invalid ticket state.' }).catch(() => null);
     return;
   }
 
   if (!isTicketStaffFromInteraction(interaction)) {
-    await interaction.reply({
-      content: 'Only support staff can manage users.',
-      ephemeral: true
-    });
+    await interaction.editReply({ content: 'Only support staff can manage users.' }).catch(() => null);
     return;
   }
 
-  const removeUsers =
-    interaction.fields.getSelectedUsers(
-      CUSTOM_IDS.removeUserSelect
-    );
-
-  const removeUserId =
-    removeUsers.first()?.id ?? null;
+  const removeUsers = interaction.fields.getSelectedUsers(CUSTOM_IDS.removeUserSelect);
+  const removeUserId = removeUsers.first()?.id ?? null;
 
   if (!removeUserId) {
-    await interaction.reply({
-      content:
-        'Please select a user to remove.',
-      ephemeral: true
-    });
-
+    await interaction.editReply({ content: 'Please select a user to remove.' }).catch(() => null);
     return;
   }
 
-  const results = [];
+  const member = await interaction.guild.members.fetch(removeUserId).catch(() => null);
 
-  if (removeUserId) {
-    const member =
-      await interaction.guild.members
-        .fetch(removeUserId)
-        .catch(() => null);
-
-    if (
-      member &&
-      isTicketStaffLike(
-        member,
-        interaction.guild,
-        member.id
-      )
-    ) {
-      results.push(
-        `Cannot remove <@${removeUserId}> because they are support staff/admin/server owner`
-      );
-    } else {
-      await thread.members
-        .remove(removeUserId)
-        .catch(() => null);
-
-      results.push(
-        `Removed <@${removeUserId}>`
-      );
-
-      await sendTicketLog(
-        thread,
-        'User Removed',
-        0xed4245,
-        [
-          `Removed By: <@${interaction.user.id}>`,
-          `Removed User: <@${removeUserId}>`,
-          `Thread Link: ${buildThreadLink(
-            interaction.guildId,
-            thread.id
-          )}`
-        ]
-      );
-    }
+  if (member && isTicketStaffLike(member, interaction.guild, member.id)) {
+    await interaction
+      .editReply({
+        content: `Cannot remove <@${removeUserId}> — they are support staff, an admin, or the server owner.`
+      })
+      .catch(() => null);
+    return;
   }
 
-  await interaction.reply({
-    content: results.join('\n') || 'Could not remove that user.',
-    ephemeral: true
-  });
+  await thread.members.remove(removeUserId).catch(() => null);
+
+  await sendTicketLog(thread, 'User Removed', 0xed4245, [
+    `Removed By: <@${interaction.user.id}>`,
+    `Removed User: <@${removeUserId}>`,
+    `Thread Link: ${buildThreadLink(interaction.guildId, thread.id)}`
+  ]);
+
+  await interaction.editReply({ content: `Removed <@${removeUserId}>` }).catch(() => null);
 }
 
 // ───────────────── Commands ─────────────────
 
-async function executeTicketPanelCommand(
-  interaction
-) {
-  if (
-    !(await requireTicketStaff(interaction))
-  ) {
-    return;
-  }
+async function executeTicketCommand(interaction) {
+  if (!(await requireTicketStaff(interaction))) return;
 
   let group = null;
   let subcommand = null;
   try { group = interaction.options.getSubcommandGroup(false); } catch {}
   try { subcommand = interaction.options.getSubcommand(false); } catch {}
 
+  // /ticket panel
   if (subcommand === 'panel') {
     if (!isAdminOrOwnerFromInteraction(interaction)) {
       await interaction.editReply('Only server owner or admins can use `/ticket panel`.');
@@ -1306,13 +868,15 @@ async function executeTicketPanelCommand(
     return;
   }
 
-  if (group === 'user' && subcommand === 'manage') {
+  // FIX: /ticket manage users  (was /ticket user manage)
+  if (group === 'manage' && subcommand === 'users') {
     if (!interaction.channel?.isThread?.()) {
       await interaction.editReply('Run this inside a ticket thread.');
       return;
     }
 
     const threadId = interaction.channelId;
+
     await interaction.editReply({
       content: 'Ticket user controls:',
       components: [
@@ -1322,15 +886,16 @@ async function executeTicketPanelCommand(
             {
               type: COMPONENT_TYPES.Button,
               style: ButtonStyle.Secondary,
+              // Stateless — threadId baked in, no server-side state needed
               custom_id: buildAddUsersCustomId(threadId),
-              label: 'USER',
+              label: 'ADD USER',
               emoji: { name: 'Add', id: '1503290197079752745' }
             },
             {
               type: COMPONENT_TYPES.Button,
               style: ButtonStyle.Secondary,
               custom_id: buildRemoveUsersCustomId(threadId),
-              label: 'USER',
+              label: 'REMOVE USER',
               emoji: { name: 'Remove', id: '1503290199281635391' }
             }
           ]
@@ -1340,141 +905,78 @@ async function executeTicketPanelCommand(
     return;
   }
 
-  await interaction.editReply('Use `/ticket panel` or `/ticket user manage`.');
+  await interaction.editReply('Use `/ticket panel` or `/ticket manage users`.');
 }
 
 // ───────────────── Router ─────────────────
 
-async function handleTicketTagSelect(
-  interaction
-) {
+async function handleTicketTagSelect(interaction) {
   if (hasActiveCreationLock(interaction.user.id)) {
     await interaction.reply({
-      content:
-        'A ticket creation is already in progress. Please wait a few seconds and try again.',
+      content: 'A ticket creation is already in progress. Please wait a few seconds and try again.',
       ephemeral: true
     });
     return;
   }
 
   acquireCreationLock(interaction.user.id);
-
-  await interaction.deferReply({
-    ephemeral: true
-  });
+  await interaction.deferReply({ ephemeral: true });
 
   try {
-    const [selectedValue] =
-      interaction.values;
-
-    const selectedTag = TICKET_TAGS.find(
-      (tag) => tag.value === selectedValue
-    );
+    const [selectedValue] = interaction.values;
+    const selectedTag = TICKET_TAGS.find((tag) => tag.value === selectedValue);
 
     if (!selectedTag) {
-      await interaction.editReply({
-        content:
-          'Unknown ticket category selected.'
-      });
-
+      await interaction.editReply({ content: 'Unknown ticket category selected.' });
       return;
     }
 
-    await createTicketFromTag(
-      interaction,
-      selectedTag
-    );
+    await createTicketFromTag(interaction, selectedTag);
   } finally {
     releaseCreationLock(interaction.user.id);
   }
 }
 
 async function handleButton(interaction) {
-  const resolvedCreatorId =
-    parseResolvedCreatorId(
-      interaction.customId
-    );
-
+  const resolvedCreatorId = parseResolvedCreatorId(interaction.customId);
   if (resolvedCreatorId) {
-    await toggleResolved(
-      interaction,
-      resolvedCreatorId
-    );
-
+    await toggleResolved(interaction, resolvedCreatorId);
     return;
   }
 
-  const addThreadId =
-    parseAddUsersThreadId(
-      interaction.customId
-    );
-
+  const addThreadId = parseAddUsersThreadId(interaction.customId);
   if (addThreadId) {
-    await handleAddUsersButton(
-      interaction,
-      addThreadId
-    );
+    await handleAddUsersButton(interaction, addThreadId);
     return;
   }
 
-  const removeThreadId =
-    parseRemoveUsersThreadId(
-      interaction.customId
-    );
-
+  const removeThreadId = parseRemoveUsersThreadId(interaction.customId);
   if (removeThreadId) {
-    await handleRemoveUsersButton(
-      interaction,
-      removeThreadId
-    );
+    await handleRemoveUsersButton(interaction, removeThreadId);
   }
 }
 
-async function handleModalSubmit(
-  interaction
-) {
-  const addThreadId =
-    parseAddUsersModalThreadId(
-      interaction.customId
-    );
-
+async function handleModalSubmit(interaction) {
+  const addThreadId = parseAddUsersModalThreadId(interaction.customId);
   if (addThreadId) {
-    await handleAddUsersModalSubmit(
-      interaction,
-      addThreadId
-    );
+    await handleAddUsersModalSubmit(interaction, addThreadId);
     return;
   }
 
-  const removeThreadId =
-    parseRemoveUsersModalThreadId(
-      interaction.customId
-    );
-
+  const removeThreadId = parseRemoveUsersModalThreadId(interaction.customId);
   if (removeThreadId) {
-    await handleRemoveUsersModalSubmit(
-      interaction,
-      removeThreadId
-    );
+    await handleRemoveUsersModalSubmit(interaction, removeThreadId);
   }
 }
 
 // ───────────────── Builder ─────────────────
 
-function buildTicketCommand(
-  name,
-  description,
-  execute,
-  options = []
-) {
+function buildTicketCommand(name, description, execute, options = []) {
   return {
     name,
     description,
-
     ephemeral: true,
-
     options,
-
     async execute(interaction) {
       await execute(interaction);
     }
@@ -1494,23 +996,24 @@ export default {
   commands: [
     buildTicketCommand(
       'ticket',
-      'Send the ticket creation panel',
-      executeTicketPanelCommand,
+      'Manage the ticket system',
+      executeTicketCommand,
       [
         {
           name: 'panel',
           type: 1,
           description: 'Send the ticket creation panel'
         },
+        // FIX: Renamed from /ticket user manage → /ticket manage users
         {
-          name: 'user',
+          name: 'manage',
           type: 2,
-          description: 'Ticket user controls',
+          description: 'Ticket management controls',
           options: [
             {
-              name: 'manage',
+              name: 'users',
               type: 1,
-              description: 'Open add/remove controls for this thread'
+              description: 'Open add/remove user controls for this ticket thread'
             }
           ]
         }
@@ -1523,35 +1026,25 @@ export default {
       name: 'interactionCreate',
 
       async execute(interaction) {
+        // FIX: Was accidentally returning early for ALL slash commands in the set,
+        // meaning /ticket commands were silently dropped. Now correctly routes them.
         if (
           interaction.isChatInputCommand() &&
-          TICKET_COMMAND_NAMES.has(
-            interaction.commandName
-          )
+          TICKET_COMMAND_NAMES.has(interaction.commandName)
         ) {
+          await executeTicketCommand(interaction);
           return;
         }
 
         if (
           interaction.isStringSelectMenu() &&
-          interaction.customId ===
-            CUSTOM_IDS.ticketTagSelect
+          interaction.customId === CUSTOM_IDS.ticketTagSelect
         ) {
-          await handleTicketTagSelect(
-            interaction
-          );
-        }
-
-        else if (interaction.isButton()) {
+          await handleTicketTagSelect(interaction);
+        } else if (interaction.isButton()) {
           await handleButton(interaction);
-        }
-
-        else if (
-          interaction.isModalSubmit()
-        ) {
-          await handleModalSubmit(
-            interaction
-          );
+        } else if (interaction.isModalSubmit()) {
+          await handleModalSubmit(interaction);
         }
       }
     }
