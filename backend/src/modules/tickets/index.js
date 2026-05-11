@@ -80,11 +80,7 @@ const TICKET_TAGS = [
 ];
 
 const TICKET_COMMAND_NAMES = new Set([
-  'ticket',
-  'claim',
-  'unclaim',
-  'close',
-  'reopen'
+  'ticket'
 ]);
 
 // ───────────────── Cooldown ─────────────────
@@ -1298,6 +1294,12 @@ async function executeTicketPanelCommand(
   try { group = interaction.options.getSubcommandGroup(false); } catch {}
   try { subcommand = interaction.options.getSubcommand(false); } catch {}
 
+  if (subcommand === 'panel') {
+    await interaction.channel.send(buildTicketPanelPayload());
+    await interaction.editReply('Ticket panel sent in this channel.');
+    return;
+  }
+
   if (group === 'user' && subcommand === 'manage') {
     if (!interaction.channel?.isThread?.()) {
       await interaction.editReply('Run this inside a ticket thread.');
@@ -1332,22 +1334,7 @@ async function executeTicketPanelCommand(
     return;
   }
 
-  await interaction.channel.send(buildTicketPanelPayload());
-  await interaction.editReply('Ticket panel sent in this channel.');
-}
-
-async function executePendingTicketCommand(
-  interaction
-) {
-  if (
-    !(await requireTicketStaff(interaction))
-  ) {
-    return;
-  }
-
-  await interaction.editReply(
-    'This command is intentionally unused.'
-  );
+  await interaction.editReply('Use `/ticket panel` or `/ticket user manage`.');
 }
 
 // ───────────────── Router ─────────────────
@@ -1505,6 +1492,11 @@ export default {
       executeTicketPanelCommand,
       [
         {
+          name: 'panel',
+          type: 1,
+          description: 'Send the ticket creation panel'
+        },
+        {
           name: 'user',
           type: 2,
           description: 'Ticket user controls',
@@ -1517,30 +1509,6 @@ export default {
           ]
         }
       ]
-    ),
-
-    buildTicketCommand(
-      'claim',
-      'Claim the current ticket',
-      executePendingTicketCommand
-    ),
-
-    buildTicketCommand(
-      'unclaim',
-      'Unclaim the current ticket',
-      executePendingTicketCommand
-    ),
-
-    buildTicketCommand(
-      'close',
-      'Close the current ticket',
-      executePendingTicketCommand
-    ),
-
-    buildTicketCommand(
-      'reopen',
-      'Reopen the current ticket',
-      executePendingTicketCommand
     )
   ],
 

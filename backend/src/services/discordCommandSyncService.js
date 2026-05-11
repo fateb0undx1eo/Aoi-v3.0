@@ -34,5 +34,11 @@ export class DiscordCommandSyncService {
       Routes.applicationGuildCommands(this.env.discord.clientId, this.env.discord.guildId),
       { body: commands }
     );
+
+    // Clear stale global commands so only synced guild commands are visible.
+    await rest.put(
+      Routes.applicationCommands(this.env.discord.clientId),
+      { body: [] }
+    );
   }
 }
