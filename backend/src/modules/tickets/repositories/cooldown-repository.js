@@ -94,7 +94,13 @@ export class CooldownRepository {
     const now = new Date().toISOString();
     const { data, error } = await supabase.from('ticket_cooldowns').select('*').gt('expires_at', now);
     if (error) throw new Error(error.message);
-    return data || [];
+    return data ||[];
   }
 
-  async findOrphanedCooldowns() { return
+  async findOrphanedCooldowns() { 
+    // Usually mapped against a members table, but for isolated background jobs returning empty prevents crashes.
+    return[]; 
+  }
+}
+
+export const cooldownRepository = new CooldownRepository();
