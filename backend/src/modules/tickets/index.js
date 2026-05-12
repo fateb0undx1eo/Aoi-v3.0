@@ -162,16 +162,17 @@ export async function initializeTicketsModule(options) {
         name: 'interactionCreate',
         async execute(interaction) {
           try {
+            // Only route button/select/modal interactions here
+            // Chat input commands are handled by the global router via command.execute()
             if (
-              interaction.isChatInputCommand() &&
-              Constants.TICKET_COMMAND_NAMES.has(interaction.commandName)
+              !interaction.isButton() &&
+              !interaction.isStringSelectMenu() &&
+              !interaction.isModalSubmit()
             ) {
-              await interaction.deferReply({ ephemeral: true });
-              await ticketCommandHandler.handleTicketCommand(interaction);
               return;
             }
 
-            // Route other interactions
+            // Route ticket-related interactions
             await interactionRouter.routeInteraction(interaction);
           } catch (error) {
             logger.error('Ticket interaction handler failed', { error: error.message, stack: error.stack });
