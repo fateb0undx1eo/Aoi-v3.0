@@ -137,8 +137,21 @@ export async function initializeTicketsModule(options) {
           }
         ],
         async execute(interaction) {
-          await interaction.deferReply({ ephemeral: true });
-          await ticketCommandHandler.handleTicketCommand(interaction);
+          try {
+            await interaction.deferReply({ ephemeral: true });
+            await ticketCommandHandler.handleTicketCommand(interaction);
+          } catch (error) {
+            logger.error('Ticket command execution failed', { error: error.message, stack: error.stack });
+            try {
+              if (interaction.deferred || interaction.replied) {
+                await interaction.editReply({ content: `Error: ${error.message}` });
+              } else {
+                await interaction.reply({ content: `Error: ${error.message}`, ephemeral: true });
+              }
+            } catch (replyError) {
+              logger.error('Failed to send error reply', { error: replyError.message });
+            }
+          }
         }
       }
     ],
@@ -148,17 +161,30 @@ export async function initializeTicketsModule(options) {
       {
         name: 'interactionCreate',
         async execute(interaction) {
-          if (
-            interaction.isChatInputCommand() &&
-            Constants.TICKET_COMMAND_NAMES.has(interaction.commandName)
-          ) {
-            await interaction.deferReply({ ephemeral: true });
-            await ticketCommandHandler.handleTicketCommand(interaction);
-            return;
-          }
+          try {
+            if (
+              interaction.isChatInputCommand() &&
+              Constants.TICKET_COMMAND_NAMES.has(interaction.commandName)
+            ) {
+              await interaction.deferReply({ ephemeral: true });
+              await ticketCommandHandler.handleTicketCommand(interaction);
+              return;
+            }
 
-          // Route other interactions
-          await interactionRouter.routeInteraction(interaction);
+            // Route other interactions
+            await interactionRouter.routeInteraction(interaction);
+          } catch (error) {
+            logger.error('Ticket interaction handler failed', { error: error.message, stack: error.stack });
+            try {
+              if (interaction.deferred || interaction.replied) {
+                await interaction.editReply({ content: `Error: ${error.message}` });
+              } else {
+                await interaction.reply({ content: `Error: ${error.message}`, ephemeral: true });
+              }
+            } catch (replyError) {
+              logger.error('Failed to send error reply', { error: replyError.message });
+            }
+          }
         }
       }
     ],

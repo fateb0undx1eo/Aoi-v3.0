@@ -18,7 +18,10 @@ export class TicketCommandHandler {
     logger.debug('Ticket command executed', { userId: interaction.user.id });
 
     // Check if user is ticket staff
-    if (!isTicketStaffFromInteraction(interaction)) {
+    const isStaff = isTicketStaffFromInteraction(interaction);
+    logger.debug('Staff check result', { isStaff, userId: interaction.user.id, inGuild: interaction.inGuild() });
+    
+    if (!isStaff) {
       await interaction.editReply({
         content: 'You are not allowed to use ticket commands.',
         ephemeral: true
@@ -33,7 +36,10 @@ export class TicketCommandHandler {
     try {
       group = options.getSubcommandGroup(false);
       subcommand = options.getSubcommand(false);
-    } catch {}
+      logger.debug('Subcommand parsed', { group, subcommand });
+    } catch (e) {
+      logger.debug('Failed to parse subcommand', { error: e.message });
+    }
 
     // /ticket panel
     if (subcommand === 'panel') {
