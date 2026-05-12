@@ -69,6 +69,8 @@ async function main() {
     // 6. Register Discord Events & Commands
     // ─────────────────────────────────────────────────────────────
     logger.info('Registering command and event handlers...');
+    logger.debug(`Total commands in registry: ${registry.commands.size}`);
+    logger.debug(`Total events in registry: ${registry.events.size}`);
 
     const context = {
       database,
@@ -88,6 +90,7 @@ async function main() {
     for (const event of registry.events) {
       const handlers = registry.getEventHandlers(event);
       if (handlers.length > 0) {
+        logger.debug(`Registering ${handlers.length} handler(s) for event: ${event}`);
         discordClient.on(event, async (...args) => {
           for (const handler of handlers) {
             try {
@@ -107,8 +110,13 @@ async function main() {
     // ─────────────────────────────────────────────────────────────
     logger.info('Syncing Discord slash commands...');
     const commandSync = new DiscordCommandSyncService(env, registry);
-    await commandSync.syncGuildCommands();
-    logger.info('✓ Discord commands synced');
+    try {
+      await commandSync.syncGuildCommands();
+      logger.info('✓ Discord commands synced');
+    } catch (error) {
+      logger.error('Failed to sync Discord commands:', error);
+      throw error;
+    }
 
     // ─────────────────────────────────────────────────────────────
     // 8. Setup Discord Client Ready Event

@@ -25,20 +25,31 @@ export class DiscordCommandSyncService {
       };
     });
 
+    console.log(`\n📡 Syncing ${commands.length} command(s) to Discord...`);
+    commands.forEach((cmd) => {
+      console.log(`  - /${cmd.name}${cmd.options?.length ? ` [${cmd.options.length} option(s)]` : ''}`);
+    });
+
     const rest = new REST({ version: '10' }).setToken(this.env.discord.token);
     if (!this.env.discord.guildId) {
       throw new Error('GUILD_ID is required for guild command synchronization');
     }
 
-    await rest.put(
-      Routes.applicationGuildCommands(this.env.discord.clientId, this.env.discord.guildId),
-      { body: commands }
-    );
+    try {
+      const result = await rest.put(
+        Routes.applicationGuildCommands(this.env.discord.clientId, this.env.discord.guildId),
+        { body: commands }
+      );
+      console.log(`✓ Synced ${result.length} command(s) to guild ${this.env.discord.guildId}\n`);
 
-    // Clear stale global commands so only synced guild commands are visible.
-    await rest.put(
-      Routes.applicationCommands(this.env.discord.clientId),
-      { body: [] }
-    );
+      // Clear stale global commands so only synced guild commands are visible.
+      await rest.put(
+        Routes.applicationCommands(this.env.discord.clientId),
+        { body: [] }
+      );
+    } catch (error) {
+      console.error(`✗ Failed to sync commands:`, error.message);
+      throw error;
+    }
   }
 }

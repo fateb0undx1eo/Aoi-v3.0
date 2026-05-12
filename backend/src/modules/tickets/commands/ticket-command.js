@@ -15,13 +15,19 @@ export class TicketCommandHandler {
   async handleTicketCommand(interaction) {
     const { options, channel } = interaction;
 
-    logger.debug('Ticket command executed', { userId: interaction.user.id });
+    logger.info('=== TICKET COMMAND STARTED ===', { userId: interaction.user.id, guildId: interaction.guildId });
 
     // Check if user is ticket staff
     const isStaff = isTicketStaffFromInteraction(interaction);
-    logger.debug('Staff check result', { isStaff, userId: interaction.user.id, inGuild: interaction.inGuild() });
+    logger.info('Staff permission check', { 
+      isStaff, 
+      userId: interaction.user.id, 
+      inGuild: interaction.inGuild(),
+      memberPerms: interaction.member?.permissions?.bitfield
+    });
     
     if (!isStaff) {
+      logger.warn('User denied ticket access - not staff', { userId: interaction.user.id });
       await interaction.editReply({
         content: 'You are not allowed to use ticket commands.',
         ephemeral: true
@@ -43,15 +49,18 @@ export class TicketCommandHandler {
 
     // /ticket panel
     if (subcommand === 'panel') {
+      logger.info('PANEL subcommand triggered');
       return await this.handlePanelCommand(interaction);
     }
 
     // /ticket manage users
     if (group === 'manage' && subcommand === 'users') {
+      logger.info('MANAGE USERS subcommand triggered');
       return await this.handleManageUsersCommand(interaction);
     }
 
     // Unknown
+    logger.warn('Unknown subcommand', { group, subcommand });
     await interaction.editReply({
       content: 'Use `/ticket panel` or `/ticket manage users`.',
       ephemeral: true
