@@ -14,6 +14,7 @@ import { logger } from './utils/logger.js';
 import * as ConfigCache from './core/configCache/configCache.js';
 import * as PermissionService from './core/permissions/permissionService.js';
 import * as RateLimiter from './core/rateLimiter/dynamicRateLimiter.js';
+import { DiscordCommandSyncService } from './services/discordCommandSyncService.js';
 
 const PORT = env.port || 3001;
 
@@ -102,7 +103,15 @@ async function main() {
     logger.info('✓ Handlers registered');
 
     // ─────────────────────────────────────────────────────────────
-    // 7. Setup Discord Client Ready Event
+    // 7. Sync Discord Commands
+    // ─────────────────────────────────────────────────────────────
+    logger.info('Syncing Discord slash commands...');
+    const commandSync = new DiscordCommandSyncService(env, registry);
+    await commandSync.syncGuildCommands();
+    logger.info('✓ Discord commands synced');
+
+    // ─────────────────────────────────────────────────────────────
+    // 8. Setup Discord Client Ready Event
     // ─────────────────────────────────────────────────────────────
     discordClient.once('ready', () => {
       logger.info(`✓ Discord Bot Ready! Logged in as ${discordClient.user.tag}`);
