@@ -138,7 +138,7 @@ export async function initializeTicketsModule(options) {
         ],
         async execute(interaction) {
           try {
-            await interaction.deferReply({ ephemeral: true });
+            // Don't defer here - global router already deferred this
             await ticketCommandHandler.handleTicketCommand(interaction);
           } catch (error) {
             logger.error('Ticket command execution failed', { error: error.message, stack: error.stack });
