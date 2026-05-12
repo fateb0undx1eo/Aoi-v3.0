@@ -13,7 +13,7 @@ import { registerInteractionRouter } from './interactions/interactionRouter.js';
 import { logger } from './utils/logger.js';
 import * as ConfigCache from './core/configCache/configCache.js';
 import * as PermissionService from './core/permissions/permissionService.js';
-import * as RateLimiter from './core/rateLimiter/rateLimiter.js';
+import * as RateLimiter from './core/rateLimiter/dynamicRateLimiter.js';
 
 const PORT = env.port || 3001;
 
