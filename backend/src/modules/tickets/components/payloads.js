@@ -11,21 +11,17 @@ import { buildResolvedButton, buildResolveConfirmationRow, buildUserManagementRo
 /**
  * Builds the main ticket panel payload
  * This is the message users interact with to create tickets
+ * Requires IS_COMPONENTS_V2 flag (32768)
  */
 export function buildTicketPanelPayload() {
   return {
-    flags: MessageFlags.IsComponentsV2,
+    flags: 32768, // IS_COMPONENTS_V2
     components: [
       {
-        type: COMPONENT_TYPES.Container,
+        type: 17, // CONTAINER
         components: [
           {
-            type: COMPONENT_TYPES.TextDisplay,
-            content:
-              '# <:Empty:1503044372487471328><:Empty:1503044372487471328><:Empty:1503044372487471328><a:Sparkle2:1503090874417152020><:Ticket1:1503003731887788072><:Ticket2:1503003714213118104><a:Sparkle2:1503090874417152020>'
-          },
-          {
-            type: COMPONENT_TYPES.TextDisplay,
+            type: 10, // TEXT_DISPLAY
             content:
               '**Need help with something?**\nCreate a support ticket by selecting a category below and our staff team will assist you as soon as possible.'
           },
@@ -39,27 +35,28 @@ export function buildTicketPanelPayload() {
 /**
  * Builds the welcome message payload sent to the user in their ticket thread
  * Includes the RESOLVED button and guidelines
+ * Requires IS_COMPONENTS_V2 flag (32768)
  */
 export function buildTicketWelcomePayload(tag, creatorId, { resolvedDisabled = false } = {}) {
   return {
-    flags: MessageFlags.IsComponentsV2,
+    flags: 32768, // IS_COMPONENTS_V2
     components: [
       {
-        type: COMPONENT_TYPES.Container,
+        type: 17, // CONTAINER
         components: [
           {
-            type: COMPONENT_TYPES.TextDisplay,
+            type: 10, // TEXT_DISPLAY
             content: `# ${tag.label}`
           },
           {
-            type: COMPONENT_TYPES.TextDisplay,
+            type: 10, // TEXT_DISPLAY
             content:
               `Thank you for opening a support ticket.\n` +
               `${tag.intro}\n` +
               `A staff member will respond as soon as possible.`
           },
           {
-            type: COMPONENT_TYPES.TextDisplay,
+            type: 10, // TEXT_DISPLAY
             content:
               `## General Guidelines\n` +
               `${POINTER} Explain your issue clearly and include full details.\n` +
@@ -68,7 +65,7 @@ export function buildTicketWelcomePayload(tag, creatorId, { resolvedDisabled = f
               `${POINTER} Avoid pings and wait for a response from staff.`
           },
           {
-            type: COMPONENT_TYPES.ActionRow,
+            type: 1, // ACTION_ROW
             components: [buildResolvedButton(creatorId, resolvedDisabled)]
           }
         ]
