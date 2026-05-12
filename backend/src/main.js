@@ -6,7 +6,7 @@
 import { env } from './core/config/env.js';
 import { createDiscordClient } from './core/discordClient.js';
 import { redisClient } from './core/redis.js';
-import { SupabaseRepository } from './database/repository.js';
+import * as database from './database/repository.js';
 import { buildApiServer } from './api/server.js';
 import { bootstrapRegistry } from './core/loader/bootstrap.js';
 import { registerInteractionRouter } from './interactions/interactionRouter.js';
@@ -36,7 +36,6 @@ async function main() {
     // 2. Initialize Database
     // ─────────────────────────────────────────────────────────────
     logger.info('Initializing database connection...');
-    const database = new SupabaseRepository();
     logger.info('✓ Database ready');
 
     // ─────────────────────────────────────────────────────────────
