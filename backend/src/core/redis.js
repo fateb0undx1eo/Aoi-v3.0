@@ -161,6 +161,29 @@ class RedisClient {
   }
 
   /**
+   * Set a value with expiration in seconds
+   * Tickets module standard method
+   * @param {string} key - Redis key
+   * @param {number} ttl - Time to live in seconds
+   * @param {string} value - Value to store
+   * @returns {Promise<boolean>} True if successful
+   */
+  async setex(key, ttl, value) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping setex operation');
+      return false;
+    }
+
+    try {
+      await this.client.setEx(key, ttl, String(value));
+      return true;
+    } catch (error) {
+      console.error(`Failed to setex key ${key}:`, error);
+      return false;
+    }
+  }
+
+  /**
    * Acquire a distributed lock with timeout
    * @param {string} key - Lock key
    * @param {number} ttl - Time to live in milliseconds
@@ -224,24 +247,151 @@ class RedisClient {
   }
 
   /**
-   * Set a key with expiration
-   * @param {string} key - Redis key
-   * @param {string} value - Value to store
-   * @param {number} ttl - Time to live in milliseconds
-   * @returns {Promise<boolean>} True if successful
+   * Get multiple values by keys
+   * @param {...string} keys - Redis keys
+   * @returns {Promise<Array>} Array of values
    */
-  async setWithTTL(key, value, ttl) {
+  async mget(...keys) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping set operation');
-      return false;
+      console.warn('Redis not ready, skipping mget operation');
+      return [];
     }
 
     try {
-      await this.client.setEx(key, Math.ceil(ttl / 1000), value);
-      return true;
+      const result = await this.client.mGet(keys);
+      return result || [];
+    } catch (error) {
+      console.error('Failed to mget keys:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get keys matching a pattern
+   * @param {string} pattern - Key pattern (e.g., "prefix:*")
+   * @returns {Promise<Array>} Array of matching keys
+   */
+  async keys(pattern) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping keys operation');
+      return [];
+    }
+
+    try {
+      const result = await this.client.keys(pattern);
+      return result || [];
+    } catch (error) {
+      console.error(`Failed to get keys with pattern ${pattern}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Set a value with options (NX, EX, PX, XX, etc.)
+   * Supports multiple calling patterns:
+   * - set(key, value, 'PX', ttl, 'NX')
+   * - set(key, value, { PX: ttl, NX: true })
+   * @param {string} key - Redis key
+   * @param {string} value - Value to set
+   * @param {string|Object} mode - Set mode string ('NX', 'XX', 'PX', 'EX') OR options object
+   * @param {number} ttl - TTL value (if mode is a string like 'PX' or 'EX')
+   * @param {string} flag - Additional flag ('NX' or 'XX') if mode is 'PX'/'EX'
+   * @returns {Promise<string|null>} 'OK' if successful, null otherwise
+   */
+  async set(key, value, mode, ttl, flag) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping set operation');
+      return null;
+    }
+
+    try {
+      let opts = {};
+      
+      // Handle case where mode is an object
+      if (typeof mode === 'object' && mode !== null) {
+        opts = mode;
+      } else if (typeof mode === 'string') {
+        // Handle positional parameter style: set(key, value, 'PX', ms, 'NX')
+        if (mode === 'PX' || mode === 'EX') {
+          opts[mode] = ttl; // Set the TTL option
+          if (flag === 'NX' || flag === 'XX') {
+            opts[flag] = true; // Set the condition flag
+          }
+        } else if (mode === 'NX' || mode === 'XX') {
+          // Handle if mode is just a flag
+          opts[mode] = true;
+          if (ttl === 'PX' || ttl === 'EX') {
+            // Second parameter is actually a TTL mode
+            opts[ttl] = flag;
+          }
+        }
+      }
+      
+      const result = await this.client.set(key, String(value), opts);
+      return result;
     } catch (error) {
       console.error(`Failed to set key ${key}:`, error);
-      return false;
+      return null;
+    }
+  }
+
+  /**
+   * Append a value to a string
+   * @param {string} key - Redis key
+   * @param {string} value - Value to append
+   * @returns {Promise<number>} New length of string
+   */
+  async append(key, value) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping append operation');
+      return 0;
+    }
+
+    try {
+      const result = await this.client.append(key, String(value));
+      return result || 0;
+    } catch (error) {
+      console.error(`Failed to append to key ${key}:`, error);
+      return 0;
+    }
+  }
+
+  /**
+   * Increment a counter (alias for incrBy with amount 1)
+   * @param {string} key - Redis key
+   * @returns {Promise<number|null>} New value or null on error
+   */
+  async incr(key) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping incr operation');
+      return null;
+    }
+
+    try {
+      return await this.client.incr(key);
+    } catch (error) {
+      console.error(`Failed to incr key ${key}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Increment a counter by amount
+   * @param {string} key - Redis key
+   * @param {number} amount - Amount to increment (default 1)
+   * @returns {Promise<number|null>} New value or null on error
+   */
+  async incrBy(key, amount = 1) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping incrby operation');
+      return null;
+    }
+
+    try {
+      return await this.client.incrBy(key, amount);
+    } catch (error) {
+      console.error(`Failed to incrby key ${key}:`, error);
+      return null;
     }
   }
 
@@ -265,7 +415,28 @@ class RedisClient {
   }
 
   /**
-   * Delete a key
+   * Delete one or more keys
+   * @param {...string} keys - Redis keys to delete
+   * @returns {Promise<number>} Number of keys deleted
+   */
+  async del(...keys) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping delete operation');
+      return 0;
+    }
+
+    try {
+      if (keys.length === 0) return 0;
+      const result = await this.client.del(keys);
+      return result || 0;
+    } catch (error) {
+      console.error(`Failed to delete keys:`, error);
+      return 0;
+    }
+  }
+
+  /**
+   * Delete a single key (alias for del)
    * @param {string} key - Redis key
    * @returns {Promise<boolean>} True if key was deleted
    */
@@ -304,22 +475,179 @@ class RedisClient {
   }
 
   /**
-   * Increment a counter
-   * @param {string} key - Redis key
-   * @param {number} amount - Amount to increment (default 1)
-   * @returns {Promise<number|null>} New value or null on error
+   * Execute a Lua script
+   * @param {string} script - Lua script code
+   * @param {number} numKeys - Number of keys argument
+   * @param {...*} args - Key and argument values
+   * @returns {Promise<*>} Script result
    */
-  async increment(key, amount = 1) {
+  async eval(script, numKeys, ...args) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping increment operation');
+      console.warn('Redis not ready, skipping eval operation');
       return null;
     }
 
     try {
-      return await this.client.incrBy(key, amount);
+      const keys = args.slice(0, numKeys);
+      const argv = args.slice(numKeys);
+      
+      const result = await this.client.eval(script, {
+        keys: keys.length > 0 ? keys : undefined,
+        arguments: argv.length > 0 ? argv : undefined
+      });
+      
+      return result;
     } catch (error) {
-      console.error(`Failed to increment key ${key}:`, error);
+      console.error('Failed to execute Lua script:', error);
       return null;
+    }
+  }
+
+  /**
+   * Set key value only if key doesn't exist
+   * @param {string} key - Key to set
+   * @param {string} value - Value to set
+   * @returns {Promise<boolean>} True if key was set
+   */
+  async setNX(key, value) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping setnx operation');
+      return false;
+    }
+
+    try {
+      const result = await this.client.setNX(key, String(value));
+      return result === true;
+    } catch (error) {
+      console.error(`Failed to setnx key ${key}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Set expiration time on key
+   * @param {string} key - Key to set expiration on
+   * @param {number} ttl - Time to live in seconds
+   * @returns {Promise<boolean>} True if successful
+   */
+  async expire(key, ttl) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping expire operation');
+      return false;
+    }
+
+    try {
+      const result = await this.client.expire(key, ttl);
+      return result === 1;
+    } catch (error) {
+      console.error(`Failed to set expiration on key ${key}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Set a key with expiration (milliseconds version)
+   * @param {string} key - Redis key
+   * @param {string} value - Value to store
+   * @param {number} ttl - Time to live in milliseconds
+   * @returns {Promise<boolean>} True if successful
+   */
+  async setWithTTL(key, value, ttl) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping set operation');
+      return false;
+    }
+
+    try {
+      await this.client.setEx(key, Math.ceil(ttl / 1000), String(value));
+      return true;
+    } catch (error) {
+      console.error(`Failed to set key ${key}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Execute a pipeline of Redis commands
+   * @param {Function} pipelineFn - Function that receives pipeline object
+   * @returns {Promise<Array>} Array of results
+   */
+  async pipeline(pipelineFn) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping pipeline operation');
+      return [];
+    }
+
+    try {
+      const pipeline = this.client.multi();
+      pipelineFn(pipeline);
+      const results = await pipeline.exec();
+      return results || [];
+    } catch (error) {
+      console.error('Failed to execute Redis pipeline:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get range of elements from list
+   * @param {string} key - List key
+   * @param {number} start - Start index (0 = first)
+   * @param {number} stop - Stop index (-1 = last)
+   * @returns {Promise<Array>} Array of values
+   */
+  async lRange(key, start, stop) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping lrange operation');
+      return [];
+    }
+
+    try {
+      const result = await this.client.lRange(key, start, stop);
+      return result || [];
+    } catch (error) {
+      console.error(`Failed to lrange key ${key}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Remove and get first element of list
+   * @param {string} key - List key
+   * @returns {Promise<string|null>} First element or null
+   */
+  async lPop(key) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping lpop operation');
+      return null;
+    }
+
+    try {
+      const result = await this.client.lPop(key);
+      return result;
+    } catch (error) {
+      console.error(`Failed to lpop key ${key}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get list length
+   * @param {string} key - List key
+   * @returns {Promise<number>} List length
+   */
+  async lLen(key) {
+    if (!this.isReady()) {
+      console.warn('Redis not ready, skipping llen operation');
+      return 0;
+    }
+
+    try {
+      const result = await this.client.lLen(key);
+      return result || 0;
+    } catch (error) {
+      console.error(`Failed to llen key ${key}:`, error);
+      return 0;
     }
   }
 
@@ -424,132 +752,6 @@ class RedisClient {
     } catch (error) {
       console.error(`Failed to ltrim key ${key}:`, error);
       return null;
-    }
-  }
-
-  /**
-   * Set expiration time on key
-   * @param {string} key - Key to set expiration on
-   * @param {number} ttl - Time to live in seconds
-   * @returns {Promise<boolean>} True if successful
-   */
-  async expire(key, ttl) {
-    if (!this.isReady()) {
-      console.warn('Redis not ready, skipping expire operation');
-      return false;
-    }
-
-    try {
-      const result = await this.client.expire(key, ttl);
-      return result === 1;
-    } catch (error) {
-      console.error(`Failed to set expiration on key ${key}:`, error);
-      return false;
-    }
-  }
-
-  /**
-   * Set key value only if key doesn't exist
-   * @param {string} key - Key to set
-   * @param {string} value - Value to set
-   * @returns {Promise<boolean>} True if key was set
-   */
-  async setNX(key, value) {
-    if (!this.isReady()) {
-      console.warn('Redis not ready, skipping setnx operation');
-      return false;
-    }
-
-    try {
-      const result = await this.client.setNX(key, value);
-      return result === true;
-    } catch (error) {
-      console.error(`Failed to setnx key ${key}:`, error);
-      return false;
-    }
-  }
-
-  /**
-   * Execute a pipeline of Redis commands
-   * @param {Function} pipelineFn - Function that receives pipeline object
-   * @returns {Promise<Array>} Array of results
-   */
-  async pipeline(pipelineFn) {
-    if (!this.isReady()) {
-      console.warn('Redis not ready, skipping pipeline operation');
-      return [];
-    }
-
-    try {
-      const pipeline = this.client.multi();
-      pipelineFn(pipeline);
-      const results = await pipeline.exec();
-      return results || [];
-    } catch (error) {
-      console.error('Failed to execute Redis pipeline:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Get range of elements from list
-   * @param {string} key - List key
-   * @param {number} start - Start index (0 = first)
-   * @param {number} stop - Stop index (-1 = last)
-   * @returns {Promise<Array>} Array of values
-   */
-  async lRange(key, start, stop) {
-    if (!this.isReady()) {
-      console.warn('Redis not ready, skipping lrange operation');
-      return [];
-    }
-
-    try {
-      const result = await this.client.lRange(key, start, stop);
-      return result || [];
-    } catch (error) {
-      console.error(`Failed to lrange key ${key}:`, error);
-      return [];
-    }
-  }
-
-  /**
-   * Remove and get first element of list
-   * @param {string} key - List key
-   * @returns {Promise<string|null>} First element or null
-   */
-  async lPop(key) {
-    if (!this.isReady()) {
-      console.warn('Redis not ready, skipping lpop operation');
-      return null;
-    }
-
-    try {
-      const result = await this.client.lPop(key);
-      return result;
-    } catch (error) {
-      console.error(`Failed to lpop key ${key}:`, error);
-      return null;
-    }
-  }
-
-  /**
-   * Get list length
-   * @param {string} key - List key
-   * @returns {Promise<number>} List length
-   */
-  async lLen(key) {
-    if (!this.isReady()) {
-      console.warn('Redis not ready, skipping llen operation');
-      return 0;
-    }
-
-    try {
-      const result = await this.client.lLen(key);
-      return result || 0;
-    } catch (error) {
-      console.error(`Failed to llen key ${key}:`, error);
-      return 0;
     }
   }
 

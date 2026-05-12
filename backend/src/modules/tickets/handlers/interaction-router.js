@@ -1,363 +1,175 @@
-import { 
-  handleAddUsersButton, 
-  handleRemoveUsersButton,
-  handleAddUsersModalSubmit,
-  handleRemoveUsersModalSubmit 
-} from './user-management.js';
-import { 
-  handleResolvedButton, 
-  handleResolvedConfirmYes, 
-  handleResolvedConfirmNo,
-  handleResolvedModalSubmit 
-} from './ticket-resolution.js';
-import { createTicketFromTag } from './ticket-creation.js';
-import { 
+/**
+ * Interaction router - routes all Discord interactions to appropriate handlers
+ */
+
+import logger from '../services/logging-service.js';
+import {
+  parseResolvedCreatorId,
+  parseResolveConfirmCreatorId,
+  parseResolveCancelCreatorId,
+  parseAddUsersThreadId,
+  parseRemoveUsersThreadId,
   parseAddUsersModalThreadId,
-  parseRemoveUsersModalThreadId,
-  parseTicketTagFromCustomId,
-  parseResolvedConfirmThreadId
+  parseRemoveUsersModalThreadId
 } from '../utils/custom-id-utils.js';
-import { loggingService } from '../services/logging-service.js';
-import { errorHandler } from '../utils/error-handler.js';
-import { validateInteraction } from '../utils/validators.js';
+import { CUSTOM_IDS, ERROR_MESSAGES } from '../utils/constants.js';
+import { getTicketTagByValue } from '../utils/validators.js';
+import { handleError, CooldownError } from '../utils/error-handler.js';
 
-/**
- * Enterprise-grade interaction router for ticket system
- * Routes all Discord interactions to appropriate handlers
- */
-
-/**
- * Handle command interactions
- * @param {Object} interaction - Discord command interaction
- */
-export async function handleCommand(interaction) {
-  const context = await loggingService.logInteractionStart(interaction, 'command');
-  
-  try {
-    // Validate interaction
-    const validation = validateInteraction(interaction);
-    if (!validation.isValid) {
-      throw new Error(`Invalid interaction: ${validation.errors.join(', ')}`);
-    }
-
-    const { commandName } = interaction;
-
-    switch (commandName) {
-      case 'ticket':
-        // Handle ticket command - delegate to ticket command execution
-        const { executeTicketPanelCommand } = await import('../commands/ticket-command.js');
-        await executeTicketPanelCommand(interaction);
-        break;
-      default:
-        await interaction.reply({
-          content: 'Unknown command.',
-          ephemeral: true
-        });
-        break;
-    }
-
-    await loggingService.logInteractionComplete(context, 'command', { 
-      success: true,
-      commandName 
-    });
-
-  } catch (error) {
-    await errorHandler.handleInteractionError(context, error, 'command');
+export class InteractionRouter {
+  constructor(
+    lockService,
+    ticketCreationHandler,
+    ticketResolutionHandler,
+    userManagementHandler
+  ) {
+    this.lockService = lockService;
+    this.ticketCreationHandler = ticketCreationHandler;
+    this.ticketResolutionHandler = ticketResolutionHandler;
+    this.userManagementHandler = userManagementHandler;
   }
-}
 
-/**
- * Handle button interactions
- * @param {Object} interaction - Discord button interaction
- */
-export async function handleButton(interaction) {
-  const context = await loggingService.logInteractionStart(interaction, 'button');
-  
-  try {
-    // Validate interaction
-    const validation = validateInteraction(interaction);
-    if (!validation.isValid) {
-      throw new Error(`Invalid interaction: ${validation.errors.join(', ')}`);
-    }
-
-    const { customId } = interaction;
-
-    // Route button interactions based on custom ID pattern
-    if (customId.startsWith('add_users:')) {
-      const threadId = customId.split(':')[1];
-      await handleAddUsersButton(interaction, threadId);
-    } else if (customId.startsWith('remove_users:')) {
-      const threadId = customId.split(':')[1];
-      await handleRemoveUsersButton(interaction, threadId);
-    } else if (customId.startsWith('resolved:')) {
-      const creatorId = customId.split(':')[1];
-      await handleResolvedButton(interaction, creatorId);
-    } else if (customId.startsWith('resolved_confirm_yes:')) {
-      const creatorId = customId.split(':')[1];
-      await handleResolvedConfirmYes(interaction, creatorId);
-    } else if (customId.startsWith('resolved_confirm_no:')) {
-      const creatorId = customId.split(':')[1];
-      await handleResolvedConfirmNo(interaction, creatorId);
-    } else if (customId.startsWith('ticket_tag:')) {
-      const tag = parseTicketTagFromCustomId(customId);
-      await createTicketFromTag(interaction, tag);
-    } else {
-      await interaction.reply({
-        content: 'Unknown button interaction.',
-        ephemeral: true
-      });
-    }
-
-    await loggingService.logInteractionComplete(context, 'button', { 
-      success: true,
-      customId 
-    });
-
-  } catch (error) {
-    await errorHandler.handleInteractionError(context, error, 'button');
-  }
-}
-
-/**
- * Handle select menu interactions
- * @param {Object} interaction - Discord select menu interaction
- */
-export async function handleSelectMenu(interaction) {
-  const context = await loggingService.logInteractionStart(interaction, 'select_menu');
-  
-  try {
-    // Validate interaction
-    const validation = validateInteraction(interaction);
-    if (!validation.isValid) {
-      throw new Error(`Invalid interaction: ${validation.errors.join(', ')}`);
-    }
-
-    const { customId } = interaction;
-
-    // Route select menu interactions
-    switch (customId) {
-      default:
-        await interaction.reply({
-          content: 'Unknown select menu interaction.',
-          ephemeral: true
-        });
-        break;
-    }
-
-    await loggingService.logInteractionComplete(context, 'select_menu', { 
-      success: true,
-      customId 
-    });
-
-  } catch (error) {
-    await errorHandler.handleInteractionError(context, error, 'select_menu');
-  }
-}
-
-/**
- * Handle modal submit interactions
- * @param {Object} interaction - Discord modal submit interaction
- */
-export async function handleModalSubmit(interaction) {
-  const context = await loggingService.logInteractionStart(interaction, 'modal_submit');
-  
-  try {
-    // Validate interaction
-    const validation = validateInteraction(interaction);
-    if (!validation.isValid) {
-      throw new Error(`Invalid interaction: ${validation.errors.join(', ')}`);
-    }
-
-    const { customId } = interaction;
-
-    // Route modal submit interactions based on custom ID pattern
-    if (customId.startsWith('add_users_modal:')) {
-      const threadId = parseAddUsersModalThreadId(customId);
-      await handleAddUsersModalSubmit(interaction, threadId);
-    } else if (customId.startsWith('remove_users_modal:')) {
-      const threadId = parseRemoveUsersModalThreadId(customId);
-      await handleRemoveUsersModalSubmit(interaction, threadId);
-    } else if (customId.startsWith('resolved_confirm:')) {
-      const threadId = parseResolvedConfirmThreadId(customId);
-      await handleResolvedModalSubmit(interaction, threadId);
-    } else {
-      await interaction.reply({
-        content: 'Unknown modal interaction.',
-        ephemeral: true
-      });
-    }
-
-    await loggingService.logInteractionComplete(context, 'modal_submit', { 
-      success: true,
-      customId 
-    });
-
-  } catch (error) {
-    await errorHandler.handleInteractionError(context, error, 'modal_submit');
-  }
-}
-
-/**
- * Handle autocomplete interactions
- * @param {Object} interaction - Discord autocomplete interaction
- */
-export async function handleAutocomplete(interaction) {
-  const context = await loggingService.logInteractionStart(interaction, 'autocomplete');
-  
-  try {
-    // Validate interaction
-    const validation = validateInteraction(interaction);
-    if (!validation.isValid) {
-      throw new Error(`Invalid interaction: ${validation.errors.join(', ')}`);
-    }
-
-    const { commandName } = interaction;
-
-    // Route autocomplete interactions
-    switch (commandName) {
-      default:
-        await interaction.respond([]);
-        break;
-    }
-
-    await loggingService.logInteractionComplete(context, 'autocomplete', { 
-      success: true,
-      commandName 
-    });
-
-  } catch (error) {
-    await errorHandler.handleInteractionError(context, error, 'autocomplete');
-  }
-}
-
-/**
- * Main interaction router - routes any interaction to appropriate handler
- * @param {Object} interaction - Discord interaction
- */
-export async function routeInteraction(interaction) {
-  const context = await loggingService.logInteractionStart(interaction, 'route_interaction');
-  
-  try {
-    // Route based on interaction type
-    switch (interaction.type) {
-      case 1: // ApplicationCommand
-        await handleCommand(interaction);
-        break;
-      case 2: // MessageComponent
-        if (interaction.isButton()) {
-          await handleButton(interaction);
-        } else if (interaction.isStringSelectMenu()) {
-          await handleSelectMenu(interaction);
-        }
-        break;
-      case 5: // ModalSubmit
-        await handleModalSubmit(interaction);
-        break;
-      case 4: // ApplicationCommandAutocomplete
-        await handleAutocomplete(interaction);
-        break;
-      default:
-        await loggingService.warn({
-          operation: 'route_interaction',
-          ...context,
-          message: 'Unknown interaction type',
-          metadata: { interactionType: interaction.type }
-        });
-        break;
-    }
-
-    await loggingService.logInteractionComplete(context, 'route_interaction', { 
-      success: true,
-      interactionType: interaction.type 
-    });
-
-  } catch (error) {
-    await errorHandler.handleInteractionError(context, error, 'route_interaction');
-  }
-}
-
-/**
- * Handle thread updates (for ticket state changes)
- * @param {Object} oldThread - Previous thread state
- * @param {Object} newThread - New thread state
- */
-export async function handleThreadUpdate(oldThread, newThread) {
-  const context = {
-    guildId: newThread.guildId,
-    threadId: newThread.id,
-    operation: 'thread_update'
-  };
-
-  try {
-    // Check if thread name changed (could indicate ticket resolution)
-    if (oldThread.name !== newThread.name) {
-      await loggingService.info({
-        operation: 'thread_name_update',
-        ...context,
-        message: 'Thread name changed',
-        metadata: {
-          oldName: oldThread.name,
-          newName: newThread.name
-        }
-      });
-    }
-
-    // Check if thread was archived
-    if (!oldThread.archived && newThread.archived) {
-      await loggingService.info({
-        operation: 'thread_archived',
-        ...context,
-        message: 'Thread was archived',
-        metadata: {
-          archivedBy: newThread.ownerId
-        }
-      });
-    }
-
-    // Check if thread was locked
-    if (!oldThread.locked && newThread.locked) {
-      await loggingService.info({
-        operation: 'thread_locked',
-        ...context,
-        message: 'Thread was locked',
-        metadata: {
-          lockedBy: newThread.ownerId
-        }
-      });
-    }
-
-  } catch (error) {
-    await errorHandler.handleServiceError(error, 'thread_update', 'interaction_router', context);
-  }
-}
-
-/**
- * Handle thread member updates (for user management tracking)
- * @param {Object} thread - Thread object
- * @param {Object} member - Member object
- * @param {string} action - Action type ('add' or 'remove')
- */
-export async function handleThreadMemberUpdate(thread, member, action) {
-  const context = {
-    guildId: thread.guildId,
-    threadId: thread.id,
-    userId: member.id,
-    operation: 'thread_member_update'
-  };
-
-  try {
-    await loggingService.info({
-      operation: 'thread_member_update',
-      ...context,
-      message: `Member ${action}ed from thread`,
-      metadata: {
-        action,
-        memberId: member.id,
-        memberTag: member.user?.tag
+  /**
+   * Routes all interactions
+   */
+  async routeInteraction(interaction) {
+    try {
+      // String select (ticket tag selection)
+      if (
+        interaction.isStringSelectMenu() &&
+        interaction.customId === CUSTOM_IDS.ticketTagSelect
+      ) {
+        return await this.handleTicketTagSelect(interaction);
       }
-    });
 
-  } catch (error) {
-    await errorHandler.handleServiceError(error, 'thread_member_update', 'interaction_router', context);
+      // Buttons
+      if (interaction.isButton()) {
+        return await this.handleButton(interaction);
+      }
+
+      // Modals
+      if (interaction.isModalSubmit()) {
+        return await this.handleModal(interaction);
+      }
+
+      logger.warn('Unknown interaction type', { customId: interaction.customId });
+    } catch (error) {
+      await handleError(error, interaction, { routerError: true });
+    }
+  }
+
+  /**
+   * Handles ticket tag selection
+   */
+  async handleTicketTagSelect(interaction) {
+    logger.debug('Ticket tag selected', { userId: interaction.user.id, value: interaction.values[0] });
+
+    // Check for creation lock
+    const hasLock = await this.lockService.hasCreationLock(interaction.user.id);
+    if (hasLock) {
+      await interaction.reply({
+        content: ERROR_MESSAGES.LOCKED_IN_CREATION,
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Acquire lock
+    await this.lockService.acquireCreationLock(interaction.user.id);
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      const [selectedValue] = interaction.values;
+      const tag = getTicketTagByValue(selectedValue);
+
+      if (!tag) {
+        await interaction.editReply({ content: ERROR_MESSAGES.UNKNOWN_CATEGORY });
+        return;
+      }
+
+      // Delegate to creation handler
+      await this.ticketCreationHandler.handleTicketCreation(interaction, tag);
+    } catch (error) {
+      logger.error('Ticket tag selection failed', { error: error.message });
+      if (error instanceof CooldownError) {
+        await interaction.editReply({ content: error.message });
+      } else {
+        await interaction.editReply({
+          content: 'An error occurred while creating your ticket.'
+        });
+      }
+    } finally {
+      // Release lock
+      await this.lockService.releaseCreationLock(interaction.user.id);
+    }
+  }
+
+  /**
+   * Routes button interactions
+   */
+  async handleButton(interaction) {
+    const { customId } = interaction;
+
+    logger.debug('Button pressed', { buttonId: customId, userId: interaction.user.id });
+
+    // Resolved button
+    const resolvedCreatorId = parseResolvedCreatorId(customId);
+    if (resolvedCreatorId) {
+      return await this.ticketResolutionHandler.handleResolvedButtonPress(
+        interaction,
+        resolvedCreatorId
+      );
+    }
+
+    // Resolve confirm button
+    const confirmCreatorId = parseResolveConfirmCreatorId(customId);
+    if (confirmCreatorId) {
+      return await this.ticketResolutionHandler.handleResolveConfirm(interaction, confirmCreatorId);
+    }
+
+    // Resolve cancel button
+    const cancelCreatorId = parseResolveCancelCreatorId(customId);
+    if (cancelCreatorId) {
+      return await this.ticketResolutionHandler.handleResolveCancel(interaction);
+    }
+
+    // Add users button
+    const addThreadId = parseAddUsersThreadId(customId);
+    if (addThreadId) {
+      return await this.userManagementHandler.handleAddUserButton(interaction, addThreadId);
+    }
+
+    // Remove users button
+    const removeThreadId = parseRemoveUsersThreadId(customId);
+    if (removeThreadId) {
+      return await this.userManagementHandler.handleRemoveUserButton(interaction, removeThreadId);
+    }
+
+    logger.warn('Unknown button interaction', { buttonId: customId });
+  }
+
+  /**
+   * Routes modal interactions
+   */
+  async handleModal(interaction) {
+    const { customId } = interaction;
+
+    logger.debug('Modal submitted', { modalId: customId, userId: interaction.user.id });
+
+    // Add users modal
+    const addThreadId = parseAddUsersModalThreadId(customId);
+    if (addThreadId) {
+      return await this.userManagementHandler.handleAddUserModalSubmit(interaction, addThreadId);
+    }
+
+    // Remove users modal
+    const removeThreadId = parseRemoveUsersModalThreadId(customId);
+    if (removeThreadId) {
+      return await this.userManagementHandler.handleRemoveUserModalSubmit(interaction, removeThreadId);
+    }
+
+    logger.warn('Unknown modal interaction', { modalId: customId });
   }
 }
+
+export default InteractionRouter;

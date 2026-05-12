@@ -1,120 +1,108 @@
-import { ticketRepository } from '../repositories/ticket-repository.js';
-import { loggingService } from '../services/logging-service.js';
-import { metricsService } from '../services/metrics-service.js';
-import { errorHandler } from '../utils/error-handler.js';
-import { 
-  ERROR_MESSAGES,
-  SUCCESS_MESSAGES,
-  COMPONENT_TYPES
-} from '../utils/constants.js';
-import { isTicketStaffFromInteraction, isAdminOrOwnerFromInteraction } from '../utils/permissions.js';
+/**
+ * Ticket slash commands (/ticket panel, /ticket manage users)
+ */
+
+import logger from '../services/logging-service.js';
 import { buildTicketPanelPayload, buildUserManagementPayload } from '../components/payloads.js';
-import { validateInteraction, validateThreadState } from '../utils/validators.js';
+import { isAdminOrOwnerFromInteraction, requireAdminOrOwner, isTicketStaffFromInteraction } from '../utils/permissions.js';
 
-export async function executeTicketPanelCommand(interaction) {
-  const context = await loggingService.logInteractionStart(interaction, 'ticket_panel_command');
-  const timer = metricsService.createTimer();
+export class TicketCommandHandler {
+  constructor() {}
 
-  try {
-    const validation = validateInteraction(interaction);
-    if (!validation.isValid) throw new Error(`Invalid interaction: ${validation.errors.join(', ')}`);
+  /**
+   * Handles the main /ticket command
+   */
+  async handleTicketCommand(interaction) {
+    const { options, channel } = interaction;
 
-    if (!(await isTicketStaffFromInteraction(interaction))) {
-      await interaction.reply({ content: ERROR_MESSAGES.INSUFFICIENT_PERMISSIONS, ephemeral: true });
+    logger.debug('Ticket command executed', { userId: interaction.user.id });
+
+    // Check if user is ticket staff
+    if (!isTicketStaffFromInteraction(interaction)) {
+      await interaction.editReply({
+        content: 'You are not allowed to use ticket commands.',
+        ephemeral: true
+      });
       return;
     }
 
-    await interaction.deferReply({ ephemeral: true });
-
+    // Get subcommand
     let group = null;
     let subcommand = null;
-    try { group = interaction.options.getSubcommandGroup(false); } catch {}
-    try { subcommand = interaction.options.getSubcommand(false); } catch {}
 
+    try {
+      group = options.getSubcommandGroup(false);
+      subcommand = options.getSubcommand(false);
+    } catch {}
+
+    // /ticket panel
     if (subcommand === 'panel') {
-      if (!isAdminOrOwnerFromInteraction(interaction)) {
-        await interaction.editReply({ content: ERROR_MESSAGES.INSUFFICIENT_PERMISSIONS });
-        return;
-      }
-      
-      await interaction.channel.send(buildTicketPanelPayload());
-      await interaction.editReply({ content: SUCCESS_MESSAGES.PANEL_SENT });
-      
-      const duration = timer.stop();
-      await metricsService.recordCommandExecution('ticket_panel', duration, true, { guildId: interaction.guildId, userId: interaction.user.id });
-      await loggingService.logInteractionComplete(context, 'ticket_panel_command', { success: true, duration });
+      return await this.handlePanelCommand(interaction);
+    }
+
+    // /ticket manage users
+    if (group === 'manage' && subcommand === 'users') {
+      return await this.handleManageUsersCommand(interaction);
+    }
+
+    // Unknown
+    await interaction.editReply({
+      content: 'Use `/ticket panel` or `/ticket manage users`.',
+      ephemeral: true
+    });
+  }
+
+  /**
+   * Handles the /ticket panel command
+   */
+  async handlePanelCommand(interaction) {
+    logger.info('Panel command executed', { guildId: interaction.guildId, userId: interaction.user.id });
+
+    // Check for admin/owner only
+    if (!(await requireAdminOrOwner(interaction))) {
       return;
     }
 
-    if (group === 'user' && subcommand === 'manage') {
-      const threadValidation = validateThreadState(interaction.channel);
-      if (!threadValidation.isValid) {
-        await interaction.editReply({ content: ERROR_MESSAGES.NOT_TICKET_THREAD });
-        return;
-      }
+    try {
+      // Send the ticket panel
+      const payload = buildTicketPanelPayload();
+      await interaction.channel.send(payload).catch(() => null);
 
-      const ticket = await ticketRepository.findByThreadId(interaction.channelId);
-      if (!ticket) {
-        await interaction.editReply({ content: ERROR_MESSAGES.INVALID_TICKET_STATE });
+      await interaction.editReply({ content: 'Ticket panel sent in this channel.' });
+    } catch (error) {
+      logger.error('Failed to send ticket panel', { error: error.message });
+      await interaction.editReply({
+        content: 'Failed to send the ticket panel.'
+      });
+    }
+  }
+
+  /**
+   * Handles the /ticket manage users command
+   */
+  async handleManageUsersCommand(interaction) {
+    logger.info('Manage users command executed', { threadId: interaction.channelId, userId: interaction.user.id });
+
+    try {
+      // Check if in thread
+      if (!interaction.channel?.isThread?.()) {
+        await interaction.editReply({
+          content: 'Run this command inside a ticket thread.'
+        });
         return;
       }
 
       const threadId = interaction.channelId;
-      
-      // FIXED: Properly unpack the components so Discord.js doesn't crash on nested arrays
       const payload = buildUserManagementPayload(threadId);
+
+      await interaction.editReply(payload);
+    } catch (error) {
+      logger.error('Failed to handle manage users command', { error: error.message });
       await interaction.editReply({
-        content: 'Ticket user controls:',
-        components: payload.components
+        content: 'An error occurred while processing the command.'
       });
-
-      const duration = timer.stop();
-      await metricsService.recordCommandExecution('ticket_user_manage', duration, true, { guildId: interaction.guildId, threadId, userId: interaction.user.id });
-      await loggingService.logInteractionComplete(context, 'ticket_user_manage_command', { success: true, duration, threadId });
-      return;
     }
-
-    await interaction.editReply({ content: ERROR_MESSAGES.UNKNOWN_SUBCOMMAND });
-
-  } catch (error) {
-    const duration = timer.stop();
-    await metricsService.recordCommandExecution('ticket_command', duration, false, { guildId: interaction.guildId, userId: interaction.user.id, error: error.message });
-    await errorHandler.handleInteractionError(context, error, 'ticket_command');
   }
 }
 
-export function buildTicketCommand(name, description, execute, options =[]) {
-  return {
-    name,
-    description,
-    ephemeral: true,
-    options,
-    async execute(interaction) {
-      await execute(interaction);
-    }
-  };
-}
-
-export const ticketCommand = buildTicketCommand(
-  'ticket',
-  'Manage the ticket system',
-  executeTicketPanelCommand,[
-    {
-      name: 'panel',
-      type: 1,
-      description: 'Send the ticket creation panel'
-    },
-    {
-      name: 'user',
-      type: 2,
-      description: 'Ticket user controls',
-      options:[
-        {
-          name: 'manage',
-          type: 1,
-          description: 'Open add/remove controls for this thread'
-        }
-      ]
-    }
-  ]
-);
+export default TicketCommandHandler;

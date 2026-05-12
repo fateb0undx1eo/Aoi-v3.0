@@ -1,106 +1,168 @@
-import { supabase } from '../../../database/supabase.js';
+/**
+ * Cooldown repository - manages cooldown data in Redis
+ * Tracks when users closed tickets to enforce cooldown periods
+ */
+
+import logger from '../services/logging-service.js';
+import { REDIS_KEYS, KEY_TTLS } from '../utils/redis-keys.js';
+import { TICKET_COOLDOWN_MS } from '../utils/constants.js';
+import { isValidDiscordId } from '../utils/validators.js';
+import { DatabaseError, ValidationError } from '../utils/error-handler.js';
 
 export class CooldownRepository {
-  async upsert(cooldownData) {
-    const { data, error } = await supabase.from('ticket_cooldowns').upsert({
-      guild_id: cooldownData.guildId,
-      user_id: cooldownData.userId,
-      expires_at: cooldownData.expiresAt,
-      reason: cooldownData.reason || 'ticket_creation'
-    }).select().single();
-    if (error) throw new Error(`Failed to upsert cooldown: ${error.message}`);
-    return data;
+  constructor(redis) {
+    this.redis = redis;
   }
 
-  async findActiveCooldown(guildId, userId, reason = 'ticket_creation') {
-    const now = new Date().toISOString();
-    const { data, error } = await supabase.from('ticket_cooldowns').select('*').eq('guild_id', guildId).eq('user_id', userId).eq('reason', reason).gt('expires_at', now).single();
-    if (error && error.code !== 'PGRST116') throw new Error(`Failed to find active cooldown: ${error.message}`);
-    return data;
+  /**
+   * Sets a cooldown for a user (marks when they closed a ticket)
+   */
+  async setCooldown(userId) {
+    if (!isValidDiscordId(userId)) {
+      throw new ValidationError('Invalid user ID');
+    }
+
+    try {
+      const key = REDIS_KEYS.cooldown(userId);
+      const timestamp = Date.now();
+      
+      await this.redis.setex(
+        key,
+        KEY_TTLS.COOLDOWN,
+        timestamp.toString()
+      );
+
+      logger.debug('Cooldown set', { userId });
+      return timestamp;
+    } catch (error) {
+      logger.error('Failed to set cooldown', { userId, error: error.message });
+      throw new DatabaseError('Failed to set cooldown', { userId });
+    }
   }
 
-  async findByUser(userId) {
-    const now = new Date().toISOString();
-    const { data, error } = await supabase.from('ticket_cooldowns').select('*').eq('user_id', userId).gt('expires_at', now);
-    if (error) throw new Error(`Failed to fetch cooldowns for user: ${error.message}`);
-    return data ||[];
+  /**
+   * Gets the remaining cooldown time for a user in milliseconds
+   * Returns 0 if no cooldown or if expired
+   */
+  async getRemainingCooldown(userId) {
+    if (!isValidDiscordId(userId)) {
+      throw new ValidationError('Invalid user ID');
+    }
+
+    try {
+      const key = REDIS_KEYS.cooldown(userId);
+      const closedAt = await this.redis.get(key);
+
+      if (!closedAt) {
+        return 0;
+      }
+
+      const elapsed = Date.now() - parseInt(closedAt, 10);
+      if (elapsed >= TICKET_COOLDOWN_MS) {
+        await this.redis.del(key);
+        return 0;
+      }
+
+      return TICKET_COOLDOWN_MS - elapsed;
+    } catch (error) {
+      logger.error('Failed to get remaining cooldown', { userId, error: error.message });
+      throw new DatabaseError('Failed to get remaining cooldown', { userId });
+    }
   }
 
-  async findByGuild(guildId) {
-    const now = new Date().toISOString();
-    const { data, error } = await supabase.from('ticket_cooldowns').select('*').eq('guild_id', guildId).gt('expires_at', now);
-    if (error) throw new Error(`Failed to fetch cooldowns for guild: ${error.message}`);
-    return data ||[];
+  /**
+   * Checks if a user is on cooldown
+   */
+  async isOnCooldown(userId) {
+    const remaining = await this.getRemainingCooldown(userId);
+    return remaining > 0;
   }
 
-  async removeCooldown(guildId, userId, reason = 'ticket_creation') {
-    const { error } = await supabase.from('ticket_cooldowns').delete().eq('guild_id', guildId).eq('user_id', userId).eq('reason', reason);
-    if (error) throw new Error(`Failed to remove cooldown: ${error.message}`);
-    return true;
+  /**
+   * Gets the timestamp when a user will be off cooldown
+   * Returns null if not on cooldown
+   */
+  async getCooldownExpiration(userId) {
+    if (!isValidDiscordId(userId)) {
+      throw new ValidationError('Invalid user ID');
+    }
+
+    try {
+      const remaining = await this.getRemainingCooldown(userId);
+      if (remaining === 0) {
+        return null;
+      }
+
+      return Date.now() + remaining;
+    } catch (error) {
+      logger.error('Failed to get cooldown expiration', { userId, error: error.message });
+      throw new DatabaseError('Failed to get cooldown expiration', { userId });
+    }
   }
 
-  async clearUserCooldowns(userId) {
-    const { error } = await supabase.from('ticket_cooldowns').delete().eq('user_id', userId);
-    if (error) throw new Error(`Failed to clear user cooldowns: ${error.message}`);
-    return true;
+  /**
+   * Removes a cooldown for a user
+   */
+  async clearCooldown(userId) {
+    if (!isValidDiscordId(userId)) {
+      throw new ValidationError('Invalid user ID');
+    }
+
+    try {
+      const key = REDIS_KEYS.cooldown(userId);
+      await this.redis.del(key);
+      logger.debug('Cooldown cleared', { userId });
+    } catch (error) {
+      logger.error('Failed to clear cooldown', { userId, error: error.message });
+      throw new DatabaseError('Failed to clear cooldown', { userId });
+    }
   }
 
-  async clearGuildCooldowns(guildId) {
-    const { error } = await supabase.from('ticket_cooldowns').delete().eq('guild_id', guildId);
-    if (error) throw new Error(`Failed to clear guild cooldowns: ${error.message}`);
-    return true;
+  /**
+   * Gets all active cooldowns (development/debugging)
+   */
+  async getAllActiveCooldowns() {
+    try {
+      const pattern = REDIS_KEYS.cooldown('*');
+      const keys = await this.redis.keys(pattern);
+      
+      if (keys.length === 0) {
+        return [];
+      }
+
+      const values = await this.redis.mget(...keys);
+      
+      return keys.map((key, index) => {
+        const userId = key.split(':').pop();
+        return {
+          userId,
+          closedAt: parseInt(values[index], 10)
+        };
+      });
+    } catch (error) {
+      logger.error('Failed to fetch all active cooldowns', { error: error.message });
+      throw new DatabaseError('Failed to fetch all active cooldowns');
+    }
   }
 
-  async cleanupExpired(batchSize = 1000) {
-    const now = new Date().toISOString();
-    const { data, error } = await supabase.from('ticket_cooldowns').delete().lt('expires_at', now).select('id').limit(batchSize);
-    if (error) throw new Error(`Failed to cleanup expired cooldowns: ${error.message}`);
-    return (data ||[]).length;
-  }
+  /**
+   * Clears all cooldowns (use with caution)
+   */
+  async clearAllCooldowns() {
+    try {
+      const pattern = REDIS_KEYS.cooldown('*');
+      const keys = await this.redis.keys(pattern);
+      
+      if (keys.length === 0) {
+        return 0;
+      }
 
-  async getStatistics(guildId) {
-    const now = new Date().toISOString();
-    const { data, error } = await supabase.from('ticket_cooldowns').select('*').eq('guild_id', guildId).gt('expires_at', now);
-    if (error) throw new Error(`Failed to fetch cooldown statistics: ${error.message}`);
-    const cooldowns = data ||[];
-    return {
-      total: cooldowns.length,
-      byReason: cooldowns.reduce((acc, cooldown) => { acc[cooldown.reason] = (acc[cooldown.reason] || 0) + 1; return acc; }, {}),
-      averageTimeRemaining: cooldowns.length > 0 ? cooldowns.reduce((sum, c) => sum + Math.max(0, new Date(c.expires_at) - new Date()), 0) / cooldowns.length : 0
-    };
-  }
-
-  async hasActiveCooldowns(guildId, userId) {
-    const cooldown = await this.findActiveCooldown(guildId, userId);
-    return cooldown !== null;
-  }
-
-  async findExpiringSoon(guildId, withinMinutes = 5) {
-    const now = new Date();
-    const threshold = new Date(now.getTime() + withinMinutes * 60 * 1000).toISOString();
-    const { data, error } = await supabase.from('ticket_cooldowns').select('*').eq('guild_id', guildId).gt('expires_at', now.toISOString()).lte('expires_at', threshold);
-    if (error) throw new Error(`Failed to find expiring cooldowns: ${error.message}`);
-    return data ||[];
-  }
-
-  async findExpiredCooldowns() {
-    const now = new Date().toISOString();
-    const { data, error } = await supabase.from('ticket_cooldowns').select('*').lt('expires_at', now);
-    if (error) throw new Error(error.message);
-    return data ||[];
-  }
-
-  async findActiveCooldowns() {
-    const now = new Date().toISOString();
-    const { data, error } = await supabase.from('ticket_cooldowns').select('*').gt('expires_at', now);
-    if (error) throw new Error(error.message);
-    return data ||[];
-  }
-
-  async findOrphanedCooldowns() { 
-    // Usually mapped against a members table, but for isolated background jobs returning empty prevents crashes.
-    return[]; 
+      return this.redis.del(...keys);
+    } catch (error) {
+      logger.error('Failed to clear all cooldowns', { error: error.message });
+      throw new DatabaseError('Failed to clear all cooldowns');
+    }
   }
 }
 
-export const cooldownRepository = new CooldownRepository();
+export default CooldownRepository;

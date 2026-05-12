@@ -1,47 +1,79 @@
-import { ticketRepository } from '../repositories/ticket-repository.js';
-import { cooldownService } from './cooldown-service.js';
+/**
+ * Ticket service - high-level ticket operations
+ * Facade service that coordinates multiple repositories and services
+ */
+
+import logger from './logging-service.js';
+import { PermissionError, ValidationError } from '../utils/error-handler.js';
 
 export class TicketService {
-  async createTicket(ticketData) {
-    return ticketRepository.create(ticketData);
+  constructor(ticketRepository, cooldownService, lockService, metricsService) {
+    this.ticketRepo = ticketRepository;
+    this.cooldownService = cooldownService;
+    this.lockService = lockService;
+    this.metricsService = metricsService;
   }
 
-  async getTicketByThreadId(threadId) {
-    return ticketRepository.findByThreadId(threadId);
+  /**
+   * Creates a new ticket with all validations
+   */
+  async createTicket(data) {
+    const { guildId, threadId, creatorId, tagValue } = data;
+
+    logger.info('Creating ticket', { guildId, threadId, creatorId, tagValue });
+
+    // Check cooldown
+    await this.cooldownService.checkCooldown(creatorId);
+
+    // Create ticket record
+    const ticket = await this.ticketRepo.createTicket(data);
+
+    // Record metrics
+    await this.metricsService.recordTicketCreation({ guildId, tagValue });
+
+    return ticket;
   }
 
-  async getOpenTicket(guildId, userId) {
-    return ticketRepository.findOpenTicket(guildId, userId);
+  /**
+   * Resolves a ticket
+   */
+  async resolveTicket(threadId, resolverId, creatorId) {
+    logger.info('Resolving ticket', { threadId, resolverId });
+
+    // Update ticket record
+    const ticket = await this.ticketRepo.resolveTicket(threadId, resolverId);
+
+    // Apply cooldown to creator
+    if (creatorId) {
+      await this.cooldownService.applyCooldown(creatorId);
+    }
+
+    // Record metrics
+    await this.metricsService.recordTicketResolution({ threadId });
+
+    return ticket;
   }
 
-  async updateTicketStatus(threadId, status, additionalData = {}) {
-    return ticketRepository.updateStatus(threadId, status, additionalData);
+  /**
+   * Gets ticket by ID
+   */
+  async getTicket(threadId) {
+    return this.ticketRepo.getTicketByThreadId(threadId);
   }
 
-  async updateTicketMetadata(threadId, metadata) {
-    return ticketRepository.updateMetadata(threadId, metadata);
+  /**
+   * Gets active tickets for a user
+   */
+  async getUserActiveTickets(guildId, userId, channelId = null) {
+    return this.ticketRepo.getActiveTicketsForUser(guildId, userId, channelId);
   }
 
-  async getGuildTickets(guildId, options = {}) {
-    return ticketRepository.findByGuild(guildId, options);
-  }
-
-  async deleteTicket(threadId) {
-    return ticketRepository.delete(threadId);
-  }
-  
-  // Proxy methods needed by cleanup and reconciliation background jobs
-  async getAllTickets(options = {}) {
-    return ticketRepository.getAllTickets(options);
-  }
-
-  async getTicketsOlderThan(ms) {
-    return ticketRepository.getTicketsOlderThan(ms);
-  }
-
-  async cleanupExpiredCooldowns() {
-    return cooldownService.cleanupExpired();
+  /**
+   * Gets ticket statistics for a guild
+   */
+  async getGuildStats(guildId) {
+    return this.ticketRepo.getTicketStats(guildId);
   }
 }
 
-export const ticketService = new TicketService();
+export default TicketService;

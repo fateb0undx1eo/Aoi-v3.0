@@ -1,232 +1,156 @@
-import { ticketRepository } from '../repositories/ticket-repository.js';
-import { webhookService } from './webhook-service.js';
-import { lockService } from './lock-service.js';
-import { redisClient } from '../../../core/redis.js';
+/**
+ * Discord REST service - handles Discord API calls with retry logic
+ */
+
+import logger from './logging-service.js';
+import { DatabaseError } from '../utils/error-handler.js';
 
 export class DiscordRestService {
-  constructor() {
-    this.retryAttempts = 3;
-    this.retryDelay = 1000;
-    this.rateLimitCache = new Map();
+  constructor(discordClient, maxRetries = 3, retryDelayMs = 1000) {
+    this.client = discordClient;
+    this.maxRetries = maxRetries;
+    this.retryDelayMs = retryDelayMs;
   }
 
-  async executeWithRetry(operation, context = {}) {
-    let lastError;
-    
-    for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
+  /**
+   * Fetches a channel with retry logic
+   */
+  async fetchChannelWithRetry(channelId) {
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
-        const result = await operation();
-        return { success: true, data: result, attempt };
+        const channel = await this.client.channels.fetch(channelId);
+        return channel;
       } catch (error) {
-        lastError = error;
-        
-        if (this.isNonRetryableError(error)) {
-          return { success: false, error, attempt, nonRetryable: true };
+        if (attempt === this.maxRetries) {
+          logger.error('Failed to fetch channel after retries', { channelId, error: error.message });
+          throw new DatabaseError('Failed to fetch channel', { channelId });
         }
-        
-        if (error.code === 50001 || error.httpStatus === 429) {
-          await this.handleRateLimit(error, context);
-          continue;
-        }
-        
-        if (attempt < this.retryAttempts) {
-          await this.delay(this.retryDelay * attempt);
-        }
+
+        logger.warn(`Retrying channel fetch (attempt ${attempt}/${this.maxRetries})`, { channelId });
+        await new Promise(resolve => setTimeout(resolve, this.retryDelayMs * attempt));
       }
     }
-    return { success: false, error: lastError, attempt: this.retryAttempts };
   }
 
-  isNonRetryableError(error) {
-    const nonRetryableCodes =[50001, 10013, 10014, 10015, 10018, 10019];
-    return nonRetryableCodes.includes(error.code) || 
-           error.httpStatus === 404 || 
-           error.httpStatus === 403 ||
-           error.httpStatus === 400;
-  }
-
-  async handleRateLimit(error, context) {
-    const retryAfter = error.retry_after || 5;
-    this.rateLimitCache.set(context.operation, {
-      limitedUntil: Date.now() + (retryAfter * 1000),
-      retryAfter
-    });
-    await this.delay(retryAfter * 1000);
-  }
-
-  isRateLimited(operation) {
-    const limit = this.rateLimitCache.get(operation);
-    if (limit && limit.limitedUntil > Date.now()) return true;
-    if (limit && limit.limitedUntil <= Date.now()) this.rateLimitCache.delete(operation);
-    return false;
-  }
-
-  async safeThreadCreate(parentChannel, threadData, ticketData) {
-    const context = { operation: 'threadCreate', guildId: parentChannel.guildId };
-    
-    if (this.isRateLimited('threadCreate')) throw new Error('Currently rate limited for thread creation');
-    
-    const result = await this.executeWithRetry(() => parentChannel.threads.create(threadData), context);
-    if (!result.success) throw new Error(`Failed to create thread: ${result.error.message}`);
-    
-    const thread = result.data;
-    
-    await this.storeCreationAttempt({
-      threadId: thread.id,
-      ticketData,
-      createdAt: Date.now()
-    });
-    
-    return thread;
-  }
-
-  async safeThreadOperation(thread, operation, operationData = {}) {
-    const context = { operation: `thread_${operation}`, threadId: thread.id };
-    
-    if (!thread.isThread()) throw new Error('Target is not a thread');
-    
-    const result = await this.executeWithRetry(() => this.performThreadOperation(thread, operation, operationData), context);
-    if (!result.success) throw new Error(`Failed thread ${operation}: ${result.error.message}`);
-    
-    return result.data;
-  }
-
-  async performThreadOperation(thread, operation, data) {
-    switch (operation) {
-      case 'setName': return await thread.setName(data.name);
-      case 'setArchived': return await thread.setArchived(data.archived);
-      case 'setLocked': return await thread.setLocked(data.locked);
-      case 'setAutoArchiveDuration': return await thread.setAutoArchiveDuration(data.duration);
-      case 'membersAdd': return await thread.members.add(data.userId);
-      case 'membersRemove': return await thread.members.remove(data.userId);
-      default: throw new Error(`Unknown thread operation: ${operation}`);
-    }
-  }
-
-  async safeWebhookOperation(channel, operation, data = {}) {
-    const context = { operation: `webhook_${operation}`, channelId: channel.id };
-    
-    const result = await this.executeWithRetry(() => this.performWebhookOperation(channel, operation, data), context);
-    
-    if (!result.success) {
-      await webhookService.invalidateWebhookCache(channel.id);
-      throw new Error(`Failed webhook ${operation}: ${result.error.message}`);
-    }
-    
-    return result.data;
-  }
-
-  async performWebhookOperation(channel, operation, data) {
-    switch (operation) {
-      case 'send':
-        const webhook = await webhookService.getOrCreateLogWebhook(channel);
-        return await webhook.send(data.payload);
-      case 'editMessage':
-        const webhook2 = await webhookService.getOrCreateLogWebhook(channel);
-        return await webhook2.editMessage(data.messageId, data.payload);
-      case 'fetchMessage':
-        const webhook3 = await webhookService.getOrCreateLogWebhook(channel);
-        return await webhook3.fetchMessage(data.messageId);
-      default: throw new Error(`Unknown webhook operation: ${operation}`);
-    }
-  }
-
-  async storeCreationAttempt(record) {
-    try {
-      await redisClient.setWithTTL(`ticket:creation_attempt:${record.threadId}`, JSON.stringify(record), 5 * 60 * 1000);
-    } catch (error) {
-      console.warn('Failed to store creation attempt:', error);
-    }
-  }
-
-  async rollbackTicketCreation(threadId, reason) {
-    try {
-      await ticketRepository.delete(threadId); // Fixed call here
-      
-      const record = await redisClient.get(`ticket:creation_attempt:${threadId}`);
-      if (record) {
-        // Record exists, manual cleanup might be needed if thread is orphaned
-      }
-      
-      await redisClient.delete(`ticket:creation_attempt:${threadId}`);
-    } catch (error) {
-      console.error(`❌ Rollback failed for ${threadId}:`, error);
-    }
-  }
-
-  async validateWebhookCache(channel) {
-    const lockValue = await lockService.acquireWebhookLock(channel.id, 30000);
-    if (!lockValue) return false;
-    
-    try {
-      const webhook = await webhookService.getOrCreateLogWebhook(channel);
-      if (!webhook) {
-        await webhookService.invalidateWebhookCache(channel.id);
-        return false;
-      }
-      
-      await channel.client.fetchWebhook(webhook.id);
-      return true;
-    } catch (error) {
-      await webhookService.invalidateWebhookCache(channel.id);
-      return false;
-    } finally {
-      await lockService.releaseWebhookLock(channel.id, lockValue);
-    }
-  }
-
-  async batchValidateWebhooks(channels) {
-    const results =[];
-    for (const channel of channels) {
+  /**
+   * Fetches a guild with retry logic
+   */
+  async fetchGuildWithRetry(guildId) {
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
-        const isValid = await this.validateWebhookCache(channel);
-        results.push({ channelId: channel.id, valid: isValid });
+        const guild = await this.client.guilds.fetch(guildId);
+        return guild;
       } catch (error) {
-        results.push({ channelId: channel.id, valid: false, error: error.message });
-      }
-    }
-    return results;
-  }
-
-  async cleanupStaleCreationAttempts() {
-    try {
-      const client = redisClient.getClient();
-      if (!client) return 0;
-      
-      const pattern = 'ticket:creation_attempt:*';
-      const keys = await client.keys(pattern);
-      let cleaned = 0;
-      
-      for (const key of keys) {
-        const record = await client.get(key);
-        if (record) {
-          const data = JSON.parse(record);
-          if (Date.now() - data.createdAt > 10 * 60 * 1000) {
-            await client.del(key);
-            cleaned++;
-          }
+        if (attempt === this.maxRetries) {
+          logger.error('Failed to fetch guild after retries', { guildId, error: error.message });
+          throw new DatabaseError('Failed to fetch guild', { guildId });
         }
+
+        logger.warn(`Retrying guild fetch (attempt ${attempt}/${this.maxRetries})`, { guildId });
+        await new Promise(resolve => setTimeout(resolve, this.retryDelayMs * attempt));
       }
-      return cleaned;
-    } catch (error) {
-      return 0;
     }
   }
 
-  delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  /**
+   * Fetches a member with retry logic
+   */
+  async fetchMemberWithRetry(guild, userId) {
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      try {
+        const member = await guild.members.fetch(userId);
+        return member;
+      } catch (error) {
+        if (attempt === this.maxRetries) {
+          logger.error('Failed to fetch member after retries', { guildId: guild.id, userId, error: error.message });
+          return null;
+        }
+
+        logger.debug(`Retrying member fetch (attempt ${attempt}/${this.maxRetries})`, { userId });
+        await new Promise(resolve => setTimeout(resolve, this.retryDelayMs * attempt));
+      }
+    }
   }
 
-  getOperationStats() {
-    return {
-      rateLimitedOps: Array.from(this.rateLimitCache.entries()).map(([op, data]) => ({
-        operation: op,
-        limitedUntil: new Date(data.limitedUntil),
-        retryAfter: data.retryAfter
-      })),
-      cacheSize: this.rateLimitCache.size
-    };
+  /**
+   * Sends a message with retry logic
+   */
+  async sendMessageWithRetry(channel, payload) {
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      try {
+        const message = await channel.send(payload);
+        return message;
+      } catch (error) {
+        if (attempt === this.maxRetries) {
+          logger.error('Failed to send message after retries', { channelId: channel.id, error: error.message });
+          throw new DatabaseError('Failed to send message', { channelId: channel.id });
+        }
+
+        logger.warn(`Retrying message send (attempt ${attempt}/${this.maxRetries})`, { channelId: channel.id });
+        await new Promise(resolve => setTimeout(resolve, this.retryDelayMs * attempt));
+      }
+    }
+  }
+
+  /**
+   * Edits a message with retry logic
+   */
+  async editMessageWithRetry(message, payload) {
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      try {
+        const edited = await message.edit(payload);
+        return edited;
+      } catch (error) {
+        if (attempt === this.maxRetries) {
+          logger.error('Failed to edit message after retries', { messageId: message.id, error: error.message });
+          throw new DatabaseError('Failed to edit message', { messageId: message.id });
+        }
+
+        logger.debug(`Retrying message edit (attempt ${attempt}/${this.maxRetries})`, { messageId: message.id });
+        await new Promise(resolve => setTimeout(resolve, this.retryDelayMs * attempt));
+      }
+    }
+  }
+
+  /**
+   * Adds a user to a thread with retry logic
+   */
+  async addUserToThreadWithRetry(thread, userId) {
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      try {
+        await thread.members.add(userId);
+        return true;
+      } catch (error) {
+        if (attempt === this.maxRetries) {
+          logger.error('Failed to add user to thread after retries', { threadId: thread.id, userId, error: error.message });
+          return false;
+        }
+
+        logger.debug(`Retrying add user to thread (attempt ${attempt}/${this.maxRetries})`, { threadId: thread.id, userId });
+        await new Promise(resolve => setTimeout(resolve, this.retryDelayMs * attempt));
+      }
+    }
+  }
+
+  /**
+   * Removes a user from a thread with retry logic
+   */
+  async removeUserFromThreadWithRetry(thread, userId) {
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      try {
+        await thread.members.remove(userId);
+        return true;
+      } catch (error) {
+        if (attempt === this.maxRetries) {
+          logger.error('Failed to remove user from thread after retries', { threadId: thread.id, userId, error: error.message });
+          return false;
+        }
+
+        logger.debug(`Retrying remove user from thread (attempt ${attempt}/${this.maxRetries})`, { threadId: thread.id, userId });
+        await new Promise(resolve => setTimeout(resolve, this.retryDelayMs * attempt));
+      }
+    }
   }
 }
 
-export const discordRestService = new DiscordRestService();
+export default DiscordRestService;

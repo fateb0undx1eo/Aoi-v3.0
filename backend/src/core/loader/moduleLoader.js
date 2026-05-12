@@ -41,15 +41,38 @@ function validateDefinition(definition, type) {
   }
 }
 
+/**
+ * Check if default export is an async initialization function
+ * Functions are used for modules that require async setup (like tickets module)
+ */
+function isAsyncInitFunction(loaded) {
+  const def = loaded.default;
+  return typeof def === 'function' && (
+    def.constructor.name === 'AsyncFunction' || 
+    def[Symbol.toStringTag] === 'AsyncFunction' ||
+    def.toString().includes('async')
+  );
+}
+
 export async function loadDefinitions(directory, type, registry) {
   const files = await listModuleEntrypoints(directory);
   logger.info(`Loading ${type}s from ${directory}`);
 
   for (const file of files) {
     const loaded = await import(pathToFileURL(file).href);
-    const definition = loaded.default;
-    validateDefinition(definition, type);
-    registry.registerModule(definition, type);
-    logger.info(`Loaded ${type}: ${definition.name}`);
+    
+    // Check if default is an async function (needs runtime initialization)
+    if (isAsyncInitFunction(loaded)) {
+      // Store the initialization function for later
+      const moduleName = path.basename(path.dirname(file));
+      registry.registerAsyncModule(moduleName, loaded.default, type);
+      logger.info(`Loaded async-init ${type}: ${moduleName}`);
+    } else {
+      // Regular synchronous module definition
+      const definition = loaded.default;
+      validateDefinition(definition, type);
+      registry.registerModule(definition, type);
+      logger.info(`Loaded ${type}: ${definition.name}`);
+    }
   }
 }

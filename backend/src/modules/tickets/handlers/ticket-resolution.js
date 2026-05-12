@@ -1,288 +1,190 @@
-import { ButtonStyle, ModalBuilder, TextInputBuilder, ActionRowBuilder, TextInputStyle } from 'discord.js';
-import { ticketRepository } from '../repositories/ticket-repository.js';
-import { cooldownService } from '../services/cooldown-service.js';
-import { loggingService } from '../services/logging-service.js';
-import { metricsService } from '../services/metrics-service.js';
-import { webhookService } from '../services/webhook-service.js';
-import { errorHandler } from '../utils/error-handler.js';
-import { 
-  ERROR_MESSAGES, SUCCESS_MESSAGES, DEFAULT_ARCHIVE_DURATION,
-  LOG_COLORS, TICKET_LOG_CHANNEL_ID, CUSTOM_IDS, REDIS_TTL
-} from '../utils/constants.js';
-import { markThreadNameClosed, isThreadNameClosed, buildThreadLink } from '../utils/thread-utils.js';
+/**
+ * Ticket resolution handler
+ * Handles the ticket closure workflow
+ */
+
+import logger from '../services/logging-service.js';
+import { buildResolveConfirmationPayload, buildErrorPayload, buildInfoPayload } from '../components/payloads.js';
+import {
+  markThreadNameClosed,
+  isThreadNameClosed,
+  findWelcomeMessageInThread,
+  extractTagLabelFromMessage
+} from '../utils/thread-utils.js';
+import { buildTicketWelcomePayload } from '../components/payloads.js';
 import { isTicketStaffFromInteraction } from '../utils/permissions.js';
-import { validateInteraction, validateThreadState } from '../utils/validators.js';
-import { generateRedisKey } from '../utils/redis-keys.js';
-import { redisClient } from '../../../core/redis.js';
+import { ERROR_MESSAGES } from '../utils/constants.js';
 
-export async function handleResolvedButton(interaction, creatorId) {
-  const context = await loggingService.logInteractionStart(interaction, 'resolve_button');
-  const timer = metricsService.createTimer();
-
-  try {
-    const validation = validateInteraction(interaction);
-    if (!validation.isValid) throw new Error(`Invalid interaction: ${validation.errors.join(', ')}`);
-
-    const threadValidation = validateThreadState(interaction.channel);
-    if (!threadValidation.isValid) {
-      await interaction.reply({ content: ERROR_MESSAGES.NOT_TICKET_THREAD, ephemeral: true });
-      return;
-    }
-
-    if (!isTicketStaffFromInteraction(interaction)) {
-      await interaction.reply({ content: ERROR_MESSAGES.NOT_TICKET_STAFF, ephemeral: true });
-      return;
-    }
-
-    const thread = interaction.channel;
-    
-    if (isThreadNameClosed(thread.name)) {
-      await interaction.reply({ content: 'This ticket is already resolved and cannot be resolved again.', ephemeral: true });
-      return;
-    }
-
-    const ticket = await ticketRepository.findByThreadId(thread.id);
-    if (!ticket || ticket.status !== 'open') {
-      await interaction.reply({ content: ERROR_MESSAGES.INVALID_TICKET_STATE, ephemeral: true });
-      return;
-    }
-
-    const modal = new ModalBuilder()
-      .setCustomId(`${CUSTOM_IDS.resolvedConfirm}:${thread.id}`)
-      .setTitle('Resolve Ticket')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId('reason')
-            .setLabel('Resolution reason (optional)')
-            .setStyle(TextInputStyle.Paragraph)
-            .setPlaceholder('Enter the reason for resolving this ticket...')
-            .setRequired(false)
-            .setMaxLength(1000)
-        )
-      );
-
-    await interaction.showModal(modal);
-
-    const duration = timer.stop();
-    await metricsService.recordTicketResolution(duration, true, { guildId: interaction.guildId, threadId: thread.id, userId: interaction.user.id });
-    await loggingService.logInteractionComplete(context, 'resolve_button', { success: true, duration });
-
-  } catch (error) {
-    const duration = timer.stop();
-    await metricsService.recordTicketResolution(duration, false, { guildId: interaction.guildId, threadId: interaction.channel?.id, userId: interaction.user.id, error: error.message });
-    await errorHandler.handleInteractionError(context, error, 'resolve_button');
+export class TicketResolutionHandler {
+  constructor(ticketService) {
+    this.ticketService = ticketService;
   }
-}
 
-export async function handleResolvedConfirmYes(interaction, creatorId) {
-  const context = await loggingService.logInteractionStart(interaction, 'resolve_confirm_yes');
-  const timer = metricsService.createTimer();
+  /**
+   * Handles the resolved button press (Step 1 - show confirmation)
+   */
+  async handleResolvedButtonPress(interaction, creatorId) {
+    const { channel, user } = interaction;
 
-  try {
-    const validation = validateInteraction(interaction);
-    if (!validation.isValid) throw new Error(`Invalid interaction: ${validation.errors.join(', ')}`);
+    logger.info('Resolved button pressed', { threadId: channel.id, userId: user.id });
 
-    const threadValidation = validateThreadState(interaction.channel);
-    if (!threadValidation.isValid) {
-      await interaction.reply({ content: ERROR_MESSAGES.NOT_TICKET_THREAD, ephemeral: true });
+    // Validate context
+    if (!interaction.inGuild() || !channel?.isThread?.()) {
+      await this.replyError(interaction, ERROR_MESSAGES.NOT_IN_THREAD, true);
       return;
     }
 
+    // Check permissions
     if (!isTicketStaffFromInteraction(interaction)) {
-      await interaction.reply({ content: ERROR_MESSAGES.NOT_TICKET_STAFF, ephemeral: true });
+      await this.replyError(interaction, ERROR_MESSAGES.NOT_STAFF, true);
       return;
     }
 
-    const thread = interaction.channel;
-    
-    if (isThreadNameClosed(thread.name)) {
-      await interaction.reply({ content: 'This ticket is already resolved.', ephemeral: true });
+    // Check if already closed
+    if (isThreadNameClosed(channel.name)) {
+      await this.replyError(interaction, ERROR_MESSAGES.ALREADY_CLOSED, true);
       return;
     }
 
-    const lockKey = generateRedisKey('lock', 'resolve', thread.id);
-    const lockValue = await redisClient.acquireLock(lockKey, REDIS_TTL.RESOLVE_MUTEX);
-    
-    if (!lockValue) {
-      await interaction.reply({ content: 'Another staff member is currently resolving this ticket. Please wait a moment and try again.', ephemeral: true });
-      return;
+    // Show confirmation prompt
+    try {
+      const payload = buildResolveConfirmationPayload(creatorId);
+      await interaction.reply(payload).catch(() => null);
+    } catch (error) {
+      logger.error('Failed to show confirmation prompt', { threadId: channel.id, error: error.message });
+    }
+  }
+
+  /**
+   * Handles the resolve confirm button (Step 2a - actually close)
+   */
+  async handleResolveConfirm(interaction, creatorId) {
+    const { channel, user } = interaction;
+
+    logger.info('Resolve confirmed', { threadId: channel.id, staffId: user.id });
+
+    // Defer update
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferUpdate().catch(() => null);
     }
 
     try {
-      const ticket = await ticketRepository.findByThreadId(thread.id);
-      if (!ticket || ticket.status !== 'open') {
-        await interaction.reply({ content: 'Ticket not found or not in valid state.', ephemeral: true });
+      // Validate context
+      if (!interaction.inGuild() || !channel?.isThread?.()) {
+        await this.followUpError(interaction, ERROR_MESSAGES.NOT_IN_THREAD);
         return;
       }
 
-      const closedName = markThreadNameClosed(thread.name);
-      await thread.setName(closedName);
-      await thread.members.remove(creatorId).catch(() => null);
-      await thread.setLocked(true).catch(() => null);
-      await thread.setArchived(true).catch(() => null);
-      await thread.setAutoArchiveDuration(DEFAULT_ARCHIVE_DURATION).catch(() => null);
+      // Check permissions
+      if (!isTicketStaffFromInteraction(interaction)) {
+        await this.followUpError(interaction, ERROR_MESSAGES.NOT_STAFF);
+        return;
+      }
 
-      await ticketRepository.updateStatus(thread.id, 'resolved', {
-        resolved_by: interaction.user.id,
-        resolved_at: new Date().toISOString()
+      // Check if already closed
+      if (isThreadNameClosed(channel.name)) {
+        await this.followUpError(interaction, ERROR_MESSAGES.ALREADY_CLOSED);
+        return;
+      }
+
+      // Disable the resolved button
+      await this.disableResolvedButton(channel, creatorId);
+
+      // Execute close sequence
+      await Promise.allSettled([
+        channel.setName(markThreadNameClosed(channel.name)),
+        channel.members.remove(creatorId)
+      ]);
+
+      // Lock and archive
+      await channel.setLocked(true).catch(() => null);
+      await channel.setArchived(true).catch(() => null);
+
+      // Apply cooldown
+      await this.ticketService.cooldownService.applyCooldown(creatorId);
+
+      // Update database
+      try {
+        await this.ticketService.resolveTicket(channel.id, user.id, creatorId);
+      } catch (error) {
+        logger.error('Failed to update database', { threadId: channel.id, error: error.message });
+      }
+
+      await this.followUpSuccess(interaction, 'Ticket has been closed successfully.');
+    } catch (error) {
+      logger.error('Ticket resolution failed', {
+        threadId: channel.id,
+        error: error.message
       });
-
-      await cooldownService.setCooldown(interaction.guildId, creatorId, 10 * 60 * 1000);
-
-      await sendResolvedLog(thread, {
-        creatorId,
-        resolverId: interaction.user.id,
-        tagLabel: ticket.tag_label || 'Unknown'
-      });
-
-      await disableResolvedButtonInWelcome(thread, creatorId);
-
-      await interaction.reply({ content: SUCCESS_MESSAGES.TICKET_RESOLVED, ephemeral: true });
-
-      const duration = timer.stop();
-      await metricsService.recordTicketResolution(duration, true, { guildId: interaction.guildId, threadId: thread.id, userId: interaction.user.id });
-      await loggingService.logInteractionComplete(context, 'resolve_confirm_yes', { success: true, duration });
-
-    } finally {
-      await redisClient.releaseLock(lockKey, lockValue);
+      await this.followUpError(interaction, 'An error occurred while closing the ticket.');
     }
-  } catch (error) {
-    const duration = timer.stop();
-    await metricsService.recordTicketResolution(duration, false, { guildId: interaction.guildId, threadId: interaction.channel?.id, userId: interaction.user.id, error: error.message });
-    await errorHandler.handleInteractionError(context, error, 'resolve_confirm_yes');
   }
-}
 
-export async function handleResolvedConfirmNo(interaction, creatorId) {
-  const context = await loggingService.logInteractionStart(interaction, 'resolve_confirm_no');
-  try {
-    await interaction.update({ content: 'Ticket resolution cancelled.', components:[], ephemeral: true }).catch(() => null);
-    await loggingService.logInteractionComplete(context, 'resolve_confirm_no', { success: true });
-  } catch (error) {
-    await errorHandler.handleInteractionError(context, error, 'resolve_confirm_no');
+  /**
+   * Handles the resolve cancel button (Step 2b - cancel closure)
+   */
+  async handleResolveCancel(interaction) {
+    logger.debug('Resolve cancelled', { threadId: interaction.channel?.id });
+
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferUpdate().catch(() => null);
+    }
+
+    await this.followUpInfo(interaction, 'Action cancelled — the ticket remains open.');
   }
-}
 
-export async function handleResolvedModalSubmit(interaction, threadId) {
-  const context = await loggingService.logInteractionStart(interaction, 'resolve_modal');
-  const timer = metricsService.createTimer();
-
-  try {
-    const validation = validateInteraction(interaction);
-    if (!validation.isValid) throw new Error(`Invalid interaction: ${validation.errors.join(', ')}`);
-
-    if (!isTicketStaffFromInteraction(interaction)) {
-      await interaction.reply({ content: ERROR_MESSAGES.NOT_TICKET_STAFF, ephemeral: true });
-      return;
-    }
-
-    const reason = interaction.fields.getTextInputValue('reason') || 'No reason provided';
-    const ticket = await ticketRepository.findByThreadId(threadId);
-    if (!ticket || ticket.status !== 'open') {
-      await interaction.reply({ content: 'Ticket not found or not in valid state.', ephemeral: true });
-      return;
-    }
-
-    const lockKey = generateRedisKey('lock', 'resolve', threadId);
-    const lockValue = await redisClient.acquireLock(lockKey, REDIS_TTL.RESOLVE_MUTEX);
-    
-    if (!lockValue) {
-      await interaction.reply({ content: 'Another staff member is currently resolving this ticket.', ephemeral: true });
-      return;
-    }
-
+  /**
+   * Disables the resolved button on the welcome message
+   */
+  async disableResolvedButton(thread, creatorId) {
     try {
-      const thread = await interaction.channel?.guild?.channels?.fetch(threadId);
-      if (!thread?.isThread?.()) throw new Error('Invalid thread');
+      const message = await findWelcomeMessageInThread(thread);
+      if (!message) return;
 
-      const closedName = markThreadNameClosed(thread.name);
-      await thread.setName(closedName);
-      await thread.members.remove(ticket.creator_id).catch(() => null);
-      await thread.setLocked(true).catch(() => null);
-      await thread.setArchived(true).catch(() => null);
-      await thread.setAutoArchiveDuration(DEFAULT_ARCHIVE_DURATION).catch(() => null);
+      const tagLabel = extractTagLabelFromMessage(message) || 'Support Ticket';
+      const tag = { label: tagLabel, intro: '' };
 
-      await ticketRepository.updateStatus(threadId, 'resolved', {
-        resolved_by: interaction.user.id,
-        resolved_at: new Date().toISOString(),
-        resolution_reason: reason
-      });
-
-      await cooldownService.setCooldown(interaction.guildId, ticket.creator_id, 10 * 60 * 1000);
-
-      await sendResolvedLog(thread, {
-        creatorId: ticket.creator_id,
-        resolverId: interaction.user.id,
-        tagLabel: ticket.tag_label || 'Unknown',
-        reason
-      });
-
-      await interaction.reply({ content: SUCCESS_MESSAGES.TICKET_RESOLVED, ephemeral: true });
-
-      const duration = timer.stop();
-      await metricsService.recordTicketResolution(duration, true, { guildId: interaction.guildId, threadId: threadId, userId: interaction.user.id });
-      await loggingService.logInteractionComplete(context, 'resolve_modal', { success: true, duration });
-
-    } finally {
-      await redisClient.releaseLock(lockKey, lockValue);
+      await message.edit(buildTicketWelcomePayload(tag, creatorId, { resolvedDisabled: true })).catch(() => null);
+    } catch (error) {
+      logger.warn('Failed to disable resolved button', { error: error.message });
     }
-  } catch (error) {
-    const duration = timer.stop();
-    await metricsService.recordTicketResolution(duration, false, { guildId: interaction.guildId, threadId: threadId, userId: interaction.user.id, error: error.message });
-    await errorHandler.handleInteractionError(context, error, 'resolve_modal');
   }
-}
 
-async function disableResolvedButtonInWelcome(thread, creatorId) {
-  try {
-    const messages = await thread.messages.fetch({ limit: 10 });
-    const welcomeMessage = messages.find(msg => 
-      msg.components && 
-      msg.components.length > 0 &&
-      msg.components[0].components.some(comp => comp.custom_id === `${CUSTOM_IDS.resolvedPrefix}:${creatorId}`)
-    );
-
-    if (welcomeMessage) {
-      const updatedComponents = welcomeMessage.components.map(row => ({
-        type: row.type,
-        components: row.components.map(comp => {
-          if (comp.custom_id === `${CUSTOM_IDS.resolvedPrefix}:${creatorId}`) {
-            return { ...comp, disabled: true, label: 'RESOLVED (Already Resolved)', style: ButtonStyle.Secondary };
-          }
-          return comp;
-        })
-      }));
-      await welcomeMessage.edit({ components: updatedComponents });
+  /**
+   * Helper: Reply with error
+   */
+  async replyError(interaction, message, ephemeral = false) {
+    const payload = buildErrorPayload(message);
+    payload.ephemeral = ephemeral;
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply(payload).catch(() => null);
+    } else {
+      await interaction.reply(payload).catch(() => null);
     }
-  } catch (error) {
-    await loggingService.warn({ operation: 'disable_resolved_button', guildId: thread.guildId, threadId: thread.id, message: 'Failed to disable resolved button', metadata: { error: error.message } });
+  }
+
+  /**
+   * Helper: Follow-up with error
+   */
+  async followUpError(interaction, message) {
+    await interaction.followUp(buildErrorPayload(message)).catch(() => null);
+  }
+
+  /**
+   * Helper: Follow-up with success
+   */
+  async followUpSuccess(interaction, message) {
+    const payload = { content: `✅ ${message}`, ephemeral: true };
+    await interaction.followUp(payload).catch(() => null);
+  }
+
+  /**
+   * Helper: Follow-up with info
+   */
+  async followUpInfo(interaction, message) {
+    const payload = buildInfoPayload(message);
+    await interaction.followUp(payload).catch(() => null);
   }
 }
 
-async function sendResolvedLog(thread, { creatorId, resolverId, tagLabel, reason = null }) {
-  try {
-    const { webhook } = await webhookService.getOrCreateLogWebhook(thread.guild, TICKET_LOG_CHANNEL_ID);
-    if (!webhook) return;
-
-    const threadLink = buildThreadLink(thread.guildId, thread.id);
-    const now = Math.floor(Date.now() / 1000);
-
-    const embed = {
-      title: 'Resolved',
-      color: LOG_COLORS.RESOLVED,
-      description:[
-        `**Resolved By:** <@${resolverId}>`,
-        `**Resolved At:** <t:${now}:F>`,
-        `**Created By:** <@${creatorId}>`,
-        `**Ticket Tag:** ${tagLabel}`,
-        `**Thread Link:** ${threadLink}`,
-        reason ? `**Reason:** ${reason}` : ''
-      ].filter(Boolean).join('\n')
-    };
-
-    await webhook.send({ embeds: [embed], allowedMentions: { parse:[] } });
-  } catch (error) {
-    await loggingService.warn({ operation: 'send_resolved_log', guildId: thread.guildId, threadId: thread.id, message: 'Failed to send resolved log', metadata: { error: error.message } });
-  }
-}
+export default TicketResolutionHandler;

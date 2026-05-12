@@ -1,210 +1,158 @@
-import { redisClient } from '../../../core/redis.js';
+/**
+ * Lock service - distributed locking using Redis
+ * Prevents race conditions and duplicate operations
+ */
+
+import logger from './logging-service.js';
+import { REDIS_KEYS, KEY_TTLS } from '../utils/redis-keys.js';
+import { TICKET_CREATION_LOCK_MS } from '../utils/constants.js';
+import { isValidDiscordId } from '../utils/validators.js';
+import { DatabaseError, ValidationError } from '../utils/error-handler.js';
 
 export class LockService {
-  constructor() {
-    // In-memory fallback locks for graceful degradation
-    this.inMemoryLocks = new Map();
-    this.cleanupInterval = setInterval(() => {
-      this.cleanupExpiredLocks();
-    }, 30000); // Cleanup every 30 seconds
+  constructor(redis) {
+    this.redis = redis;
   }
 
   /**
-   * Acquire a distributed lock for ticket creation
-   * Falls back to in-memory lock if Redis is unavailable
+   * Acquires a creation lock for a user
+   * Prevents multiple tickets from being created simultaneously
    */
-  async acquireCreationLock(guildId, userId, ttlMs = 8000) {
-    const lockKey = `ticket:create:${guildId}:${userId}`;
-    
+  async acquireCreationLock(userId) {
+    if (!isValidDiscordId(userId)) {
+      throw new ValidationError('Invalid user ID');
+    }
+
     try {
-      const lockValue = await redisClient.acquireLock(lockKey, ttlMs);
-      if (lockValue) {
-        return { type: 'redis', value: lockValue };
+      const key = REDIS_KEYS.creatingLock(userId);
+      const lockTTL = Math.ceil(TICKET_CREATION_LOCK_MS / 1000);
+
+      const result = await this.redis.setex(key, lockTTL, Date.now().toString());
+
+      if (!result) {
+        throw new Error('Failed to set lock');
       }
-    } catch (error) {
-      console.warn(`Redis lock acquisition failed, falling back to in-memory: ${error.message}`);
-    }
 
-    // Fallback to in-memory lock for graceful degradation
-    return this.acquireInMemoryLock(lockKey, ttlMs);
-  }
-
-  /**
-   * Release creation lock
-   */
-  async releaseCreationLock(guildId, userId, lockValue) {
-    const lockKey = `ticket:create:${guildId}:${userId}`;
-    
-    if (typeof lockValue === 'object' && lockValue.type === 'redis') {
-      try {
-        return await redisClient.releaseLock(lockKey, lockValue.value);
-      } catch (error) {
-        console.warn(`Failed to release Redis lock: ${error.message}`);
-        return false;
-      }
-    }
-    
-    // Fallback to in-memory lock release
-    return this.releaseInMemoryLock(lockKey, lockValue);
-  }
-
-  /**
-   * Check if creation lock exists
-   */
-  async hasCreationLock(guildId, userId) {
-    const lockKey = `ticket:create:${guildId}:${userId}`;
-    
-    try {
-      return await redisClient.exists(lockKey);
-    } catch (error) {
-      console.warn(`Redis lock check failed, checking in-memory: ${error.message}`);
-      return this.hasInMemoryLock(lockKey);
-    }
-  }
-
-  /**
-   * Acquire distributed mutex for ticket resolution
-   */
-  async acquireResolveMutex(threadId, ttlMs = 30000) {
-    const lockKey = `ticket:closing:${threadId}`;
-    
-    try {
-      const lockValue = await redisClient.acquireLock(lockKey, ttlMs);
-      if (lockValue) {
-        return { type: 'redis', value: lockValue };
-      }
-    } catch (error) {
-      console.warn(`Redis resolve mutex acquisition failed, falling back to in-memory: ${error.message}`);
-    }
-
-    return this.acquireInMemoryLock(lockKey, ttlMs);
-  }
-
-  /**
-   * Release resolve mutex
-   */
-  async releaseResolveMutex(threadId, lockValue) {
-    const lockKey = `ticket:closing:${threadId}`;
-    
-    if (typeof lockValue === 'object' && lockValue.type === 'redis') {
-      try {
-        return await redisClient.releaseLock(lockKey, lockValue.value);
-      } catch (error) {
-        console.warn(`Failed to release Redis resolve mutex: ${error.message}`);
-        return false;
-      }
-    }
-    
-    return this.releaseInMemoryLock(lockKey, lockValue);
-  }
-
-  /**
-   * Check if resolve mutex is held
-   */
-  async hasResolveMutex(threadId) {
-    const lockKey = `ticket:closing:${threadId}`;
-    
-    try {
-      return await redisClient.exists(lockKey);
-    } catch (error) {
-      console.warn(`Redis resolve mutex check failed, checking in-memory: ${error.message}`);
-      return this.hasInMemoryLock(lockKey);
-    }
-  }
-
-  /**
-   * Acquire lock for webhook operations
-   */
-  async acquireWebhookLock(channelId, ttlMs = 5000) {
-    const lockKey = `ticket:webhook:${channelId}`;
-    
-    try {
-      const lockValue = await redisClient.acquireLock(lockKey, ttlMs);
-      if (lockValue) {
-        return { type: 'redis', value: lockValue };
-      }
-    } catch (error) {
-      console.warn(`Redis webhook lock acquisition failed, falling back to in-memory: ${error.message}`);
-    }
-
-    return this.acquireInMemoryLock(lockKey, ttlMs);
-  }
-
-  /**
-   * Release webhook lock
-   */
-  async releaseWebhookLock(channelId, lockValue) {
-    const lockKey = `ticket:webhook:${channelId}`;
-    
-    if (typeof lockValue === 'object' && lockValue.type === 'redis') {
-      try {
-        return await redisClient.releaseLock(lockKey, lockValue.value);
-      } catch (error) {
-        console.warn(`Failed to release Redis webhook lock: ${error.message}`);
-        return false;
-      }
-    }
-    
-    return this.releaseInMemoryLock(lockKey, lockValue);
-  }
-
-  /**
-   * In-memory lock acquisition for graceful degradation
-   */
-  acquireInMemoryLock(key, ttlMs) {
-    const existing = this.inMemoryLocks.get(key);
-    if (existing && existing.expires > Date.now()) {
-      return null; // Lock already held
-    }
-
-    const lockValue = crypto.randomUUID();
-    const expires = Date.now() + ttlMs;
-    
-    this.inMemoryLocks.set(key, { value: lockValue, expires });
-    return { type: 'memory', value: lockValue };
-  }
-
-  /**
-   * In-memory lock release
-   */
-  releaseInMemoryLock(key, lockValue) {
-    const existing = this.inMemoryLocks.get(key);
-    if (existing && existing.value === lockValue) {
-      this.inMemoryLocks.delete(key);
+      logger.debug('Creation lock acquired', { userId });
       return true;
+    } catch (error) {
+      logger.error('Failed to acquire creation lock', { userId, error: error.message });
+      throw new DatabaseError('Failed to acquire creation lock', { userId });
     }
-    return false;
   }
 
   /**
-   * Check if in-memory lock exists
+   * Checks if a user has an active creation lock
    */
-  hasInMemoryLock(key) {
-    const existing = this.inMemoryLocks.get(key);
-    return existing && existing.expires > Date.now();
+  async hasCreationLock(userId) {
+    if (!isValidDiscordId(userId)) {
+      throw new ValidationError('Invalid user ID');
+    }
+
+    try {
+      const key = REDIS_KEYS.creatingLock(userId);
+      const exists = await this.redis.exists(key);
+      return exists === 1;
+    } catch (error) {
+      logger.error('Failed to check creation lock', { userId, error: error.message });
+      throw new DatabaseError('Failed to check creation lock', { userId });
+    }
   }
 
   /**
-   * Cleanup expired in-memory locks
+   * Releases a creation lock
    */
-  cleanupExpiredLocks() {
-    const now = Date.now();
-    for (const [key, lock] of this.inMemoryLocks.entries()) {
-      if (lock.expires <= now) {
-        this.inMemoryLocks.delete(key);
+  async releaseCreationLock(userId) {
+    if (!isValidDiscordId(userId)) {
+      throw new ValidationError('Invalid user ID');
+    }
+
+    try {
+      const key = REDIS_KEYS.creatingLock(userId);
+      await this.redis.del(key);
+      logger.debug('Creation lock released', { userId });
+    } catch (error) {
+      logger.error('Failed to release creation lock', { userId, error: error.message });
+      throw new DatabaseError('Failed to release creation lock', { userId });
+    }
+  }
+
+  /**
+   * Acquires a distributed lock for a resource
+   * Returns a lock ID that must be used to release the lock
+   */
+  async acquireLock(resourceName, ttlSeconds = 30) {
+    try {
+      const key = REDIS_KEYS.lock(resourceName);
+      const lockId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      const result = await this.redis.set(
+        key,
+        lockId,
+        'PX',
+        ttlSeconds * 1000,
+        'NX'
+      );
+
+      if (!result) {
+        return null; // Lock already exists
       }
+
+      logger.debug('Lock acquired', { resourceName, lockId });
+      return lockId;
+    } catch (error) {
+      logger.error('Failed to acquire lock', { resourceName, error: error.message });
+      throw new DatabaseError('Failed to acquire lock', { resourceName });
     }
   }
 
   /**
-   * Cleanup method for graceful shutdown
+   * Releases a distributed lock if the lock ID matches
    */
-  destroy() {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
+  async releaseLock(resourceName, lockId) {
+    try {
+      const key = REDIS_KEYS.lock(resourceName);
+      
+      // Use Lua script to ensure atomic compare-and-delete
+      const script = `
+        if redis.call("GET", KEYS[1]) == ARGV[1] then
+          return redis.call("DEL", KEYS[1])
+        else
+          return 0
+        end
+      `;
+
+      const result = await this.redis.eval(script, 1, key, lockId);
+
+      if (result === 1) {
+        logger.debug('Lock released', { resourceName, lockId });
+        return true;
+      }
+
+      logger.warn('Lock mismatch or already expired', { resourceName, lockId });
+      return false;
+    } catch (error) {
+      logger.error('Failed to release lock', { resourceName, error: error.message });
+      throw new DatabaseError('Failed to release lock', { resourceName });
     }
-    this.inMemoryLocks.clear();
+  }
+
+  /**
+   * Wrapper function that acquires a lock, runs a function, then releases
+   */
+  async withLock(resourceName, fn, ttlSeconds = 30) {
+    const lockId = await this.acquireLock(resourceName, ttlSeconds);
+
+    if (!lockId) {
+      throw new Error(`Failed to acquire lock for ${resourceName}`);
+    }
+
+    try {
+      return await fn();
+    } finally {
+      await this.releaseLock(resourceName, lockId);
+    }
   }
 }
 
-export const lockService = new LockService();
+export default LockService;

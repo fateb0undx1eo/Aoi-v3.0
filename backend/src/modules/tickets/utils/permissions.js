@@ -1,103 +1,76 @@
-import { PermissionFlagsBits } from 'discord.js';
-
 /**
- * Permission utilities for ticket system
+ * Permission checking utilities
  */
 
-const TICKET_STAFF_ROLE_IDS = [
-  '1457403601512169724'
-];
+import { PermissionFlagsBits } from 'discord.js';
+import { TICKET_STAFF_ROLE_IDS } from './constants.js';
 
 /**
- * Check if member has ticket staff permissions
+ * Checks if a member is ticket staff-like (has admin/permissions or staff role)
+ * Also includes server owner
  */
 export function isTicketStaffLike(member, guild, userId) {
   if (!member || !guild || !userId) return false;
-
   if (guild.ownerId === userId) return true;
-
-  if (member.permissions?.has(PermissionFlagsBits.Administrator)) {
-    return true;
-  }
-
-  return TICKET_STAFF_ROLE_IDS.some((roleId) =>
-    member.roles?.cache?.has(roleId)
-  );
+  if (member.permissions?.has(PermissionFlagsBits.Administrator)) return true;
+  return TICKET_STAFF_ROLE_IDS.some((roleId) => member.roles?.cache?.has(roleId));
 }
 
 /**
- * Check if interaction user has ticket staff permissions
+ * Checks if the interaction user is ticket staff from an interaction
  */
 export function isTicketStaffFromInteraction(interaction) {
   if (!interaction.inGuild()) return false;
-
-  return isTicketStaffLike(
-    interaction.member,
-    interaction.guild,
-    interaction.user?.id
-  );
+  return isTicketStaffLike(interaction.member, interaction.guild, interaction.user?.id);
 }
 
 /**
- * Check if user is admin or server owner
+ * Checks if the interaction user is admin or server owner
  */
 export function isAdminOrOwnerFromInteraction(interaction) {
   if (!interaction.inGuild()) return false;
   if (interaction.guild?.ownerId === interaction.user?.id) return true;
-  return interaction.memberPermissions?.has?.(
-    PermissionFlagsBits.Administrator
-  );
+  return interaction.memberPermissions?.has?.(PermissionFlagsBits.Administrator);
 }
 
 /**
- * Require ticket staff permissions with error response
+ * Requires the interaction user to be ticket staff
+ * Replies with an error if they don't have permission
+ * Returns true if authorized, false otherwise
  */
 export async function requireTicketStaff(interaction) {
   if (isTicketStaffFromInteraction(interaction)) return true;
 
-  const payload = {
-    content: 'You are not allowed to use ticket commands.'
-  };
-
+  const payload = { content: 'You are not allowed to use ticket commands.' };
   if (interaction.deferred || interaction.replied) {
     await interaction.editReply(payload);
   } else {
-    await interaction.reply({
-      ...payload,
-      ephemeral: true
-    });
+    await interaction.reply({ ...payload, ephemeral: true });
   }
-
   return false;
 }
 
 /**
- * Check if user can be removed from ticket (not staff/admin/owner)
+ * Requires the interaction user to be admin or server owner
+ * Replies with an error if they don't have permission
+ * Returns true if authorized, false otherwise
  */
-export function canRemoveUser(member, guild, userId) {
-  return !isTicketStaffLike(member, guild, userId);
+export async function requireAdminOrOwner(interaction) {
+  if (isAdminOrOwnerFromInteraction(interaction)) return true;
+
+  const payload = { content: 'Only server owner or admins can use this command.' };
+  if (interaction.deferred || interaction.replied) {
+    await interaction.editReply(payload);
+  } else {
+    await interaction.reply({ ...payload, ephemeral: true });
+  }
+  return false;
 }
 
-/**
- * Get staff role IDs for mentions
- */
-export function getStaffRoleIds() {
-  return [...TICKET_STAFF_ROLE_IDS];
-}
-
-/**
- * Build staff mention string
- */
-export function buildStaffMentions() {
-  return TICKET_STAFF_ROLE_IDS
-    .map((roleId) => `<@&${roleId}>`)
-    .join(' ');
-}
-
-/**
- * Build ticket mention string (user + staff roles)
- */
-export function buildTicketMentions(creatorId) {
-  const roleMentions = buildStaffMentions();
-  return `<@${creatorId}> ${roleMentions}`.trim();
-}
+export default {
+  isTicketStaffLike,
+  isTicketStaffFromInteraction,
+  isAdminOrOwnerFromInteraction,
+  requireTicketStaff,
+  requireAdminOrOwner
+};

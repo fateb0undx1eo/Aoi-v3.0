@@ -4,8 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
+    "start": "node src/main.js",
+    "dev": "node --watch src/main.js",
     "lint:check": "node -e \"console.log('No linter configured yet')\""
   },
   "dependencies": {

@@ -1,114 +1,81 @@
-import { redisClient } from '../../../core/redis.js';
+/**
+ * Webhook service - manages Discord webhooks for ticket logging
+ */
+
+import logger from './logging-service.js';
+import { REDIS_KEYS, KEY_TTLS } from '../utils/redis-keys.js';
+import { TICKET_LOG_CHANNEL_ID } from '../utils/constants.js';
+import { DatabaseError } from '../utils/error-handler.js';
 
 export class WebhookService {
-  constructor() {
-    this.cacheKey = 'ticket:webhooks';
-    this.defaultTtl = 30 * 60 * 1000; // 30 minutes
+  constructor(redis) {
+    this.redis = redis;
   }
 
   /**
-   * Get or create webhook for log channel
+   * Gets or creates a webhook for the log channel
    */
   async getOrCreateLogWebhook(logChannel) {
-    const cacheKey = `${this.cacheKey}:${logChannel.id}`;
-    
-    // Try to get from Redis cache first
-    const cached = await redisClient.hGetAll(cacheKey);
-    if (cached && cached.webhookId && cached.webhookToken) {
-      try {
-        // Validate cached webhook
-        const webhook = await logChannel.client.fetchWebhook(cached.webhookId);
-        if (webhook && webhook.token === cached.webhookToken) {
-          return webhook;
-        }
-      } catch {
-        // Webhook is invalid, clear cache
-        await redisClient.delete(cacheKey);
-      }
-    }
-
-    // Acquire lock to prevent race conditions
-    const lockKey = `webhook:create:${logChannel.id}`;
-    const lockValue = await redisClient.acquireLock(lockKey, 10000);
-    
-    if (!lockValue) {
-      // Another process is creating webhook, wait and retry
-      await new Promise(resolve => setTimeout(resolve, 100));
-      return this.getOrCreateLogWebhook(logChannel);
-    }
-
     try {
+      // Check Redis cache first
+      const cachedKey = REDIS_KEYS.webhookCache();
+      const cached = await this.redis.get(cachedKey).catch(() => null);
+
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (parsed.id && parsed.token) {
+            logger.debug('Using cached webhook');
+            return parsed;
+          }
+        } catch {}
+      }
+
       // Fetch existing webhooks
       const hooks = await logChannel.fetchWebhooks().catch(() => null);
-      
-      const existing = hooks?.find(
+      let webhook = hooks?.find(
         (hook) =>
           hook.owner?.id === logChannel.client.user.id &&
           hook.name === 'Ticket Logs'
       );
 
-      const webhook = existing ?? await logChannel.createWebhook({
-        name: 'Ticket Logs'
-      }).catch(() => null);
-
-      if (webhook) {
-        // Cache webhook details
-        await redisClient.hSet(cacheKey, {
-          webhookId: webhook.id,
-          webhookToken: webhook.token,
-          channelId: logChannel.id,
-          guildId: logChannel.guildId
-        });
-        
-        // Set expiration
-        const client = redisClient.getClient();
-        if (client) {
-          await client.expire(cacheKey, Math.ceil(this.defaultTtl / 1000));
-        }
+      // Create webhook if doesn't exist
+      if (!webhook) {
+        webhook = await logChannel.createWebhook({ name: 'Ticket Logs' }).catch(() => null);
       }
 
-      await redisClient.releaseLock(lockKey, lockValue);
+      if (!webhook) {
+        throw new Error('Could not create or fetch webhook');
+      }
+
+      // Cache the webhook
+      const webhookData = { id: webhook.id, token: webhook.token };
+      await this.redis.setex(
+        cachedKey,
+        KEY_TTLS.WEBHOOK_CACHE,
+        JSON.stringify(webhookData)
+      ).catch(() => null);
+
+      logger.info('Webhook created/cached', { webhookId: webhook.id });
       return webhook;
     } catch (error) {
-      await redisClient.releaseLock(lockKey, lockValue);
-      throw error;
+      logger.error('Failed to get or create webhook', { error: error.message });
+      throw new DatabaseError('Failed to get or create webhook');
     }
   }
 
   /**
-   * Invalidate webhook cache for channel
+   * Clears the cached webhook
    */
-  async invalidateWebhookCache(channelId) {
-    const cacheKey = `${this.cacheKey}:${channelId}`;
-    await redisClient.delete(cacheKey);
-  }
-
-  /**
-   * Clear all webhook cache (useful for webhook rotation)
-   */
-  async clearAllWebhookCache() {
-    const client = redisClient.getClient();
-    if (client) {
-      const keys = await client.keys(`${this.cacheKey}:*`);
-      if (keys.length > 0) {
-        await client.del(keys);
-      }
-    }
-  }
-
-  /**
-   * Validate webhook is still functional
-   */
-  async validateWebhook(webhook) {
+  async clearWebhookCache() {
     try {
-      // Try to fetch webhook by ID to validate
-      const client = webhook.client;
-      await client.fetchWebhook(webhook.id);
-      return true;
-    } catch {
-      return false;
+      const cachedKey = REDIS_KEYS.webhookCache();
+      await this.redis.del(cachedKey);
+      logger.debug('Webhook cache cleared');
+    } catch (error) {
+      logger.error('Failed to clear webhook cache', { error: error.message });
     }
   }
 }
 
-export const webhookService = new WebhookService();
+export default WebhookService;

@@ -1,304 +1,261 @@
-import { ModalBuilder, TextInputBuilder, ActionRowBuilder, TextInputStyle } from 'discord.js';
-import { ticketRepository } from '../repositories/ticket-repository.js';
-import { loggingService } from '../services/logging-service.js';
-import { metricsService } from '../services/metrics-service.js';
-import { webhookService } from '../services/webhook-service.js';
-import { errorHandler } from '../utils/error-handler.js';
-import { ERROR_MESSAGES, SUCCESS_MESSAGES, LOG_COLORS, TICKET_LOG_CHANNEL_ID, CUSTOM_IDS } from '../utils/constants.js';
-import { buildThreadLink, canManageUsers } from '../utils/thread-utils.js';
-import { isTicketStaffFromInteraction, canRemoveUser } from '../utils/permissions.js';
-import { buildAddUsersModalCustomId, buildRemoveUsersModalCustomId } from '../utils/custom-id-utils.js';
-import { validateInteraction, validateThreadState, validateUserList } from '../utils/validators.js';
+/**
+ * User management handler
+ * Handles adding and removing users from tickets
+ */
 
-export async function handleAddUsersButton(interaction, threadId) {
-  const context = await loggingService.logInteractionStart(interaction, 'add_users_button');
-  const timer = metricsService.createTimer();
+import logger from '../services/logging-service.js';
+import { buildAddUserModalWithSelect, buildRemoveUserModalWithSelect } from '../components/modals.js';
+import { buildErrorPayload, buildSuccessPayload } from '../components/payloads.js';
+import { isTicketStaffFromInteraction } from '../utils/permissions.js';
+import { validateUserIdFromFields, isValidDiscordId } from '../utils/validators.js';
+import { buildThreadLink } from '../utils/custom-id-utils.js';
+import { isTicketStaffLike } from '../utils/permissions.js';
+import { CUSTOM_IDS, ERROR_MESSAGES } from '../utils/constants.js';
 
-  try {
-    const validation = validateInteraction(interaction);
-    if (!validation.isValid) throw new Error(`Invalid interaction: ${validation.errors.join(', ')}`);
+export class UserManagementHandler {
+  constructor(ticketRepository, discordRestService) {
+    this.ticketRepo = ticketRepository;
+    this.discordRest = discordRestService;
+  }
 
-    const threadValidation = validateThreadState(interaction.channel);
-    if (!threadValidation.isValid) {
-      await interaction.reply({ content: ERROR_MESSAGES.NOT_TICKET_THREAD, ephemeral: true });
+  /**
+   * Handles the add user button
+   */
+  async handleAddUserButton(interaction, threadId) {
+    const { channel, user } = interaction;
+
+    logger.debug('Add user button pressed', { threadId, userId: user.id });
+
+    // Validation
+    if (!interaction.inGuild() || !channel?.isThread?.()) {
+      await this.replyError(interaction, ERROR_MESSAGES.NOT_IN_THREAD, true);
       return;
     }
 
     if (!isTicketStaffFromInteraction(interaction)) {
-      await interaction.reply({ content: ERROR_MESSAGES.NOT_TICKET_STAFF, ephemeral: true });
+      await this.replyError(interaction, ERROR_MESSAGES.NOT_STAFF, true);
       return;
     }
 
     if (interaction.channelId !== threadId) {
-      await interaction.reply({ content: ERROR_MESSAGES.WRONG_THREAD, ephemeral: true });
+      await this.replyError(interaction, ERROR_MESSAGES.INVALID_THREAD, true);
       return;
     }
 
-    if (!canManageUsers(interaction.channel)) {
-      await interaction.reply({ content: ERROR_MESSAGES.CLOSED_TICKET_OPERATIONS, ephemeral: true });
-      return;
+    // Show modal
+    try {
+      const modal = buildAddUserModalWithSelect(threadId);
+      await interaction.showModal(modal).catch(() => null);
+    } catch (error) {
+      logger.error('Failed to show add user modal', { error: error.message });
     }
-
-    const ticket = await ticketRepository.findByThreadId(threadId);
-    if (!ticket || ticket.status !== 'open') {
-      await interaction.reply({ content: ERROR_MESSAGES.INVALID_TICKET_STATE, ephemeral: true });
-      return;
-    }
-
-    const modal = new ModalBuilder()
-      .setCustomId(buildAddUsersModalCustomId(threadId))
-      .setTitle('Add User to Ticket')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId(CUSTOM_IDS.addUserSelect)
-            .setLabel('User IDs (comma-separated)')
-            .setStyle(TextInputStyle.Paragraph)
-            .setPlaceholder('Enter Discord user IDs separated by commas...')
-            .setRequired(true)
-            .setMaxLength(1000)
-        )
-      );
-
-    await interaction.showModal(modal);
-
-    const duration = timer.stop();
-    await metricsService.recordUserManagement('add_users', duration, true, { guildId: interaction.guildId, threadId: threadId, staffId: interaction.user.id });
-    await loggingService.logInteractionComplete(context, 'add_users_button', { success: true, duration });
-
-  } catch (error) {
-    const duration = timer.stop();
-    await metricsService.recordUserManagement('add_users', duration, false, { guildId: interaction.guildId, threadId: threadId, staffId: interaction.user.id, error: error.message });
-    await errorHandler.handleInteractionError(context, error, 'add_users_button');
   }
-}
 
-export async function handleRemoveUsersButton(interaction, threadId) {
-  const context = await loggingService.logInteractionStart(interaction, 'remove_users_button');
-  const timer = metricsService.createTimer();
+  /**
+   * Handles the remove user button
+   */
+  async handleRemoveUserButton(interaction, threadId) {
+    const { channel, user } = interaction;
 
-  try {
-    const validation = validateInteraction(interaction);
-    if (!validation.isValid) throw new Error(`Invalid interaction: ${validation.errors.join(', ')}`);
+    logger.debug('Remove user button pressed', { threadId, userId: user.id });
 
-    const threadValidation = validateThreadState(interaction.channel);
-    if (!threadValidation.isValid) {
-      await interaction.reply({ content: ERROR_MESSAGES.NOT_TICKET_THREAD, ephemeral: true });
+    // Validation
+    if (!interaction.inGuild() || !channel?.isThread?.()) {
+      await this.replyError(interaction, ERROR_MESSAGES.NOT_IN_THREAD, true);
       return;
     }
 
     if (!isTicketStaffFromInteraction(interaction)) {
-      await interaction.reply({ content: ERROR_MESSAGES.NOT_TICKET_STAFF, ephemeral: true });
+      await this.replyError(interaction, ERROR_MESSAGES.NOT_STAFF, true);
       return;
     }
 
     if (interaction.channelId !== threadId) {
-      await interaction.reply({ content: ERROR_MESSAGES.WRONG_THREAD, ephemeral: true });
+      await this.replyError(interaction, ERROR_MESSAGES.INVALID_THREAD, true);
       return;
     }
 
-    if (!canManageUsers(interaction.channel)) {
-      await interaction.reply({ content: ERROR_MESSAGES.CLOSED_TICKET_OPERATIONS, ephemeral: true });
-      return;
+    // Show modal
+    try {
+      const modal = buildRemoveUserModalWithSelect(threadId);
+      await interaction.showModal(modal).catch(() => null);
+    } catch (error) {
+      logger.error('Failed to show remove user modal', { error: error.message });
     }
-
-    const ticket = await ticketRepository.findByThreadId(threadId);
-    if (!ticket || ticket.status !== 'open') {
-      await interaction.reply({ content: ERROR_MESSAGES.INVALID_TICKET_STATE, ephemeral: true });
-      return;
-    }
-
-    const modal = new ModalBuilder()
-      .setCustomId(buildRemoveUsersModalCustomId(threadId))
-      .setTitle('Remove User from Ticket')
-      .addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId(CUSTOM_IDS.removeUserSelect)
-            .setLabel('User IDs (comma-separated)')
-            .setStyle(TextInputStyle.Paragraph)
-            .setPlaceholder('Enter Discord user IDs separated by commas...')
-            .setRequired(true)
-            .setMaxLength(1000)
-        )
-      );
-
-    await interaction.showModal(modal);
-
-    const duration = timer.stop();
-    await metricsService.recordUserManagement('remove_users', duration, true, { guildId: interaction.guildId, threadId: threadId, staffId: interaction.user.id });
-    await loggingService.logInteractionComplete(context, 'remove_users_button', { success: true, duration });
-
-  } catch (error) {
-    const duration = timer.stop();
-    await metricsService.recordUserManagement('remove_users', duration, false, { guildId: interaction.guildId, threadId: threadId, staffId: interaction.user.id, error: error.message });
-    await errorHandler.handleInteractionError(context, error, 'remove_users_button');
   }
-}
 
-export async function handleAddUsersModalSubmit(interaction, threadId) {
-  const context = await loggingService.logInteractionStart(interaction, 'add_users_modal');
-  const timer = metricsService.createTimer();
+  /**
+   * Handles the add user modal submission
+   */
+  async handleAddUserModalSubmit(interaction, threadId) {
+    const { channel, user, guild } = interaction;
 
-  try {
-    const validation = validateInteraction(interaction);
-    if (!validation.isValid) throw new Error(`Invalid interaction: ${validation.errors.join(', ')}`);
+    logger.debug('Add user modal submitted', { threadId, staffId: user.id });
 
-    if (!isTicketStaffFromInteraction(interaction)) {
-      await interaction.reply({ content: ERROR_MESSAGES.NOT_TICKET_STAFF, ephemeral: true });
-      return;
-    }
+    // Defer reply
+    await interaction.deferReply({ ephemeral: true }).catch(() => null);
 
-    const userInput = interaction.fields.getTextInputValue(CUSTOM_IDS.addUserSelect);
-    const userIds = userInput.split(',').map(id => id.trim()).filter(id => id.length > 0);
+    try {
+      // Validation
+      if (!interaction.inGuild() || !channel?.isThread?.()) {
+        await this.editReplyError(interaction, ERROR_MESSAGES.NOT_IN_THREAD);
+        return;
+      }
 
-    const userValidation = validateUserList(userIds, { maxUsers: 10 });
-    if (!userValidation.isValid) {
-      await interaction.reply({ content: `Invalid user IDs: ${userValidation.errors.join(', ')}`, ephemeral: true });
-      return;
-    }
+      if (interaction.channelId !== threadId) {
+        await this.editReplyError(interaction, ERROR_MESSAGES.INVALID_STATE);
+        return;
+      }
 
-    const ticket = await ticketRepository.findByThreadId(threadId);
-    if (!ticket || ticket.status !== 'open') {
-      await interaction.reply({ content: ERROR_MESSAGES.INVALID_TICKET_STATE, ephemeral: true });
-      return;
-    }
+      if (!isTicketStaffFromInteraction(interaction)) {
+        await this.editReplyError(interaction, ERROR_MESSAGES.NOT_STAFF);
+        return;
+      }
 
-    const thread = await interaction.guild.channels.fetch(threadId);
-    if (!thread?.isThread?.()) {
-      await interaction.reply({ content: ERROR_MESSAGES.NOT_TICKET_THREAD, ephemeral: true });
-      return;
-    }
+      // Get selected user
+      const addUserId = validateUserIdFromFields(interaction.fields, CUSTOM_IDS.addUserSelect);
+      if (!addUserId) {
+        await this.editReplyError(interaction, ERROR_MESSAGES.NO_USER_SELECTED);
+        return;
+      }
 
-    const addedUsers = [];
-    const failedUsers =[];
+      if (!isValidDiscordId(addUserId)) {
+        await this.editReplyError(interaction, ERROR_MESSAGES.NO_USER_SELECTED);
+        return;
+      }
 
-    for (const userId of userValidation.validIds) {
+      // Fetch member
+      const member = await guild.members.fetch(addUserId).catch(() => null);
+      if (!member) {
+        await this.editReplyError(interaction, ERROR_MESSAGES.NOT_FOUND);
+        return;
+      }
+
+      // Add to thread
+      await channel.members.add(addUserId).catch(() => null);
+
+      // Record action
       try {
-        await thread.members.add(userId);
-        addedUsers.push(userId);
+        await this.ticketRepo.recordUserAction({
+          threadId: channel.id,
+          actionType: 'user_added',
+          targetUserId: addUserId,
+          performedBy: user.id
+        });
       } catch (error) {
-        failedUsers.push(userId);
+        logger.warn('Failed to record user action', { error: error.message });
       }
+
+      await this.editReplySuccess(interaction, `Added <@${addUserId}>`);
+
+      logger.info('User added to ticket', { threadId, addedUserId: addUserId, staffId: user.id });
+    } catch (error) {
+      logger.error('Add user modal submission failed', { error: error.message });
+      await this.editReplyError(interaction, 'An error occurred while adding the user.');
     }
-
-    let responseMessage = SUCCESS_MESSAGES.USERS_ADDED(addedUsers.length);
-    if (failedUsers.length > 0) responseMessage += `\n\nFailed to add: ${failedUsers.join(', ')}`;
-
-    await interaction.reply({ content: responseMessage, ephemeral: true });
-
-    await sendUserManagementLog(thread, 'add_users', { staffId: interaction.user.id, targetUserIds: addedUsers, failedUserIds: failedUsers });
-
-    const duration = timer.stop();
-    await metricsService.recordUserManagement('add_users_modal', duration, true, { guildId: interaction.guildId, threadId: threadId, staffId: interaction.user.id, targetUserIds: addedUsers });
-    await loggingService.logInteractionComplete(context, 'add_users_modal', { success: true, duration, addedUsers: addedUsers.length, failedUsers: failedUsers.length });
-
-  } catch (error) {
-    const duration = timer.stop();
-    await metricsService.recordUserManagement('add_users_modal', duration, false, { guildId: interaction.guildId, threadId: threadId, staffId: interaction.user.id, error: error.message });
-    await errorHandler.handleInteractionError(context, error, 'add_users_modal');
   }
-}
 
-export async function handleRemoveUsersModalSubmit(interaction, threadId) {
-  const context = await loggingService.logInteractionStart(interaction, 'remove_users_modal');
-  const timer = metricsService.createTimer();
+  /**
+   * Handles the remove user modal submission
+   */
+  async handleRemoveUserModalSubmit(interaction, threadId) {
+    const { channel, user, guild } = interaction;
 
-  try {
-    const validation = validateInteraction(interaction);
-    if (!validation.isValid) throw new Error(`Invalid interaction: ${validation.errors.join(', ')}`);
+    logger.debug('Remove user modal submitted', { threadId, staffId: user.id });
 
-    if (!isTicketStaffFromInteraction(interaction)) {
-      await interaction.reply({ content: ERROR_MESSAGES.NOT_TICKET_STAFF, ephemeral: true });
-      return;
-    }
+    // Defer reply
+    await interaction.deferReply({ ephemeral: true }).catch(() => null);
 
-    const userInput = interaction.fields.getTextInputValue(CUSTOM_IDS.removeUserSelect);
-    const userIds = userInput.split(',').map(id => id.trim()).filter(id => id.length > 0);
-
-    const userValidation = validateUserList(userIds, { maxUsers: 10 });
-    if (!userValidation.isValid) {
-      await interaction.reply({ content: `Invalid user IDs: ${userValidation.errors.join(', ')}`, ephemeral: true });
-      return;
-    }
-
-    const ticket = await ticketRepository.findByThreadId(threadId);
-    if (!ticket || ticket.status !== 'open') {
-      await interaction.reply({ content: ERROR_MESSAGES.INVALID_TICKET_STATE, ephemeral: true });
-      return;
-    }
-
-    const thread = await interaction.guild.channels.fetch(threadId);
-    if (!thread?.isThread?.()) {
-      await interaction.reply({ content: ERROR_MESSAGES.NOT_TICKET_THREAD, ephemeral: true });
-      return;
-    }
-
-    const removableUsers =[];
-    const protectedUsers =[];
-
-    for (const userId of userValidation.validIds) {
-      if (canRemoveUser(userId, ticket.creator_id, interaction.user.id)) {
-        removableUsers.push(userId);
-      } else {
-        protectedUsers.push(userId);
+    try {
+      // Validation
+      if (!interaction.inGuild() || !channel?.isThread?.()) {
+        await this.editReplyError(interaction, ERROR_MESSAGES.NOT_IN_THREAD);
+        return;
       }
-    }
 
-    const removedUsers = [];
-    const failedUsers =[];
+      if (interaction.channelId !== threadId) {
+        await this.editReplyError(interaction, ERROR_MESSAGES.INVALID_STATE);
+        return;
+      }
 
-    for (const userId of removableUsers) {
+      if (!isTicketStaffFromInteraction(interaction)) {
+        await this.editReplyError(interaction, ERROR_MESSAGES.NOT_STAFF);
+        return;
+      }
+
+      // Get selected user
+      const removeUserId = validateUserIdFromFields(interaction.fields, CUSTOM_IDS.removeUserSelect);
+      if (!removeUserId) {
+        await this.editReplyError(interaction, ERROR_MESSAGES.NO_USER_SELECTED);
+        return;
+      }
+
+      if (!isValidDiscordId(removeUserId)) {
+        await this.editReplyError(interaction, ERROR_MESSAGES.NO_USER_SELECTED);
+        return;
+      }
+
+      // Check if user is staff
+      const member = await guild.members.fetch(removeUserId).catch(() => null);
+      if (member && isTicketStaffLike(member, guild, removeUserId)) {
+        await this.editReplyError(
+          interaction,
+          ERROR_MESSAGES.CANNOT_REMOVE_STAFF(removeUserId)
+        );
+        return;
+      }
+
+      // Remove from thread
+      await channel.members.remove(removeUserId).catch(() => null);
+
+      // Record action
       try {
-        await thread.members.remove(userId);
-        removedUsers.push(userId);
+        await this.ticketRepo.recordUserAction({
+          threadId: channel.id,
+          actionType: 'user_removed',
+          targetUserId: removeUserId,
+          performedBy: user.id
+        });
       } catch (error) {
-        failedUsers.push(userId);
+        logger.warn('Failed to record user action', { error: error.message });
       }
+
+      await this.editReplySuccess(interaction, `Removed <@${removeUserId}>`);
+
+      logger.info('User removed from ticket', { threadId, removedUserId: removeUserId, staffId: user.id });
+    } catch (error) {
+      logger.error('Remove user modal submission failed', { error: error.message });
+      await this.editReplyError(interaction, 'An error occurred while removing the user.');
     }
+  }
 
-    let responseMessage = SUCCESS_MESSAGES.USERS_REMOVED(removedUsers.length);
-    if (protectedUsers.length > 0) responseMessage += `\n\nCannot remove (protected): ${protectedUsers.join(', ')}`;
-    if (failedUsers.length > 0) responseMessage += `\n\nFailed to remove: ${failedUsers.join(', ')}`;
+  /**
+   * Helper: Reply with error
+   */
+  async replyError(interaction, message, ephemeral = false) {
+    const payload = buildErrorPayload(message);
+    payload.ephemeral = ephemeral;
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply(payload).catch(() => null);
+    } else {
+      await interaction.reply(payload).catch(() => null);
+    }
+  }
 
-    await interaction.reply({ content: responseMessage, ephemeral: true });
+  /**
+   * Helper: Edit reply with error
+   */
+  async editReplyError(interaction, message) {
+    await interaction.editReply(buildErrorPayload(message)).catch(() => null);
+  }
 
-    await sendUserManagementLog(thread, 'remove_users', { staffId: interaction.user.id, targetUserIds: removedUsers, failedUserIds: failedUsers, protectedUserIds: protectedUsers });
-
-    const duration = timer.stop();
-    await metricsService.recordUserManagement('remove_users_modal', duration, true, { guildId: interaction.guildId, threadId: threadId, staffId: interaction.user.id, targetUserIds: removedUsers });
-    await loggingService.logInteractionComplete(context, 'remove_users_modal', { success: true, duration, removedUsers: removedUsers.length, failedUsers: failedUsers.length, protectedUsers: protectedUsers.length });
-
-  } catch (error) {
-    const duration = timer.stop();
-    await metricsService.recordUserManagement('remove_users_modal', duration, false, { guildId: interaction.guildId, threadId: threadId, staffId: interaction.user.id, error: error.message });
-    await errorHandler.handleInteractionError(context, error, 'remove_users_modal');
+  /**
+   * Helper: Edit reply with success
+   */
+  async editReplySuccess(interaction, message) {
+    const payload = { content: `✅ ${message}`, ephemeral: true };
+    await interaction.editReply(payload).catch(() => null);
   }
 }
 
-async function sendUserManagementLog(thread, operation, { staffId, targetUserIds, failedUserIds = [], protectedUserIds =[] }) {
-  try {
-    const { webhook } = await webhookService.getOrCreateLogWebhook(thread.guild, TICKET_LOG_CHANNEL_ID);
-    if (!webhook) return;
-
-    const threadLink = buildThreadLink(thread.guildId, thread.id);
-    const now = Math.floor(Date.now() / 1000);
-
-    const embed = {
-      title: operation === 'add_users' ? 'Users Added' : 'Users Removed',
-      color: operation === 'add_users' ? LOG_COLORS.USER_ADDED : LOG_COLORS.USER_REMOVED,
-      description:[
-        `**Staff Member:** <@${staffId}>`,
-        `**At:** <t:${now}:F>`,
-        `**Thread:** ${threadLink}`,
-        targetUserIds.length > 0 ? `**Target Users:** ${targetUserIds.map(id => `<@${id}>`).join(', ')}` : '',
-        failedUserIds.length > 0 ? `**Failed:** ${failedUserIds.map(id => `<@${id}>`).join(', ')}` : '',
-        protectedUserIds.length > 0 ? `**Protected:** ${protectedUserIds.map(id => `<@${id}>`).join(', ')}` : ''
-      ].filter(Boolean).join('\n')
-    };
-
-    await webhook.send({ embeds: [embed], allowedMentions: { parse:[] } });
-  } catch (error) {
-    await loggingService.warn({ operation: 'send_user_management_log', guildId: thread.guildId, threadId: thread.id, message: 'Failed to send user management log', metadata: { error: error.message } });
-  }
-}
+export default UserManagementHandler;

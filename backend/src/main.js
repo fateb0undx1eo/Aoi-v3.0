@@ -1,0 +1,172 @@
+/**
+ * Discord Bot & API Server Main Entry Point
+ * Initializes Discord client, loads modules, sets up API server, and handles connections
+ */
+
+import { env } from './core/config/env.js';
+import { createDiscordClient } from './core/discordClient.js';
+import { redisClient } from './core/redis.js';
+import { SupabaseRepository } from './database/repository.js';
+import { buildApiServer } from './api/server.js';
+import { bootstrapRegistry } from './core/loader/bootstrap.js';
+import { registerInteractionRouter } from './interactions/interactionRouter.js';
+import { logger } from './utils/logger.js';
+import * as ConfigCache from './core/configCache/configCache.js';
+import * as PermissionService from './core/permissions/permissionService.js';
+import * as RateLimiter from './core/rateLimiter/rateLimiter.js';
+
+const PORT = env.port || 3001;
+
+async function main() {
+  try {
+    logger.info('🚀 Starting Discord Bot & API Server');
+
+    // ─────────────────────────────────────────────────────────────
+    // 1. Initialize Redis
+    // ─────────────────────────────────────────────────────────────
+    logger.info('Connecting to Redis...');
+    const redisConnected = await redisClient.connect();
+    if (!redisConnected && redisClient.isEnabled()) {
+      logger.warn('⚠️  Redis unavailable - will operate in degraded mode');
+    } else {
+      logger.info('✓ Redis connected');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 2. Initialize Database
+    // ─────────────────────────────────────────────────────────────
+    logger.info('Initializing database connection...');
+    const database = new SupabaseRepository();
+    logger.info('✓ Database ready');
+
+    // ─────────────────────────────────────────────────────────────
+    // 3. Create Discord Client
+    // ─────────────────────────────────────────────────────────────
+    logger.info('Creating Discord client...');
+    const discordClient = createDiscordClient();
+    logger.info('✓ Discord client created');
+
+    // ─────────────────────────────────────────────────────────────
+    // 4. Load Module Registry
+    // ─────────────────────────────────────────────────────────────
+    logger.info('Loading module registry...');
+    const registry = await bootstrapRegistry();
+    logger.info(`✓ Loaded ${registry.listDefinitions().length} modules`);
+
+    // ─────────────────────────────────────────────────────────────
+    // 5. Initialize Async Modules (like tickets)
+    // ─────────────────────────────────────────────────────────────
+    logger.info('Initializing async modules...');
+    await registry.initializeAsyncModules({
+      database,
+      redis: redisClient,
+      discordClient,
+      environment: env.environment || 'development'
+    });
+    logger.info('✓ Async modules initialized');
+
+    // ─────────────────────────────────────────────────────────────
+    // 6. Register Discord Events & Commands
+    // ─────────────────────────────────────────────────────────────
+    logger.info('Registering command and event handlers...');
+
+    const context = {
+      database,
+      redis: redisClient,
+      discordClient,
+      configCache: ConfigCache,
+      permissionService: PermissionService,
+      rateLimiter: RateLimiter,
+      env,
+      registry
+    };
+
+    // Register main interaction router
+    registerInteractionRouter(discordClient, registry, context);
+
+    // Register event handlers for all loaded modules
+    for (const event of registry.events) {
+      const handlers = registry.getEventHandlers(event);
+      if (handlers.length > 0) {
+        discordClient.on(event, async (...args) => {
+          for (const handler of handlers) {
+            try {
+              await handler.execute(...args);
+            } catch (error) {
+              logger.error(`Event handler ${handler.moduleName}/${event} failed:`, error);
+            }
+          }
+        });
+      }
+    }
+
+    logger.info('✓ Handlers registered');
+
+    // ─────────────────────────────────────────────────────────────
+    // 7. Setup Discord Client Ready Event
+    // ─────────────────────────────────────────────────────────────
+    discordClient.once('ready', () => {
+      logger.info(`✓ Discord Bot Ready! Logged in as ${discordClient.user.tag}`);
+      logger.info(`  Serving ${discordClient.guilds.cache.size} guilds`);
+    });
+
+    discordClient.on('error', (error) => {
+      logger.error('Discord client error:', error);
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // 8. Build & Start Express API Server
+    // ─────────────────────────────────────────────────────────────
+    logger.info('Building Express server...');
+    const app = buildApiServer(context);
+    
+    const server = app.listen(PORT, () => {
+      logger.info(`✓ Express server listening on port ${PORT}`);
+      logger.info(`📡 API available at http://localhost:${PORT}`);
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // 9. Login Discord Bot
+    // ─────────────────────────────────────────────────────────────
+    logger.info('Logging in Discord bot...');
+    await discordClient.login(env.discord.token);
+
+    // ─────────────────────────────────────────────────────────────
+    // 10. Handle Shutdown Gracefully
+    // ─────────────────────────────────────────────────────────────
+    const gracefulShutdown = async (signal) => {
+      logger.info(`\n📴 Received ${signal}, shutting down gracefully...`);
+
+      // Close API server
+      server.close(async () => {
+        logger.info('✓ Express server closed');
+
+        // Disconnect Discord client
+        discordClient.destroy();
+        logger.info('✓ Discord bot disconnected');
+
+        // Close Redis
+        await redisClient.disconnect?.();
+        logger.info('✓ Redis disconnected');
+
+        process.exit(0);
+      });
+
+      // Force shutdown after 10 seconds
+      setTimeout(() => {
+        logger.error('Forced shutdown after timeout');
+        process.exit(1);
+      }, 10000);
+    };
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+    logger.info('✅ All systems ready!\n');
+  } catch (error) {
+    logger.error('❌ Startup failed:', error);
+    process.exit(1);
+  }
+}
+
+main();
