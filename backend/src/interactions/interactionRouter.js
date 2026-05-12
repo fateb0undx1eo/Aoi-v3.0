@@ -28,8 +28,12 @@ export function registerInteractionRouter(client, registry, context) {
       logger.info(`Executing command: ${interaction.commandName}`);
 
       try {
-        if (command.defer !== false) {
+        // Only defer if not already deferred/replied
+        if (command.defer !== false && !interaction.deferred && !interaction.replied) {
+          logger.debug(`Deferring interaction: ${interaction.commandName}`);
           await interaction.deferReply({ ephemeral: command.ephemeral ?? false });
+        } else if (interaction.deferred || interaction.replied) {
+          logger.debug(`Interaction already ${interaction.deferred ? 'deferred' : 'replied'}`);
         }
 
         const commandConfig = context.configCache.getCommandConfig(
@@ -65,10 +69,14 @@ export function registerInteractionRouter(client, registry, context) {
         logger.info(`Command completed: ${interaction.commandName}`);
       } catch (error) {
         logger.error(`Command execution failed: ${interaction.commandName}`, error);
-        if (interaction.deferred || interaction.replied) {
-          await interaction.editReply('An internal error occurred.');
-        } else {
-          await interaction.reply({ content: 'An internal error occurred.', ephemeral: true });
+        try {
+          if (interaction.deferred || interaction.replied) {
+            await interaction.editReply('An internal error occurred.');
+          } else {
+            await interaction.reply({ content: 'An internal error occurred.', ephemeral: true });
+          }
+        } catch (replyError) {
+          logger.error('Failed to send error reply', replyError);
         }
       }
     } catch (error) {
