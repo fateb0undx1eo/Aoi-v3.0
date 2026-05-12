@@ -1,4 +1,4 @@
-import { ticketService } from './ticket-service.js';
+import { ticketRepository } from '../repositories/ticket-repository.js';
 import { webhookService } from './webhook-service.js';
 import { lockService } from './lock-service.js';
 import { redisClient } from '../../../core/redis.js';
@@ -245,7 +245,7 @@ export class DiscordRestService {
     
     try {
       // Delete from database
-      await ticketService.deleteTicket(threadId);
+      await ticketRepository.deleteTicket(threadId);
       
       // Try to delete Discord thread
       const record = await redisClient.get(`ticket:creation_attempt:${threadId}`);
