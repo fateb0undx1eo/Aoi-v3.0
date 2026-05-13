@@ -23,6 +23,11 @@ export function buildTicketPanelPayload() {
           {
             type: 10, // TEXT_DISPLAY
             content:
+              '# <:Empty:1503044372487471328><:Empty:1503044372487471328><:Empty:1503044372487471328><a:Sparkle2:1503090874417152020><:Ticket1:1503003731887788072><:Ticket2:1503003714213118104><a:Sparkle2:1503090874417152020>'
+          },
+          {
+            type: 10, // TEXT_DISPLAY
+            content:
               '**Need help with something?**\nCreate a support ticket by selecting a category below and our staff team will assist you as soon as possible.'
           },
           buildTicketTagSelectRow()

@@ -12,7 +12,7 @@ const DEFAULT_CONFIG = Object.freeze({
   show_join_date: true,
   interval_value: 30,
   interval_unit: 'minutes',
-  staff_role_ids: [],
+  staff_role_ids: ['1503719057130782810'],
   rank_tier_role_ids: [],
   managed_message_channel_id: '',
   managed_message_id: '',

@@ -11,9 +11,11 @@ import { buildApiServer } from './api/server.js';
 import { bootstrapRegistry } from './core/loader/bootstrap.js';
 import { registerInteractionRouter } from './interactions/interactionRouter.js';
 import { logger } from './utils/logger.js';
-import * as ConfigCache from './core/configCache/configCache.js';
-import * as PermissionService from './core/permissions/permissionService.js';
-import * as RateLimiter from './core/rateLimiter/dynamicRateLimiter.js';
+import { ConfigCache } from './core/configCache/configCache.js';
+import { ConfigService } from './services/configService.js';
+import { PermissionService } from './core/permissions/permissionService.js';
+import { DynamicRateLimiter } from './core/rateLimiter/dynamicRateLimiter.js';
+import { RateLimitService } from './services/rateLimitService.js';
 import { DiscordCommandSyncService } from './services/discordCommandSyncService.js';
 
 const PORT = env.port || 3001;
@@ -72,36 +74,48 @@ async function main() {
     logger.debug(`Total commands in registry: ${registry.commands.size}`);
     logger.debug(`Total events in registry: ${registry.events.size}`);
 
+    // Initialize services
+    const configService = new ConfigService();
+    const configCache = new ConfigCache(configService);
+    const permissionService = new PermissionService();
+    const rateLimitService = new RateLimitService();
+    const rateLimiter = new DynamicRateLimiter(rateLimitService);
+
     const context = {
       database,
       redis: redisClient,
       discordClient,
-      configCache: ConfigCache,
-      permissionService: PermissionService,
-      rateLimiter: RateLimiter,
+      configCache,
+      permissionService,
+      rateLimiter,
       env,
       registry
     };
 
-    // Register main interaction router
-    registerInteractionRouter(discordClient, registry, context);
-
-    // Register event handlers for all loaded modules
-    for (const event of registry.events) {
-      const handlers = registry.getEventHandlers(event);
+    // Register event handlers for all loaded modules FIRST
+    for (const [eventName, handlers] of registry.events.entries()) {
       if (handlers.length > 0) {
-        logger.debug(`Registering ${handlers.length} handler(s) for event: ${event}`);
-        discordClient.on(event, async (...args) => {
+        logger.debug(
+          `Registering ${handlers.length} handler(s) for event: ${eventName}`
+        );
+
+        discordClient.on(eventName, async (...args) => {
           for (const handler of handlers) {
             try {
-              await handler.execute(...args);
+              await handler.execute(...args, context);
             } catch (error) {
-              logger.error(`Event handler ${handler.moduleName}/${event} failed:`, error);
+              logger.error(
+                `Event handler ${handler.moduleName}/${eventName} failed:`,
+                error
+              );
             }
           }
         });
       }
     }
+
+    // Register main interaction router LAST (only for commands)
+    registerInteractionRouter(discordClient, registry, context);
 
     logger.info('✓ Handlers registered');
 

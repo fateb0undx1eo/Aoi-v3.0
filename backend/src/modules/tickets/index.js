@@ -76,7 +76,7 @@ export async function initializeTicketsModule(options) {
   const ticketService = new TicketService(ticketRepository, cooldownService, lockService, metricsService);
 
   // Initialize handlers
-  const ticketCreationHandler = new TicketCreationHandler(ticketService, lockService, discordRestService);
+  const ticketCreationHandler = new TicketCreationHandler(ticketService, lockService, discordRestService, webhookService, discordClient);
   const ticketResolutionHandler = new TicketResolutionHandler(ticketService);
   const userManagementHandler = new UserManagementHandler(ticketRepository, discordRestService);
   const interactionRouter = new InteractionRouter(

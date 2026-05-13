@@ -29,15 +29,16 @@ export class TicketRepository {
     }
 
     try {
-      const result = await this.db.query(
-        `INSERT INTO tickets (guild_id, thread_id, creator_id, tag_value, created_at)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING *`,
-        [guildId, threadId, creatorId, tagValue, createdAt]
-      );
+      const result = await this.db.from('tickets').insert({
+        guild_id: guildId,
+        thread_id: threadId,
+        creator_id: creatorId,
+        tag_value: tagValue,
+        created_at: createdAt
+      }).select();
 
       logger.info('Ticket created', { threadId, creatorId });
-      return result.rows[0];
+      return result.data[0];
     } catch (error) {
       logger.error('Failed to create ticket', { threadId, error: error.message });
       throw new DatabaseError('Failed to create ticket', { threadId });
@@ -53,11 +54,11 @@ export class TicketRepository {
     }
 
     try {
-      const result = await this.db.query(
-        'SELECT * FROM tickets WHERE thread_id = $1',
-        [threadId]
-      );
-      return result.rows[0] || null;
+      const result = await this.db.from('tickets')
+        .select('*')
+        .eq('thread_id', threadId)
+        .single();
+      return result.data || null;
     } catch (error) {
       logger.error('Failed to fetch ticket', { threadId, error: error.message });
       throw new DatabaseError('Failed to fetch ticket', { threadId });
@@ -107,20 +108,20 @@ export class TicketRepository {
     }
 
     try {
-      const result = await this.db.query(
-        `UPDATE tickets 
-         SET resolved_at = $1, resolved_by = $2
-         WHERE thread_id = $3
-         RETURNING *`,
-        [resolvedAt, resolverId, threadId]
-      );
+      const result = await this.db.from('tickets')
+        .update({ 
+          resolved_at: resolvedAt, 
+          resolved_by: resolverId 
+        })
+        .eq('thread_id', threadId)
+        .select();
 
-      if (result.rows.length === 0) {
+      if (result.data.length === 0) {
         throw new DatabaseError('Ticket not found', { threadId });
       }
 
       logger.info('Ticket resolved', { threadId, resolverId });
-      return result.rows[0];
+      return result.data[0];
     } catch (error) {
       if (error instanceof DatabaseError) throw error;
       logger.error('Failed to resolve ticket', { threadId, error: error.message });
@@ -170,15 +171,23 @@ export class TicketRepository {
     }
 
     try {
-      const result = await this.db.query(
-        `INSERT INTO ticket_user_actions (thread_id, action_type, target_user_id, performed_by, performed_at)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING *`,
-        [threadId, actionType, targetUserId, performedBy, performedAt]
-      );
+      const { data: result, error } = await this.db
+        .from('ticket_user_actions')
+        .insert({
+          thread_id: threadId,
+          action_type: actionType,
+          target_user_id: targetUserId,
+          performed_by: performedBy,
+          performed_at: performedAt,
+        })
+        .select();
+
+      if (error) {
+        throw error;
+      }
 
       logger.info('Ticket user action recorded', { threadId, actionType, targetUserId });
-      return result.rows[0];
+      return result[0];
     } catch (error) {
       logger.error('Failed to record user action', { threadId, error: error.message });
       throw new DatabaseError('Failed to record user action', { threadId });

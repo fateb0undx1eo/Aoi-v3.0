@@ -12,7 +12,7 @@ export const TICKET_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
 export const TICKET_CREATION_LOCK_MS = 8000; // 8 seconds
 
 // Configuration
-export const TICKET_STAFF_ROLE_IDS = ['1457403601512169724'];
+export const TICKET_STAFF_ROLE_IDS = ['1503719057130782810'];
 export const TICKET_LOG_CHANNEL_ID = '1485668403132760243';
 export const ADD_STAFF_MEMBERS_TO_THREAD = false;
 export const THREAD_PREFIX_CLOSED = '[CLOSED] ';

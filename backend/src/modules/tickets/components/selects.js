@@ -12,8 +12,6 @@ export function buildTicketTagSelectMenu() {
     type: COMPONENT_TYPES.StringSelect,
     custom_id: CUSTOM_IDS.ticketTagSelect,
     placeholder: 'Select a ticket category',
-    min_values: 1,
-    max_values: 1,
     options: TICKET_TAGS.map(({ label, value, description, emoji }) => ({
       label,
       value,

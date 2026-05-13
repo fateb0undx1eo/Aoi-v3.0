@@ -15,13 +15,15 @@ import {
   findWelcomeMessageInThread
 } from '../utils/thread-utils.js';
 import { CooldownError, PermissionError, ValidationError } from '../utils/error-handler.js';
-import { ERROR_MESSAGES, AUTO_ARCHIVE_24H } from '../utils/constants.js';
+import { ERROR_MESSAGES, AUTO_ARCHIVE_24H, TICKET_LOG_CHANNEL_ID } from '../utils/constants.js';
 
 export class TicketCreationHandler {
-  constructor(ticketService, lockService, discordRestService) {
+  constructor(ticketService, lockService, discordRestService, webhookService, discordClient) {
     this.ticketService = ticketService;
     this.lockService = lockService;
     this.discordRest = discordRestService;
+    this.webhookService = webhookService;
+    this.discordClient = discordClient;
   }
 
   /**
@@ -67,12 +69,10 @@ export class TicketCreationHandler {
         thread = await channel.threads.create({
           name: threadName,
           type: ChannelType.PrivateThread,
-          invitable: false,
           autoArchiveDuration: AUTO_ARCHIVE_24H,
           reason: `Ticket created by ${user.id} (${tag.value})`
         });
       } catch (error) {
-        logger.error('Failed to create thread', { error: error.message });
         await this.replyError(interaction, ERROR_MESSAGES.THREAD_CREATE_FAILED);
         return;
       }
@@ -160,7 +160,57 @@ export class TicketCreationHandler {
       setupTasks.push(dbSetup);
 
       // Send logging
-      // (ticket logging would happen here)
+      const logSetup = (async () => {
+        try {
+          const logChannel = await this.discordClient.channels.fetch(TICKET_LOG_CHANNEL_ID).catch(() => null);
+          if (!logChannel) {
+            logger.warn('Ticket log channel not found', { logChannelId: TICKET_LOG_CHANNEL_ID });
+            return;
+          }
+
+          const webhook = await this.webhookService.getOrCreateLogWebhook(logChannel);
+          if (webhook) {
+            const logEmbed = {
+              title: '🎫 Ticket Created',
+              description: `A new ticket has been created`,
+              color: 0x8b2b2b, // Dark red
+              fields: [
+                {
+                  name: 'Ticket Thread',
+                  value: `[${thread.name}](https://discord.com/channels/${thread.guildId}/${thread.id})`,
+                  inline: true
+                },
+                {
+                  name: 'Creator',
+                  value: `<@${creatorId}>`,
+                  inline: true
+                },
+                {
+                  name: 'Category',
+                  value: `${tag.emoji?.name || '📋'} ${tag.label}`,
+                  inline: true
+                }
+              ],
+              timestamp: new Date().toISOString(),
+              footer: {
+                text: `Ticket ID: ${thread.id}`
+              }
+            };
+
+            await webhook.send({
+              embeds: [logEmbed],
+              username: 'Ticket System',
+              avatarURL: this.discordClient.user?.displayAvatarURL()
+            }).catch(() => null);
+
+            logger.info('Ticket logged successfully', { threadId: thread.id, logChannelId: TICKET_LOG_CHANNEL_ID });
+          }
+        } catch (error) {
+          logger.error('Failed to log ticket creation', { threadId: thread.id, error: error.message });
+        }
+      })();
+
+      setupTasks.push(logSetup);
 
       await Promise.allSettled(setupTasks);
     } catch (error) {

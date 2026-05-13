@@ -34,11 +34,18 @@ export class InteractionRouter {
    */
   async routeInteraction(interaction) {
     try {
+      console.log('=== INTERACTION ROUTER DEBUG ===');
+      console.log('Interaction type:', interaction.type);
+      console.log('Custom ID:', interaction.customId);
+      console.log('Is StringSelect:', interaction.isStringSelectMenu());
+      console.log('Expected Custom ID:', CUSTOM_IDS.ticketTagSelect);
+      
       // String select (ticket tag selection)
       if (
         interaction.isStringSelectMenu() &&
         interaction.customId === CUSTOM_IDS.ticketTagSelect
       ) {
+        console.log('Routing to handleTicketTagSelect');
         return await this.handleTicketTagSelect(interaction);
       }
 
@@ -64,26 +71,27 @@ export class InteractionRouter {
   async handleTicketTagSelect(interaction) {
     logger.debug('Ticket tag selected', { userId: interaction.user.id, value: interaction.values[0] });
 
+    // Defer immediately to prevent 3-second timeout
+    await interaction.deferReply({ ephemeral: true });
+
     // Check for creation lock
     const hasLock = await this.lockService.hasCreationLock(interaction.user.id);
     if (hasLock) {
-      await interaction.reply({
-        content: ERROR_MESSAGES.LOCKED_IN_CREATION,
-        ephemeral: true
+      await interaction.editReply({
+        content: ERROR_MESSAGES.LOCKED_IN_CREATION
       });
       return;
     }
 
     // Acquire lock
     await this.lockService.acquireCreationLock(interaction.user.id);
-    await interaction.deferReply({ ephemeral: true });
 
     try {
       const [selectedValue] = interaction.values;
       const tag = getTicketTagByValue(selectedValue);
 
       if (!tag) {
-        await interaction.editReply({ content: ERROR_MESSAGES.UNKNOWN_CATEGORY });
+        await interaction.editReply({ content: 'Unknown ticket category selected.' });
         return;
       }
 

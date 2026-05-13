@@ -110,6 +110,9 @@ export class TicketResolutionHandler {
         logger.error('Failed to update database', { threadId: channel.id, error: error.message });
       }
 
+      // Delete the confirmation message
+      await this.deleteConfirmationMessage(interaction);
+
       await this.followUpSuccess(interaction, 'Ticket has been closed successfully.');
     } catch (error) {
       logger.error('Ticket resolution failed', {
@@ -130,7 +133,30 @@ export class TicketResolutionHandler {
       await interaction.deferUpdate().catch(() => null);
     }
 
-    await this.followUpInfo(interaction, 'Action cancelled — the ticket remains open.');
+    // Delete the confirmation message
+    await this.deleteConfirmationMessage(interaction);
+
+    // Re-enable resolved button since ticket wasn't closed
+    await this.enableResolvedButton(interaction.channel, interaction.user.id);
+
+    await this.followUpInfo(interaction, 'Action cancelled — ticket remains open.');
+  }
+
+  /**
+   * Re-enables resolved button on welcome message
+   */
+  async enableResolvedButton(thread, creatorId) {
+    try {
+      const message = await findWelcomeMessageInThread(thread);
+      if (!message) return;
+
+      const tagLabel = extractTagLabelFromMessage(message) || 'Support Ticket';
+      const tag = { label: tagLabel, intro: '' };
+
+      await message.edit(buildTicketWelcomePayload(tag, creatorId, { resolvedDisabled: false })).catch(() => null);
+    } catch (error) {
+      logger.warn('Failed to re-enable resolved button', { error: error.message });
+    }
   }
 
   /**
@@ -168,6 +194,17 @@ export class TicketResolutionHandler {
    */
   async followUpError(interaction, message) {
     await interaction.followUp(buildErrorPayload(message)).catch(() => null);
+  }
+
+  /**
+   * Deletes the confirmation message
+   */
+  async deleteConfirmationMessage(interaction) {
+    try {
+      await interaction.deleteReply().catch(() => null);
+    } catch (error) {
+      logger.warn('Failed to delete confirmation message', { error: error.message });
+    }
   }
 
   /**
