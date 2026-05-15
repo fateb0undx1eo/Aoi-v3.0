@@ -26,7 +26,7 @@ import { DashboardOverviewService } from './services/dashboardOverviewService.js
 import { ModerationService } from './services/moderationService.js';
 import { SettingsService } from './services/settingsService.js';
 import { AnnouncementService } from './services/announcementService.js';
-import { DMBroadcastService } from './services/dmBroadcastService.js';
+import { DmBroadcastService } from './services/dmBroadcastService.js';
 import { RoleColorRotationService } from './services/roleColorRotationService.js';
 import { MemeService } from './services/memeService.js';
 import { BotLooksService } from './services/botLooksService.js';
@@ -107,7 +107,7 @@ async function main() {
     const settingsService = new SettingsService(configService);
     const announcementService = new AnnouncementService({ client: discordClient });
     const placeholderEngine = new PlaceholderEngine();
-    const dmBroadcastService = new DMBroadcastService({ client: discordClient, placeholderEngine });
+    const dmBroadcastService = new DmBroadcastService({ client: discordClient, placeholderEngine });
     const roleColorRotationService = new RoleColorRotationService({ client: discordClient, configService, configCache });
     const memeService = new MemeService({ configService, configCache, client: discordClient, env });
     const botLooksService = new BotLooksService({ client: discordClient, configService, configCache, preferredGuildId: env.discord.guildId });
