@@ -17,8 +17,25 @@ import { PermissionService } from './core/permissions/permissionService.js';
 import { DynamicRateLimiter } from './core/rateLimiter/dynamicRateLimiter.js';
 import { RateLimitService } from './services/rateLimitService.js';
 import { DiscordCommandSyncService } from './services/discordCommandSyncService.js';
+import { AuthService } from './services/authService.js';
+import { GuildService } from './services/guildService.js';
+import { AccessControlService } from './services/accessControlService.js';
+import { AnalyticsService } from './services/analyticsService.js';
+import { ModuleService } from './services/moduleService.js';
+import { DashboardOverviewService } from './services/dashboardOverviewService.js';
+import { ModerationService } from './services/moderationService.js';
+import { SettingsService } from './services/settingsService.js';
+import { AnnouncementService } from './services/announcementService.js';
+import { DMBroadcastService } from './services/dmBroadcastService.js';
+import { RoleColorRotationService } from './services/roleColorRotationService.js';
+import { MemeService } from './services/memeService.js';
+import { BotLooksService } from './services/botLooksService.js';
+import { StaffListService } from './services/staffListService.js';
+import { ProfileStyleService } from './services/profileStyleService.js';
+import { StaffRatingService } from './services/staffRatingService.js';
+import { PlaceholderEngine } from './core/placeholderEngine/placeholderEngine.js';
 
-const PORT = env.port || 3001;
+const PORT = env.apiPort || 3001;
 
 async function main() {
   try {
@@ -80,14 +97,50 @@ async function main() {
     const permissionService = new PermissionService();
     const rateLimitService = new RateLimitService();
     const rateLimiter = new DynamicRateLimiter(rateLimitService);
+    const authService = new AuthService(env);
+    const guildService = new GuildService();
+    const accessControlService = new AccessControlService({ client: discordClient });
+    const analyticsService = new AnalyticsService();
+    const moduleService = new ModuleService(registry, configCache);
+    const dashboardOverviewService = new DashboardOverviewService({ client: discordClient, moduleService, analyticsService });
+    const moderationService = new ModerationService(configService);
+    const settingsService = new SettingsService(configService);
+    const announcementService = new AnnouncementService({ client: discordClient });
+    const placeholderEngine = new PlaceholderEngine();
+    const dmBroadcastService = new DMBroadcastService({ client: discordClient, placeholderEngine });
+    const roleColorRotationService = new RoleColorRotationService({ client: discordClient, configService, configCache });
+    const memeService = new MemeService({ configService, configCache, client: discordClient, env });
+    const botLooksService = new BotLooksService({ client: discordClient, configService, configCache, preferredGuildId: env.discord.guildId });
+    const staffListService = new StaffListService({ client: discordClient, configService, configCache });
+    const profileStyleService = new ProfileStyleService({ client: discordClient, configService, configCache, token: env.discord.token });
+    const staffRatingService = new StaffRatingService();
 
     const context = {
       database,
       redis: redisClient,
       discordClient,
       configCache,
+      configService,
       permissionService,
       rateLimiter,
+      authService,
+      guildService,
+      accessControlService,
+      analyticsService,
+      moduleService,
+      dashboardOverviewService,
+      moderationService,
+      settingsService,
+      announcementService,
+      dmBroadcastService,
+      roleColorRotationService,
+      memeService,
+      botLooksService,
+      staffListService,
+      profileStyleService,
+      staffRatingService,
+      placeholderEngine,
+      client: discordClient,
       env,
       registry
     };
