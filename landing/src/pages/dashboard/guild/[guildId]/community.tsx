@@ -3,7 +3,6 @@ import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Heart, MessageSquare, TrendingUp } from "lucide-react";
 
 type ModuleRow = {
   name: string;
@@ -22,54 +21,51 @@ type OverviewPayload = {
 export default function CommunityPage() {
   const router = useRouter();
   const { guildId } = router.query;
-  const [isLoading, setIsLoading] = useState(true);
-  const [guildName, setGuildName] = useState("");
+  const [payload, setPayload] = useState<OverviewPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const fetchData = useCallback(async () => {
-    if (!guildId) return;
-
+  const load = useCallback(async () => {
+    if (!guildId || typeof guildId !== "string") return;
     try {
-      setIsLoading(true);
-      const response = await fetch(`/api/guilds/${guildId}/overview`);
+      const response = await fetch(`/api/dashboard/guild/${guildId}/overview`);
+      if (response.status === 401) {
+        router.push("/");
+        return;
+      }
       if (!response.ok) throw new Error("Failed to fetch guild data");
       
       const data: OverviewPayload = await response.json();
-      setGuildName(data.guild.name);
-    } catch (error) {
-      console.error("Error fetching data:", error);
+      setPayload(data);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  }, [guildId]);
+  }, [guildId, router]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    load();
+  }, [load]);
 
   return (
-    <DashboardLayout title="Community" icon={Users}>
-      <div className="space-y-6">
-        {isLoading ? (
-          <>
-            <BoneyardCard />
-            <BoneyardCard />
-            <BoneyardCard />
-          </>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Community Overview</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">Coming Soon</div>
-                <p className="text-xs text-muted-foreground">Community features under development</p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-      </div>
+    <DashboardLayout guildId={String(guildId || "")} guildName={payload?.guild.name || "Guild"} heading="Community" modules={payload?.modules || []}>
+      {loading && <BoneyardCard lines={6} />}
+      {!loading && error && <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">{error}</div>}
+      {!loading && !error && (
+        <div className="space-y-6">
+          <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
+            <CardHeader>
+              <CardTitle>Community Overview</CardTitle>
+              <CardDescription className="text-zinc-400">Manage community features and engagement tools.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm text-zinc-300">Community module features coming soon.</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
