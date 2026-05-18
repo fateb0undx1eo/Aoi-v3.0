@@ -45,9 +45,10 @@ export class UserManagementHandler {
     // Show modal
     try {
       const modal = buildAddUserModalWithSelect(threadId);
-      await interaction.showModal(modal).catch(() => null);
+      await interaction.showModal(modal);
     } catch (error) {
       logger.error('Failed to show add user modal', { error: error.message });
+      await this.replyError(interaction, 'Failed to open add-user modal.', true);
     }
   }
 
@@ -78,9 +79,10 @@ export class UserManagementHandler {
     // Show modal
     try {
       const modal = buildRemoveUserModalWithSelect(threadId);
-      await interaction.showModal(modal).catch(() => null);
+      await interaction.showModal(modal);
     } catch (error) {
       logger.error('Failed to show remove user modal', { error: error.message });
+      await this.replyError(interaction, 'Failed to open remove-user modal.', true);
     }
   }
 

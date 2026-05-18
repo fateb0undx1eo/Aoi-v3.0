@@ -143,6 +143,7 @@ export async function findWelcomeMessageInThread(thread) {
  * Looks for the first TextDisplay component with a markdown header
  */
 export function extractTagLabelFromMessage(message) {
+  if (!message) return null;
   for (const topLevel of message.components ?? []) {
     // Container → children
     for (const child of topLevel.components ?? []) {
