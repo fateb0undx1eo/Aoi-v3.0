@@ -1,21 +1,16 @@
-/**
- * Ticket creation handler
- * Handles the ticket creation workflow from tag selection to thread setup
- */
-
 import { ChannelType } from 'discord.js';
 import logger from '../services/logging-service.js';
 import { buildTicketWelcomePayload, buildSuccessPayload, buildErrorPayload } from '../components/payloads.js';
+import { generateThreadName, addStaffMembersToThread, buildTicketMentions, hasOpenTicketInChannel } from '../utils/thread-utils.js';
+import { CooldownError } from '../utils/error-handler.js';
 import {
-  generateThreadName,
-  addStaffMembersToThread,
-  buildTicketMentions,
-  hasOpenTicketInChannel,
-  getCreatorIdFromThread,
-  findWelcomeMessageInThread
-} from '../utils/thread-utils.js';
-import { CooldownError, PermissionError, ValidationError } from '../utils/error-handler.js';
-import { ERROR_MESSAGES, AUTO_ARCHIVE_24H, TICKET_LOG_CHANNEL_ID } from '../utils/constants.js';
+  ERROR_MESSAGES,
+  AUTO_ARCHIVE_24H,
+  TICKET_LOG_CHANNEL_ID,
+  TICKET_STAFF_ROLE_IDS,
+  ADD_STAFF_MEMBERS_TO_THREAD,
+  POINTER
+} from '../utils/constants.js';
 
 export class TicketCreationHandler {
   constructor(ticketService, lockService, discordRestService, webhookService, discordClient) {
@@ -26,23 +21,14 @@ export class TicketCreationHandler {
     this.discordClient = discordClient;
   }
 
-  /**
-   * Handles ticket creation from tag selection
-   */
   async handleTicketCreation(interaction, tag) {
-    const startTime = Date.now();
     const { user, channel, client } = interaction;
-
-    logger.info('Ticket creation initiated', { userId: user.id, tag: tag.value });
-
     try {
-      // Validate channel
       if (!channel?.threads?.create) {
         await this.replyError(interaction, ERROR_MESSAGES.NO_PANEL_CHANNEL);
         return;
       }
 
-      // Check cooldown
       try {
         await this.ticketService.cooldownService.checkCooldown(user.id);
       } catch (error) {
@@ -53,174 +39,94 @@ export class TicketCreationHandler {
         throw error;
       }
 
-      // Check for existing open ticket
       const hasOpen = await hasOpenTicketInChannel(channel, user.id, client.user.id);
       if (hasOpen) {
         await this.replyError(interaction, ERROR_MESSAGES.ALREADY_OPEN);
         return;
       }
 
-      // Generate thread name
-      const threadName = generateThreadName(tag.namePrefix);
+      const thread = await channel.threads.create({
+        name: generateThreadName(tag.namePrefix),
+        type: ChannelType.PrivateThread,
+        autoArchiveDuration: AUTO_ARCHIVE_24H,
+        invitable: false,
+        reason: `Ticket created by ${user.id} (${tag.value})`
+      }).catch(() => null);
 
-      // Create the thread
-      let thread;
-      try {
-        thread = await channel.threads.create({
-          name: threadName,
-          type: ChannelType.PrivateThread,
-          autoArchiveDuration: AUTO_ARCHIVE_24H,
-          reason: `Ticket created by ${user.id} (${tag.value})`
-        });
-      } catch (error) {
+      if (!thread) {
         await this.replyError(interaction, ERROR_MESSAGES.THREAD_CREATE_FAILED);
         return;
       }
 
-      // Add creator to thread
-      try {
-        await thread.members.add(user.id);
-      } catch (error) {
-        logger.error('Failed to add user to thread', { threadId: thread.id, userId: user.id, error: error.message });
+      const added = await thread.members.add(user.id).then(() => true).catch(() => false);
+      if (!added) {
         await this.replyError(interaction, ERROR_MESSAGES.ADD_USER_FAILED);
         return;
       }
 
-      // Reply to interaction
       await this.replySuccess(interaction, `Ticket created: <#${thread.id}>`);
-
-      // Setup thread in background
       this.setupThreadAsync(thread, user.id, tag);
-
-      logger.info('Ticket created successfully', {
-        threadId: thread.id,
-        userId: user.id,
-        durationMs: Date.now() - startTime
-      });
     } catch (error) {
-      logger.error('Ticket creation failed', {
-        userId: user.id,
-        error: error.message,
-        stack: error.stack
-      });
+      logger.error('Ticket creation failed', { error: error.message, stack: error.stack });
       await this.replyError(interaction, 'An error occurred while creating your ticket.');
     }
   }
 
-  /**
-   * Sets up the thread asynchronously
-   */
   async setupThreadAsync(thread, creatorId, tag) {
-    try {
-      const setupTasks = [];
-
-      // Add staff members
-      setupTasks.push(
-        addStaffMembersToThread(thread).catch(error => {
-          logger.error('Failed to add staff to thread', { threadId: thread.id, error: error.message });
-        })
-      );
-
-      // Send messages
-      const messageSetup = (async () => {
-        try {
-          // Send mention message
-          await thread.send({
-            content: buildTicketMentions(creatorId),
-            allowedMentions: {
-              users: [creatorId],
-              roles: []
-            }
-          }).catch(() => null);
-
-          // Send welcome message
-          await thread.send(buildTicketWelcomePayload(tag, creatorId)).catch(() => null);
-        } catch (error) {
-          logger.error('Failed to send thread messages', { threadId: thread.id, error: error.message });
-        }
-      })();
-
-      setupTasks.push(messageSetup);
-
-      // Create database record
-      const dbSetup = (async () => {
-        try {
-          await this.ticketService.createTicket({
-            guildId: thread.guildId,
-            threadId: thread.id,
-            creatorId,
-            tagValue: tag.value,
-            createdAt: new Date()
-          });
-        } catch (error) {
-          logger.error('Failed to create ticket record', { threadId: thread.id, error: error.message });
-        }
-      })();
-
-      setupTasks.push(dbSetup);
-
-      // Send logging
-      const logSetup = (async () => {
-        try {
-          const logChannel = await this.discordClient.channels.fetch(TICKET_LOG_CHANNEL_ID).catch(() => null);
-          if (!logChannel) {
-            logger.warn('Ticket log channel not found', { logChannelId: TICKET_LOG_CHANNEL_ID });
-            return;
-          }
-
-          const webhook = await this.webhookService.getOrCreateLogWebhook(logChannel);
-          if (webhook) {
-            const logEmbed = {
-              title: '🎫 Ticket Created',
-              description: `A new ticket has been created`,
-              color: 0x8b2b2b, // Dark red
-              fields: [
-                {
-                  name: 'Ticket Thread',
-                  value: `[${thread.name}](https://discord.com/channels/${thread.guildId}/${thread.id})`,
-                  inline: true
-                },
-                {
-                  name: 'Creator',
-                  value: `<@${creatorId}>`,
-                  inline: true
-                },
-                {
-                  name: 'Category',
-                  value: `${tag.emoji?.name || '📋'} ${tag.label}`,
-                  inline: true
-                }
-              ],
-              timestamp: new Date().toISOString(),
-              footer: {
-                text: `Ticket ID: ${thread.id}`
-              }
-            };
-
-            await webhook.send({
-              embeds: [logEmbed],
-              username: 'Ticket System',
-              avatarURL: this.discordClient.user?.displayAvatarURL()
-            }).catch(() => null);
-
-            logger.info('Ticket logged successfully', { threadId: thread.id, logChannelId: TICKET_LOG_CHANNEL_ID });
-          }
-        } catch (error) {
-          logger.error('Failed to log ticket creation', { threadId: thread.id, error: error.message });
-        }
-      })();
-
-      setupTasks.push(logSetup);
-
-      await Promise.allSettled(setupTasks);
-    } catch (error) {
-      logger.error('Thread setup failed', { error: error.message });
+    if (ADD_STAFF_MEMBERS_TO_THREAD) {
+      await addStaffMembersToThread(thread).catch((error) => {
+        logger.warn('Failed adding staff members', { error: error.message, threadId: thread.id });
+      });
     }
+
+    await thread.send({
+      content: buildTicketMentions(creatorId),
+      allowedMentions: { users: [creatorId], roles: TICKET_STAFF_ROLE_IDS }
+    }).catch(() => null);
+
+    await thread.send(buildTicketWelcomePayload(tag, creatorId)).catch(() => null);
+
+    await this.ticketService.createTicket({
+      guildId: thread.guildId,
+      threadId: thread.id,
+      creatorId,
+      tagValue: tag.value,
+      createdAt: new Date()
+    }).catch(() => null);
+
+    await this.sendCreatedLog(thread, creatorId, tag.label);
   }
 
-  /**
-   * Helper: Reply with error
-   */
+  async sendCreatedLog(thread, creatorId, tagLabel) {
+    const logChannel = await this.discordClient.channels.fetch(TICKET_LOG_CHANNEL_ID).catch(() => null);
+    if (!logChannel) return;
+
+    const webhook = await this.webhookService.getOrCreateLogWebhook(logChannel).catch(() => null);
+    if (!webhook) return;
+
+    const now = Math.floor(Date.now() / 1000);
+    const threadLink = `https://discord.com/channels/${thread.guildId}/${thread.id}`;
+    const embed = {
+      title: 'Created',
+      color: 0x8b2b2b,
+      description: [
+        `${POINTER} Created By: <@${creatorId}>`,
+        `${POINTER} Created At: <t:${now}:F>`,
+        `${POINTER} Resolved At: -`,
+        `${POINTER} Resolved By: -`,
+        `${POINTER} Ticket Tag: ${tagLabel}`,
+        `${POINTER} Thread Link: ${threadLink}`
+      ].join('\n')
+    };
+
+    await webhook.send({
+      embeds: [embed],
+      allowedMentions: { parse: [] },
+      username: 'Ticket System',
+      avatarURL: this.discordClient.user?.displayAvatarURL()
+    }).catch(() => null);
+  }
+
   async replyError(interaction, message) {
     const payload = buildErrorPayload(message);
     if (interaction.deferred || interaction.replied) {
@@ -230,9 +136,6 @@ export class TicketCreationHandler {
     }
   }
 
-  /**
-   * Helper: Reply with success
-   */
   async replySuccess(interaction, message) {
     const payload = buildSuccessPayload(message);
     if (interaction.deferred || interaction.replied) {

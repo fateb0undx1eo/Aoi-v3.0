@@ -5,8 +5,6 @@
 import logger from '../services/logging-service.js';
 import {
   parseResolvedCreatorId,
-  parseResolveConfirmCreatorId,
-  parseResolveCancelCreatorId,
   parseAddUsersThreadId,
   parseRemoveUsersThreadId,
   parseAddUsersModalThreadId,
@@ -34,18 +32,11 @@ export class InteractionRouter {
    */
   async routeInteraction(interaction) {
     try {
-      console.log('=== INTERACTION ROUTER DEBUG ===');
-      console.log('Interaction type:', interaction.type);
-      console.log('Custom ID:', interaction.customId);
-      console.log('Is StringSelect:', interaction.isStringSelectMenu());
-      console.log('Expected Custom ID:', CUSTOM_IDS.ticketTagSelect);
-      
       // String select (ticket tag selection)
       if (
         interaction.isStringSelectMenu() &&
         interaction.customId === CUSTOM_IDS.ticketTagSelect
       ) {
-        console.log('Routing to handleTicketTagSelect');
         return await this.handleTicketTagSelect(interaction);
       }
 
@@ -127,18 +118,6 @@ export class InteractionRouter {
         interaction,
         resolvedCreatorId
       );
-    }
-
-    // Resolve confirm button
-    const confirmCreatorId = parseResolveConfirmCreatorId(customId);
-    if (confirmCreatorId) {
-      return await this.ticketResolutionHandler.handleResolveConfirm(interaction, confirmCreatorId);
-    }
-
-    // Resolve cancel button
-    const cancelCreatorId = parseResolveCancelCreatorId(customId);
-    if (cancelCreatorId) {
-      return await this.ticketResolutionHandler.handleResolveCancel(interaction);
     }
 
     // Add users button
