@@ -3,6 +3,7 @@
  */
 
 import logger from './logging-service.js';
+import { WebhookClient } from 'discord.js';
 import { REDIS_KEYS, KEY_TTLS } from '../utils/redis-keys.js';
 import { TICKET_LOG_CHANNEL_ID } from '../utils/constants.js';
 import { DatabaseError } from '../utils/error-handler.js';
@@ -26,7 +27,7 @@ export class WebhookService {
           const parsed = JSON.parse(cached);
           if (parsed.id && parsed.token) {
             logger.debug('Using cached webhook');
-            return parsed;
+            return new WebhookClient({ id: parsed.id, token: parsed.token });
           }
         } catch {}
       }
@@ -62,6 +63,22 @@ export class WebhookService {
       logger.error('Failed to get or create webhook', { error: error.message });
       throw new DatabaseError('Failed to get or create webhook');
     }
+  }
+
+  async sendWithRetry(webhook, payload, maxAttempts = 3) {
+    let attempt = 0;
+    let delayMs = 300;
+    while (attempt < maxAttempts) {
+      attempt += 1;
+      try {
+        return await webhook.send(payload);
+      } catch (error) {
+        if (attempt >= maxAttempts) throw error;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        delayMs *= 2;
+      }
+    }
+    return null;
   }
 
   /**

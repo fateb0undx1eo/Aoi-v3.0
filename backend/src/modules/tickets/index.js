@@ -96,6 +96,7 @@ export async function initializeTicketsModule(options) {
   // Initialize jobs
   const cooldownCleanupJob = new CooldownCleanupJob(cooldownRepository, 60 * 60 * 1000); // 1 hour
   const reconciliationJob = new ReconciliationJob(reconciliationService, 60 * 60 * 1000); // 1 hour
+  let cleanupIntervalId = null;
 
   // Start services
   await productionService.initialize();
@@ -103,6 +104,9 @@ export async function initializeTicketsModule(options) {
   // Start background jobs
   await cooldownCleanupJob.start();
   await reconciliationJob.start();
+  cleanupIntervalId = setInterval(async () => {
+    await cleanupService.runCleanup().catch(() => null);
+  }, 12 * 60 * 60 * 1000);
 
   logger.info('Tickets module initialized successfully');
 
@@ -229,6 +233,7 @@ export async function initializeTicketsModule(options) {
       logger.info('Shutting down tickets module...');
       cooldownCleanupJob.stop();
       reconciliationJob.stop();
+      if (cleanupIntervalId) clearInterval(cleanupIntervalId);
       logger.info('Tickets module shutdown complete');
     }
   };

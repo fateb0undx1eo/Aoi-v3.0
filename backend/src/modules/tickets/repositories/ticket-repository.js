@@ -217,6 +217,24 @@ export class TicketRepository {
       throw new DatabaseError('Failed to fetch action history', { threadId });
     }
   }
+
+  async deleteResolvedOlderThan(daysOld = 90) {
+    try {
+      const cutoff = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await this.db
+        .from('tickets')
+        .delete()
+        .not('resolved_at', 'is', null)
+        .lt('resolved_at', cutoff)
+        .select('thread_id');
+
+      if (error) throw error;
+      return data?.length ?? 0;
+    } catch (error) {
+      logger.error('Failed to delete old resolved tickets', { error: error.message, daysOld });
+      throw new DatabaseError('Failed to delete old resolved tickets');
+    }
+  }
 }
 
 export default TicketRepository;

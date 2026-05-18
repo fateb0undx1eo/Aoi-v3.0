@@ -112,14 +112,12 @@ export class TicketCreationHandler {
       description: [
         `${POINTER} Created By: <@${creatorId}>`,
         `${POINTER} Created At: <t:${now}:F>`,
-        `${POINTER} Resolved At: -`,
-        `${POINTER} Resolved By: -`,
         `${POINTER} Ticket Tag: ${tagLabel}`,
         `${POINTER} Thread Link: ${threadLink}`
       ].join('\n')
     };
 
-    await webhook.send({
+    await this.webhookService.sendWithRetry(webhook, {
       embeds: [embed],
       allowedMentions: { parse: [] },
       username: 'Ticket System',

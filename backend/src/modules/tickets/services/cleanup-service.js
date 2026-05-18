@@ -25,9 +25,8 @@ export class CleanupService {
         cacheCleared: 0
       };
 
-      // Cleanup expired cooldowns
-      // Remove orphaned ticket records
-      // Clear cache if needed
+      const archived = await this.archiveOldTickets(1);
+      results.orphanedRecordsRemoved = archived.archived ?? 0;
 
       const duration = Date.now() - startTime;
       logger.info('Cleanup completed', { durationMs: duration, ...results });
@@ -52,8 +51,8 @@ export class CleanupService {
   async archiveOldTickets(daysOld = 30) {
     logger.info(`Archiving tickets older than ${daysOld} days...`);
     try {
-      // Archive old resolved tickets
-      return { archived: 0 };
+      const deleted = await this.ticketRepo.deleteResolvedOlderThan(daysOld);
+      return { archived: deleted };
     } catch (error) {
       logger.error('Failed to archive old tickets', { error: error.message });
       return { error: error.message };

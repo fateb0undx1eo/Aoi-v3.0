@@ -2,7 +2,7 @@ import logger from '../services/logging-service.js';
 import { buildErrorPayload, buildSuccessPayload } from '../components/payloads.js';
 import { isTicketStaffFromInteraction } from '../utils/permissions.js';
 import { isThreadNameClosed, markThreadNameClosed, extractTagLabelFromMessage, findWelcomeMessageInThread } from '../utils/thread-utils.js';
-import { AUTO_ARCHIVE_1H, ERROR_MESSAGES, POINTER, TICKET_LOG_CHANNEL_ID } from '../utils/constants.js';
+import { AUTO_ARCHIVE_1H, ERROR_MESSAGES, POINTER, TICKET_LOG_CHANNEL_ID, TICKET_TAGS } from '../utils/constants.js';
 
 export class TicketResolutionHandler {
   constructor(ticketService, webhookService, discordClient) {
@@ -56,22 +56,28 @@ export class TicketResolutionHandler {
     const webhook = await this.webhookService.getOrCreateLogWebhook(logChannel).catch(() => null);
     if (!webhook) return;
 
+    const ticketRow = await this.ticketService.getTicket(thread.id).catch(() => null);
+    const createdAtUnix = ticketRow?.created_at
+      ? Math.floor(new Date(ticketRow.created_at).getTime() / 1000)
+      : null;
+    const tagLabelFromDb = TICKET_TAGS.find((t) => t.value === ticketRow?.tag_value)?.label;
+
     const now = Math.floor(Date.now() / 1000);
     const threadLink = `https://discord.com/channels/${thread.guildId}/${thread.id}`;
     const embed = {
-      title: 'Resolved',
+      title: 'Closed',
       color: 0x2fa44f,
       description: [
         `${POINTER} Created By: <@${creatorId}>`,
-        `${POINTER} Created At: -`,
+        `${POINTER} Created At: ${createdAtUnix ? `<t:${createdAtUnix}:F>` : '-'}`,
         `${POINTER} Resolved At: <t:${now}:F>`,
         `${POINTER} Resolved By: <@${resolverId}>`,
-        `${POINTER} Ticket Tag: ${tagLabel}`,
+        `${POINTER} Ticket Tag: ${tagLabelFromDb || tagLabel}`,
         `${POINTER} Thread Link: ${threadLink}`
       ].join('\n')
     };
 
-    await webhook.send({
+    await this.webhookService.sendWithRetry(webhook, {
       embeds: [embed],
       allowedMentions: { parse: [] },
       username: 'Ticket System',
