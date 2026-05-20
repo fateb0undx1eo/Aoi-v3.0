@@ -547,20 +547,25 @@ async function handleCaseAction(interaction, context) {
 
   await interaction.update({ components: buildCaseReportComponents(report, resolvedLabel), allowedMentions: { parse: [] } });
   await interaction.followUp({ content: 'Case action completed.', ephemeral: true });
+}
+
+async function handleCaseTimeoutModal(interaction, context) {
+  const token = interaction.customId.slice(`${CASE_TIMEOUT_MODAL_PREFIX}:`.length);
+  const report = pendingCaseReports.get(token);
+
+  if (!report || report.guildId !== interaction.guildId || report.resolved) {
+    await interaction.reply({ content: 'This case report is no longer available.', ephemeral: true });
     return;
   }
 
-  const { configCache } = context;
-  const moderationService = getModerationService(context);
-  const caseConfig = await getCaseCommandConfig(interaction.guildId, moderationService, configCache);
   if (!canUseCaseCommand(interaction.member, interaction.guild)) {
     await interaction.reply({ content: 'You do not have permission to use this action.', ephemeral: true });
     return;
   }
 
-  const reason        = truncate(interaction.fields.getTextInputValue('reason'), 500);
+  const reason = truncate(interaction.fields.getTextInputValue('reason'), 500);
   const durationInput = interaction.fields.getTextInputValue('duration').trim();
-  const presetIndex   = Number.parseInt(durationInput, 10) - 1;
+  const presetIndex = Number.parseInt(durationInput, 10) - 1;
 
   if (Number.isNaN(presetIndex) || presetIndex < 0 || presetIndex >= TIMEOUT_PRESETS.length) {
     await interaction.reply({ content: `Invalid duration. Enter a number between 1 and ${TIMEOUT_PRESETS.length}.`, ephemeral: true });
@@ -569,13 +574,13 @@ async function handleCaseAction(interaction, context) {
 
   const { minutes } = TIMEOUT_PRESETS[presetIndex];
   const durationSeconds = minutes * 60;
-
   const member = await interaction.guild.members.fetch(report.targetUserId).catch(() => null);
   if (!member || member.id === interaction.user.id) {
     await interaction.reply({ content: 'The reported user is not available for this action.', ephemeral: true });
     return;
   }
 
+  const moderationService = getModerationService(context);
   const moderatorName = interaction.user.tag ?? interaction.user.username;
   const modConfig = await moderationService.getModConfig(interaction.guildId).catch(() => ({ dm_on_punish: false, show_mod_in_dm: false }));
 
@@ -585,13 +590,13 @@ async function handleCaseAction(interaction, context) {
     }
     await performGuildAction({ member, actionType: 'TIMEOUT', reason, durationSeconds });
     await moderationService.createCase({
-      guildId:           interaction.guildId,
-      targetUserId:      report.targetUserId,
-      targetUsername:    report.targetUsername,
-      moderatorUserId:   interaction.user.id,
+      guildId: interaction.guildId,
+      targetUserId: report.targetUserId,
+      targetUsername: report.targetUsername,
+      moderatorUserId: interaction.user.id,
       moderatorUsername: moderatorName,
-      type:              'TIMEOUT',
-      reason:            `${reason} (reported message: ${report.messageUrl})`,
+      type: 'TIMEOUT',
+      reason: `${reason} (reported message: ${report.messageUrl})`,
       durationSeconds
     });
   } catch (error) {
@@ -599,27 +604,30 @@ async function handleCaseAction(interaction, context) {
     return;
   }
 
-  report.resolved      = true;
+  report.resolved = true;
   report.timeoutMinutes = minutes;
-  report.reason         = reason; // update reason to the timeout-specific one
+  report.reason = reason;
   pendingCaseReports.set(token, report);
 
   const resolvedLabel = `TIMEOUT for ${TIMEOUT_PRESETS[presetIndex].label} by ${escapeMarkdown(moderatorName)}`;
-
-  // Edit the original report card
   const channel = await interaction.guild.channels.fetch(report.reportChannelId).catch(() => null);
-  const message = channel?.isTextBased?.()
-    ? await channel.messages.fetch(report.reportMessageId).catch(() => null)
-    : null;
+  const message = channel?.isTextBased?.() ? await channel.messages.fetch(report.reportMessageId).catch(() => null) : null;
   if (message) {
     await message.edit({ components: buildCaseReportComponents(report, resolvedLabel), allowedMentions: { parse: [] } });
   }
 
   await interaction.reply({ content: 'Case action completed.', ephemeral: true });
+}
+
+async function handleCaseKickModal(interaction, context) {
+  const token = interaction.customId.slice(`${CASE_KICK_MODAL_PREFIX}:`.length);
+  const report = pendingCaseReports.get(token);
+
+  if (!report || report.guildId !== interaction.guildId || report.resolved) {
+    await interaction.reply({ content: 'This case report is no longer available.', ephemeral: true });
     return;
   }
 
-  // Re-check kick permission at modal submit time (belt-and-suspenders)
   if (!canKick(interaction.member, interaction.guild)) {
     await interaction.reply({ content: 'Only administrators and the server owner can kick.', ephemeral: true });
     return;
@@ -642,14 +650,14 @@ async function handleCaseAction(interaction, context) {
     }
     await performGuildAction({ member, actionType: 'KICK', reason, durationSeconds: null });
     await moderationService.createCase({
-      guildId:           interaction.guildId,
-      targetUserId:      report.targetUserId,
-      targetUsername:    report.targetUsername,
-      moderatorUserId:   interaction.user.id,
+      guildId: interaction.guildId,
+      targetUserId: report.targetUserId,
+      targetUsername: report.targetUsername,
+      moderatorUserId: interaction.user.id,
       moderatorUsername: moderatorName,
-      type:              'KICK',
-      reason:            `${reason} (reported message: ${report.messageUrl})`,
-      durationSeconds:   null
+      type: 'KICK',
+      reason: `${reason} (reported message: ${report.messageUrl})`,
+      durationSeconds: null
     });
   } catch (error) {
     await interaction.reply({ content: `Failed to kick: ${error.message}`, ephemeral: true });
@@ -657,21 +665,67 @@ async function handleCaseAction(interaction, context) {
   }
 
   report.resolved = true;
-  report.reason   = reason;
+  report.reason = reason;
   pendingCaseReports.set(token, report);
 
   const resolvedLabel = `KICK by ${escapeMarkdown(moderatorName)}`;
-
-  // Edit the original report card
   const channel = await interaction.guild.channels.fetch(report.reportChannelId).catch(() => null);
-  const message = channel?.isTextBased?.()
-    ? await channel.messages.fetch(report.reportMessageId).catch(() => null)
-    : null;
+  const message = channel?.isTextBased?.() ? await channel.messages.fetch(report.reportMessageId).catch(() => null) : null;
   if (message) {
     await message.edit({ components: buildCaseReportComponents(report, resolvedLabel), allowedMentions: { parse: [] } });
   }
 
   await interaction.reply({ content: 'Case action completed.', ephemeral: true });
+}
+
+export default {
+  name: 'moderation',
+  configSchema: MODERATION_SCHEMA,
+  commands: [
+    {
+      name: 'case',
+      type: ApplicationCommandType.Message,
+      defer: false,
+      ephemeral: true,
+      async execute(interaction, context) {
+        await handleCaseCommand(interaction, context);
+      }
+    }
+  ],
+  events: [
+    {
+      name: 'interactionCreate',
+      async execute(interaction, context) {
+        if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_MODAL_PREFIX}:`)) {
+          await handleCaseModal(interaction, context);
+          return;
+        }
+        if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_TIMEOUT_MODAL_PREFIX}:`)) {
+          await handleCaseTimeoutModal(interaction, context);
+          return;
+        }
+        if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_KICK_MODAL_PREFIX}:`)) {
+          await handleCaseKickModal(interaction, context);
+          return;
+        }
+        if (interaction.isButton() && interaction.customId.startsWith(`${CASE_ACTION_PREFIX}:`)) {
+          await handleCaseAction(interaction, context);
+        }
+      }
+    },
+    {
+      name: 'messageDelete',
+      async execute(message, context) {
+        const moderationService = getModerationService(context);
+        if (!message?.guild || !message.mentions?.users?.size) return;
+        await moderationService.recordGhostPing({
+          guild_id: message.guild.id,
+          message_id: message.id,
+          channel_id: message.channel.id,
+          author_id: message.author?.id ?? null,
+          mentions: [...message.mentions.users.keys()],
+          created_at: new Date().toISOString()
+        });
       }
     },
     {
