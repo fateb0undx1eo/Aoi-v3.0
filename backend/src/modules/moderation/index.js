@@ -1,7 +1,6 @@
 import {
   ActionRowBuilder,
   ApplicationCommandType,
-  AttachmentBuilder,
   ButtonStyle,
   EmbedBuilder,
   MessageFlags,
@@ -157,33 +156,6 @@ function buildLogBody(report, reason, resolvedLabel) {
   ].join('\n');
 }
 
-async function fetchAttachmentBuffer(url, name) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const buffer = Buffer.from(await res.arrayBuffer());
-    return { buffer, name };
-  } catch {
-    return null;
-  }
-}
-
-// Re-uploads media (images + gifs) as AttachmentBuilders with SPOILER_ prefix.
-async function prepareReuploadedMedia(attachments = []) {
-  const files = [];
-  const mediaGalleryItems = [];
-
-  for (const attachment of attachments.filter((a) => a.isMedia).slice(0, 4)) {
-    const fetched = await fetchAttachmentBuffer(attachment.url, attachment.name);
-    if (!fetched) continue;
-    const spoilerName = fetched.name.startsWith('SPOILER_') ? fetched.name : `SPOILER_${fetched.name}`;
-    files.push(new AttachmentBuilder(fetched.buffer, { name: spoilerName }));
-    mediaGalleryItems.push({ media: { url: `attachment://${spoilerName}` }, spoiler: true });
-  }
-
-  return { files, mediaGalleryItems };
-}
-
 function buildNonMediaFileSection(attachments = []) {
   const fileAttachments = attachments.filter((a) => !a.isMedia && a.url);
   if (!fileAttachments.length) return [];
@@ -223,7 +195,10 @@ function buildPreviewComponents(report) {
 
 // Log sent to the report channel — reason + action taken, gallery between content and action
 async function buildLoggedComponents(report, reason, resolvedLabel) {
-  const { files, mediaGalleryItems } = await prepareReuploadedMedia(report.attachments);
+  const mediaGalleryItems = report.attachments
+    .filter((a) => a.isMedia && a.url)
+    .slice(0, 4)
+    .map((a) => ({ media: { url: a.url }, spoiler: true }));
 
   const innerComponents = [
     { type: 10, content: buildLogBody(report, reason, resolvedLabel) },
@@ -232,8 +207,7 @@ async function buildLoggedComponents(report, reason, resolvedLabel) {
   ];
 
   return {
-    components: [{ type: 17, components: innerComponents }],
-    files
+    components: [{ type: 17, components: innerComponents }]
   };
 }
 
@@ -252,7 +226,7 @@ async function performGuildAction({ member, actionType, reason, durationSeconds 
   }
 }
 
-async function sendCaseLogToChannel(context, components, files = [], pingUserId = null) {
+async function sendCaseLogToChannel(context, components, pingUserId = null) {
   const client = context?.discordClient ?? context?.client;
   const guild = client?.guilds?.cache?.get?.(context?.guildId);
   const channel = guild ? await guild.channels.fetch(CASE_REPORT_CHANNEL_ID).catch(() => null) : null;
@@ -260,25 +234,33 @@ async function sendCaseLogToChannel(context, components, files = [], pingUserId 
     throw new Error('Case report channel unavailable');
   }
 
-  // Plain-text ping above the container
-  if (pingUserId) {
-    await channel.send({ content: `<@${pingUserId}>`, allowedMentions: { users: [pingUserId] } });
-  }
-
-  const payload = {
-    flags: MessageFlags.IsComponentsV2,
-    components,
-    allowedMentions: { parse: [] },
-    ...(files.length ? { files } : {})
-  };
-
   try {
     const webhooks = await channel.fetchWebhooks();
     let webhook = webhooks.find((h) => h.name === CASE_WEBHOOK_NAME && h.owner?.id === client.user?.id);
     if (!webhook) webhook = await channel.createWebhook({ name: CASE_WEBHOOK_NAME });
-    await webhook.send(payload);
+
+    // Ping line outside the container, sent by webhook itself.
+    if (pingUserId) {
+      await webhook.send({
+        content: `<@${pingUserId}>`,
+        allowedMentions: { users: [pingUserId], parse: [] }
+      });
+    }
+
+    await webhook.send({
+      flags: MessageFlags.IsComponentsV2,
+      components,
+      allowedMentions: { parse: [] }
+    });
   } catch {
-    await channel.send(payload);
+    if (pingUserId) {
+      await channel.send({ content: `<@${pingUserId}>`, allowedMentions: { users: [pingUserId], parse: [] } });
+    }
+    await channel.send({
+      flags: MessageFlags.IsComponentsV2,
+      components,
+      allowedMentions: { parse: [] }
+    });
   }
 }
 
@@ -433,12 +415,11 @@ async function applyModerationAction(interaction, context, actionType, reason, t
     ? `TIMEOUT (${timeoutLabel ?? `${Math.floor(durationSeconds / 60)} minute(s)`})`
     : actionType;
 
-  const { components, files } = await buildLoggedComponents(report, reason, resolvedLabel);
+  const { components } = await buildLoggedComponents(report, reason, resolvedLabel);
 
   await sendCaseLogToChannel(
     { ...context, guildId: interaction.guildId },
     components,
-    files,
     report.targetUserId
   );
 
@@ -474,7 +455,11 @@ async function handleCaseAction(interaction) {
           .setMaxLength(500)
       )
     );
-    await interaction.showModal(modal);
+    try {
+      await interaction.showModal(modal);
+    } catch (error) {
+      await interaction.reply({ content: `Failed to open warn form: ${error?.message ?? 'unknown error'}`, ephemeral: true });
+    }
     return;
   }
 
@@ -498,10 +483,14 @@ async function handleCaseAction(interaction) {
           .setStyle(TextInputStyle.Short)
           .setRequired(true)
           .setMaxLength(2)
-          .setPlaceholder(buildTimeoutPresetText())
+          .setPlaceholder('Enter 1-12')
       )
     );
-    await interaction.showModal(modal);
+    try {
+      await interaction.showModal(modal);
+    } catch (error) {
+      await interaction.reply({ content: `Failed to open timeout form: ${error?.message ?? 'unknown error'}`, ephemeral: true });
+    }
     return;
   }
 
@@ -519,7 +508,11 @@ async function handleCaseAction(interaction) {
           .setMaxLength(500)
       )
     );
-    await interaction.showModal(modal);
+    try {
+      await interaction.showModal(modal);
+    } catch (error) {
+      await interaction.reply({ content: `Failed to open kick form: ${error?.message ?? 'unknown error'}`, ephemeral: true });
+    }
   }
 }
 
