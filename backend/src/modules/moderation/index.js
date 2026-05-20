@@ -94,20 +94,57 @@ function canKick(member, guild) {
   return isAdminOrOwner(member, guild);
 }
 
+function looksLikeMediaUrl(url) {
+  const value = String(url ?? '').trim();
+  if (!value) return false;
+  const path = value.split('?')[0].toLowerCase();
+  if (/\.(png|jpe?g|gif|webp|mp4|mov|webm)$/i.test(path)) return true;
+  return /tenor\.com|giphy\.com|cdn\.discordapp\.com|media\.discordapp\.net/i.test(value);
+}
+
+function extractUrlsFromText(text) {
+  const matches = String(text ?? '').match(/https?:\/\/\S+/gi);
+  return matches ? matches.map((m) => m.trim()) : [];
+}
+
 function getAttachmentData(message) {
+  const items = [];
+  const pushUnique = (url, name = 'attachment', isMedia = true) => {
+    if (!url) return;
+    if (items.some((entry) => entry.url === url)) return;
+    items.push({ url, name, isMedia });
+  };
+
   const attachments = [...(message.attachments?.values?.() ?? [])];
-  return attachments.slice(0, 5).map((a) => {
+  for (const a of attachments) {
     const contentType = String(a.contentType ?? '');
     const urlPath = String(a.url ?? '').split('?')[0];
-    // GIFs, images all go to the media gallery
     const isMedia = contentType.startsWith('image/')
-      || /\.(png|jpe?g|gif|webp)$/i.test(urlPath);
-    return {
-      url: a.url,
-      name: a.name ?? 'attachment',
-      isMedia
-    };
-  });
+      || /\.(png|jpe?g|gif|webp|mp4|mov|webm)$/i.test(urlPath);
+    pushUnique(a.url, a.name ?? 'attachment', isMedia);
+  }
+
+  for (const embed of message.embeds ?? []) {
+    const embedCandidates = [
+      embed.image?.url,
+      embed.video?.url,
+      embed.thumbnail?.url,
+      embed.url
+    ];
+    for (const url of embedCandidates) {
+      if (looksLikeMediaUrl(url)) {
+        pushUnique(url, 'embed-media', true);
+      }
+    }
+  }
+
+  for (const url of extractUrlsFromText(message.content)) {
+    if (looksLikeMediaUrl(url)) {
+      pushUnique(url, 'linked-media', true);
+    }
+  }
+
+  return items.slice(0, 5);
 }
 
 function buildMessageUrl(guildId, channelId, messageId) {
@@ -126,10 +163,13 @@ function buildTimeoutSelectOptions() {
 }
 
 function stripLikelyMediaUrls(text) {
-  return String(text ?? '')
-    .replace(/https?:\/\/\S+\.(?:png|jpe?g|gif|webp|mp4|mov|webm)(\?\S*)?/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  let cleaned = String(text ?? '');
+  for (const url of extractUrlsFromText(cleaned)) {
+    if (looksLikeMediaUrl(url)) {
+      cleaned = cleaned.replace(url, '');
+    }
+  }
+  return cleaned.replace(/\s+/g, ' ').trim();
 }
 
 function extractDisplayMessageContent(message, limit) {
@@ -196,7 +236,11 @@ async function prepareReuploadedMedia(attachments = []) {
 
   for (const attachment of attachments.filter((a) => a.isMedia).slice(0, 4)) {
     const fetched = await fetchAttachmentBuffer(attachment.url, attachment.name);
-    if (!fetched) continue;
+    if (!fetched) {
+      mediaGalleryItems.push({ media: { url: attachment.url }, spoiler: true });
+      continue;
+    }
+
     const spoilerName = fetched.name.startsWith('SPOILER_') ? fetched.name : `SPOILER_${fetched.name}`;
     files.push(new AttachmentBuilder(fetched.buffer, { name: spoilerName }));
     mediaGalleryItems.push({ media: { url: `attachment://${spoilerName}` }, spoiler: true });
@@ -397,14 +441,19 @@ async function applyModerationAction(interaction, context, actionType, reason, t
       components: [],
       allowedMentions: { parse: [] }
     };
-    if (
+    const shouldEditInPlace =
       interaction.isButton?.() ||
       interaction.isStringSelectMenu?.() ||
-      interaction.isFromMessage?.()
-    ) {
-      await interaction.update(payload);
-      return;
+      interaction.isFromMessage?.() ||
+      Boolean(interaction.message);
+
+    if (shouldEditInPlace) {
+      try {
+        await interaction.update(payload);
+        return;
+      } catch {}
     }
+
     await interaction.reply({ ...payload, ephemeral: true });
   };
 
