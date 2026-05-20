@@ -251,8 +251,15 @@ async function handleCaseCommand(interaction, context) {
     return;
   }
 
-  const modConfig = await services.moderationService.getModConfig(interaction.guildId);
-  const caseConfig = getCaseCommandConfig(interaction.guildId, services, configCache);
+  let modConfig;
+  let caseConfig;
+  try {
+    modConfig = await services.moderationService.getModConfig(interaction.guildId);
+    caseConfig = getCaseCommandConfig(interaction.guildId, services, configCache);
+  } catch (error) {
+    await interaction.reply({ content: 'Failed to load moderation configuration. Please try again.', ephemeral: true });
+    return;
+  }
 
   if (!canUseCaseCommand(interaction.member, interaction.user.id, caseConfig)) {
     await interaction.reply({ content: 'You are not allowed to use this command.', ephemeral: true });
@@ -304,7 +311,12 @@ async function handleCaseCommand(interaction, context) {
 
   modal.addComponents(textInputRow(reasonInput));
 
-  await interaction.showModal(modal);
+  try {
+    await interaction.showModal(modal);
+  } catch (error) {
+    pendingCaseReports.delete(token);
+    await interaction.reply({ content: 'Unable to open the case form right now. Please try again.', ephemeral: true });
+  }
 }
 
 async function handleCaseModal(interaction, context) {
@@ -332,11 +344,17 @@ async function handleCaseModal(interaction, context) {
     token
   };
 
-  const sentMessage = await channel.send({
-    flags: MessageFlags.IsComponentsV2,
-    components: buildCaseReportComponents(finalizedReport),
-    allowedMentions: { parse: [] }
-  });
+  let sentMessage;
+  try {
+    sentMessage = await channel.send({
+      flags: MessageFlags.IsComponentsV2,
+      components: buildCaseReportComponents(finalizedReport),
+      allowedMentions: { parse: [] }
+    });
+  } catch (error) {
+    await interaction.reply({ content: 'Failed to send case report to the configured channel.', ephemeral: true });
+    return;
+  }
 
   pendingCaseReports.set(token, {
     ...finalizedReport,
@@ -363,7 +381,13 @@ async function handleCaseAction(interaction, context) {
   }
 
   const { services, configCache } = context;
-  const caseConfig = getCaseCommandConfig(interaction.guildId, services, configCache);
+  let caseConfig;
+  try {
+    caseConfig = getCaseCommandConfig(interaction.guildId, services, configCache);
+  } catch (error) {
+    await interaction.reply({ content: 'Failed to load moderation configuration.', ephemeral: true });
+    return;
+  }
   if (!canUseCaseCommand(interaction.member, interaction.user.id, caseConfig)) {
     await interaction.reply({ content: 'You are not allowed to use this action.', ephemeral: true });
     return;
@@ -383,7 +407,13 @@ async function handleCaseAction(interaction, context) {
   }
 
   const moderatorName = interaction.user.tag ?? interaction.user.username;
-  const modConfig = await services.moderationService.getModConfig(interaction.guildId);
+  let modConfig;
+  try {
+    modConfig = await services.moderationService.getModConfig(interaction.guildId);
+  } catch (error) {
+    await interaction.reply({ content: 'Failed to load moderation settings.', ephemeral: true });
+    return;
+  }
   if (member.id === interaction.user.id) {
     await interaction.reply({ content: 'You cannot action a case against yourself.', ephemeral: true });
     return;
@@ -401,7 +431,11 @@ async function handleCaseAction(interaction, context) {
       .setMaxLength(6)
       .setPlaceholder('60');
     modal.addComponents(textInputRow(durationInput));
-    await interaction.showModal(modal);
+    try {
+      await interaction.showModal(modal);
+    } catch (error) {
+      await interaction.reply({ content: 'Unable to open timeout form right now. Please try again.', ephemeral: true });
+    }
     return;
   }
 
@@ -465,7 +499,13 @@ async function handleCaseTimeoutModal(interaction, context) {
   }
 
   const { services, configCache } = context;
-  const caseConfig = getCaseCommandConfig(interaction.guildId, services, configCache);
+  let caseConfig;
+  try {
+    caseConfig = getCaseCommandConfig(interaction.guildId, services, configCache);
+  } catch (error) {
+    await interaction.reply({ content: 'Failed to load moderation configuration.', ephemeral: true });
+    return;
+  }
   if (!canUseCaseCommand(interaction.member, interaction.user.id, caseConfig)) {
     await interaction.reply({ content: 'You are not allowed to use this action.', ephemeral: true });
     return;
@@ -480,7 +520,13 @@ async function handleCaseTimeoutModal(interaction, context) {
   }
 
   const moderatorName = interaction.user.tag ?? interaction.user.username;
-  const modConfig = await services.moderationService.getModConfig(interaction.guildId);
+  let modConfig;
+  try {
+    modConfig = await services.moderationService.getModConfig(interaction.guildId);
+  } catch (error) {
+    await interaction.reply({ content: 'Failed to load moderation settings.', ephemeral: true });
+    return;
+  }
   const durationSeconds = minutes * 60;
 
   try {
