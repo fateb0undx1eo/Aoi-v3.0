@@ -1,6 +1,7 @@
 import {
   ActionRowBuilder,
   ApplicationCommandType,
+  AttachmentBuilder,
   ButtonStyle,
   EmbedBuilder,
   MessageFlags,
@@ -13,6 +14,7 @@ import {
 const CASE_ACTION_PREFIX = 'case:a';
 const CASE_TIMEOUT_MODAL_PREFIX = 'case:t';
 const CASE_KICK_MODAL_PREFIX = 'case:k';
+const CASE_WARN_MODAL_PREFIX = 'case:w';
 
 const CASE_REPORT_CHANNEL_ID = '1475835319571189820';
 const CASE_ALLOWED_ROLE_ID = '1457403601512169724';
@@ -118,7 +120,7 @@ function computeMessageContentLimit({ guildId, channelId, messageId, targetUserI
     `**Reported By**: <@${reporterId}>`,
     `**Reported At**: <t:${Math.floor(Date.now() / 1000)}:F>`,
     `**Reason**: ${escapeMarkdown(reason)}`,
-    `[Message](${messageUrl})`
+    `**Message Content**: [msg](${messageUrl})`
   ].join('\n');
   const maxComponentLength = 4000;
   return Math.max(0, maxComponentLength - scaffold.length - 16);
@@ -131,24 +133,65 @@ function buildCaseBody(report) {
     `**Reported By**: <@${report.reporterId}>`,
     `**Reported At**: <t:${report.reportedTimestamp}:F>`,
     `**Reason**: ${escapeMarkdown(report.reason)}`,
-    `[Message](${report.messageUrl})`,
+    `**Message Content**: [msg](${report.messageUrl})`,
     report.messageContent
   ].join('\n');
 }
 
-function buildMediaSection(attachments = []) {
-  const imageAttachments = attachments.filter((a) => a.isImage && a.url).slice(0, 4);
+/**
+ * Fetch an attachment URL and return a Buffer + filename for re-uploading.
+ * Returns null if the fetch fails (e.g. message was deleted).
+ */
+async function fetchAttachmentBuffer(url, name) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const buffer = Buffer.from(await res.arrayBuffer());
+    return { buffer, name };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Re-upload attachments and return:
+ *   - files: AttachmentBuilder[] to pass to the send call
+ *   - mediaGalleryItems: array of { media: { url: string }, spoiler: true } for the gallery component
+ */
+async function prepareReuploadedMedia(attachments = []) {
+  const files = [];
+  const mediaGalleryItems = [];
+
+  for (const attachment of attachments.slice(0, 5)) {
+    const fetched = await fetchAttachmentBuffer(attachment.url, attachment.name);
+    if (!fetched) continue;
+
+    // Prefix with SPOILER_ so Discord renders it with a spoiler overlay
+    const spoilerName = fetched.name.startsWith('SPOILER_')
+      ? fetched.name
+      : `SPOILER_${fetched.name}`;
+
+    const builder = new AttachmentBuilder(fetched.buffer, { name: spoilerName });
+    files.push(builder);
+
+    if (attachment.isImage) {
+      // attachment:// URLs reference the re-uploaded file by its name
+      mediaGalleryItems.push({
+        media: { url: `attachment://${spoilerName}` },
+        spoiler: true
+      });
+    }
+  }
+
+  return { files, mediaGalleryItems };
+}
+
+function buildMediaTextSection(attachments = []) {
+  // Only non-image files get a text link section; images go into the gallery component
   const fileAttachments = attachments.filter((a) => !a.isImage && a.url);
-  const sections = [];
-  if (imageAttachments.length) {
-    const links = imageAttachments.map((a, i) => `||[image ${i + 1}](${a.url})||`).join('  ');
-    sections.push({ type: 10, content: `**Media**: ${links}` });
-  }
-  if (fileAttachments.length) {
-    const links = fileAttachments.map((a, i) => `[file ${i + 1}](${a.url})`).join(', ');
-    sections.push({ type: 10, content: `**Files**: ${links}` });
-  }
-  return sections;
+  if (!fileAttachments.length) return [];
+  const links = fileAttachments.map((a, i) => `[file ${i + 1}](${a.url})`).join(', ');
+  return [{ type: 10, content: `**Files**: ${links}` }];
 }
 
 function buildStatelessToken(report) {
@@ -167,7 +210,7 @@ function buildPreviewComponents(report) {
     type: 17,
     components: [
       { type: 10, content: buildCaseBody(report) },
-      ...buildMediaSection(report.attachments),
+      ...buildMediaTextSection(report.attachments),
       {
         type: 1,
         components: [
@@ -180,14 +223,27 @@ function buildPreviewComponents(report) {
   }];
 }
 
-function buildLoggedComponents(report, resolvedLabel) {
-  return [{
-    type: 17,
-    components: [
-      { type: 10, content: `${buildCaseBody(report)}\n**Action Taken**: ${resolvedLabel}` },
-      ...buildMediaSection(report.attachments)
-    ]
-  }];
+/**
+ * Build logged components. Re-uploads attachments so they persist even if the
+ * original message is deleted. Images are placed in a media gallery with spoiler.
+ */
+async function buildLoggedComponents(report, resolvedLabel) {
+  const { files, mediaGalleryItems } = await prepareReuploadedMedia(report.attachments);
+
+  const components = [
+    {
+      type: 17,
+      components: [
+        { type: 10, content: `${buildCaseBody(report)}\n**Action Taken**: ${resolvedLabel}` },
+        ...buildMediaTextSection(report.attachments),
+        ...(mediaGalleryItems.length
+          ? [{ type: 12, items: mediaGalleryItems }]
+          : [])
+      ]
+    }
+  ];
+
+  return { components, files };
 }
 
 async function sendModerationDm({ member, guildName, actionType, reason, moderatorName, showModerator }) {
@@ -223,7 +279,7 @@ async function performGuildAction({ member, actionType, reason, durationSeconds 
   }
 }
 
-async function sendCaseLogToChannel(context, components) {
+async function sendCaseLogToChannel(context, components, files = []) {
   const client = context?.discordClient ?? context?.client;
   const guild = client?.guilds?.cache?.get?.(context?.guildId);
   const channel = guild ? await guild.channels.fetch(CASE_REPORT_CHANNEL_ID).catch(() => null) : null;
@@ -231,21 +287,20 @@ async function sendCaseLogToChannel(context, components) {
     throw new Error('Case report channel unavailable');
   }
 
+  const payload = {
+    flags: MessageFlags.IsComponentsV2,
+    components,
+    allowedMentions: { parse: [] },
+    ...(files.length ? { files } : {})
+  };
+
   try {
     const webhooks = await channel.fetchWebhooks();
     let webhook = webhooks.find((h) => h.name === CASE_WEBHOOK_NAME && h.owner?.id === client.user?.id);
     if (!webhook) webhook = await channel.createWebhook({ name: CASE_WEBHOOK_NAME });
-    await webhook.send({
-      flags: MessageFlags.IsComponentsV2,
-      components,
-      allowedMentions: { parse: [] }
-    });
+    await webhook.send(payload);
   } catch {
-    await channel.send({
-      flags: MessageFlags.IsComponentsV2,
-      components,
-      allowedMentions: { parse: [] }
-    });
+    await channel.send(payload);
   }
 }
 
@@ -339,6 +394,7 @@ async function handleCaseCommand(interaction) {
 }
 
 async function applyModerationAction(interaction, context, actionType, reason, durationSeconds = null, timeoutLabel = null) {
+  // Extract token from the stored customId (already normalised by callers)
   const token = interaction.customId.split(':').slice(3).join(':');
   const report = await buildReportFromToken(interaction, token, reason);
   if (!report) {
@@ -393,17 +449,22 @@ async function applyModerationAction(interaction, context, actionType, reason, d
     return;
   }
 
+  // Action label: just the action type (+ duration for timeout), no moderator name
   const resolvedLabel = actionType === 'TIMEOUT'
-    ? `TIMEOUT for ${timeoutLabel ?? `${Math.floor(durationSeconds / 60)} minute(s)`} by ${escapeMarkdown(moderatorName)}`
-    : `${actionType} by ${escapeMarkdown(moderatorName)}`;
+    ? `TIMEOUT (${timeoutLabel ?? `${Math.floor(durationSeconds / 60)} minute(s)`})`
+    : actionType;
 
-  await sendCaseLogToChannel({ ...context, guildId: interaction.guildId }, buildLoggedComponents(report, resolvedLabel));
+  const { components, files } = await buildLoggedComponents(report, resolvedLabel);
 
+  await sendCaseLogToChannel({ ...context, guildId: interaction.guildId }, components, files);
+
+  // Build the updated preview (no buttons, action taken shown, media re-uploaded)
+  const previewBody = `${buildCaseBody(report)}\n**Action Taken**: ${resolvedLabel}`;
   const previewWithoutButtons = [{
     type: 17,
     components: [
-      { type: 10, content: `${buildCaseBody(report)}\n**Action Taken**: ${resolvedLabel}` },
-      ...buildMediaSection(report.attachments)
+      { type: 10, content: previewBody },
+      ...buildMediaTextSection(report.attachments)
     ]
   }];
 
@@ -413,7 +474,13 @@ async function applyModerationAction(interaction, context, actionType, reason, d
     return;
   }
 
-  await interaction.reply({ content: 'Case action completed and logged.', ephemeral: true });
+  // Coming from a modal submit — use reply (modals cannot be updated via interaction.update)
+  await interaction.reply({
+    flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+    components: previewWithoutButtons,
+    allowedMentions: { parse: [] }
+  });
+  await interaction.followUp({ content: 'Case action completed and logged.', ephemeral: true });
 }
 
 async function handleCaseAction(interaction) {
@@ -421,8 +488,28 @@ async function handleCaseAction(interaction) {
   const prefix = `${parts[0]}:${parts[1]}`;
   const actionKey = parts[2];
   if (prefix !== CASE_ACTION_PREFIX) return;
+
+  const token = parts.slice(3).join(':');
+
+  if (actionKey === 'warn') {
+    const modal = new ModalBuilder()
+      .setCustomId(`${CASE_WARN_MODAL_PREFIX}:${token}`)
+      .setTitle('Warn User');
+    modal.addComponents(
+      textInputRow(
+        new TextInputBuilder()
+          .setCustomId('reason')
+          .setLabel('Reason for warning')
+          .setStyle(TextInputStyle.Paragraph)
+          .setRequired(true)
+          .setMaxLength(500)
+      )
+    );
+    await interaction.showModal(modal);
+    return;
+  }
+
   if (actionKey === 'timeout') {
-    const token = interaction.customId.split(':').slice(3).join(':');
     const modal = new ModalBuilder()
       .setCustomId(`${CASE_TIMEOUT_MODAL_PREFIX}:${token}`)
       .setTitle('Timeout');
@@ -450,7 +537,6 @@ async function handleCaseAction(interaction) {
   }
 
   if (actionKey === 'kick') {
-    const token = interaction.customId.split(':').slice(3).join(':');
     const modal = new ModalBuilder()
       .setCustomId(`${CASE_KICK_MODAL_PREFIX}:${token}`)
       .setTitle('Kick User');
@@ -467,6 +553,14 @@ async function handleCaseAction(interaction) {
     await interaction.showModal(modal);
     return;
   }
+}
+
+async function handleCaseWarnModal(interaction, context) {
+  const reason = truncate(interaction.fields.getTextInputValue('reason'), 500);
+  const token = interaction.customId.slice(`${CASE_WARN_MODAL_PREFIX}:`.length);
+  // Normalise customId so applyModerationAction can extract the token via split(':').slice(3)
+  interaction.customId = `${CASE_ACTION_PREFIX}:warn:${token}`;
+  await applyModerationAction(interaction, context, 'WARN', reason);
 }
 
 async function handleCaseTimeoutModal(interaction, context) {
@@ -508,12 +602,11 @@ export default {
       name: 'interactionCreate',
       async execute(interaction, context) {
         if (interaction.isButton() && interaction.customId.startsWith(`${CASE_ACTION_PREFIX}:`)) {
-          const action = interaction.customId.split(':')[2];
-          if (action === 'warn') {
-            await applyModerationAction(interaction, context, 'WARN', 'Warn issued from case panel');
-            return;
-          }
           await handleCaseAction(interaction);
+          return;
+        }
+        if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_WARN_MODAL_PREFIX}:`)) {
+          await handleCaseWarnModal(interaction, context);
           return;
         }
         if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_TIMEOUT_MODAL_PREFIX}:`)) {
