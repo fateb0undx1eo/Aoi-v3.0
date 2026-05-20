@@ -367,9 +367,17 @@ async function handleCaseCommand(interaction) {
 
 // Central action handler. reason and token passed explicitly.
 async function applyModerationAction(interaction, context, actionType, reason, token, durationSeconds = null, timeoutLabel = null) {
+  const respond = async (payload) => {
+    if (interaction.isButton()) {
+      await interaction.update(payload);
+      return;
+    }
+    await interaction.reply(payload);
+  };
+
   const report = await buildReportFromToken(interaction, token);
   if (!report) {
-    await interaction.update({
+    await respond({
       flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
       components: [{ type: 17, components: [{ type: 10, content: 'The source message is unavailable for this case.' }] }],
       allowedMentions: { parse: [] }
@@ -379,7 +387,7 @@ async function applyModerationAction(interaction, context, actionType, reason, t
 
   const member = await interaction.guild.members.fetch(report.targetUserId).catch(() => null);
   if (!member || member.id === interaction.user.id) {
-    await interaction.update({
+    await respond({
       flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
       components: [{ type: 17, components: [{ type: 10, content: 'The reported user is not available for this action.' }] }],
       allowedMentions: { parse: [] }
@@ -388,7 +396,7 @@ async function applyModerationAction(interaction, context, actionType, reason, t
   }
 
   if (actionType === 'KICK' && !canKick(interaction.member, interaction.guild)) {
-    await interaction.update({
+    await respond({
       flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
       components: [{ type: 17, components: [{ type: 10, content: 'Only administrators and the server owner can use Kick.' }] }],
       allowedMentions: { parse: [] }
@@ -413,7 +421,7 @@ async function applyModerationAction(interaction, context, actionType, reason, t
       durationSeconds
     });
   } catch (error) {
-    await interaction.update({
+    await respond({
       flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
       components: [{ type: 17, components: [{ type: 10, content: `Failed to apply action: ${error.message}` }] }],
       allowedMentions: { parse: [] }
@@ -436,7 +444,7 @@ async function applyModerationAction(interaction, context, actionType, reason, t
 
   // update() on a modal submit that came from a message component replaces the
   // original ephemeral container in-place — exactly what we want.
-  await interaction.update({
+  await respond({
     flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
     components: [{ type: 17, components: [{ type: 10, content: 'Done.' }] }],
     allowedMentions: { parse: [] }
@@ -526,8 +534,7 @@ async function handleCaseTimeoutModal(interaction, context) {
   const presetRaw = interaction.fields.getTextInputValue('duration').trim();
   const presetIndex = Number.parseInt(presetRaw, 10) - 1;
   if (Number.isNaN(presetIndex) || presetIndex < 0 || presetIndex >= TIMEOUT_PRESETS.length) {
-    // update() replaces the ephemeral in place — safe to call on modal submit from message component
-    await interaction.update({
+    await interaction.reply({
       flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
       components: [{ type: 17, components: [{ type: 10, content: `Invalid duration. Enter a number between 1 and ${TIMEOUT_PRESETS.length}.\n\nPresets: ${buildTimeoutPresetText()}` }] }],
       allowedMentions: { parse: [] }
