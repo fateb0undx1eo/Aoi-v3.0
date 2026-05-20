@@ -11,6 +11,7 @@ import {
 } from 'discord.js';
 
 const CASE_ACTION_PREFIX = 'case:a';
+const CASE_TIMEOUT_SELECT_PREFIX = 'case:s';
 const CASE_TIMEOUT_MODAL_PREFIX = 'case:t';
 const CASE_KICK_MODAL_PREFIX = 'case:k';
 const CASE_WARN_MODAL_PREFIX = 'case:w';
@@ -117,6 +118,28 @@ function buildTimeoutPresetText() {
   return TIMEOUT_PRESETS.map((p, i) => `${i + 1}. ${p.label}`).join(', ');
 }
 
+function buildTimeoutSelectOptions() {
+  return TIMEOUT_PRESETS.map((preset) => ({
+    label: preset.label,
+    value: String(preset.minutes)
+  }));
+}
+
+function stripLikelyMediaUrls(text) {
+  return String(text ?? '')
+    .replace(/https?:\/\/\S+\.(?:png|jpe?g|gif|webp|mp4|mov|webm)(\?\S*)?/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractDisplayMessageContent(message, limit) {
+  const raw = String(message?.content ?? '').trim();
+  if (!raw) return 'No text content.';
+  const sanitized = stripLikelyMediaUrls(raw);
+  if (!sanitized) return 'No text content.';
+  return truncate(sanitized, limit);
+}
+
 function computeMessageContentLimit({ guildId, channelId, messageId, targetUserId, reporterId, targetUsername }) {
   const messageUrl = buildMessageUrl(guildId, channelId, messageId);
   // Scaffold for the preview (no reason line)
@@ -125,7 +148,7 @@ function computeMessageContentLimit({ guildId, channelId, messageId, targetUserI
     `**Author**: <@${targetUserId}> (${escapeMarkdown(targetUsername)})`,
     `**Reported By**: <@${reporterId}>`,
     `**Reported At**: <t:${Math.floor(Date.now() / 1000)}:F>`,
-    `**Message Content**: [](${messageUrl})`
+    `[](${messageUrl})`
   ].join('\n');
   return Math.max(0, 4000 - scaffold.length - 16);
 }
@@ -138,7 +161,7 @@ function buildPreviewBody(report) {
     `**Author**: <@${report.targetUserId}> (${escapeMarkdown(report.targetUsername)})`,
     `**Reported By**: <@${report.reporterId}>`,
     `**Reported At**: <t:${report.reportedTimestamp}:F>`,
-    `**Message Content**: [${linkLabel}](${report.messageUrl})`
+    `[${linkLabel}](${report.messageUrl})`
   ].join('\n');
 }
 
@@ -151,9 +174,35 @@ function buildLogBody(report, reason, resolvedLabel) {
     `**Reported By**: <@${report.reporterId}>`,
     `**Reported At**: <t:${report.reportedTimestamp}:F>`,
     `**Reason**: ${escapeMarkdown(reason)}`,
-    `**Message Content**: [${linkLabel}](${report.messageUrl})`,
+    `[${linkLabel}](${report.messageUrl})`,
     `**Action Taken**: ${resolvedLabel}`
   ].join('\n');
+}
+
+async function fetchAttachmentBuffer(url, name) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const buffer = Buffer.from(await res.arrayBuffer());
+    return { buffer, name };
+  } catch {
+    return null;
+  }
+}
+
+async function prepareReuploadedMedia(attachments = []) {
+  const files = [];
+  const mediaGalleryItems = [];
+
+  for (const attachment of attachments.filter((a) => a.isMedia).slice(0, 4)) {
+    const fetched = await fetchAttachmentBuffer(attachment.url, attachment.name);
+    if (!fetched) continue;
+    const spoilerName = fetched.name.startsWith('SPOILER_') ? fetched.name : `SPOILER_${fetched.name}`;
+    files.push(new AttachmentBuilder(fetched.buffer, { name: spoilerName }));
+    mediaGalleryItems.push({ media: { url: `attachment://${spoilerName}` }, spoiler: true });
+  }
+
+  return { files, mediaGalleryItems };
 }
 
 function buildNonMediaFileSection(attachments = []) {
@@ -176,29 +225,21 @@ function parseStatelessToken(token) {
 // Preview shown in ephemeral — no reason, no action taken, has buttons
 function buildPreviewComponents(report) {
   const token = buildStatelessToken(report);
-  return [{
-    type: 17,
-    components: [
-      { type: 10, content: buildPreviewBody(report) },
-      ...buildNonMediaFileSection(report.attachments),
-      {
-        type: 1,
-        components: [
-          { type: 2, custom_id: `${CASE_ACTION_PREFIX}:warn:${token}`, style: ButtonStyle.Secondary, label: 'Warn' },
-          { type: 2, custom_id: `${CASE_ACTION_PREFIX}:timeout:${token}`, style: ButtonStyle.Primary, label: 'Timeout' },
-          { type: 2, custom_id: `${CASE_ACTION_PREFIX}:kick:${token}`, style: ButtonStyle.Danger, label: 'Kick' }
-        ]
-      }
-    ]
-  }];
+  return [
+    {
+      type: 1,
+      components: [
+        { type: 2, custom_id: `${CASE_ACTION_PREFIX}:warn:${token}`, style: ButtonStyle.Secondary, label: 'Warn' },
+        { type: 2, custom_id: `${CASE_ACTION_PREFIX}:timeout:${token}`, style: ButtonStyle.Primary, label: 'Timeout' },
+        { type: 2, custom_id: `${CASE_ACTION_PREFIX}:kick:${token}`, style: ButtonStyle.Danger, label: 'Kick' }
+      ]
+    }
+  ];
 }
 
 // Log sent to the report channel — reason + action taken, gallery between content and action
 async function buildLoggedComponents(report, reason, resolvedLabel) {
-  const mediaGalleryItems = report.attachments
-    .filter((a) => a.isMedia && a.url)
-    .slice(0, 4)
-    .map((a) => ({ media: { url: a.url }, spoiler: true }));
+  const { files, mediaGalleryItems } = await prepareReuploadedMedia(report.attachments);
 
   const innerComponents = [
     { type: 10, content: buildLogBody(report, reason, resolvedLabel) },
@@ -207,7 +248,8 @@ async function buildLoggedComponents(report, reason, resolvedLabel) {
   ];
 
   return {
-    components: [{ type: 17, components: innerComponents }]
+    components: [{ type: 17, components: innerComponents }],
+    files
   };
 }
 
@@ -226,7 +268,7 @@ async function performGuildAction({ member, actionType, reason, durationSeconds 
   }
 }
 
-async function sendCaseLogToChannel(context, components, pingUserId = null) {
+async function sendCaseLogToChannel(context, components, files = [], pingUserId = null) {
   const client = context?.discordClient ?? context?.client;
   const guild = client?.guilds?.cache?.get?.(context?.guildId);
   const channel = guild ? await guild.channels.fetch(CASE_REPORT_CHANNEL_ID).catch(() => null) : null;
@@ -250,16 +292,15 @@ async function sendCaseLogToChannel(context, components, pingUserId = null) {
     await webhook.send({
       flags: MessageFlags.IsComponentsV2,
       components,
-      allowedMentions: { parse: [] }
+      allowedMentions: { parse: [] },
+      ...(files.length ? { files } : {})
     });
   } catch {
-    if (pingUserId) {
-      await channel.send({ content: `<@${pingUserId}>`, allowedMentions: { users: [pingUserId], parse: [] } });
-    }
     await channel.send({
       flags: MessageFlags.IsComponentsV2,
       components,
-      allowedMentions: { parse: [] }
+      allowedMentions: { parse: [] },
+      ...(files.length ? { files } : {})
     });
   }
 }
@@ -292,7 +333,7 @@ async function buildReportFromToken(interaction, token) {
     channelId: sourceChannel.id,
     messageUrl: buildMessageUrl(interaction.guildId, sourceChannel.id, sourceMessage.id),
     reportedTimestamp: Math.floor(Date.now() / 1000),
-    messageContent: truncate(sourceMessage.content, limit),
+    messageContent: extractDisplayMessageContent(sourceMessage, limit),
     attachments: getAttachmentData(sourceMessage)
   };
 }
@@ -336,12 +377,13 @@ async function handleCaseCommand(interaction) {
     channelId: interaction.channelId,
     messageUrl: buildMessageUrl(interaction.guildId, interaction.channelId, targetMessage.id),
     reportedTimestamp: Math.floor(Date.now() / 1000),
-    messageContent: truncate(targetMessage.content, limit),
+    messageContent: extractDisplayMessageContent(targetMessage, limit),
     attachments: getAttachmentData(targetMessage)
   };
 
   await interaction.reply({
-    flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+    ephemeral: true,
+    content: buildPreviewBody(report),
     components: buildPreviewComponents(report),
     allowedMentions: { parse: [] }
   });
@@ -349,40 +391,37 @@ async function handleCaseCommand(interaction) {
 
 // Central action handler. reason and token passed explicitly.
 async function applyModerationAction(interaction, context, actionType, reason, token, durationSeconds = null, timeoutLabel = null) {
-  const respond = async (payload) => {
-    if (interaction.isButton()) {
+  const respond = async (content) => {
+    const payload = {
+      content,
+      components: [],
+      allowedMentions: { parse: [] }
+    };
+    if (
+      interaction.isButton?.() ||
+      interaction.isStringSelectMenu?.() ||
+      interaction.isFromMessage?.()
+    ) {
       await interaction.update(payload);
       return;
     }
-    await interaction.reply(payload);
+    await interaction.reply({ ...payload, ephemeral: true });
   };
 
   const report = await buildReportFromToken(interaction, token);
   if (!report) {
-    await respond({
-      flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
-      components: [{ type: 17, components: [{ type: 10, content: 'The source message is unavailable for this case.' }] }],
-      allowedMentions: { parse: [] }
-    });
+    await respond('The source message is unavailable for this case.');
     return;
   }
 
   const member = await interaction.guild.members.fetch(report.targetUserId).catch(() => null);
   if (!member || member.id === interaction.user.id) {
-    await respond({
-      flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
-      components: [{ type: 17, components: [{ type: 10, content: 'The reported user is not available for this action.' }] }],
-      allowedMentions: { parse: [] }
-    });
+    await respond('The reported user is not available for this action.');
     return;
   }
 
   if (actionType === 'KICK' && !canKick(interaction.member, interaction.guild)) {
-    await respond({
-      flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
-      components: [{ type: 17, components: [{ type: 10, content: 'Only administrators and the server owner can use Kick.' }] }],
-      allowedMentions: { parse: [] }
-    });
+    await respond('Only administrators and the server owner can use Kick.');
     return;
   }
 
@@ -403,11 +442,7 @@ async function applyModerationAction(interaction, context, actionType, reason, t
       durationSeconds
     });
   } catch (error) {
-    await respond({
-      flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
-      components: [{ type: 17, components: [{ type: 10, content: `Failed to apply action: ${error.message}` }] }],
-      allowedMentions: { parse: [] }
-    });
+    await respond(`Failed to apply action: ${error.message}`);
     return;
   }
 
@@ -415,24 +450,19 @@ async function applyModerationAction(interaction, context, actionType, reason, t
     ? `TIMEOUT (${timeoutLabel ?? `${Math.floor(durationSeconds / 60)} minute(s)`})`
     : actionType;
 
-  const { components } = await buildLoggedComponents(report, reason, resolvedLabel);
+  const { components, files } = await buildLoggedComponents(report, reason, resolvedLabel);
 
   await sendCaseLogToChannel(
     { ...context, guildId: interaction.guildId },
     components,
+    files,
     report.targetUserId
   );
 
-  // update() on a modal submit that came from a message component replaces the
-  // original ephemeral container in-place — exactly what we want.
-  await respond({
-    flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
-    components: [{ type: 17, components: [{ type: 10, content: 'Done.' }] }],
-    allowedMentions: { parse: [] }
-  });
+  await respond(`Done. ${resolvedLabel}`);
 }
 
-// All three buttons open a modal
+// Warn and kick open reason modals. Timeout first opens a one-select duration menu.
 async function handleCaseAction(interaction) {
   const parts = interaction.customId.split(':');
   const prefix = `${parts[0]}:${parts[1]}`;
@@ -464,33 +494,25 @@ async function handleCaseAction(interaction) {
   }
 
   if (actionKey === 'timeout') {
-    const modal = new ModalBuilder()
-      .setCustomId(`${CASE_TIMEOUT_MODAL_PREFIX}:${token}`)
-      .setTitle('Timeout');
-    modal.addComponents(
-      textInputRow(
-        new TextInputBuilder()
-          .setCustomId('reason')
-          .setLabel('Reason for timeout')
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(true)
-          .setMaxLength(500)
-      ),
-      textInputRow(
-        new TextInputBuilder()
-          .setCustomId('duration')
-          .setLabel('Duration (preset number 1–12)')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true)
-          .setMaxLength(2)
-          .setPlaceholder('Enter 1-12')
-      )
-    );
-    try {
-      await interaction.showModal(modal);
-    } catch (error) {
-      await interaction.reply({ content: `Failed to open timeout form: ${error?.message ?? 'unknown error'}`, ephemeral: true });
-    }
+    await interaction.update({
+      content: 'Select timeout duration:',
+      components: [
+        {
+          type: 1,
+          components: [
+            {
+              type: 3,
+              custom_id: `${CASE_TIMEOUT_SELECT_PREFIX}:${token}`,
+              placeholder: 'Choose duration',
+              min_values: 1,
+              max_values: 1,
+              options: buildTimeoutSelectOptions()
+            }
+          ]
+        }
+      ],
+      allowedMentions: { parse: [] }
+    });
     return;
   }
 
@@ -516,6 +538,40 @@ async function handleCaseAction(interaction) {
   }
 }
 
+async function handleTimeoutDurationSelect(interaction) {
+  const token = interaction.customId.slice(`${CASE_TIMEOUT_SELECT_PREFIX}:`.length);
+  const minutes = Number.parseInt(interaction.values?.[0] ?? '', 10);
+  const preset = TIMEOUT_PRESETS.find((p) => p.minutes === minutes);
+
+  if (!preset || !token) {
+    await interaction.update({
+      content: `Invalid duration selection. Choose one of: ${buildTimeoutPresetText()}`,
+      components: [],
+      allowedMentions: { parse: [] }
+    });
+    return;
+  }
+
+  const modal = new ModalBuilder()
+    .setCustomId(`${CASE_TIMEOUT_MODAL_PREFIX}:${preset.minutes}:${token}`)
+    .setTitle('Timeout Reason');
+  modal.addComponents(
+    textInputRow(
+      new TextInputBuilder()
+        .setCustomId('reason')
+        .setLabel('Reason for timeout')
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(500)
+    )
+  );
+  try {
+    await interaction.showModal(modal);
+  } catch (error) {
+    await interaction.reply({ content: `Failed to open timeout reason form: ${error?.message ?? 'unknown error'}`, ephemeral: true });
+  }
+}
+
 async function handleCaseWarnModal(interaction, context) {
   const reason = truncate(interaction.fields.getTextInputValue('reason'), 500);
   const token = interaction.customId.slice(`${CASE_WARN_MODAL_PREFIX}:`.length);
@@ -524,18 +580,17 @@ async function handleCaseWarnModal(interaction, context) {
 
 async function handleCaseTimeoutModal(interaction, context) {
   const reason = truncate(interaction.fields.getTextInputValue('reason'), 500);
-  const presetRaw = interaction.fields.getTextInputValue('duration').trim();
-  const presetIndex = Number.parseInt(presetRaw, 10) - 1;
-  if (Number.isNaN(presetIndex) || presetIndex < 0 || presetIndex >= TIMEOUT_PRESETS.length) {
-    await interaction.reply({
-      flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
-      components: [{ type: 17, components: [{ type: 10, content: `Invalid duration. Enter a number between 1 and ${TIMEOUT_PRESETS.length}.\n\nPresets: ${buildTimeoutPresetText()}` }] }],
-      allowedMentions: { parse: [] }
-    });
+  const raw = interaction.customId.slice(`${CASE_TIMEOUT_MODAL_PREFIX}:`.length);
+  const [minutesText, ...tokenParts] = raw.split(':');
+  const minutes = Number.parseInt(minutesText, 10);
+  const token = tokenParts.join(':');
+  const preset = TIMEOUT_PRESETS.find((p) => p.minutes === minutes);
+
+  if (!preset || !token) {
+    await interaction.reply({ content: 'Invalid timeout payload.', ephemeral: true });
     return;
   }
-  const preset = TIMEOUT_PRESETS[presetIndex];
-  const token = interaction.customId.slice(`${CASE_TIMEOUT_MODAL_PREFIX}:`.length);
+
   await applyModerationAction(interaction, context, 'TIMEOUT', reason, token, preset.minutes * 60, preset.label);
 }
 
@@ -565,6 +620,10 @@ export default {
       async execute(interaction, context) {
         if (interaction.isButton() && interaction.customId.startsWith(`${CASE_ACTION_PREFIX}:`)) {
           await handleCaseAction(interaction);
+          return;
+        }
+        if (interaction.isStringSelectMenu() && interaction.customId.startsWith(`${CASE_TIMEOUT_SELECT_PREFIX}:`)) {
+          await handleTimeoutDurationSelect(interaction);
           return;
         }
         if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_WARN_MODAL_PREFIX}:`)) {
