@@ -205,7 +205,6 @@ function extractDisplayMessageContent(message, limit) {
 
 function computeMessageContentLimit({ guildId, channelId, messageId, targetUserId, reporterId, targetUsername }) {
   const messageUrl = buildMessageUrl(guildId, channelId, messageId);
-  // Scaffold for the preview (no reason line)
   const scaffold = [
     '# Message Case Report',
     `**Author**: <@${targetUserId}> (${escapeMarkdown(targetUsername)})`,
@@ -216,7 +215,6 @@ function computeMessageContentLimit({ guildId, channelId, messageId, targetUserI
   return Math.max(0, 4000 - scaffold.length - 16);
 }
 
-// Preview body shown in the ephemeral before an action is chosen — no reason yet
 function buildPreviewBody(report) {
   const linkLabel = report.messageContent || 'view message';
   return [
@@ -228,7 +226,6 @@ function buildPreviewBody(report) {
   ].join('\n');
 }
 
-// Log body shown after action is taken — includes reason and action
 function buildLogBody(report, reason, resolvedLabel) {
   const linkLabel = report.messageContent || 'view message';
   return [
@@ -289,7 +286,6 @@ function parseStatelessToken(token) {
   return { messageId, targetUserId, reporterId };
 }
 
-// Preview shown in ephemeral — no reason, no action taken, has buttons
 function buildPreviewComponents(report) {
   const token = buildStatelessToken(report);
   return [
@@ -304,7 +300,6 @@ function buildPreviewComponents(report) {
   ];
 }
 
-// Log sent to the report channel — reason + action taken, gallery between content and action
 async function buildLoggedComponents(report, reason, resolvedLabel) {
   const { files, mediaGalleryItems } = await prepareReuploadedMedia(report.attachments);
 
@@ -362,7 +357,6 @@ async function sendCaseLogToChannel(context, components, files = [], pingUserId 
       });
     }
 
-    // Ping line outside the container, sent by webhook itself.
     if (pingUserId) {
       await webhook.send({
         content: `<@${pingUserId}>`,
@@ -476,19 +470,31 @@ async function handleCaseCommand(interaction) {
   });
 }
 
-// Central action handler. reason and token passed explicitly.
+// FIX: Explicitly gate on isModalSubmit so modals always use reply(),
+// and buttons/selects always use update(). Previously, interaction.message
+// being present on modal submissions caused update() to be attempted on
+// modal interactions, which Discord rejects — the silent catch() then
+// prevented the fallback reply() from ever running.
 async function applyModerationAction(interaction, context, actionType, reason, token, durationSeconds = null, timeoutLabel = null) {
+  const isModal = interaction.isModalSubmit?.();
+
   const respond = async (content) => {
     const payload = {
       content,
       components: [],
       allowedMentions: { parse: [] }
     };
+
+    if (isModal) {
+      // Modals must always use reply(), never update()
+      await interaction.reply({ ...payload, ephemeral: true });
+      return;
+    }
+
     const shouldEditInPlace =
       interaction.isButton?.() ||
       interaction.isStringSelectMenu?.() ||
-      interaction.isFromMessage?.() ||
-      Boolean(interaction.message);
+      interaction.isFromMessage?.();
 
     if (shouldEditInPlace) {
       try {
@@ -554,7 +560,6 @@ async function applyModerationAction(interaction, context, actionType, reason, t
   await respond(didLog ? `Done. ${resolvedLabel}` : `Done. ${resolvedLabel} (action applied, log failed)`);
 }
 
-// Warn and kick open reason modals. Timeout first opens a one-select duration menu.
 async function handleCaseAction(interaction) {
   const parts = interaction.customId.split(':');
   const prefix = `${parts[0]}:${parts[1]}`;
