@@ -75,8 +75,12 @@ function textInputRow(textInput) {
   return new ActionRowBuilder().addComponents(textInput);
 }
 
-async function getCaseCommandConfig(guildId, services, configCache) {
-  const normalize = services?.moderationService?.normalizeCaseCommandConfig?.bind(services.moderationService);
+function getModerationService(context) {
+  return context?.moderationService ?? context?.services?.moderationService ?? null;
+}
+
+async function getCaseCommandConfig(guildId, moderationService, configCache) {
+  const normalize = moderationService?.normalizeCaseCommandConfig?.bind(moderationService);
   const fallback = {
     channel_id: null,
     allowed_role_ids: [],
@@ -89,7 +93,7 @@ async function getCaseCommandConfig(guildId, services, configCache) {
   if (cached) return normalize(cached.config?.case_command);
 
   try {
-    const live = await services?.moderationService?.getCaseCommandConfig?.(guildId);
+    const live = await moderationService?.getCaseCommandConfig?.(guildId);
     return normalize(live);
   } catch {
     return fallback;
@@ -267,15 +271,16 @@ async function performGuildAction({ member, actionType, reason, durationSeconds 
 }
 
 async function handleCaseCommand(interaction, context) {
-  const { services, configCache } = context;
+  const { configCache } = context;
+  const moderationService = getModerationService(context);
 
   if (!interaction.guildId || !interaction.guild || !interaction.targetMessage) {
     await interaction.reply({ content: 'This command can only be used on a server message.', ephemeral: true });
     return;
   }
 
-  const caseConfig = await getCaseCommandConfig(interaction.guildId, services, configCache);
-  const modConfig = await services.moderationService.getModConfig(interaction.guildId).catch(() => ({
+  const caseConfig = await getCaseCommandConfig(interaction.guildId, moderationService, configCache);
+  const modConfig = await moderationService.getModConfig(interaction.guildId).catch(() => ({
     modlog_channel_id: null
   }));
 
@@ -398,8 +403,9 @@ async function handleCaseAction(interaction, context) {
     return;
   }
 
-  const { services, configCache } = context;
-  const caseConfig = await getCaseCommandConfig(interaction.guildId, services, configCache);
+  const { configCache } = context;
+  const moderationService = getModerationService(context);
+  const caseConfig = await getCaseCommandConfig(interaction.guildId, moderationService, configCache);
   if (!canUseCaseCommand(interaction.member, interaction.user.id, caseConfig)) {
     await interaction.reply({ content: 'You are not allowed to use this action.', ephemeral: true });
     return;
@@ -419,7 +425,7 @@ async function handleCaseAction(interaction, context) {
   }
 
   const moderatorName = interaction.user.tag ?? interaction.user.username;
-  const modConfig = await services.moderationService.getModConfig(interaction.guildId).catch(() => ({
+  const modConfig = await moderationService.getModConfig(interaction.guildId).catch(() => ({
     dm_on_punish: false,
     show_mod_in_dm: false
   }));
@@ -469,7 +475,7 @@ async function handleCaseAction(interaction, context) {
       durationSeconds
     });
 
-    await services.moderationService.createCase({
+    await moderationService.createCase({
       guildId: interaction.guildId,
       targetUserId: report.targetUserId,
       targetUsername: report.targetUsername,
@@ -507,8 +513,9 @@ async function handleCaseTimeoutModal(interaction, context) {
     return;
   }
 
-  const { services, configCache } = context;
-  const caseConfig = await getCaseCommandConfig(interaction.guildId, services, configCache);
+  const { configCache } = context;
+  const moderationService = getModerationService(context);
+  const caseConfig = await getCaseCommandConfig(interaction.guildId, moderationService, configCache);
   if (!canUseCaseCommand(interaction.member, interaction.user.id, caseConfig)) {
     await interaction.reply({ content: 'You are not allowed to use this action.', ephemeral: true });
     return;
@@ -523,7 +530,7 @@ async function handleCaseTimeoutModal(interaction, context) {
   }
 
   const moderatorName = interaction.user.tag ?? interaction.user.username;
-  const modConfig = await services.moderationService.getModConfig(interaction.guildId).catch(() => ({
+  const modConfig = await moderationService.getModConfig(interaction.guildId).catch(() => ({
     dm_on_punish: false,
     show_mod_in_dm: false
   }));
@@ -548,7 +555,7 @@ async function handleCaseTimeoutModal(interaction, context) {
       durationSeconds
     });
 
-    await services.moderationService.createCase({
+    await moderationService.createCase({
       guildId: interaction.guildId,
       targetUserId: report.targetUserId,
       targetUsername: report.targetUsername,
@@ -617,10 +624,11 @@ export default {
     },
     {
       name: 'messageDelete',
-      async execute(message, { services }) {
+      async execute(message, context) {
+        const moderationService = getModerationService(context);
         if (!message?.guild || !message.mentions?.users?.size) return;
 
-        await services.moderationService.recordGhostPing({
+        await moderationService.recordGhostPing({
           guild_id: message.guild.id,
           message_id: message.id,
           channel_id: message.channel.id,
@@ -632,18 +640,19 @@ export default {
     },
     {
       name: 'messageCreate',
-      async execute(message, { services }) {
+      async execute(message, context) {
+        const moderationService = getModerationService(context);
         if (!message.guild || message.author.bot) return;
 
-        const afk = await services.moderationService.getAfk(message.guild.id, message.author.id);
+        const afk = await moderationService.getAfk(message.guild.id, message.author.id);
         if (afk) {
-          await services.moderationService.clearAfk(message.guild.id, message.author.id);
+          await moderationService.clearAfk(message.guild.id, message.author.id);
           await message.channel.send({
             embeds: [caseEmbed('Welcome Back', `<@${message.author.id}> your AFK status has been removed.`, 0x57f287)]
           });
         }
 
-        await services.moderationService.touchLoaLastSeen(message.guild.id, message.author.id).catch(() => null);
+        await moderationService.touchLoaLastSeen(message.guild.id, message.author.id).catch(() => null);
       }
     }
   ]
