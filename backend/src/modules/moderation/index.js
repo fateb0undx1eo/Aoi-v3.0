@@ -224,23 +224,6 @@ async function buildLoggedComponents(report, resolvedLabel) {
   };
 }
 
-async function sendModerationDm({ member, guildName, actionType, reason, moderatorName, showModerator }) {
-  try {
-    const title = actionType === 'WARN' ? 'Warning Notice' : actionType === 'TIMEOUT' ? 'Timeout Notice' : 'Kick Notice';
-    const lines = [
-      `# ${title}`,
-      `**Server**: ${escapeMarkdown(guildName)}`,
-      `**Action**: ${actionType}`,
-      `**Reason**: ${escapeMarkdown(reason || 'No reason provided')}`
-    ];
-    if (showModerator && moderatorName) lines.push(`**Moderator**: ${escapeMarkdown(moderatorName)}`);
-    await member.send({
-      flags: MessageFlags.IsComponentsV2,
-      components: [{ type: 17, components: [{ type: 10, content: lines.join('\n') }] }],
-      allowedMentions: { parse: [] }
-    });
-  } catch {}
-}
 
 async function performGuildAction({ member, actionType, reason, durationSeconds }) {
   switch (actionType) {
@@ -399,23 +382,8 @@ async function applyModerationAction(interaction, context, actionType, reason, t
 
   const moderationService = getModerationService(context);
   const moderatorName = interaction.user.tag ?? interaction.user.username;
-  const modConfig = await moderationService.getModConfig(interaction.guildId).catch(() => ({ dm_on_punish: false, show_mod_in_dm: false }));
 
   try {
-    if (modConfig.dm_on_punish) {
-      const dmReason = actionType === 'TIMEOUT'
-        ? `${reason}\nDuration: ${timeoutLabel ?? `${Math.floor(durationSeconds / 60)} minute(s)`}`
-        : reason;
-      await sendModerationDm({
-        member,
-        guildName: interaction.guild.name,
-        actionType,
-        reason: dmReason,
-        moderatorName,
-        showModerator: Boolean(modConfig.show_mod_in_dm)
-      });
-    }
-
     await performGuildAction({ member, actionType, reason, durationSeconds });
 
     await moderationService.createCase({
