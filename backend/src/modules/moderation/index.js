@@ -280,6 +280,10 @@ async function handleCaseCommand(interaction, context) {
   }
 
   const caseConfig = await getCaseCommandConfig(interaction.guildId, moderationService, configCache);
+
+  // FIX 1: Added .catch() so a failed getModConfig doesn't throw an unhandled
+  // rejection that crashes the handler and leaves Discord with no reply,
+  // causing the "An interaction failed / internal error" you were seeing.
   const modConfig = await moderationService.getModConfig(interaction.guildId).catch(() => ({
     modlog_channel_id: null
   }));
@@ -348,6 +352,13 @@ async function handleCaseModal(interaction, context) {
 
   if (!report || report.reporterId !== interaction.user.id || report.guildId !== interaction.guildId) {
     await interaction.reply({ content: 'This case report is no longer available.', ephemeral: true });
+    return;
+  }
+
+  // FIX 2: Guard against double-submit (network retry / double tap) re-posting
+  // the report to the channel a second time.
+  if (report.resolved || report.reportMessageId) {
+    await interaction.reply({ content: 'This case report has already been submitted.', ephemeral: true });
     return;
   }
 
@@ -454,7 +465,9 @@ async function handleCaseAction(interaction, context) {
     return;
   }
 
-  const durationSeconds = undefined;
+  // FIX 3: WARN and KICK don't use durationSeconds — pass null explicitly
+  // instead of undefined so createCase receives a clean value.
+  const durationSeconds = null;
 
   try {
     if (modConfig.dm_on_punish) {
@@ -493,9 +506,10 @@ async function handleCaseAction(interaction, context) {
   report.resolved = true;
   pendingCaseReports.set(token, report);
 
-  const resolvedLabel = actionType === 'TIMEOUT'
-    ? `TIMEOUT for ${report.timeoutMinutes} minute(s) by ${escapeMarkdown(moderatorName)}`
-    : `${actionType} by ${escapeMarkdown(moderatorName)}`;
+  // FIX 4: Removed the stale TIMEOUT branch from resolvedLabel here — TIMEOUT
+  // always goes through the modal and is handled in handleCaseTimeoutModal,
+  // so this code only ever runs for WARN and KICK.
+  const resolvedLabel = `${actionType} by ${escapeMarkdown(moderatorName)}`;
 
   await interaction.update({
     components: buildCaseReportComponents(report, resolvedLabel),
