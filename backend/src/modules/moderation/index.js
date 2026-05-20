@@ -310,7 +310,11 @@ async function handleCaseCommand(interaction, context) {
     return;
   }
 
-  const token = `${interaction.guildId}.${targetMessage.id}.${interaction.user.id}`;
+  // Use a short random token so the custom_id never exceeds Discord's 100-char limit.
+  // The old composite token (`guildId.messageId.userId`) alone was ~56 chars, and
+  // with the prefix (e.g. `case:action:timeout:`) that pushes past 100, causing
+  // Discord to silently truncate it — so the Map lookup always failed.
+  const token = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
   pendingCaseReports.set(token, {
     guildId: interaction.guildId,
     reporterId: interaction.user.id,
