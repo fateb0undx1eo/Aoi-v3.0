@@ -75,7 +75,7 @@ function textInputRow(textInput) {
   return new ActionRowBuilder().addComponents(textInput);
 }
 
-function getCaseCommandConfig(guildId, services, configCache) {
+async function getCaseCommandConfig(guildId, services, configCache) {
   const normalize = services?.moderationService?.normalizeCaseCommandConfig?.bind(services.moderationService);
   const fallback = {
     channel_id: null,
@@ -87,13 +87,30 @@ function getCaseCommandConfig(guildId, services, configCache) {
 
   const cached = configCache?.getModuleConfig?.(guildId, 'moderation');
   if (cached) return normalize(cached.config?.case_command);
-  return normalize();
+
+  try {
+    const live = await services?.moderationService?.getCaseCommandConfig?.(guildId);
+    return normalize(live);
+  } catch {
+    return fallback;
+  }
 }
 
 function canUseCaseCommand(member, userId, caseConfig) {
   const allowedRoles = Array.isArray(caseConfig.allowed_role_ids) ? caseConfig.allowed_role_ids : [];
   if (allowedRoles.length === 0) return false;
-  return member?.roles?.cache?.some((role) => allowedRoles.includes(role.id)) ?? false;
+  const roleCache = member?.roles?.cache;
+  if (roleCache?.some) {
+    return roleCache.some((role) => allowedRoles.includes(role.id));
+  }
+
+  const roleIds = Array.isArray(member?.roles)
+    ? member.roles
+    : Array.isArray(member?.roles?.values)
+      ? member.roles.values
+      : [];
+
+  return roleIds.some((roleId) => allowedRoles.includes(String(roleId)));
 }
 
 function resolveReportChannelId(modConfig, caseConfig) {
@@ -257,7 +274,7 @@ async function handleCaseCommand(interaction, context) {
     return;
   }
 
-  const caseConfig = getCaseCommandConfig(interaction.guildId, services, configCache);
+  const caseConfig = await getCaseCommandConfig(interaction.guildId, services, configCache);
   const modConfig = await services.moderationService.getModConfig(interaction.guildId).catch(() => ({
     modlog_channel_id: null
   }));
@@ -382,7 +399,7 @@ async function handleCaseAction(interaction, context) {
   }
 
   const { services, configCache } = context;
-  const caseConfig = getCaseCommandConfig(interaction.guildId, services, configCache);
+  const caseConfig = await getCaseCommandConfig(interaction.guildId, services, configCache);
   if (!canUseCaseCommand(interaction.member, interaction.user.id, caseConfig)) {
     await interaction.reply({ content: 'You are not allowed to use this action.', ephemeral: true });
     return;
@@ -491,7 +508,7 @@ async function handleCaseTimeoutModal(interaction, context) {
   }
 
   const { services, configCache } = context;
-  const caseConfig = getCaseCommandConfig(interaction.guildId, services, configCache);
+  const caseConfig = await getCaseCommandConfig(interaction.guildId, services, configCache);
   if (!canUseCaseCommand(interaction.member, interaction.user.id, caseConfig)) {
     await interaction.reply({ content: 'You are not allowed to use this action.', ephemeral: true });
     return;
