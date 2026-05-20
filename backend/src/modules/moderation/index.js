@@ -1,6 +1,7 @@
 import {
   ActionRowBuilder,
   ApplicationCommandType,
+  AttachmentBuilder,
   ButtonStyle,
   EmbedBuilder,
   MessageFlags,
@@ -19,6 +20,7 @@ const CASE_WARN_MODAL_PREFIX = 'case:w';
 const CASE_REPORT_CHANNEL_ID = '1475835319571189820';
 const CASE_ALLOWED_ROLE_ID = '1457403601512169724';
 const CASE_WEBHOOK_NAME = 'AOI Case Logger';
+const CASE_WEBHOOK_AVATAR_URL = ''; // e.g. https://example.com/avatar.png
 
 const TIMEOUT_PRESETS = [
   { label: '1 minute', minutes: 1 },
@@ -160,6 +162,27 @@ function buildTimeoutSelectOptions() {
     label: preset.label,
     value: String(preset.minutes)
   }));
+}
+
+function getWebhookIdentity() {
+  const name = String(process.env.CASE_WEBHOOK_NAME ?? CASE_WEBHOOK_NAME).trim() || CASE_WEBHOOK_NAME;
+  const avatarUrl = String(process.env.CASE_WEBHOOK_AVATAR_URL ?? CASE_WEBHOOK_AVATAR_URL).trim();
+  return {
+    name,
+    avatarUrl: avatarUrl || null
+  };
+}
+
+async function fetchAvatarBuffer(avatarUrl) {
+  if (!avatarUrl) return null;
+  try {
+    const response = await fetch(avatarUrl);
+    if (!response.ok) return null;
+    const bytes = await response.arrayBuffer();
+    return Buffer.from(bytes);
+  } catch {
+    return null;
+  }
 }
 
 function stripLikelyMediaUrls(text) {
@@ -317,13 +340,27 @@ async function sendCaseLogToChannel(context, components, files = [], pingUserId 
   const guild = client?.guilds?.cache?.get?.(context?.guildId);
   const channel = guild ? await guild.channels.fetch(CASE_REPORT_CHANNEL_ID).catch(() => null) : null;
   if (!channel?.isTextBased?.() || typeof channel.send !== 'function') {
-    throw new Error('Case report channel unavailable');
+    return false;
   }
 
   try {
+    const identity = getWebhookIdentity();
+    const avatarBuffer = await fetchAvatarBuffer(identity.avatarUrl);
     const webhooks = await channel.fetchWebhooks();
-    let webhook = webhooks.find((h) => h.name === CASE_WEBHOOK_NAME && h.owner?.id === client.user?.id);
-    if (!webhook) webhook = await channel.createWebhook({ name: CASE_WEBHOOK_NAME });
+    let webhook = webhooks.find((h) => h.owner?.id === client.user?.id && h.name === identity.name)
+      ?? webhooks.find((h) => h.owner?.id === client.user?.id);
+
+    if (!webhook) {
+      webhook = await channel.createWebhook({
+        name: identity.name,
+        ...(avatarBuffer ? { avatar: avatarBuffer } : {})
+      });
+    } else if (webhook.name !== identity.name || avatarBuffer) {
+      webhook = await webhook.edit({
+        name: identity.name,
+        ...(avatarBuffer ? { avatar: avatarBuffer } : {})
+      });
+    }
 
     // Ping line outside the container, sent by webhook itself.
     if (pingUserId) {
@@ -339,13 +376,19 @@ async function sendCaseLogToChannel(context, components, files = [], pingUserId 
       allowedMentions: { parse: [] },
       ...(files.length ? { files } : {})
     });
+    return true;
   } catch {
-    await channel.send({
-      flags: MessageFlags.IsComponentsV2,
-      components,
-      allowedMentions: { parse: [] },
-      ...(files.length ? { files } : {})
-    });
+    try {
+      await channel.send({
+        flags: MessageFlags.IsComponentsV2,
+        components,
+        allowedMentions: { parse: [] },
+        ...(files.length ? { files } : {})
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
@@ -501,14 +544,14 @@ async function applyModerationAction(interaction, context, actionType, reason, t
 
   const { components, files } = await buildLoggedComponents(report, reason, resolvedLabel);
 
-  await sendCaseLogToChannel(
+  const didLog = await sendCaseLogToChannel(
     { ...context, guildId: interaction.guildId },
     components,
     files,
     report.targetUserId
   );
 
-  await respond(`Done. ${resolvedLabel}`);
+  await respond(didLog ? `Done. ${resolvedLabel}` : `Done. ${resolvedLabel} (action applied, log failed)`);
 }
 
 // Warn and kick open reason modals. Timeout first opens a one-select duration menu.
@@ -667,24 +710,32 @@ export default {
     {
       name: 'interactionCreate',
       async execute(interaction, context) {
-        if (interaction.isButton() && interaction.customId.startsWith(`${CASE_ACTION_PREFIX}:`)) {
-          await handleCaseAction(interaction);
-          return;
-        }
-        if (interaction.isStringSelectMenu() && interaction.customId.startsWith(`${CASE_TIMEOUT_SELECT_PREFIX}:`)) {
-          await handleTimeoutDurationSelect(interaction);
-          return;
-        }
-        if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_WARN_MODAL_PREFIX}:`)) {
-          await handleCaseWarnModal(interaction, context);
-          return;
-        }
-        if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_TIMEOUT_MODAL_PREFIX}:`)) {
-          await handleCaseTimeoutModal(interaction, context);
-          return;
-        }
-        if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_KICK_MODAL_PREFIX}:`)) {
-          await handleCaseKickModal(interaction, context);
+        try {
+          if (interaction.isButton() && interaction.customId.startsWith(`${CASE_ACTION_PREFIX}:`)) {
+            await handleCaseAction(interaction);
+            return;
+          }
+          if (interaction.isStringSelectMenu() && interaction.customId.startsWith(`${CASE_TIMEOUT_SELECT_PREFIX}:`)) {
+            await handleTimeoutDurationSelect(interaction);
+            return;
+          }
+          if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_WARN_MODAL_PREFIX}:`)) {
+            await handleCaseWarnModal(interaction, context);
+            return;
+          }
+          if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_TIMEOUT_MODAL_PREFIX}:`)) {
+            await handleCaseTimeoutModal(interaction, context);
+            return;
+          }
+          if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_KICK_MODAL_PREFIX}:`)) {
+            await handleCaseKickModal(interaction, context);
+          }
+        } catch (error) {
+          if (!interaction.deferred && !interaction.replied) {
+            await interaction.reply({ content: `Case action failed: ${error?.message ?? 'unknown error'}`, ephemeral: true }).catch(() => null);
+            return;
+          }
+          await interaction.followUp({ content: `Case action failed: ${error?.message ?? 'unknown error'}`, ephemeral: true }).catch(() => null);
         }
       }
     },
