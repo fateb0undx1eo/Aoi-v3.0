@@ -115,6 +115,26 @@ async function main() {
     const profileStyleService = new ProfileStyleService({ client: discordClient, configService, configCache, token: env.discord.token });
     const staffRatingService = new StaffRatingService();
 
+    const services = {
+      configService,
+      authService,
+      guildService,
+      accessControlService,
+      analyticsService,
+      moduleService,
+      dashboardOverviewService,
+      moderationService,
+      settingsService,
+      announcementService,
+      dmBroadcastService,
+      roleColorRotationService,
+      memeService,
+      botLooksService,
+      staffListService,
+      profileStyleService,
+      staffRatingService
+    };
+
     const context = {
       database,
       redis: redisClient,
@@ -140,6 +160,7 @@ async function main() {
       profileStyleService,
       staffRatingService,
       placeholderEngine,
+      services,
       client: discordClient,
       env,
       registry
