@@ -697,10 +697,78 @@ async function handleCaseKickModal(interaction, context) {
   await applyModerationAction(interaction, context, 'KICK', reason, token);
 }
 
+async function handleKickAllCommand(interaction) {
+  if (!interaction.guild) {
+    await interaction.editReply('This command only works in a server.');
+    return;
+  }
+
+  const keepIds = new Set([
+    interaction.user.id,
+    interaction.client.user.id,
+    interaction.guild.ownerId
+  ]);
+
+  for (let index = 1; index <= 10; index += 1) {
+    const user = interaction.options.getUser(`keep${index}`);
+    if (user) keepIds.add(user.id);
+  }
+
+  const members = await interaction.guild.members.fetch();
+
+  let kicked = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const [, member] of members) {
+    if (member.user.bot || keepIds.has(member.id)) {
+      skipped += 1;
+      continue;
+    }
+
+    if (!member.kickable) {
+      failed += 1;
+      continue;
+    }
+
+    try {
+      await member.kick(`Mass kick by ${interaction.user.tag ?? interaction.user.username}`);
+      kicked += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+
+  await interaction.editReply(`Done. Kicked: ${kicked}, Skipped: ${skipped}, Failed: ${failed}`);
+}
+
 export default {
   name: 'moderation',
   configSchema: MODERATION_SCHEMA,
   commands: [
+    {
+      name: 'kickall',
+      description: 'Kick all non-bot members except selected users.',
+      ephemeral: true,
+      permissionOverrides: {
+        discordPermissions: ['Administrator', 'KickMembers']
+      },
+      options: [
+        { name: 'keep1', type: 6, description: 'User to keep', required: false },
+        { name: 'keep2', type: 6, description: 'User to keep', required: false },
+        { name: 'keep3', type: 6, description: 'User to keep', required: false },
+        { name: 'keep4', type: 6, description: 'User to keep', required: false },
+        { name: 'keep5', type: 6, description: 'User to keep', required: false },
+        { name: 'keep6', type: 6, description: 'User to keep', required: false },
+        { name: 'keep7', type: 6, description: 'User to keep', required: false },
+        { name: 'keep8', type: 6, description: 'User to keep', required: false },
+        { name: 'keep9', type: 6, description: 'User to keep', required: false },
+        { name: 'keep10', type: 6, description: 'User to keep', required: false }
+      ],
+      async execute(interaction) {
+        await handleKickAllCommand(interaction);
+      }
+    },
     {
       name: 'case',
       type: ApplicationCommandType.Message,
