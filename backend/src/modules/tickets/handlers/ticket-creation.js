@@ -39,8 +39,14 @@ export class TicketCreationHandler {
         throw error;
       }
 
-      const hasOpen = await hasOpenTicketInChannel(channel, user.id, client.user.id);
-      if (hasOpen) {
+      const activeTickets = await this.ticketService
+        .getUserActiveTickets(interaction.guildId, user.id)
+        .catch(() => []);
+      const hasLegacyOpenThread = activeTickets.length === 0
+        ? await hasOpenTicketInChannel(channel, user.id, client.user.id)
+        : false;
+
+      if (activeTickets.length > 0 || hasLegacyOpenThread) {
         await this.replyError(interaction, ERROR_MESSAGES.ALREADY_OPEN);
         return;
       }
@@ -65,7 +71,9 @@ export class TicketCreationHandler {
       }
 
       await this.replySuccess(interaction, `Ticket created: <#${thread.id}>`);
-      this.setupThreadAsync(thread, user.id, tag);
+      this.setupThreadAsync(thread, user.id, tag).catch((error) => {
+        logger.error('Ticket thread setup failed', { threadId: thread.id, error: error.message });
+      });
     } catch (error) {
       logger.error('Ticket creation failed', { error: error.message, stack: error.stack });
       await this.replyError(interaction, 'An error occurred while creating your ticket.');
@@ -86,13 +94,15 @@ export class TicketCreationHandler {
 
     await thread.send(buildTicketWelcomePayload(tag, creatorId)).catch(() => null);
 
-    await this.ticketService.createTicket({
-      guildId: thread.guildId,
-      threadId: thread.id,
-      creatorId,
-      tagValue: tag.value,
-      createdAt: new Date()
-    }).catch(() => null);
+      await this.ticketService.createTicket({
+        guildId: thread.guildId,
+        threadId: thread.id,
+        creatorId,
+        tagValue: tag.value,
+        tagLabel: tag.label,
+        threadName: thread.name,
+        createdAt: new Date()
+      }).catch(() => null);
 
     await this.sendCreatedLog(thread, creatorId, tag.label);
   }

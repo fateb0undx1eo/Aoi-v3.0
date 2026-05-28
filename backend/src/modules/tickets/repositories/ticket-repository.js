@@ -1,127 +1,112 @@
 /**
- * Data repository for ticket operations
- * Handles all database interactions for tickets
+ * Data repository for ticket operations.
+ * Uses the shared Supabase repository module passed by the application bootstrap.
  */
 
 import logger from '../services/logging-service.js';
 import { DatabaseError, ValidationError } from '../utils/error-handler.js';
 import { isValidDiscordId, isValidThreadId } from '../utils/validators.js';
 
+const ACTIVE_STATUSES = ['open', 'in_progress', 'waiting_response'];
+
 export class TicketRepository {
   constructor(database) {
     this.db = database;
   }
 
-  /**
-   * Creates a new ticket record in the database
-   */
   async createTicket(data) {
-    const { guildId, threadId, creatorId, tagValue, createdAt = new Date() } = data;
+    const { guildId, threadId, creatorId, tagValue, tagLabel, createdAt = new Date() } = data;
 
-    if (!isValidDiscordId(guildId)) {
-      throw new ValidationError('Invalid guild ID');
-    }
-    if (!isValidThreadId(threadId)) {
-      throw new ValidationError('Invalid thread ID');
-    }
-    if (!isValidDiscordId(creatorId)) {
-      throw new ValidationError('Invalid creator ID');
-    }
+    if (!isValidDiscordId(guildId)) throw new ValidationError('Invalid guild ID');
+    if (!isValidThreadId(threadId)) throw new ValidationError('Invalid thread ID');
+    if (!isValidDiscordId(creatorId)) throw new ValidationError('Invalid creator ID');
 
     try {
-      const result = await this.db.from('tickets').insert({
-        guild_id: guildId,
-        thread_id: threadId,
-        creator_id: creatorId,
-        tag_value: tagValue,
-        created_at: createdAt
-      }).select();
+      const rows = await this.db.fetchMany('tickets', (table) =>
+        table
+          .insert({
+            guild_id: guildId,
+            thread_id: threadId,
+            creator_id: creatorId,
+            tag: tagValue,
+            tag_label: tagLabel || tagValue,
+            thread_name: data.threadName || null,
+            original_thread_name: data.threadName || null,
+            status: 'open',
+            created_at: createdAt,
+            updated_at: createdAt,
+            last_activity_at: createdAt
+          })
+          .select()
+          .limit(1)
+      );
 
       logger.info('Ticket created', { threadId, creatorId });
-      return result.data[0];
+      return rows[0] ?? null;
     } catch (error) {
       logger.error('Failed to create ticket', { threadId, error: error.message });
       throw new DatabaseError('Failed to create ticket', { threadId });
     }
   }
 
-  /**
-   * Gets a ticket by thread ID
-   */
   async getTicketByThreadId(threadId) {
-    if (!isValidThreadId(threadId)) {
-      throw new ValidationError('Invalid thread ID');
-    }
+    if (!isValidThreadId(threadId)) throw new ValidationError('Invalid thread ID');
 
     try {
-      const result = await this.db.from('tickets')
-        .select('*')
-        .eq('thread_id', threadId)
-        .single();
-      return result.data || null;
+      const rows = await this.db.fetchMany('tickets', (table) =>
+        table.select('*').eq('thread_id', threadId).limit(1)
+      );
+      return rows[0] ?? null;
     } catch (error) {
       logger.error('Failed to fetch ticket', { threadId, error: error.message });
       throw new DatabaseError('Failed to fetch ticket', { threadId });
     }
   }
 
-  /**
-   * Gets all active tickets for a user in a guild
-   */
-  async getActiveTicketsForUser(guildId, creatorId, channelId = null) {
-    if (!isValidDiscordId(guildId)) {
-      throw new ValidationError('Invalid guild ID');
-    }
-    if (!isValidDiscordId(creatorId)) {
-      throw new ValidationError('Invalid creator ID');
-    }
+  async getActiveTicketsForUser(guildId, creatorId) {
+    if (!isValidDiscordId(guildId)) throw new ValidationError('Invalid guild ID');
+    if (!isValidDiscordId(creatorId)) throw new ValidationError('Invalid creator ID');
 
     try {
-      let query = `
-        SELECT * FROM tickets 
-        WHERE guild_id = $1 AND creator_id = $2 AND resolved_at IS NULL
-      `;
-      const params = [guildId, creatorId];
-
-      if (channelId) {
-        query += ' AND channel_id = $3';
-        params.push(channelId);
-      }
-
-      const result = await this.db.query(query + ' ORDER BY created_at DESC', params);
-      return result.rows;
+      return await this.db.fetchMany('tickets', (table) =>
+        table
+          .select('*')
+          .eq('guild_id', guildId)
+          .eq('creator_id', creatorId)
+          .in('status', ACTIVE_STATUSES)
+          .order('created_at', { ascending: false })
+      );
     } catch (error) {
       logger.error('Failed to fetch active tickets', { guildId, creatorId, error: error.message });
       throw new DatabaseError('Failed to fetch active tickets');
     }
   }
 
-  /**
-   * Resolves a ticket (marks it as closed)
-   */
   async resolveTicket(threadId, resolverId, resolvedAt = new Date()) {
-    if (!isValidThreadId(threadId)) {
-      throw new ValidationError('Invalid thread ID');
-    }
-    if (!isValidDiscordId(resolverId)) {
-      throw new ValidationError('Invalid resolver ID');
-    }
+    if (!isValidThreadId(threadId)) throw new ValidationError('Invalid thread ID');
+    if (!isValidDiscordId(resolverId)) throw new ValidationError('Invalid resolver ID');
 
     try {
-      const result = await this.db.from('tickets')
-        .update({ 
-          resolved_at: resolvedAt, 
-          resolved_by: resolverId 
-        })
-        .eq('thread_id', threadId)
-        .select();
+      const rows = await this.db.fetchMany('tickets', (table) =>
+        table
+          .update({
+            status: 'resolved',
+            resolved_at: resolvedAt,
+            resolved_by: resolverId,
+            is_archived: true,
+            is_locked: true
+          })
+          .eq('thread_id', threadId)
+          .select()
+          .limit(1)
+      );
 
-      if (result.data.length === 0) {
+      if (!rows[0]) {
         throw new DatabaseError('Ticket not found', { threadId });
       }
 
       logger.info('Ticket resolved', { threadId, resolverId });
-      return result.data[0];
+      return rows[0];
     } catch (error) {
       if (error instanceof DatabaseError) throw error;
       logger.error('Failed to resolve ticket', { threadId, error: error.message });
@@ -129,30 +114,18 @@ export class TicketRepository {
     }
   }
 
-  /**
-   * Gets ticket stats for a guild
-   */
   async getTicketStats(guildId) {
-    if (!isValidDiscordId(guildId)) {
-      throw new ValidationError('Invalid guild ID');
-    }
+    if (!isValidDiscordId(guildId)) throw new ValidationError('Invalid guild ID');
 
     try {
-      const result = await this.db.query(
-        `SELECT 
-           COUNT(*) as total,
-           COUNT(CASE WHEN resolved_at IS NULL THEN 1 END) as active,
-           COUNT(CASE WHEN resolved_at IS NOT NULL THEN 1 END) as resolved
-         FROM tickets 
-         WHERE guild_id = $1`,
-        [guildId]
+      const rows = await this.db.fetchMany('tickets', (table) =>
+        table.select('status').eq('guild_id', guildId)
       );
 
-      const row = result.rows[0];
       return {
-        total: parseInt(row.total, 10),
-        active: parseInt(row.active, 10),
-        resolved: parseInt(row.resolved, 10)
+        total: rows.length,
+        active: rows.filter((row) => ACTIVE_STATUSES.includes(row.status)).length,
+        resolved: rows.filter((row) => row.status === 'resolved' || row.status === 'closed').length
       };
     } catch (error) {
       logger.error('Failed to fetch ticket stats', { guildId, error: error.message });
@@ -160,58 +133,43 @@ export class TicketRepository {
     }
   }
 
-  /**
-   * Records a user action on a ticket (add/remove user)
-   */
   async recordUserAction(data) {
     const { threadId, actionType, targetUserId, performedBy, performedAt = new Date() } = data;
-
-    if (!isValidThreadId(threadId)) {
-      throw new ValidationError('Invalid thread ID');
-    }
+    if (!isValidThreadId(threadId)) throw new ValidationError('Invalid thread ID');
 
     try {
-      const { data: result, error } = await this.db
-        .from('ticket_user_actions')
-        .insert({
-          thread_id: threadId,
-          action_type: actionType,
-          target_user_id: targetUserId,
-          performed_by: performedBy,
-          performed_at: performedAt,
-        })
-        .select();
-
-      if (error) {
-        throw error;
-      }
+      const rows = await this.db.fetchMany('ticket_user_actions', (table) =>
+        table
+          .insert({
+            thread_id: threadId,
+            action_type: actionType,
+            target_user_id: targetUserId,
+            performed_by: performedBy,
+            performed_at: performedAt
+          })
+          .select()
+          .limit(1)
+      );
 
       logger.info('Ticket user action recorded', { threadId, actionType, targetUserId });
-      return result[0];
+      return rows[0] ?? null;
     } catch (error) {
       logger.error('Failed to record user action', { threadId, error: error.message });
       throw new DatabaseError('Failed to record user action', { threadId });
     }
   }
 
-  /**
-   * Gets action history for a ticket
-   */
   async getTicketActionHistory(threadId, limit = 50) {
-    if (!isValidThreadId(threadId)) {
-      throw new ValidationError('Invalid thread ID');
-    }
+    if (!isValidThreadId(threadId)) throw new ValidationError('Invalid thread ID');
 
     try {
-      const result = await this.db.query(
-        `SELECT * FROM ticket_user_actions 
-         WHERE thread_id = $1
-         ORDER BY performed_at DESC
-         LIMIT $2`,
-        [threadId, limit]
+      return await this.db.fetchMany('ticket_user_actions', (table) =>
+        table
+          .select('*')
+          .eq('thread_id', threadId)
+          .order('performed_at', { ascending: false })
+          .limit(limit)
       );
-
-      return result.rows;
     } catch (error) {
       logger.error('Failed to fetch action history', { threadId, error: error.message });
       throw new DatabaseError('Failed to fetch action history', { threadId });
@@ -221,15 +179,14 @@ export class TicketRepository {
   async deleteResolvedOlderThan(daysOld = 90) {
     try {
       const cutoff = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000).toISOString();
-      const { data, error } = await this.db
-        .from('tickets')
-        .delete()
-        .not('resolved_at', 'is', null)
-        .lt('resolved_at', cutoff)
-        .select('thread_id');
-
-      if (error) throw error;
-      return data?.length ?? 0;
+      const rows = await this.db.fetchMany('tickets', (table) =>
+        table
+          .delete()
+          .in('status', ['resolved', 'closed', 'orphaned'])
+          .lt('resolved_at', cutoff)
+          .select('thread_id')
+      );
+      return rows.length;
     } catch (error) {
       logger.error('Failed to delete old resolved tickets', { error: error.message, daysOld });
       throw new DatabaseError('Failed to delete old resolved tickets');

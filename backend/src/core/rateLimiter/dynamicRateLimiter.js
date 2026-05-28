@@ -3,6 +3,7 @@ export class DynamicRateLimiter {
     this.rateLimitService = rateLimitService;
     this.rules = new Map();
     this.hits = new Map();
+    this.maxHitKeys = 10000;
   }
 
   _ruleKey(guildId, commandName, scope, targetId) {
@@ -31,11 +32,11 @@ export class DynamicRateLimiter {
   check(interaction, commandName) {
     const guildId = interaction.guildId;
     const matchingRules = [...this.rules.values()].filter((rule) => rule.guild_id === guildId && rule.command_name === commandName);
+    const now = Date.now();
     for (const rule of matchingRules) {
       const hitKey = this._hitKey(rule, interaction);
       if (!hitKey) continue;
 
-      const now = Date.now();
       const windowMs = rule.window_seconds * 1000;
       const history = this.hits.get(hitKey) ?? [];
       const active = history.filter((ts) => now - ts < windowMs);
@@ -50,6 +51,26 @@ export class DynamicRateLimiter {
       this.hits.set(hitKey, active);
     }
 
+    if (this.hits.size > this.maxHitKeys) {
+      this.pruneExpiredHits(now);
+    }
+
     return { allowed: true, retryAfter: 0 };
+  }
+
+  pruneExpiredHits(now = Date.now()) {
+    const longestWindowMs = Math.max(
+      0,
+      ...[...this.rules.values()].map((rule) => Number(rule.window_seconds || 0) * 1000)
+    );
+
+    for (const [key, history] of this.hits.entries()) {
+      const active = history.filter((ts) => now - ts < longestWindowMs);
+      if (active.length === 0) {
+        this.hits.delete(key);
+      } else {
+        this.hits.set(key, active);
+      }
+    }
   }
 }

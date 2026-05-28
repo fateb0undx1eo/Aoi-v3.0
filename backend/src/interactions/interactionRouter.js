@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger.js';
+import { metrics } from '../observability/metrics.js';
 
 async function replyOrEdit(interaction, content, ephemeral = true) {
   if (interaction.deferred || interaction.replied) {
@@ -27,10 +28,11 @@ export function registerInteractionRouter(client, registry, context) {
         return;
       }
 
-      logger.info(`Executing command: ${interaction.commandName}`);
+        logger.info(`Executing command: ${interaction.commandName}`);
 
-      try {
-        // Only defer if not already deferred/replied
+        try {
+          const startedAt = Date.now();
+          // Only defer if not already deferred/replied
         if (
           command.defer !== false &&
           !interaction.deferred &&
@@ -104,9 +106,21 @@ export function registerInteractionRouter(client, registry, context) {
         }
 
         await command.execute(interaction, context);
+        metrics.observe('discord_interaction_latency_ms', Date.now() - startedAt, {
+          command: interaction.commandName,
+          guild: interaction.guildId ?? 'dm'
+        });
+        metrics.increment('discord_interactions_total', {
+          command: interaction.commandName,
+          status: 'ok'
+        });
 
         logger.info(`Command completed: ${interaction.commandName}`);
       } catch (error) {
+        metrics.increment('discord_interactions_total', {
+          command: interaction.commandName,
+          status: 'error'
+        });
         logger.error(
           `Command execution failed: ${interaction.commandName}`,
           error

@@ -8,9 +8,15 @@ import { createDiscordClient } from './core/discordClient.js';
 import { redisClient } from './core/redis.js';
 import * as database from './database/repository.js';
 import { buildApiServer } from './api/server.js';
+import { attachOverviewSocketServer } from './api/overviewSocketServer.js';
 import { bootstrapRegistry } from './core/loader/bootstrap.js';
+import { JobQueue } from './core/queue/jobQueue.js';
 import { registerInteractionRouter } from './interactions/interactionRouter.js';
 import { logger } from './utils/logger.js';
+import { metrics } from './observability/metrics.js';
+import { registerRuntimeFaultHandlers } from './observability/runtimeFaults.js';
+import { runtimeState } from './observability/runtimeState.js';
+import { RuntimeSupervisor } from './observability/supervisor.js';
 import { ConfigCache } from './core/configCache/configCache.js';
 import { ConfigService } from './services/configService.js';
 import { PermissionService } from './core/permissions/permissionService.js';
@@ -33,9 +39,64 @@ import { BotLooksService } from './services/botLooksService.js';
 import { StaffListService } from './services/staffListService.js';
 import { ProfileStyleService } from './services/profileStyleService.js';
 import { StaffRatingService } from './services/staffRatingService.js';
+import { CommunityService } from './services/communityService.js';
+import { ToolsService } from './services/toolsService.js';
 import { PlaceholderEngine } from './core/placeholderEngine/placeholderEngine.js';
 
 const PORT = env.apiPort || 3001;
+let isShuttingDown = false;
+
+async function shutdownRuntime({
+  signal = 'manual',
+  server = null,
+  overviewSocketServer = null,
+  configCache = null,
+  registry = null,
+  discordClient = null,
+  supervisor = null,
+  queues = [],
+  exitCode = 0,
+  forceExit = false
+} = {}) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  runtimeState.shuttingDown = true;
+  logger.info('Runtime shutdown started', { signal, exitCode });
+
+  const forceTimer = setTimeout(() => {
+    logger.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 10000);
+
+  const closeServer = () => new Promise((resolve) => {
+    if (!server) {
+      resolve();
+      return;
+    }
+    server.close(() => resolve());
+  });
+
+  await closeServer();
+  overviewSocketServer?.close?.();
+  supervisor?.stop?.();
+  configCache?.stopAutoRefresh?.();
+  await Promise.allSettled(queues.map((queue) => queue.stop()));
+
+  await Promise.allSettled(
+    (registry?.listDefinitions?.() ?? [])
+      .filter((definition) => typeof definition.shutdown === 'function')
+      .map((definition) => definition.shutdown())
+  );
+
+  discordClient?.destroy?.();
+  await redisClient.disconnect?.();
+  clearTimeout(forceTimer);
+  logger.info('Runtime shutdown complete', { signal, exitCode });
+
+  if (forceExit || signal !== 'manual') {
+    process.exit(exitCode);
+  }
+}
 
 async function main() {
   try {
@@ -80,7 +141,7 @@ async function main() {
       database,
       redis: redisClient,
       discordClient,
-      environment: env.environment || 'development'
+      environment: env.nodeEnv || 'development'
     });
     logger.info('✓ Async modules initialized');
 
@@ -107,13 +168,24 @@ async function main() {
     const settingsService = new SettingsService(configService);
     const announcementService = new AnnouncementService({ client: discordClient });
     const placeholderEngine = new PlaceholderEngine();
-    const dmBroadcastService = new DmBroadcastService({ client: discordClient, placeholderEngine });
+    let dmBroadcastService = null;
+    const operationalQueue = new JobQueue({
+      name: 'operational',
+      redis: redisClient,
+      handlers: {
+        dm_broadcast: (payload) => dmBroadcastService.runQueuedBroadcast(payload)
+      },
+      concurrency: Number(process.env.OPERATIONAL_QUEUE_CONCURRENCY || 1)
+    });
+    dmBroadcastService = new DmBroadcastService({ client: discordClient, placeholderEngine, jobQueue: operationalQueue });
     const roleColorRotationService = new RoleColorRotationService({ client: discordClient, configService, configCache });
     const memeService = new MemeService({ configService, configCache, client: discordClient, env });
     const botLooksService = new BotLooksService({ client: discordClient, configService, configCache, preferredGuildId: env.discord.guildId });
     const staffListService = new StaffListService({ client: discordClient, configService, configCache });
     const profileStyleService = new ProfileStyleService({ client: discordClient, configService, configCache, token: env.discord.token });
     const staffRatingService = new StaffRatingService();
+    const communityService = new CommunityService(configService, staffRatingService);
+    const toolsService = new ToolsService(configService);
 
     const services = {
       configService,
@@ -132,8 +204,14 @@ async function main() {
       botLooksService,
       staffListService,
       profileStyleService,
-      staffRatingService
+      staffRatingService,
+      communityService,
+      toolsService
     };
+
+    const queues = [operationalQueue];
+    const queueStats = () => queues.map((queue) => queue.stats());
+    let overviewSocketServer = null;
 
     const context = {
       database,
@@ -159,8 +237,12 @@ async function main() {
       staffListService,
       profileStyleService,
       staffRatingService,
+      communityService,
+      toolsService,
       placeholderEngine,
       services,
+      queueStats,
+      websocketStats: () => overviewSocketServer?.getStats?.() ?? { connections: 0 },
       client: discordClient,
       env,
       registry
@@ -212,6 +294,14 @@ async function main() {
     discordClient.once('ready', () => {
       logger.info(`✓ Discord Bot Ready! Logged in as ${discordClient.user.tag}`);
       logger.info(`  Serving ${discordClient.guilds.cache.size} guilds`);
+      const getGuildIds = () => [...discordClient.guilds.cache.keys()];
+      Promise.allSettled(getGuildIds().map((guildId) => configCache.warmGuild(guildId)))
+        .then(() => logger.info('Config cache warmed'))
+        .catch((error) => logger.warn('Config cache warm failed', error));
+      Promise.allSettled(getGuildIds().map((guildId) => rateLimiter.warmGuild(guildId)))
+        .then(() => logger.info('Rate-limit rules warmed'))
+        .catch((error) => logger.warn('Rate-limit warm failed', error));
+      configCache.startAutoRefresh(getGuildIds);
     });
 
     discordClient.on('error', (error) => {
@@ -232,36 +322,56 @@ async function main() {
     // ─────────────────────────────────────────────────────────────
     // 9. Login Discord Bot
     // ─────────────────────────────────────────────────────────────
+    overviewSocketServer = attachOverviewSocketServer({
+      server,
+      authService,
+      accessControlService,
+      dashboardOverviewService,
+      metrics
+    });
+    operationalQueue.start();
+    const supervisor = new RuntimeSupervisor({
+      runtimeState,
+      redis: redisClient,
+      database,
+      discordClient,
+      websocketStats: () => overviewSocketServer?.getStats?.() ?? { connections: 0 }
+    });
+    supervisor.start();
+
     logger.info('Logging in Discord bot...');
     await discordClient.login(env.discord.token);
 
     // ─────────────────────────────────────────────────────────────
     // 10. Handle Shutdown Gracefully
     // ─────────────────────────────────────────────────────────────
-    const gracefulShutdown = async (signal) => {
-      logger.info(`\n📴 Received ${signal}, shutting down gracefully...`);
+    const gracefulShutdown = (signal) => shutdownRuntime({
+      signal,
+      server,
+      overviewSocketServer,
+      configCache,
+      registry,
+      discordClient,
+      supervisor,
+      queues,
+      exitCode: 0,
+      forceExit: true
+    });
 
-      // Close API server
-      server.close(async () => {
-        logger.info('✓ Express server closed');
-
-        // Disconnect Discord client
-        discordClient.destroy();
-        logger.info('✓ Discord bot disconnected');
-
-        // Close Redis
-        await redisClient.disconnect?.();
-        logger.info('✓ Redis disconnected');
-
-        process.exit(0);
-      });
-
-      // Force shutdown after 10 seconds
-      setTimeout(() => {
-        logger.error('Forced shutdown after timeout');
-        process.exit(1);
-      }, 10000);
-    };
+    registerRuntimeFaultHandlers({
+      runtimeState,
+      shutdown: (signal, options = {}) => shutdownRuntime({
+        signal,
+        server,
+        overviewSocketServer,
+        configCache,
+        registry,
+        discordClient,
+        supervisor,
+        queues,
+        ...options
+      })
+    });
 
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));

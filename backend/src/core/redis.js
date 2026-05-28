@@ -1,5 +1,6 @@
 import { createClient } from 'redis';
 import { env } from './config/env.js';
+import { metrics } from '../observability/metrics.js';
 
 /**
  * Redis client wrapper for distributed caching and locking
@@ -17,6 +18,7 @@ class RedisClient {
     this.lastErrorLog = 0;
     this.errorLogInterval = 30000; // Only log errors every 30 seconds
     this.isConnecting = false;
+    this.connectPromise = null;
     this.connectionFailed = false;
   }
 
@@ -39,7 +41,7 @@ class RedisClient {
     // Prevent duplicate connection attempts
     if (this.isConnecting) {
       console.log('Redis connection already in progress...');
-      return this.isConnected;
+      return this.connectPromise ?? this.isConnected;
     }
 
     // If already connected, don't reconnect
@@ -53,7 +55,17 @@ class RedisClient {
     }
 
     this.isConnecting = true;
+    this.connectPromise = this._connect();
 
+    try {
+      return await this.connectPromise;
+    } finally {
+      this.isConnecting = false;
+      this.connectPromise = null;
+    }
+  }
+
+  async _connect() {
     try {
       const isRenderRedis = env.redis.url?.includes('rediss://') || 
                             env.redis.url?.includes('render.com') ||
@@ -140,8 +152,6 @@ class RedisClient {
       this.isConnected = false;
       this.connectionFailed = true;
       return false;
-    } finally {
-      this.isConnecting = false;
     }
   }
 
@@ -327,7 +337,9 @@ class RedisClient {
         }
       }
       
-      const result = await this.client.set(key, String(value), opts);
+      const result = await metrics.time('redis_latency_ms', { operation: 'set' }, () =>
+        this.client.set(key, String(value), opts)
+      );
       return result;
     } catch (error) {
       console.error(`Failed to set key ${key}:`, error);
@@ -407,7 +419,7 @@ class RedisClient {
     }
 
     try {
-      return await this.client.get(key);
+      return await metrics.time('redis_latency_ms', { operation: 'get' }, () => this.client.get(key));
     } catch (error) {
       console.error(`Failed to get key ${key}:`, error);
       return null;
@@ -808,6 +820,5 @@ async function initializeRedis() {
 }
 
 // Start initialization
-initializeRedis();
 
 export default redisClient;

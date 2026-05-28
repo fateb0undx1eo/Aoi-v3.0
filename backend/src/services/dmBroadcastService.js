@@ -103,9 +103,10 @@ function normalizePayload(payload = {}) {
 }
 
 export class DmBroadcastService {
-  constructor({ client, placeholderEngine }) {
+  constructor({ client, placeholderEngine, jobQueue = null }) {
     this.client = client;
     this.placeholderEngine = placeholderEngine;
+    this.jobQueue = jobQueue;
     this.jobs = new Map();
   }
 
@@ -307,7 +308,37 @@ export class DmBroadcastService {
       requested: members.length
     });
 
-    this.runJob(job.id, members, payload);
+    if (this.jobQueue) {
+      await this.jobQueue.enqueue(
+        'dm_broadcast',
+        { guildId, jobId: job.id, memberIds: members.map((member) => member.id), payload },
+        { idempotencyKey: `dm_broadcast:${job.id}` }
+      );
+    } else {
+      this.runJob(job.id, members, payload).catch((error) => {
+        logger.warn(`DM broadcast worker crashed for guild ${guildId}`, {
+          job_id: job.id,
+          error: error instanceof Error ? error.message : 'unknown error'
+        });
+      });
+    }
     return this.getJob(guildId, job.id);
+  }
+
+  async runQueuedBroadcast({ guildId, jobId, memberIds, payload }) {
+    const guild = await this.resolveGuild(guildId);
+    if (!guild) {
+      throw new Error('Guild not found for queued DM broadcast.');
+    }
+
+    const members = [];
+    for (const memberId of memberIds ?? []) {
+      const member = guild.members.cache.get(memberId) ?? await guild.members.fetch(memberId).catch(() => null);
+      if (member && !member.user?.bot) {
+        members.push(member);
+      }
+    }
+
+    await this.runJob(jobId, members, payload);
   }
 }

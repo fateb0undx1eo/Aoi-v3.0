@@ -1,4 +1,4 @@
-import { WebSocketServer } from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
 
 function rejectUpgrade(socket, statusCode = 401, message = 'Unauthorized') {
   socket.write(`HTTP/1.1 ${statusCode} ${message}\r\nConnection: close\r\n\r\n`);
@@ -9,9 +9,15 @@ export function attachOverviewSocketServer({
   server,
   authService,
   accessControlService,
-  dashboardOverviewService
+  dashboardOverviewService,
+  metrics = null
 }) {
   const wss = new WebSocketServer({ noServer: true });
+  const stats = {
+    connections: 0,
+    total_connections: 0,
+    last_connection_at: null
+  };
 
   server.on('upgrade', async (request, socket, head) => {
     try {
@@ -43,11 +49,16 @@ export function attachOverviewSocketServer({
   });
 
   wss.on('connection', async (ws) => {
+    stats.connections += 1;
+    stats.total_connections += 1;
+    stats.last_connection_at = new Date().toISOString();
+    metrics?.increment?.('websocket_connections_total');
+
     const guildId = ws.session.guildId;
 
     const sendOverview = async (force = false) => {
       const payload = await dashboardOverviewService.getOverview(guildId, { force });
-      if (!payload || ws.readyState !== ws.OPEN) {
+      if (!payload || ws.readyState !== WebSocket.OPEN) {
         return;
       }
 
@@ -57,19 +68,28 @@ export function attachOverviewSocketServer({
       }));
     };
 
-    await sendOverview();
+    await sendOverview().catch(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'overview:error' }));
+      }
+    });
 
     const timer = setInterval(() => {
       sendOverview(true).catch(() => {
-        if (ws.readyState === ws.OPEN) {
+        if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'overview:error' }));
         }
       });
     }, 30 * 1000);
 
-    ws.on('close', () => clearInterval(timer));
-    ws.on('error', () => clearInterval(timer));
+    const cleanup = () => {
+      clearInterval(timer);
+      stats.connections = Math.max(0, stats.connections - 1);
+    };
+    ws.on('close', cleanup);
+    ws.on('error', cleanup);
   });
 
+  wss.getStats = () => ({ ...stats });
   return wss;
 }

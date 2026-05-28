@@ -12,6 +12,17 @@ import { DatabaseError, ValidationError } from '../utils/error-handler.js';
 export class LockService {
   constructor(redis) {
     this.redis = redis;
+    this.localLocks = new Map();
+    this.cleanupLocalLocks();
+  }
+
+  cleanupLocalLocks() {
+    const now = Date.now();
+    for (const [key, expiresAt] of this.localLocks.entries()) {
+      if (expiresAt <= now) {
+        this.localLocks.delete(key);
+      }
+    }
   }
 
   /**
@@ -25,16 +36,29 @@ export class LockService {
 
     try {
       const key = REDIS_KEYS.creatingLock(userId);
-      const lockTTL = Math.ceil(TICKET_CREATION_LOCK_MS / 1000);
+      const expiresAt = Date.now() + TICKET_CREATION_LOCK_MS;
 
-      const result = await this.redis.setex(key, lockTTL, Date.now().toString());
-
-      if (!result) {
-        throw new Error('Failed to set lock');
+      if (!this.redis.isReady?.()) {
+        this.cleanupLocalLocks();
+        if (this.localLocks.has(key)) {
+          return false;
+        }
+        this.localLocks.set(key, expiresAt);
+        logger.warn('Using local ticket creation lock because Redis is unavailable', { userId });
+        return true;
       }
 
-      logger.debug('Creation lock acquired', { userId });
-      return true;
+      const result = await this.redis.set(
+        key,
+        expiresAt.toString(),
+        'PX',
+        TICKET_CREATION_LOCK_MS,
+        'NX'
+      );
+
+      const acquired = result === 'OK';
+      logger.debug('Creation lock checked', { userId, acquired });
+      return acquired;
     } catch (error) {
       logger.error('Failed to acquire creation lock', { userId, error: error.message });
       throw new DatabaseError('Failed to acquire creation lock', { userId });
@@ -51,8 +75,13 @@ export class LockService {
 
     try {
       const key = REDIS_KEYS.creatingLock(userId);
+      if (!this.redis.isReady?.()) {
+        this.cleanupLocalLocks();
+        return this.localLocks.has(key);
+      }
+
       const exists = await this.redis.exists(key);
-      return exists === 1;
+      return exists === true || exists === 1;
     } catch (error) {
       logger.error('Failed to check creation lock', { userId, error: error.message });
       throw new DatabaseError('Failed to check creation lock', { userId });
@@ -69,6 +98,7 @@ export class LockService {
 
     try {
       const key = REDIS_KEYS.creatingLock(userId);
+      this.localLocks.delete(key);
       await this.redis.del(key);
       logger.debug('Creation lock released', { userId });
     } catch (error) {

@@ -1,6 +1,8 @@
 import express from 'express';
-import { logger } from '../utils/logger.js';
+import { createRequestId, logger, withLogContext } from '../utils/logger.js';
 import { RepositoryError } from '../database/repository.js';
+import { metrics } from '../observability/metrics.js';
+import { runtimeState } from '../observability/runtimeState.js';
 import { requireAuth } from './middleware/requireAuth.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
 import { createDashboardRoutes } from './routes/dashboardRoutes.js';
@@ -14,10 +16,24 @@ export function buildApiServer(deps) {
   const app = express();
   app.set('trust proxy', 1);
   const allowedOrigins = new Set(deps.env?.frontend?.corsAllowedOrigins ?? []);
+  const allowAnyOrigin = allowedOrigins.size === 0 && deps.env?.nodeEnv !== 'production';
+
+  app.use((req, res, next) => {
+    const requestId = req.headers['x-request-id']?.toString() || createRequestId();
+    const startedAt = Date.now();
+    res.setHeader('x-request-id', requestId);
+    res.on('finish', () => {
+      metrics.increment('http_requests_total', { method: req.method, status: res.statusCode });
+      metrics.observe('http_request_duration_ms', Date.now() - startedAt, {
+        method: req.method,
+        route: req.route?.path || req.path
+      });
+    });
+    withLogContext({ request_id: requestId }, next);
+  });
 
   app.use((req, res, next) => {
     const origin = req.headers.origin;
-    const allowAnyOrigin = allowedOrigins.size === 0;
 
     if (origin && (allowAnyOrigin || allowedOrigins.has(origin))) {
       res.setHeader('Access-Control-Allow-Origin', origin);
@@ -36,10 +52,24 @@ export function buildApiServer(deps) {
     next();
   });
 
-  app.use(express.json());
+  app.use(express.json({ limit: '1mb' }));
 
   app.get('/healthz', (_req, res) => {
-    res.status(200).json({ ok: true, service: 'discord-ecosystem-backend' });
+    res.status(200).json({
+      ok: true,
+      service: 'discord-ecosystem-backend',
+      discord_ready: deps.discordClient?.isReady?.() ?? false,
+      redis_ready: deps.redis?.isReady?.() ?? false,
+      runtime: runtimeState.snapshot()
+    });
+  });
+
+  app.get('/metrics', (_req, res) => {
+    res.status(200).json(metrics.snapshot({
+      runtime: runtimeState.snapshot(),
+      websocket: deps.websocketStats?.() ?? null,
+      queues: deps.queueStats?.() ?? []
+    }));
   });
 
   app.use('/api/auth', createAuthRoutes(deps));

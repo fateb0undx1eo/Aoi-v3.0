@@ -49,16 +49,19 @@ export function createAuthRoutes({ authService, guildService }) {
   });
 
   router.get('/debug', (_req, res) => {
+    if (process.env.NODE_ENV === 'production') {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+
     const clientId = authService.env.oauth.clientId || '';
     const redirectUri = authService.env.oauth.redirectUri || '';
-    const clientSecret = authService.env.oauth.clientSecret || '';
 
     res.status(200).json({
       oauth: {
         clientIdPresent: Boolean(clientId),
         clientIdPreview: clientId ? `${clientId.slice(0, 4)}...${clientId.slice(-4)}` : null,
-        clientSecretPresent: Boolean(clientSecret),
-        clientSecretLength: clientSecret.length || 0,
+        clientSecretPresent: Boolean(authService.env.oauth.clientSecret),
         redirectUri: redirectUri || null
       }
     });

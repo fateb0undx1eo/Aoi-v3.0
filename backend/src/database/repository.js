@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { metrics } from '../observability/metrics.js';
 
 export class RepositoryError extends Error {
   constructor(message, cause = null) {
@@ -35,7 +36,7 @@ async function runRepositoryOperation(actionLabel, table, operation, retries = 1
   let lastError = null;
 
   for (let attempt = 0; attempt <= retries; attempt += 1) {
-    const { data, error } = await operation();
+    const { data, error } = await metrics.time('database_latency_ms', { table, action: actionLabel }, operation);
     if (!error) {
       return data;
     }

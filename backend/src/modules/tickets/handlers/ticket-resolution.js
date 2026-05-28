@@ -60,7 +60,9 @@ export class TicketResolutionHandler {
     const createdAtUnix = ticketRow?.created_at
       ? Math.floor(new Date(ticketRow.created_at).getTime() / 1000)
       : null;
-    const tagLabelFromDb = TICKET_TAGS.find((t) => t.value === ticketRow?.tag_value)?.label;
+    const tagLabelFromDb =
+      ticketRow?.tag_label ||
+      TICKET_TAGS.find((t) => t.value === ticketRow?.tag)?.label;
 
     const now = Math.floor(Date.now() / 1000);
     const threadLink = `https://discord.com/channels/${thread.guildId}/${thread.id}`;

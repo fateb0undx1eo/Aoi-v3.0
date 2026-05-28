@@ -75,7 +75,13 @@ export class InteractionRouter {
     }
 
     // Acquire lock
-    await this.lockService.acquireCreationLock(interaction.user.id);
+    const acquired = await this.lockService.acquireCreationLock(interaction.user.id);
+    if (!acquired) {
+      await interaction.editReply({
+        content: ERROR_MESSAGES.LOCKED_IN_CREATION
+      });
+      return;
+    }
 
     try {
       const [selectedValue] = interaction.values;

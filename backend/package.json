@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/main.js",
     "dev": "node --watch src/main.js",
-    "lint:check": "node -e \"console.log('No linter configured yet')\""
+    "lint:check": "node --check src/main.js",
+    "test": "node tests/run-tests.js",
+    "validate": "npm run lint:check && npm test"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.7",
