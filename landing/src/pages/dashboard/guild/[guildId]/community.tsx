@@ -2132,24 +2132,6 @@ export default function CommunityPage() {
           </div>
         </section>
 
-        <section>
-          <h2 className="card-heading mb-4 text-sm uppercase tracking-wider text-muted-foreground">Staff Tools</h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FeatureCard
-              icon={<Star className="h-6 w-6" />}
-              title="Staff Rating"
-              description="Collect simple ratings for staff performance."
-              iconColor="text-yellow-500"
-            />
-            <FeatureCard
-              icon={<Shield className="h-6 w-6" />}
-              title="Staff Leaderboard"
-              description="Show leaderboard-style staff scoring without a heavy analytics pipeline."
-              iconColor="text-blue-500"
-            />
-          </div>
-        </section>
-
         <Dialog open={dmAllOpen} onOpenChange={setDmAllOpen}>
           <DialogContent className="max-h-[92vh] max-w-[min(95vw,1340px)] overflow-y-auto border-border/70 bg-zinc-950 text-zinc-100">
             <DialogHeader>

@@ -159,12 +159,6 @@ function isUwuMessage(content) {
   return /uwu|owo|uvu/i.test(content);
 }
 
-function getStarDisplay(rating) {
-  const filled = '*'.repeat(Math.floor(rating));
-  const empty = '-'.repeat(5 - Math.floor(rating));
-  return filled + empty;
-}
-
 function buildEmbed(title, description, color) {
   return new EmbedBuilder()
     .setColor(color)
@@ -347,27 +341,6 @@ function buildAnnouncementComponents({ title, body, gifUrl }) {
   ];
 }
 
-function buildStaffLeaderboardComponents(rows) {
-  const content = rows.map((row, index) => [
-    `**${index + 1}. <@${row.staffUserId}>**`,
-    `Rating: ${row.averageStars}/5`,
-    `Reviews: ${row.ratingsCount}`,
-    `Meter: ${getStarDisplay(row.averageStars)}`
-  ].join('\n')).join('\n\n');
-
-  return [
-    {
-      type: 17,
-      components: [
-        {
-          type: 10,
-          content: `# Staff Rating Leaderboard\n\n${content}`
-        }
-      ]
-    }
-  ];
-}
-
 function buildMemeAutopostControlEmbed(config, stats = []) {
   const latest = stats.slice(0, 5).map((row) => {
     const when = row.fetched_at ? new Date(row.fetched_at).toLocaleString() : 'unknown time';
@@ -483,58 +456,6 @@ export default {
   name: 'community',
   configSchema: COMMUNITY_SCHEMA,
   commands: [
-    {
-      name: 'staffrate',
-      description: 'Rate a staff member',
-      options: [
-        { name: 'user', type: 6, description: 'Staff member to rate', required: true },
-        { name: 'rating', type: 4, description: 'Rating (1-5 stars)', required: true, min_value: 1, max_value: 5 },
-        { name: 'comment', type: 3, description: 'Optional comment', required: false }
-      ],
-      async execute(interaction, { services }) {
-        const user = interaction.options.getUser('user');
-        const stars = interaction.options.getInteger('rating');
-        const comment = interaction.options.getString('comment') || 'No comment provided';
-
-        await services.communityService.addStaffRating(
-          interaction.guildId,
-          user.id,
-          interaction.user.id,
-          stars,
-          comment
-        );
-
-        await interaction.editReply({
-          embeds: [
-            buildEmbed(
-              'Staff Rating Submitted',
-              `${getStarDisplay(stars)}\n\nStaff: <@${user.id}>\nComment: ${comment}`,
-              0xfee75c
-            )
-          ]
-        });
-      }
-    },
-    {
-      name: 'staffleaderboard',
-      description: 'Show staff rating leaderboard',
-      defer: false,
-      options: [],
-      async execute(interaction, { services }) {
-        const rows = await services.communityService.getStaffLeaderboard(interaction.guildId, 10);
-
-        if (rows.length === 0) {
-          await interaction.reply({ content: 'No staff ratings yet.', ephemeral: true });
-          return;
-        }
-
-        await interaction.reply({
-          flags: MessageFlags.IsComponentsV2,
-          components: buildStaffLeaderboardComponents(rows),
-          allowedMentions: { parse: [] }
-        });
-      }
-    },
     {
       name: 'randomizedrolecolor',
       description: 'Enable or disable randomized role color rotation',

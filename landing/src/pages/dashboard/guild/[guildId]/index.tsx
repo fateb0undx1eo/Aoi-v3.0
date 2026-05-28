@@ -292,6 +292,7 @@ export default function GuildOverviewPage() {
     () =>
       modules
         .filter((module) => module.enabled !== false)
+        .filter((module) => module.name.toLowerCase() !== "tickets")
         .map((module) => ({
           ...module,
           meta:

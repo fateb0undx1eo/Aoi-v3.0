@@ -47,6 +47,10 @@ export class ConfigService {
     return upsertRows('command_configs', payload, 'guild_id,command_name');
   }
 
+  async upsertLogsConfig(payload) {
+    return upsertRows('logs_config', payload, 'guild_id,event_name');
+  }
+
   // ============================================
   // UNIFIED CONFIG SYSTEM (guild_configs_v2)
   // ============================================

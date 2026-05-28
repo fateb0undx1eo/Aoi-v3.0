@@ -62,7 +62,9 @@ export default function GuildModulePage() {
   const currentModule = useMemo(
     () =>
       modules.find(
-        (item) => slugify(item.name) === String(moduleSlug || "").trim().toLowerCase()
+        (item) =>
+          slugify(item.name) !== "tickets" &&
+          slugify(item.name) === String(moduleSlug || "").trim().toLowerCase()
       ),
     [moduleSlug, modules]
   );

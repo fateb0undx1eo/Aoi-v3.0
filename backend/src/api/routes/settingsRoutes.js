@@ -10,7 +10,8 @@ export function createSettingsRoutes({ authService, configService, configCache, 
   router.get('/:guildId', async (req, res, next) => {
     try {
       const settings = await settingsService.getGuildSettings(req.params.guildId);
-      res.status(200).json({ settings });
+      const logs = await configService.getLogsConfig(req.params.guildId).catch(() => []);
+      res.status(200).json({ settings: { ...settings, logs } });
     } catch (error) {
       next(error);
     }
@@ -18,7 +19,12 @@ export function createSettingsRoutes({ authService, configService, configCache, 
 
   router.put('/:guildId/prefix', async (req, res, next) => {
     try {
-      await settingsService.setPrefix(req.params.guildId, req.body.prefix ?? '!');
+      const prefix = String(req.body.prefix ?? '!').trim();
+      if (!prefix || prefix.length > 8) {
+        res.status(400).json({ error: 'invalid_prefix' });
+        return;
+      }
+      await settingsService.setPrefix(req.params.guildId, prefix);
       res.status(200).json({ ok: true });
     } catch (error) {
       next(error);
@@ -38,6 +44,29 @@ export function createSettingsRoutes({ authService, configService, configCache, 
     try {
       await settingsService.setDashboardRoles(req.params.guildId, req.body.roleIds ?? []);
       await configCache.refreshGuild(req.params.guildId);
+      res.status(200).json({ ok: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.put('/:guildId/error-logs', async (req, res, next) => {
+    try {
+      const guildId = req.params.guildId;
+      const channelId = String(req.body.channelId ?? '').trim();
+      const enabled = Boolean(req.body.enabled);
+      if (enabled && !channelId) {
+        res.status(400).json({ error: 'missing_error_log_channel' });
+        return;
+      }
+
+      await configService.upsertLogsConfig({
+        guild_id: guildId,
+        event_name: 'error',
+        channel_id: channelId || null,
+        enabled
+      });
+      await configCache.refreshGuild(guildId);
       res.status(200).json({ ok: true });
     } catch (error) {
       next(error);

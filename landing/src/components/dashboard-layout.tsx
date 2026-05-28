@@ -111,6 +111,7 @@ export function DashboardLayout({
     () =>
       modules
         .filter((item) => item.enabled !== false)
+        .filter((item) => slugify(item.name) !== "tickets")
         .map((item) => ({
           key: slugify(item.name),
           label: item.display_name || item.name,
