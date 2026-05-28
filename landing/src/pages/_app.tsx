@@ -2,6 +2,7 @@ import type { AppProps } from "next/app";
 import { useEffect, useState } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PageLoader } from "@/components/page-loader";
+import { appThemes } from "@/lib/themes";
 import "../styles/globals.css";
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -16,7 +17,7 @@ export default function App({ Component, pageProps }: AppProps) {
   }, []);
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem themes={[...appThemes]}>
       <PageLoader active={loading} />
       <Component {...pageProps} />
     </ThemeProvider>

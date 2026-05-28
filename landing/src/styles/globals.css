@@ -71,6 +71,37 @@
     --dashboard-accent: 358 72% 44%;
   }
 
+  .atomic {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 0%;
+    --card-foreground: 0 0% 100%;
+    --border: 0 0% 100%;
+    --input: 0 0% 100%;
+    --ring: 0 0% 100%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 0%;
+    --muted-foreground: 0 0% 100%;
+    --hero-blue: 0 0% 100%;
+    --hero-pink: 0 0% 100%;
+    --hero-red: 0 0% 100%;
+    --section-a: 0 0% 0%;
+    --section-b: 0 0% 0%;
+    --section-c: 0 0% 0%;
+    --section-d: 0 0% 0%;
+    --chart-a: 0 0% 100%;
+    --chart-b: 0 0% 100%;
+    --card-solid: 0 0% 0%;
+    --dashboard-bg-a: 0 0% 0%;
+    --dashboard-bg-b: 0 0% 0%;
+    --dashboard-bg-c: 0 0% 0%;
+    --dashboard-panel: 0 0% 0%;
+    --dashboard-panel-soft: 0 0% 0%;
+    --dashboard-stroke: 0 0% 100%;
+    --dashboard-shadow: 0 0% 0%;
+    --dashboard-accent: 0 0% 100%;
+  }
+
   * {
     @apply box-border border-border;
   }
@@ -91,6 +122,10 @@
       background-color 520ms ease,
       background-image 520ms ease,
       color 520ms ease;
+  }
+
+  .atomic body {
+    background-image: none;
   }
 
   h1,
@@ -959,6 +994,111 @@
     transition:
       background 520ms ease,
       color 520ms ease;
+  }
+
+  .atomic *,
+  .atomic *::before,
+  .atomic *::after {
+    background-image: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .atomic body,
+  .atomic [class*="text-"],
+  .atomic .text-primary,
+  .atomic .text-muted-foreground,
+  .atomic .text-foreground,
+  .atomic .text-card-foreground {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  .atomic *,
+  .atomic *::before,
+  .atomic *::after {
+    border-color: hsl(var(--border) / 0.72) !important;
+  }
+
+  .atomic .dashboard-canvas,
+  .atomic .dashboard-panel,
+  .atomic .dashboard-panel-soft,
+  .atomic .dashboard-chip,
+  .atomic .glass-nav,
+  .atomic .lux-card,
+  .atomic .lux-surface,
+  .atomic .premium-graph,
+  .atomic .dashboard-mock,
+  .atomic .theme-surface,
+  .atomic .boneyard-shimmer,
+  .atomic .aoi-brand-shell,
+  .atomic .premium-button-primary,
+  .atomic .premium-button-secondary {
+    background: hsl(var(--background)) !important;
+  }
+
+  .atomic .hero-mesh,
+  .atomic .hero-grid,
+  .atomic .hero-orb,
+  .atomic .hero-spotlight,
+  .atomic .landing-noise,
+  .atomic .section-aura,
+  .atomic .aoi-brand-glow,
+  .atomic .dashboard-constellation,
+  .atomic .dashboard-canvas > .pointer-events-none,
+  .atomic .dashboard-scanline,
+  .atomic .button-ripple,
+  .atomic .pulse-dot,
+  .atomic .nav-status-dot,
+  .atomic .aoi-grid-shell::before,
+  .atomic .aoi-grid-shell::after,
+  .atomic .aoi-panel-lines::before,
+  .atomic .aoi-panel-lines::after,
+  .atomic .dashboard-constellation::before,
+  .atomic .dashboard-constellation::after,
+  .atomic .dashboard-panel-lift::before,
+  .atomic .dashboard-panel-lift::after,
+  .atomic .interactive-card::before,
+  .atomic .interactive-card::after,
+  .atomic .premium-button::before,
+  .atomic .premium-graph::before,
+  .atomic .dashboard-mock::before,
+  .atomic .nav-status-dot::after {
+    display: none !important;
+  }
+
+  .atomic .aoi-brand-core,
+  .atomic .aoi-brand-core-mark,
+  .atomic .aoi-brand-node {
+    background: hsl(var(--foreground)) !important;
+  }
+
+  .atomic .aoi-brand-ring,
+  .atomic .aoi-brand-slice {
+    border-color: hsl(var(--foreground)) !important;
+  }
+
+  .atomic .premium-bar {
+    background: hsl(var(--foreground)) !important;
+  }
+
+  .atomic input,
+  .atomic textarea,
+  .atomic select,
+  .atomic button,
+  .atomic [role="button"],
+  .atomic [role="tab"],
+  .atomic [role="combobox"],
+  .atomic [data-radix-select-trigger] {
+    background-color: hsl(var(--background)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  .atomic button:hover,
+  .atomic a:hover {
+    background-color: hsl(var(--foreground) / 0.1) !important;
+    color: hsl(var(--foreground)) !important;
   }
 }
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import {
+  Atom,
   Gamepad2,
   LayoutDashboard,
   Medal,
@@ -19,6 +20,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 import type { ReactNode } from "react";
 import { BrandMark } from "@/components/brand-mark";
+import { getActiveTheme, getNextTheme, getThemeLabel } from "@/lib/themes";
 
 type ModuleItem = {
   name: string;
@@ -64,7 +66,7 @@ export function DashboardLayout({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const { theme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
 
   useEffect(() => {
     setMounted(true);
@@ -127,6 +129,9 @@ export function DashboardLayout({
   );
 
   const hasModules = moduleLinks.length > 0;
+  const activeTheme = mounted ? getActiveTheme(theme, resolvedTheme) : "light";
+  const nextTheme = getNextTheme(activeTheme);
+  const ThemeIcon = activeTheme === "atomic" ? Atom : activeTheme === "dark" ? Moon : Sun;
 
   return (
     <div className="dashboard-canvas min-h-screen text-foreground">
@@ -176,16 +181,17 @@ export function DashboardLayout({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              onClick={() => setTheme(nextTheme)}
               className="dashboard-chip theme-animate inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm"
-              aria-label="Toggle theme"
+              aria-label={`Switch to ${getThemeLabel(nextTheme)} mode`}
+              title={`${getThemeLabel(activeTheme)} theme`}
             >
               {mounted ? (
-                theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />
+                <ThemeIcon className="h-4 w-4" />
               ) : (
                 <span className="h-4 w-4" />
               )}
-              <span className="hidden sm:inline">{mounted ? (theme === "dark" ? "Light" : "Dark") : ""}</span>
+              <span className="hidden sm:inline">{mounted ? getThemeLabel(activeTheme) : ""}</span>
             </button>
             <Link
               href="/api/auth/logout"
