@@ -291,7 +291,7 @@ async function main() {
     // ─────────────────────────────────────────────────────────────
     // 8. Setup Discord Client Ready Event
     // ─────────────────────────────────────────────────────────────
-    discordClient.once('ready', () => {
+    discordClient.once('clientReady', () => {
       logger.info(`✓ Discord Bot Ready! Logged in as ${discordClient.user.tag}`);
       logger.info(`  Serving ${discordClient.guilds.cache.size} guilds`);
       const getGuildIds = () => [...discordClient.guilds.cache.keys()];
