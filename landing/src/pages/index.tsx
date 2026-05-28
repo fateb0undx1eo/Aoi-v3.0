@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import {
   ArrowRight,
   BellRing,
@@ -20,8 +20,6 @@ import {
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { BrandMark } from "@/components/brand-mark";
 import { SiteNavbar } from "@/components/site-navbar";
-
-const heroWords = ["Moderation", "Automation", "Commands", "Embeds", "Utilities", "Analytics"];
 
 const heroStats = [
   { label: "Response stack", value: "24/7" },
@@ -147,45 +145,6 @@ function useReducedMotionPreference() {
   return reducedMotion;
 }
 
-function usePageScrollMetrics() {
-  const [metrics, setMetrics] = useState({ progress: 0, scrollY: 0 });
-
-  useEffect(() => {
-    let frame = 0;
-
-    const update = () => {
-      const height = document.documentElement.scrollHeight - window.innerHeight;
-      const scrollY = window.scrollY;
-      setMetrics({
-        progress: height > 0 ? Math.min(scrollY / height, 1) : 0,
-        scrollY,
-      });
-      frame = 0;
-    };
-
-    const onScroll = () => {
-      if (frame) {
-        return;
-      }
-      frame = window.requestAnimationFrame(update);
-    };
-
-    update();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-      if (frame) {
-        window.cancelAnimationFrame(frame);
-      }
-    };
-  }, []);
-
-  return metrics;
-}
-
 function Reveal({
   children,
   className,
@@ -212,39 +171,6 @@ function Reveal({
   );
 }
 
-function MorphWord() {
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setIndex((current) => (current + 1) % heroWords.length);
-    }, 5400);
-
-    return () => {
-      clearInterval(timer);
-    };
-  }, []);
-
-  const word = heroWords[index];
-
-  return (
-    <span className="relative inline-flex min-w-[14ch] justify-center px-2">
-      <AnimatePresence mode="wait">
-        <motion.span
-          key={word}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
-          className="inline-block text-primary"
-        >
-          {word}
-        </motion.span>
-      </AnimatePresence>
-    </span>
-  );
-}
-
 function MagneticButton({
   href,
   children,
@@ -254,8 +180,6 @@ function MagneticButton({
   children: ReactNode;
   variant?: "primary" | "secondary";
 }) {
-  const reducedMotion = useReducedMotionPreference();
-
   return (
     <Link
       href={href}
@@ -489,6 +413,38 @@ function ReviewCard({
   );
 }
 
+function AoiCatMascot({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 220 170"
+      role="img"
+      aria-label="AOI cat mascot"
+      className={`cat-mascot ${className}`}
+    >
+      <path
+        className="cat-tail"
+        d="M160 107c29-4 35-29 21-42-9-8-22-6-26 5-3 8 1 17 10 18 7 1 12-3 13-9"
+      />
+      <path
+        className="cat-body"
+        d="M57 134c-9-19-6-45 8-61 12-14 32-20 51-16 23 5 38 21 43 44 3 14 1 26-7 36-12 14-35 19-58 17-18-1-31-7-37-20Z"
+      />
+      <path className="cat-ear" d="M69 75 73 34l31 27Z" />
+      <path className="cat-ear" d="M130 60 163 34l-2 43Z" />
+      <path className="cat-face" d="M72 82c14-12 51-17 73 0 11 9 13 28 5 42-10 17-29 22-49 21-22-1-38-9-43-25-4-13 2-29 14-38Z" />
+      <ellipse className="cat-eye" cx="91" cy="102" rx="11" ry="13" />
+      <ellipse className="cat-eye" cx="128" cy="102" rx="11" ry="13" />
+      <ellipse className="cat-pupil" cx="94" cy="103" rx="4" ry="8" />
+      <ellipse className="cat-pupil" cx="125" cy="103" rx="4" ry="8" />
+      <path className="cat-nose" d="M108 116h11l-6 6Z" />
+      <path className="cat-mouth" d="M113 122c-4 6-10 7-15 3m15-3c4 6 10 7 15 3" />
+      <path className="cat-whisker" d="M82 119 50 111m32 17-35 2m90-11 32-8m-32 17 35 2" />
+      <path className="cat-collar" d="M73 137c24 13 56 13 78-1" />
+      <circle className="cat-tag" cx="113" cy="144" r="7" />
+    </svg>
+  );
+}
+
 export default function LandingPage() {
   const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "/dashboard";
   const reducedMotion = useReducedMotionPreference();
@@ -500,22 +456,19 @@ export default function LandingPage() {
       <SiteNavbar />
 
       <main id="top" className="relative z-10">
-        <section className="aoi-grid-shell relative isolate overflow-hidden bg-white px-4 pb-14 pt-8 text-slate-950 sm:px-6 lg:px-8 dark:bg-background dark:text-foreground">
+        <section className="public-section aoi-grid-shell relative isolate overflow-hidden px-4 pb-14 pt-8 text-foreground sm:px-6 lg:px-8">
           <div className="relative mx-auto grid min-h-[calc(100svh-9rem)] max-w-7xl items-center gap-8 px-1 pb-10 pt-6 sm:px-0 lg:grid-cols-[0.9fr_1.1fr] lg:gap-10 lg:pt-8">
             <Reveal className="relative">
               <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
                 <Sparkles className="h-4 w-4 text-primary" />
-                AOI guardian platform
+                Better-for-your-server Discord bot
               </div>
-              <h1 className="mt-5 max-w-2xl text-4xl leading-[1.04] tracking-normal sm:text-5xl lg:text-[3.75rem] xl:text-[4.1rem]">
-                The premium control center for
-                <span className="mt-4 block">
-                  <MorphWord />
-                </span>
-                <span className="mt-4 block text-foreground/52">built to run serious communities cleanly.</span>
+              <h1 className="mt-5 max-w-2xl text-4xl leading-[1.02] tracking-normal sm:text-5xl lg:text-[3.9rem] xl:text-[4.45rem]">
+                Fuel your Discord
+                <span className="block text-primary">community</span>
               </h1>
               <p className="mt-5 max-w-lg text-sm leading-7 text-foreground/82 sm:text-base">
-                Replace disconnected moderation, utility, dashboard, and community stacks with one system that feels premium because it is structured properly.
+                Clean moderation, fast automations, slash commands, and server tools in one sharp AOI control stack.
               </p>
 
               <div className="mt-8 flex flex-col gap-4 sm:flex-row">
@@ -524,7 +477,7 @@ export default function LandingPage() {
                   <ArrowRight className="h-4 w-4" />
                 </MagneticButton>
                 <MagneticButton href="/#modules" variant="secondary">
-                  Explore Modules
+                  Explore Bot Modules
                   <ChevronRight className="h-4 w-4" />
                 </MagneticButton>
               </div>
@@ -547,6 +500,7 @@ export default function LandingPage() {
             </Reveal>
 
             <div className="relative">
+              <AoiCatMascot className="absolute -right-3 -top-12 z-30 w-36 rotate-3 sm:w-44 lg:-right-8 lg:-top-16 lg:w-52" />
               <div className="floating-chip absolute -left-5 top-10 z-20 hidden rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-foreground/84 md:block">
                 Staff tools synced
               </div>
@@ -565,7 +519,7 @@ export default function LandingPage() {
 
         <SectionDivider />
 
-        <section id="modules" className="bg-[#f4f8f3] py-14 text-slate-950 dark:bg-[#111113] dark:text-foreground sm:py-16">
+        <section id="modules" className="public-section py-14 text-foreground sm:py-16">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
             <Reveal className="lg:sticky lg:top-28">
@@ -617,10 +571,10 @@ export default function LandingPage() {
 
         <SectionDivider />
 
-        <section id="workflow" className="bg-[#111113] py-14 text-white sm:py-16">
+        <section id="workflow" className="public-section py-14 text-foreground sm:py-16">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <Reveal className="text-center">
-            <div className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white px-4 py-2 text-xs uppercase tracking-[0.22em] text-slate-600">
+            <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
               <Zap className="h-4 w-4 text-primary" />
               Command-first workflow
             </div>
@@ -628,7 +582,7 @@ export default function LandingPage() {
               Setup looks premium because the
               <span className="text-primary"> flow is frictionless.</span>
             </h2>
-            <p className="mx-auto mt-5 max-w-3xl text-sm leading-7 text-white/74 sm:text-base">
+            <p className="mx-auto mt-5 max-w-3xl text-sm leading-7 text-foreground/74 sm:text-base">
               The page now sells an operational system, not isolated features. Commands start the action, the dashboard refines the behavior, and the server experience stays polished.
             </p>
           </Reveal>
@@ -721,7 +675,7 @@ export default function LandingPage() {
 
         <SectionDivider />
 
-        <section className="bg-[#fff7df] py-8 text-slate-950 dark:bg-[#18130c] dark:text-foreground">
+        <section className="public-section py-8 text-foreground">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="marquee-shell rounded-xl border border-border bg-card px-8 py-4">
             <div className="animate-marquee-horizontal flex w-[200%] items-center gap-6 whitespace-nowrap">
@@ -740,7 +694,7 @@ export default function LandingPage() {
 
         <SectionDivider />
 
-        <section id="dashboard-preview" className="bg-white py-14 text-slate-950 dark:bg-background dark:text-foreground sm:py-16">
+        <section id="dashboard-preview" className="public-section py-14 text-foreground sm:py-16">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <Reveal className="text-center">
             <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
@@ -781,7 +735,7 @@ export default function LandingPage() {
 
         <SectionDivider />
 
-        <section id="reviews" className="bg-[#eef5ff] py-14 text-slate-950 dark:bg-[#101722] dark:text-foreground sm:py-16">
+        <section id="reviews" className="public-section py-14 text-foreground sm:py-16">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <Reveal className="text-center">
             <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
@@ -818,7 +772,7 @@ export default function LandingPage() {
 
         <SectionDivider />
 
-        <section className="bg-[#111113] px-4 py-14 text-white sm:px-6 sm:py-16 lg:px-8">
+        <section className="public-section px-4 py-14 text-foreground sm:px-6 sm:py-16 lg:px-8">
           <div className="mx-auto max-w-6xl">
           <InteractiveSurface className="grid overflow-hidden p-0 lg:grid-cols-[1.02fr_0.98fr]">
             <div className="relative z-10 p-8 sm:p-10 lg:p-12">

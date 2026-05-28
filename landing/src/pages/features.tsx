@@ -38,7 +38,7 @@ const groups = [
 
 export default function FeaturesPage() {
   return (
-    <div className="min-h-screen bg-[#f4f8f3] text-foreground dark:bg-background">
+    <div className="public-page min-h-screen text-foreground">
       <SiteNavbar showAnchors={false} />
       <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55 }}>
