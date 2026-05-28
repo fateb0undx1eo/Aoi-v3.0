@@ -1126,6 +1126,215 @@
       color 520ms ease;
   }
 
+  /* ===== CAT MASCOT STYLES ===== */
+  .footer-cat-container {
+    position: relative;
+    display: block;
+    overflow: visible;
+    width: 100%;
+    height: 100%;
+    pointer-events: auto;
+  }
+
+  .mouse-detector {
+    padding: 0;
+    cursor: pointer;
+    width: 100%;
+  }
+
+  .cat {
+    padding: 0;
+    overflow: visible;
+    position: relative;
+    transform: scale(0.85);
+    transition: transform 0.3s ease;
+  }
+
+  .footer-cat-container:hover .cat {
+    transform: scale(0.9);
+  }
+
+  .footer-cat-container:active .cat {
+    transform: scale(0.82);
+  }
+
+  /* Sleep Zzz animation - Fixed alignment */
+  .sleep-symbol {
+    position: absolute;
+    top: -15px;
+    right: -10px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    z-index: 30;
+    animation: floatZzz 2s ease-in-out infinite;
+    font-weight: 600;
+    color: #888;
+    font-family: 'Nunito', 'Inter', sans-serif;
+    margin-left: 0;
+    margin-bottom: 0;
+  }
+
+  .sleep-symbol span {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: #8b8bb5;
+    line-height: 1;
+    text-shadow: 0 0 8px rgba(139, 139, 181, 0.3);
+    opacity: 1;
+    transform: scale(1);
+    position: relative;
+  }
+
+  .sleep-symbol span:nth-child(1) {
+    font-size: 14px;
+    opacity: 1;
+    animation-delay: 0s;
+  }
+
+  .sleep-symbol span:nth-child(2) {
+    font-size: 11px;
+    opacity: 0.8;
+    margin-top: -1px;
+    animation-delay: 1s;
+    margin-left: 2px;
+  }
+
+  .sleep-symbol span:nth-child(3) {
+    font-size: 8px;
+    opacity: 0.6;
+    margin-top: -2px;
+    animation-delay: 2s;
+    margin-left: 4px;
+  }
+
+  .thecat {
+    z-index: 20;
+    position: relative;
+    pointer-events: auto;
+    overflow: visible;
+  }
+
+  .thecat svg {
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+  }
+
+  /* Tail visibility */
+  #tail {
+    visibility: visible;
+  }
+
+  #longtail {
+    visibility: hidden;
+  }
+
+  /* Wake up on hover */
+  .mouse-detector:hover #lefteyelid {
+    visibility: hidden;
+  }
+
+  .mouse-detector:hover #righteyelid {
+    visibility: hidden;
+  }
+
+  .mouse-detector:hover .sleep-symbol {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .thecat #eyesdown {
+    visibility: hidden;
+  }
+
+  /* When mouse is over the cat area, show open eyes */
+  .mouse-detector:hover #eyesdown {
+    visibility: visible;
+  }
+
+  /* Long tail on interaction */
+  .mouse-detector:hover #tail {
+    visibility: hidden;
+  }
+
+  .mouse-detector:hover #longtail {
+    visibility: visible;
+  }
+
+  /* Make the command sync card allow overflow */
+  .lux-surface.rounded-xl.px-4.py-4.relative.overflow-visible {
+    overflow: visible !important;
+    z-index: 10;
+  }
+
+  /* Animations */
+  @keyframes floatZzz {
+    0%, 100% {
+      transform: translateY(0) translateX(0);
+    }
+    25% {
+      transform: translateY(-3px) translateX(2px);
+    }
+    75% {
+      transform: translateY(-1px) translateX(4px);
+    }
+  }
+
+  @keyframes sleep {
+    0% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: translate(-5px, -35px) scale(1.2);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-60px) scale(1.5);
+    }
+  }
+
+  /* Mobile responsiveness for cat */
+  @media (max-width: 640px) {
+    .footer-cat-container .cat {
+      transform: scale(0.7);
+    }
+    
+    .sleep-symbol {
+      top: -12px;
+      right: -8px;
+    }
+    
+    .sleep-symbol span:nth-child(1) {
+      font-size: 12px;
+    }
+    
+    .sleep-symbol span:nth-child(2) {
+      font-size: 9px;
+    }
+    
+    .sleep-symbol span:nth-child(3) {
+      font-size: 7px;
+    }
+  }
+
+  /* Respect reduced motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    .sleep-symbol {
+      animation: none;
+    }
+    
+    .footer-cat-container .cat {
+      transition: none;
+    }
+    
+    .footer-cat-container:hover .sleep-symbol {
+      transition: none;
+    }
+  }
+
+  /* Atomic theme overrides */
   .atomic *,
   .atomic *::before,
   .atomic *::after {
@@ -1465,13 +1674,16 @@
   .dashboard-constellation::before,
   .dashboard-constellation::after,
   .premium-button::before,
-  .button-ripple {
+  .button-ripple,
+  .sleep-symbol,
+  .floatZzz {
     animation-duration: 1ms;
     animation-iteration-count: 1;
   }
 
   .interactive-card,
-  .premium-button {
+  .premium-button,
+  .footer-cat-container .cat {
     transition-duration: 1ms;
   }
 }
@@ -1513,115 +1725,4 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--primary) / 0.8);
-}
-
-/* Interactive Cat */
-.footer-cat-container {
-  position: relative;
-  display: block;
-  overflow: visible;
-}
-
-.mouse-detector {
-  padding: 0;
-  cursor: pointer;
-  width: 100%;
-}
-
-.cat {
-  padding: 0;
-  overflow: visible;
-}
-
-/* Sleep Zzz animation */
-.sleep-symbol {
-  margin-left: 260px;
-  font-weight: 600;
-  margin-bottom: -40px;
-  color: #888;
-  font-family: 'Nunito', 'Inter', sans-serif;
-}
-
-.sleep-symbol span {
-  position: relative;
-  display: inline-block;
-  opacity: 1;
-  transform: scale(1);
-  animation: sleep 4s ease-in-out infinite;
-}
-
-.sleep-symbol span:nth-child(1) {
-  animation-delay: 0s;
-}
-
-.sleep-symbol span:nth-child(2) {
-  animation-delay: 1s;
-  margin-left: -10px;
-}
-
-.sleep-symbol span:nth-child(3) {
-  animation-delay: 2s;
-  margin-left: -10px;
-}
-
-.thecat {
-  z-index: 20;
-  position: relative;
-  pointer-events: auto;
-  overflow: visible;
-}
-
-/* Eye animations */
-#tail {
-  visibility: visible;
-}
-
-#longtail {
-  visibility: hidden;
-}
-
-/* Wake up on hover */
-.mouse-detector:hover #lefteyelid {
-  visibility: hidden;
-}
-
-.mouse-detector:hover #righteyelid {
-  visibility: hidden;
-}
-
-.mouse-detector:hover .sleep-symbol {
-  visibility: hidden;
-}
-
-.thecat #eyesdown {
-  visibility: hidden;
-}
-
-/* When mouse is over the cat area, show open eyes */
-.mouse-detector:hover #eyesdown {
-  visibility: visible;
-}
-
-/* Long tail on interaction */
-.mouse-detector:hover #tail {
-  visibility: hidden;
-}
-
-.mouse-detector:hover #longtail {
-  visibility: visible;
-}
-
-@keyframes sleep {
-  0% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  50% {
-    opacity: 0.5;
-    transform: translate(-5px, -35px) scale(1.2);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-60px) scale(1.5);
-  }
 }
