@@ -86,7 +86,7 @@ export function SiteNavbar({ showAnchors = true }: SiteNavbarProps) {
           <AnimatedThemeToggle />
           <Link
             href={dashboardUrl}
-            className="premium-button premium-button-secondary inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold sm:px-4"
+            className="nav-dashboard-button inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold sm:px-4"
           >
             Dashboard
           </Link>

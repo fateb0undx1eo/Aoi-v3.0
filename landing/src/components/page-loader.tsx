@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "motion/react";
+﻿import { AnimatePresence, motion } from "motion/react";
 
 type PageLoaderProps = {
   active: boolean;
@@ -9,18 +9,12 @@ export function PageLoader({ active }: PageLoaderProps) {
     <AnimatePresence>
       {active ? (
         <motion.div
-          className="dashboard-canvas fixed inset-0 z-[100] flex items-center justify-center"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-background text-foreground"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         >
-          <div className="dashboard-panel relative flex items-center gap-4 rounded-[28px] px-6 py-5">
-            <motion.div
-              className="absolute -inset-10 rounded-full bg-primary/10 blur-3xl"
-              animate={{ opacity: [0.14, 0.32, 0.14], scale: [0.95, 1.04, 0.95] }}
-              transition={{ duration: 1.8, repeat: 1, ease: "easeInOut" }}
-            />
-
+          <div className="relative flex items-center gap-4 rounded-2xl border border-border bg-card px-6 py-5">
             <motion.div
               className="relative h-16 w-16"
               initial={{ rotate: -22 }}
@@ -28,7 +22,7 @@ export function PageLoader({ active }: PageLoaderProps) {
               transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
             >
               <motion.div
-                className="absolute inset-0 rounded-full border-[2.5px] border-primary/85"
+                className="absolute inset-0 rounded-full border-[2.5px] border-foreground/70"
                 initial={{ scale: 0.35, opacity: 0.95 }}
                 animate={{ scale: [0.35, 1, 0.7], opacity: [0.95, 0.6, 0] }}
                 transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
@@ -67,12 +61,12 @@ export function PageLoader({ active }: PageLoaderProps) {
 
             <motion.div
               className="min-w-0"
-              initial={{ opacity: 0, x: 8, filter: "blur(7px)" }}
-              animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+              initial={{ opacity: 0, x: 8 }}
+              animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.95, duration: 0.5 }}
             >
               <div className="text-[10px] uppercase tracking-[0.28em] text-muted-foreground">Discord Bot</div>
-              <div className="card-heading mt-1 text-2xl tracking-tight text-primary">Dashboard</div>
+              <div className="card-heading mt-1 text-2xl tracking-tight text-foreground">Dashboard</div>
             </motion.div>
           </div>
         </motion.div>

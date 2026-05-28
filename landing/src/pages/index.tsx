@@ -416,31 +416,64 @@ function ReviewCard({
 function AoiCatMascot({ className = "" }: { className?: string }) {
   return (
     <svg
-      viewBox="0 0 220 170"
+      viewBox="0 0 190 150"
       role="img"
       aria-label="AOI cat mascot"
       className={`cat-mascot ${className}`}
     >
-      <path
-        className="cat-tail"
-        d="M160 107c29-4 35-29 21-42-9-8-22-6-26 5-3 8 1 17 10 18 7 1 12-3 13-9"
-      />
-      <path
-        className="cat-body"
-        d="M57 134c-9-19-6-45 8-61 12-14 32-20 51-16 23 5 38 21 43 44 3 14 1 26-7 36-12 14-35 19-58 17-18-1-31-7-37-20Z"
-      />
-      <path className="cat-ear" d="M69 75 73 34l31 27Z" />
-      <path className="cat-ear" d="M130 60 163 34l-2 43Z" />
-      <path className="cat-face" d="M72 82c14-12 51-17 73 0 11 9 13 28 5 42-10 17-29 22-49 21-22-1-38-9-43-25-4-13 2-29 14-38Z" />
-      <ellipse className="cat-eye" cx="91" cy="102" rx="11" ry="13" />
-      <ellipse className="cat-eye" cx="128" cy="102" rx="11" ry="13" />
-      <ellipse className="cat-pupil" cx="94" cy="103" rx="4" ry="8" />
-      <ellipse className="cat-pupil" cx="125" cy="103" rx="4" ry="8" />
-      <path className="cat-nose" d="M108 116h11l-6 6Z" />
-      <path className="cat-mouth" d="M113 122c-4 6-10 7-15 3m15-3c4 6 10 7 15 3" />
-      <path className="cat-whisker" d="M82 119 50 111m32 17-35 2m90-11 32-8m-32 17 35 2" />
-      <path className="cat-collar" d="M73 137c24 13 56 13 78-1" />
-      <circle className="cat-tag" cx="113" cy="144" r="7" />
+      {/* Body */}
+      <path id="path1" className="cat-body" d="M50 105c0-25 20-45 45-45s45 20 45 45c0 20-10 28-45 28s-45-8-45-28Z" />
+      
+      {/* Ears */}
+      <path id="path6" className="cat-ear" d="M60 70 68 28l28 32Z" />
+      <path id="path7" className="cat-ear" d="M100 68 122 25l12 40Z" />
+      
+      {/* Whiskers */}
+      <path id="path8" className="cat-whisker" d="M72 90 35 85m40 15-40 3m68-10 38-5m-38 15 38 2" />
+      
+      {/* Tail */}
+      <path id="tail" className="cat-tail" d="M130 95c18-3 28-14 24-26-3-9-14-12-22-6-5 4-5 13 1 17 5 3 12 1 14-5" />
+      
+      {/* Head */}
+      <path id="head" className="cat-head" d="M42 80c0-24 20-42 53-42s53 18 53 42c0 28-20 44-53 44s-53-7-53-44Z" />
+      
+      {/* Muzzle/Face */}
+      <path id="muzzle" className="cat-muzzle" d="M78 92c6-7 28-7 35 0 6 6 2 18-17 18s-24-11-18-18Z" />
+      
+      {/* Eyes (with eyelids) */}
+      <ellipse id="lefteyelid" className="cat-eye" cx="78" cy="75" rx="8" ry="12" />
+      <ellipse id="righteyelid" className="cat-eye" cx="112" cy="75" rx="8" ry="12" />
+      
+      {/* Pupils */}
+      <ellipse id="ellipse15" className="cat-pupil" cx="81" cy="76" rx="3" ry="7" />
+      <ellipse id="ellipse16" className="cat-pupil" cx="109" cy="76" rx="3" ry="7" />
+      
+      {/* Nose */}
+      <path id="nose" className="cat-nose" d="M91 96h10l-5 6Z" />
+      
+      {/* Mouth */}
+      <path id="mouth" className="cat-mouth" d="M97 103c-3 5-10 6-15 2m15-2c3 5 10 6 15 2" />
+      
+      {/* Collar */}
+      <path id="collar" className="cat-collar" d="M70 118c15 10 40 10 55 0" />
+      
+      {/* Tag */}
+      <circle id="tag" className="cat-tag" cx="95" cy="128" r="6" />
+    </svg>
+  );
+}
+
+function CommandSigil({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 220 220" role="img" aria-label="Command sigil" className={`command-sigil ${className}`}>
+      <rect className="sigil-tile" x="22" y="22" width="176" height="176" rx="44" />
+      <path className="sigil-ring" d="M110 44 176 110 110 176 44 110Z" />
+      <path className="sigil-ring sigil-ring-inner" d="M110 72 148 110 110 148 72 110Z" />
+      <path className="sigil-bolt" d="M118 63 83 117h30l-11 40 39-58h-31Z" />
+      <circle className="sigil-node" cx="110" cy="44" r="8" />
+      <circle className="sigil-node" cx="176" cy="110" r="8" />
+      <circle className="sigil-node" cx="110" cy="176" r="8" />
+      <circle className="sigil-node" cx="44" cy="110" r="8" />
     </svg>
   );
 }
@@ -499,21 +532,17 @@ export default function LandingPage() {
               </div>
             </Reveal>
 
-            <div className="relative">
-              <AoiCatMascot className="absolute -right-3 -top-12 z-30 w-36 rotate-3 sm:w-44 lg:-right-8 lg:-top-16 lg:w-52" />
-              <div className="floating-chip absolute -left-5 top-10 z-20 hidden rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-foreground/84 md:block">
-                Staff tools synced
+            <Reveal className="relative flex min-h-[22rem] items-center justify-center lg:min-h-[30rem]">
+              <div className="mascot-stage relative flex aspect-square w-full max-w-[26rem] items-center justify-center rounded-[2rem]">
+                <AoiCatMascot className="relative z-10 w-[84%]" />
+                <div className="absolute bottom-8 left-8 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground">
+                  /moderate
+                </div>
+                <div className="absolute right-8 top-9 rounded-full border border-border bg-card px-4 py-2 text-xs font-bold text-foreground">
+                  18+ modules
+                </div>
               </div>
-              <div
-                className="floating-chip absolute -right-4 bottom-8 z-20 hidden rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-primary md:block"
-                style={{ animationDelay: "-3s" }}
-              >
-                99.98% command uptime
-              </div>
-              <div className="relative">
-                <DashboardMock compact />
-              </div>
-            </div>
+            </Reveal>
           </div>
         </section>
 
@@ -632,14 +661,10 @@ export default function LandingPage() {
 
                   <div className="absolute inset-x-0 bottom-0 flex items-end gap-3 px-4 pb-10">
                     {workflowGraphBars.map((height, index) => (
-                      <motion.div
+                      <div
                         key={index}
                         className="premium-bar flex-1"
                         style={{ height: `${height}%` }}
-                        initial={reducedMotion ? false : { scaleY: 0, opacity: 0 }}
-                        whileInView={reducedMotion ? undefined : { scaleY: 1, opacity: 1 }}
-                        viewport={{ once: true, amount: 0.4 }}
-                        transition={{ duration: 0.7, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] }}
                       />
                     ))}
                   </div>
@@ -800,9 +825,9 @@ export default function LandingPage() {
 
             <div className="relative flex min-h-[20rem] items-center justify-center overflow-hidden p-10">
               <div className="relative z-10 flex flex-col items-center text-center">
-                <BrandMark large quiet />
+                <CommandSigil className="w-44 sm:w-56" />
                 <div className="mt-8 rounded-lg border border-border bg-background px-5 py-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                  AOI control stack
+                  Command control stack
                 </div>
               </div>
             </div>
