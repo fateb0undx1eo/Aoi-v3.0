@@ -1,10 +1,11 @@
 import { cn } from "@/lib/utils";
 
-export function BrandMark({ large }: { large?: boolean }) {
+export function BrandMark({ large, quiet }: { large?: boolean; quiet?: boolean }) {
   return (
     <div
       className={cn(
         "aoi-brand-shell relative isolate rounded-[34%]",
+        quiet && "aoi-brand-quiet",
         large ? "h-40 w-40" : "h-8 w-8"
       )}
     >

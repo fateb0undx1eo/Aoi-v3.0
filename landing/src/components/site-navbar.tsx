@@ -44,12 +44,11 @@ export function SiteNavbar({ showAnchors = true }: SiteNavbarProps) {
   return (
     <header className="sticky top-0 z-50 px-3 pt-3 sm:px-5">
       <nav
-        className={`glass-nav mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-[1.6rem] px-4 py-3 sm:px-5 ${isScrolled ? "is-scrolled" : ""}`}
+        className={`glass-nav mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-xl px-4 py-3 sm:px-5 ${isScrolled ? "is-scrolled" : ""}`}
       >
         <Link href="/" className="group flex min-w-0 items-center gap-3">
-          <div className="relative flex h-10 w-10 items-center justify-center rounded-2xl border border-border/65 bg-card/70 shadow-[0_16px_34px_-24px_hsl(var(--foreground)/0.35)] transition-transform duration-300 group-hover:scale-[1.04]">
-            <span className="nav-status-dot absolute right-1 top-1" />
-            <BrandMark />
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card">
+            <BrandMark quiet />
           </div>
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold tracking-[0.18em] text-foreground/68 uppercase">AOI</div>
@@ -67,12 +66,12 @@ export function SiteNavbar({ showAnchors = true }: SiteNavbarProps) {
 
         <div className="flex items-center gap-2 sm:gap-3">
           <details className="group relative">
-            <summary className="theme-animate flex cursor-pointer list-none items-center gap-2 rounded-2xl border border-border/75 bg-card/66 px-3 py-2 text-sm font-medium text-foreground/86 shadow-[0_16px_30px_-24px_hsl(var(--foreground)/0.34)] hover:border-primary/36">
+            <summary className="theme-animate flex cursor-pointer list-none items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground/86 hover:border-primary/45">
               <Sparkles className="h-4 w-4 text-primary" />
               <span className="hidden sm:inline">Pages</span>
               <ChevronDown className="h-4 w-4 transition-transform duration-300 group-open:rotate-180" />
             </summary>
-            <div className="theme-animate absolute right-0 mt-3 w-56 overflow-hidden rounded-2xl border border-border/75 bg-card/92 p-2 shadow-[0_26px_56px_-30px_hsl(var(--foreground)/0.34)] backdrop-blur-2xl">
+            <div className="theme-animate absolute right-0 mt-3 w-56 overflow-hidden rounded-xl border border-border bg-card p-2 shadow-sm">
               {pageLinks.map((page) => (
                 <Link
                   key={page.href}
@@ -87,7 +86,7 @@ export function SiteNavbar({ showAnchors = true }: SiteNavbarProps) {
           <AnimatedThemeToggle />
           <Link
             href={dashboardUrl}
-            className="premium-button premium-button-secondary inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-semibold sm:px-4"
+            className="premium-button premium-button-secondary inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold sm:px-4"
           >
             Dashboard
           </Link>

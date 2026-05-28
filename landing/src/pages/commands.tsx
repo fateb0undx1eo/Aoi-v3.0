@@ -23,9 +23,9 @@ const commandGroups = [
 
 export default function CommandsPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-white text-foreground dark:bg-background">
       <SiteNavbar showAnchors={false} />
-      <main className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
+      <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55 }}>
           <p className="subtext text-sm uppercase tracking-[0.24em] text-muted-foreground">Command Center</p>
           <h1 className="subpage-heading mt-4 text-4xl sm:text-5xl">Command map for your whole staff team.</h1>
@@ -42,12 +42,12 @@ export default function CommandsPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: false, amount: 0.25 }}
               transition={{ duration: 0.45, delay: index * 0.05 }}
-              className="rounded-2xl border border-white/15 bg-white/[0.04] p-5 backdrop-blur-xl"
+              className="rounded-xl border border-border bg-card p-5 shadow-none"
             >
               <h2 className="card-heading text-2xl">{group.category}</h2>
               <div className="mt-4 flex flex-wrap gap-2">
                 {group.commands.map((command) => (
-                  <span key={command} className="rounded-xl border border-white/15 bg-black/25 px-3 py-1 text-sm text-primary">
+                  <span key={command} className="rounded-lg border border-border bg-background px-3 py-1 text-sm text-primary">
                     {command}
                   </span>
                 ))}
@@ -57,7 +57,7 @@ export default function CommandsPage() {
         </section>
 
         <div className="mt-12">
-          <Link href="/" className="inline-flex items-center rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold">
+          <Link href="/" className="inline-flex items-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold">
             Back to Landing
           </Link>
         </div>
