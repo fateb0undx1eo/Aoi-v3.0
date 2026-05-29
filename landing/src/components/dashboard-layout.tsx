@@ -131,7 +131,7 @@ export function DashboardLayout({
   const hasModules = moduleLinks.length > 0;
   const activeTheme = mounted ? getActiveTheme(theme, resolvedTheme) : "light";
   const nextTheme = getNextTheme(activeTheme);
-  const ThemeIcon = activeTheme === "atomic" ? Atom : activeTheme === "dark" ? Moon : Sun;
+  const ThemeIcon = activeTheme === "dark" ? Moon : Sun;
 
   return (
     <div className="dashboard-canvas min-h-screen text-foreground">
