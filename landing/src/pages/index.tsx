@@ -52,34 +52,6 @@ const moduleCards = [
   { icon: Users, title: "Role Management", description: "Auto-assign roles, manage permissions, and set up role requirements based on member activity." },
 ];
 
-const workflowSteps = [
-  { tag: "/warn", title: "Staff actions stay structured", description: "Every moderation action starts from clear command surfaces with context-first flow." },
-  { tag: "case", title: "Message reports become real cases", description: "Staff can turn a reported message into a clean warn, timeout, or kick flow from Discord." },
-  { tag: "/channel all", title: "Operations stay coordinated", description: "Broadcast fast when you need the whole server aligned, with delete timing controlled from the dashboard." },
-  { tag: "/waifu", title: "Community features stay fun", description: "Member-facing drops and utility commands live beside serious operations instead of in a separate stack." },
-];
-
-const showcaseCards = [
-  { icon: Bot, title: "Unified command routing", summary: "One stack across moderation, fun, tools, and community." },
-  { icon: Gauge, title: "Live server control", summary: "Premium dashboard editing with clean state and real module boundaries." },
-  { icon: Layers3, title: "Design consistency", summary: "Commands, dashboard, and announcement surfaces all feel like one platform." },
-];
-
-const chartBars = [34, 52, 48, 64, 58, 44, 72, 82, 76, 88, 62, 70];
-const workflowGraphBars = [52, 64, 58, 84, 76, 68];
-
-const dashboardSignals = [
-  { label: "Automod policy", state: "Active", accent: "text-emerald-400" },
-  { label: "Community queue", state: "Stable", accent: "text-foreground/76" },
-  { label: "Broadcast checks", state: "Ready", accent: "text-primary" },
-];
-
-const featureShowcase = [
-  { icon: ShieldCheck, title: "Enterprise-grade moderation", description: "Anti-raid systems, automated filters, and escalation paths that protect communities around the clock.", stat: "99.9%", statLabel: "Uptime" },
-  { icon: Zap, title: "Lightning-fast automation", description: "Workflow triggers, auto-roles, and scheduled commands that stay responsive without losing clarity.", stat: "<120ms", statLabel: "Response" },
-  { icon: Users, title: "Community engagement", description: "Announcements, waifu drops, member tools, and premium server features that keep activity healthy.", stat: "18+", statLabel: "Modules" },
-];
-
 const trustedReviews = [
   { name: "karma", role: "owner", quote: "We replaced a pile of separate bots and the server immediately felt more controlled." },
   { name: "chineseguy", role: "admin", quote: "Staff onboarding got easier because commands and dashboard settings finally speak the same language." },
@@ -99,6 +71,23 @@ function useReducedMotionPreference() {
     return () => media.removeEventListener("change", update);
   }, []);
   return reducedMotion;
+}
+
+function useDarkMode() {
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const update = () => setIsDark(media.matches || document.documentElement.classList.contains("dark"));
+    update();
+    media.addEventListener("change", update);
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => {
+      media.removeEventListener("change", update);
+      observer.disconnect();
+    };
+  }, []);
+  return isDark;
 }
 
 function Reveal({ children, className, delay = 0, amount = 0.22 }: { children: ReactNode; className?: string; delay?: number; amount?: number }) {
@@ -166,7 +155,6 @@ function SectionDivider() {
   );
 }
 
-// ── Modules carousel — breakpoints fixed, always 3 on desktop ─────────────
 function ModulesCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [pressedButton, setPressedButton] = useState<'prev' | 'next' | null>(null);
@@ -174,7 +162,6 @@ function ModulesCarousel() {
 
   useEffect(() => {
     const update = () => {
-      // < 640 → 1 card, 640–1023 → 2 cards, 1024+ → 3 cards
       if (window.innerWidth < 640) setCardsPerView(1);
       else if (window.innerWidth < 1024) setCardsPerView(2);
       else setCardsPerView(3);
@@ -216,7 +203,6 @@ function ModulesCarousel() {
             <path d="m15 18-6-6 6-6" />
           </svg>
         </motion.button>
-
         <div className="flex-1 overflow-hidden min-w-0">
           <AnimatePresence mode="wait">
             <motion.div
@@ -253,7 +239,6 @@ function ModulesCarousel() {
             </motion.div>
           </AnimatePresence>
         </div>
-
         <motion.button
           onClick={handleNext}
           className="flex-shrink-0 p-2.5 rounded-lg transition-colors hover:bg-foreground/5"
@@ -270,24 +255,32 @@ function ModulesCarousel() {
   );
 }
 
-function ReviewCard({ review }: { review: (typeof trustedReviews)[number] }) {
+function SquareReviewCard({ review, index = 0 }: { review: (typeof trustedReviews)[number]; index?: number }) {
   return (
-    <div className="review-card lux-surface p-5 sm:p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-background text-sm font-semibold uppercase tracking-[0.18em] text-primary">
-            {review.name.slice(0, 2)}
-          </div>
-          <div>
-            <div className="card-heading text-base capitalize">{review.name}</div>
-            <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">{review.role}</div>
-          </div>
-        </div>
-        <div className="rounded-lg border border-border bg-background p-2 text-primary">
-          <Quote className="h-4 w-4" />
-        </div>
+    <div 
+      className="flex-shrink-0 relative overflow-hidden"
+      style={{ 
+        width: '260px', 
+        height: '260px',
+        backgroundColor: '#1a1a1a',
+      }}
+    >
+      {/* Animated noise overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`,
+          backgroundRepeat: 'repeat',
+          backgroundSize: '100px 100px',
+          animation: `noise-shift ${2 + (index % 3)}s steps(10) infinite`,
+        }}
+      />
+      {/* Content */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 py-8 z-10">
+        <div className="card-heading text-base capitalize mb-2" style={{ color: '#ddd' }}>{review.name}</div>
+        <div className="text-[10px] uppercase tracking-[0.2em] mb-3" style={{ color: '#777' }}>{review.role}</div>
+        <p className="text-sm leading-6" style={{ color: '#999' }}>&quot;{review.quote}&quot;</p>
       </div>
-      <p className="mt-5 text-sm leading-7 text-foreground/88 sm:text-[0.95rem]">&quot;{review.quote}&quot;</p>
     </div>
   );
 }
@@ -339,11 +332,6 @@ function AoiCatMascot({ className = "" }: { className?: string }) {
               </g>
             </svg>
           </div>
-          <div className="sleep-symbol">
-            <span>Z</span>
-            <span>z</span>
-            <span>z</span>
-          </div>
         </div>
       </div>
     </div>
@@ -368,9 +356,22 @@ function CommandSigil({ className = "" }: { className?: string }) {
 export default function LandingPage() {
   const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "/dashboard";
   const reducedMotion = useReducedMotionPreference();
+  const isDark = useDarkMode();
   const leftReviews = trustedReviews.slice(0, Math.ceil(trustedReviews.length / 2));
   const rightReviews = trustedReviews.slice(Math.ceil(trustedReviews.length / 2));
 
+  const [graphData, setGraphData] = useState<number[]>([0, 0, 0, 0, 0, 0]);
+
+  useEffect(() => {
+    const updateGraph = () => {
+      const bars = Array.from({ length: 6 }, () => Math.floor(Math.random() * 60) + 20);
+      setGraphData(bars);
+    };
+
+    updateGraph();
+    const interval = setInterval(updateGraph, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="theme-surface min-h-screen overflow-x-clip bg-background text-foreground">
@@ -380,64 +381,25 @@ export default function LandingPage() {
 
         {/* ── Hero ── */}
         <section className="public-section section-hero-dark aoi-grid-shell relative isolate overflow-visible px-4 pb-14 pt-8 text-foreground sm:px-6 lg:px-8">
-          <div className="relative mx-auto max-w-7xl px-1 pb-10 pt-6 sm:px-0 lg:pt-8">
+          <div className="relative mx-auto max-w-3xl px-1 pb-10 pt-6 sm:px-0 lg:pt-8">
             <Reveal className="relative text-center">
-              <div
-  className="inline-flex items-center justify-center rounded-lg border border-black bg-black px-4 py-2 text-xs uppercase tracking-[0.22em]"
-  style={{ color: 'white' }}
->
-  Better-for-your-server Discord bot
-</div>
-              <div className="relative mt-5 mx-auto">
-                <h1 className="text-4xl leading-[1.02] tracking-normal sm:text-5xl lg:text-[3.9rem] xl:text-[4.45rem]">
-                  Fuel your Discord
-                  <span className="relative block text-primary">community</span>
-                </h1>
-              </div>
-              <p className="mt-5 mx-auto max-w-lg text-sm leading-7 text-foreground/82 sm:text-base">
-                Clean moderation, fast automations, slash commands, and server tools in one sharp AOI control stack.
-              </p>
+              <p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Discord Bot Dashboard</p>
+              <h1 className="mt-4 text-3xl leading-[1.02] tracking-normal sm:text-4xl font-bold">
+                Manage your servers from one control center.
+              </h1>
               <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-  <Link
-    href={dashboardUrl}
-    className="inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold bg-[#5865F2] !text-white hover:bg-[#4752C4] transition-colors min-h-[2.75rem]"
-  >
-    DASHBOARD
-  </Link>
-  <Link
-    href="/#modules"
-    className="inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold bg-gray-500 !text-white hover:bg-gray-600 transition-colors min-h-[2.75rem]"
-  >
-    DOCS
-  </Link>
-</div>
-
-              {/* Stats grid with cat permanently on Command sync card */}
-              <div className="relative mt-7">
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {heroStats.map((stat, index) => {
-                    const isCommandSync = stat.label === "Command sync";
-                    return (
-                      <motion.div
-                        key={stat.label}
-                        className={`lux-surface rounded-xl px-4 py-4 ${isCommandSync ? "relative overflow-visible" : ""}`}
-                        initial={reducedMotion ? false : { opacity: 0, y: 16 }}
-                        whileInView={reducedMotion ? undefined : { opacity: 1, y: 0 }}
-                        viewport={{ once: true, amount: 0.2 }}
-                        transition={{ duration: 0.55, delay: 0.12 + index * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                      >
-                        {/* Cat sits permanently on top of Command sync card */}
-                        {isCommandSync && (
-                          <div className="cat-on-card">
-                            <AoiCatMascot />
-                          </div>
-                        )}
-                        <div className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">{stat.label}</div>
-                        <div className="mt-2 card-heading text-2xl text-foreground">{stat.value}</div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
+                <Link
+                  href={dashboardUrl}
+                  className="inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold bg-[#5865F2] !text-white hover:bg-[#4752C4] transition-colors min-h-[2.75rem]"
+                >
+                  Open Dashboard
+                </Link>
+                <Link
+                  href="/#modules"
+                  className="inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold bg-gray-500 !text-white hover:bg-gray-600 transition-colors min-h-[2.75rem]"
+                >
+                  Explore Bot Modules
+                </Link>
               </div>
             </Reveal>
           </div>
@@ -453,7 +415,7 @@ export default function LandingPage() {
               Module architecture
             </Reveal>
             <div className="mb-8">
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl leading-tight" style={{ color: 'white' }}>
+              <h2 className="mt-5 text-3xl sm:text-4xl lg:text-5xl leading-tight" style={{ color: 'white' }}>
                 Every part of the platform feels
                 <span className="text-primary"> intentionally connected.</span>
               </h2>
@@ -464,140 +426,141 @@ export default function LandingPage() {
 
         <SectionDivider />
 
-        {/* ── Workflow ── */}
-        <section id="workflow" className="public-section section-neutral py-14 text-foreground sm:py-16">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+        {/* ── Workflow with Animated Fading Grid Background ── */}
+        <section
+          id="workflow"
+          className="public-section section-neutral py-14 text-foreground sm:py-16 relative overflow-hidden"
+        >
+          <div
+            className="absolute inset-0 z-0"
+            style={{
+              backgroundImage: `
+                linear-gradient(to right, hsl(var(--foreground) / 0.18) 1px, transparent 1px),
+                linear-gradient(to bottom, hsl(var(--foreground) / 0.18) 1px, transparent 1px)
+              `,
+              backgroundSize: '48px 48px',
+              maskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%, black 60%, transparent 92%)',
+              WebkitMaskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%, black 60%, transparent 92%)',
+              animation: 'grid-drift 10s linear infinite',
+            }}
+          />
+          <div
+            className="absolute inset-0 z-[1] pointer-events-none"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E")`,
+              backgroundRepeat: 'repeat',
+              backgroundSize: '128px 128px',
+            }}
+          />
+          <style jsx>{`
+            @keyframes grid-drift {
+              0% { background-position: 0 0; }
+              100% { background-position: 48px -48px; }
+            }
+            @keyframes noise-shift {
+              0% { background-position: 0 0; }
+              25% { background-position: 50px 25px; }
+              50% { background-position: 25px 50px; }
+              75% { background-position: -25px 25px; }
+              100% { background-position: 0 0; }
+            }
+            @keyframes hex-scroll-left {
+              0% { transform: translate3d(0, 0, 0); }
+              100% { transform: translate3d(-75%, 0, 0); }
+            }
+            @keyframes hex-scroll-right {
+              0% { transform: translate3d(0, 0, 0); }
+              100% { transform: translate3d(75%, 0, 0); }
+            }
+          `}</style>
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 relative z-10">
             <Reveal className="text-center">
-              <div className="inline-flex items-center gap-2 rounded-lg border border-black bg-black px-4 py-2 text-xs uppercase tracking-[0.22em] !text-[#d9ff57]">
-                <Zap className="h-4 w-4 text-primary" />
+              <div className="inline-flex items-center justify-center rounded-lg border border-black bg-black px-4 py-2 text-xs uppercase tracking-[0.22em] !text-white">
                 Command-first workflow
               </div>
               <h2 className="mt-6 text-3xl sm:text-4xl">
-                Setup looks premium because the
+                Setup is clean because the
                 <span className="text-primary"> flow is frictionless.</span>
               </h2>
-              <p className="mx-auto mt-5 max-w-3xl text-sm leading-7 text-foreground/74 sm:text-base">
-                The page now sells an operational system, not isolated features. Commands start the action, the dashboard refines the behavior, and the server experience stays polished.
-              </p>
             </Reveal>
-            <div className="mt-10 grid gap-5 lg:grid-cols-[0.94fr_1.06fr]">
-              <div className="grid gap-4">
-                {workflowSteps.map((step, index) => (
-                  <InteractiveSurface key={step.tag} delay={index * 0.08} className="p-5">
-                    <div className="relative z-10 flex items-start gap-4">
-                      <div className="mt-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-primary">{step.tag}</div>
-                      <div>
-                        <h3 className="card-heading text-xl">{step.title}</h3>
-                        <p className="mt-3 text-sm leading-7 text-foreground/84">{step.description}</p>
-                      </div>
-                    </div>
-                  </InteractiveSurface>
-                ))}
-              </div>
-              <Reveal>
-                <div className="lux-surface overflow-hidden rounded-xl p-5 sm:p-7">
-                  <div className="relative z-10">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">Realtime load</div>
-                        <div className="mt-2 card-heading text-5xl text-foreground sm:text-6xl">1.8k</div>
-                      </div>
-                      <div className="rounded-full border border-emerald-500/24 bg-emerald-500/14 px-3 py-1 text-xs font-semibold text-emerald-400">Stable</div>
-                    </div>
-                    <p className="mt-3 max-w-md text-sm text-foreground/72">Message flow, moderation traffic, and member tools all sit under one tuned control plane.</p>
+            <Reveal>
+              <div className="lux-surface overflow-hidden rounded-xl p-6 sm:p-8 mt-10">
+                <div className="relative h-52">
+                  <div className="absolute left-0 top-0 bottom-8 w-10 flex flex-col justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
+                    <span>100</span>
+                    <span>75</span>
+                    <span>50</span>
+                    <span>25</span>
+                    <span>0</span>
                   </div>
-                  <div className="relative z-10 mt-8 h-56 premium-graph">
-                    {[25, 50, 75].map((percent) => (
-                      <div key={percent} className="premium-grid-line" style={{ bottom: `${percent}%` }} />
+                  <div className="ml-12 h-full relative">
+                    {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((val) => (
+                      <div
+                        key={val}
+                        className="absolute left-0 right-0"
+                        style={{ 
+                          bottom: `${val}%`,
+                          borderTop: val % 25 === 0 ? '1px solid rgba(0,0,0,0.12)' : '1px solid rgba(0,0,0,0.05)'
+                        }}
+                      />
                     ))}
-                    <div className="absolute inset-x-0 bottom-0 flex items-end gap-3 px-4 pb-10">
-                      {workflowGraphBars.map((height, index) => (
-                        <div key={index} className="premium-bar flex-1" style={{ height: `${height}%` }} />
-                      ))}
-                    </div>
-                    <div className="absolute inset-x-0 bottom-2 flex justify-between px-4">
-                      {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
-                        <span key={label} className="premium-axis-label">{label}</span>
-                      ))}
-                    </div>
+                    <svg
+                      className="absolute inset-0 w-full h-full overflow-visible"
+                      viewBox="0 0 500 160"
+                      preserveAspectRatio="none"
+                    >
+                      <motion.path
+                        key={`area-${graphData.join("-")}`}
+                        d={`M0,160 ${graphData.map((val, i) => `L${(i / 5) * 500},${160 - (val / 100) * 160}`).join(" ")} L500,160 Z`}
+                        fill="rgba(0,0,0,0.04)"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.6 }}
+                      />
+                      <motion.polyline
+                        key={`line-${graphData.join("-")}`}
+                        points={graphData.map((val, i) => `${(i / 5) * 500},${160 - (val / 100) * 160}`).join(" ")}
+                        fill="none"
+                        stroke={isDark ? "#ffffff" : "#000000"}
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: 1 }}
+                        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                      />
+                    </svg>
                   </div>
-                  <div className="relative z-10 mt-8 grid gap-3 sm:grid-cols-3">
-                    {showcaseCards.map((card) => {
-                      const Icon = card.icon;
-                      return (
-                        <div key={card.title} className="relative rounded-lg border border-foreground/12 bg-background p-4">
-                          <div className="mb-3 inline-flex rounded-lg border border-foreground/12 bg-primary/10 p-2.5 text-primary">
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <div className="text-sm font-semibold text-foreground">{card.title}</div>
-                          <p className="mt-2 text-sm leading-6 text-foreground/68">{card.summary}</p>
-                        </div>
-                      );
-                    })}
+                  <div className="ml-12 flex justify-between mt-3">
+                    {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
+                      <span key={label} className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{label}</span>
+                    ))}
                   </div>
                 </div>
-              </Reveal>
-            </div>
-          </div>
-        </section>
-
-        <SectionDivider />
-
-        {/* ── Marquee ── */}
-        <section className="public-section section-highlight py-8 text-foreground">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <div className="marquee-shell rounded-xl border border-border bg-card px-8 py-4">
-              <div className="animate-marquee-horizontal flex w-[200%] items-center gap-6 whitespace-nowrap">
-                {Array.from({ length: 18 }).map((_, index) => (
-                  <span key={index} className="inline-flex items-center gap-4 text-[11px] uppercase tracking-[0.34em] text-muted-foreground">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    <span className="text-foreground/82">Operate communities cleanly</span>
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                    <span>Dashboard + commands + automations</span>
-                  </span>
-                ))}
               </div>
-            </div>
-          </div>
-        </section>
-
-        <SectionDivider />
-
-        {/* ── Dashboard preview ── */}
-        <section id="dashboard-preview" className="public-section section-neutral py-14 text-foreground sm:py-16">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <Reveal className="text-center">
-              <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                <Sparkles className="h-4 w-4 text-primary" />
-                AOI capabilities
-              </div>
-              <h2 className="mt-6 text-3xl sm:text-4xl">
-                Everything you need to
-                <span className="text-primary"> scale confidently.</span>
-              </h2>
-              <p className="mx-auto mt-5 max-w-3xl text-sm leading-8 text-foreground/82 sm:text-base">
-                From day-one moderation to community growth operations, every feature is built to work together seamlessly.
-              </p>
             </Reveal>
-            <div className="mt-10 grid gap-5 lg:grid-cols-3">
-              {featureShowcase.map((feature, index) => {
-                const Icon = feature.icon;
-                return (
-                  <InteractiveSurface key={feature.title} delay={index * 0.1} className="p-6">
-                    <div className="relative z-10">
-                      <div className="mb-5 inline-flex rounded-lg border border-border bg-primary/10 p-3 text-primary">
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <h3 className="card-heading text-xl">{feature.title}</h3>
-                      <p className="mt-3 text-sm leading-7 text-foreground/84">{feature.description}</p>
-                      <div className="mt-6 flex items-baseline gap-2">
-                        <span className="card-heading text-3xl text-primary">{feature.stat}</span>
-                        <span className="text-xs uppercase tracking-[0.22em] text-muted-foreground">{feature.statLabel}</span>
-                      </div>
-                    </div>
-                  </InteractiveSurface>
-                );
-              })}
+          </div>
+        </section>
+
+        {/* Smooth infinite SVG marquee */}
+        <section className="relative overflow-hidden py-6">
+          <div className="flex overflow-hidden">
+            <div 
+              className="flex gap-6 animate-marquee-horizontal"
+              style={{ width: '200%', willChange: 'transform' }}
+            >
+              {/* First set */}
+              {Array.from({ length: 24 }).map((_, i) => (
+                <div key={`a-${i}`} className="flex-shrink-0" style={{ width: '47px', height: '47px' }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1536" width="24" height="24" className="text-foreground" style={{display:'block'}}><path fill="currentColor" d="M 775.0 1238.5 L 680.0 1234.5 L 594.0 1222.5 L 503.0 1197.5 L 445.0 1172.5 L 380.0 1132.5 L 329.5 1086.0 L 308.5 1060.0 L 287.5 1027.0 L 264.5 976.0 L 247.5 910.0 L 243.5 880.0 L 242.5 824.0 L 250.5 739.0 L 266.5 647.0 L 304.5 512.0 L 352.5 392.0 L 390.5 326.0 L 401.0 313.5 L 418.0 300.5 L 427.0 297.5 L 448.0 300.5 L 472.0 314.5 L 502.0 339.5 L 546.5 388.0 L 618.0 483.5 L 626.0 484.5 L 701.0 471.5 L 752.0 470.5 L 825.0 471.5 L 916.0 483.5 L 977.5 401.0 L 1033.0 340.5 L 1083.0 302.5 L 1095.0 297.5 L 1116.0 300.5 L 1133.0 311.5 L 1153.0 338.5 L 1184.5 397.0 L 1233.5 522.0 L 1269.5 655.0 L 1285.5 748.0 L 1293.5 825.0 L 1292.5 881.0 L 1288.5 910.0 L 1270.5 980.0 L 1247.5 1029.0 L 1226.5 1062.0 L 1205.5 1088.0 L 1155.0 1134.5 L 1090.0 1174.5 L 1032.0 1199.5 L 941.0 1224.5 L 855.0 1236.5 L 776.0 1239.5 Z"/></svg>
+                </div>
+              ))}
+              {/* Duplicate set for seamless loop */}
+              {Array.from({ length: 24 }).map((_, i) => (
+                <div key={`b-${i}`} className="flex-shrink-0" style={{ width: '47px', height: '47px' }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1536" width="24" height="24" className="text-foreground" style={{display:'block'}}><path fill="currentColor" d="M 775.0 1238.5 L 680.0 1234.5 L 594.0 1222.5 L 503.0 1197.5 L 445.0 1172.5 L 380.0 1132.5 L 329.5 1086.0 L 308.5 1060.0 L 287.5 1027.0 L 264.5 976.0 L 247.5 910.0 L 243.5 880.0 L 242.5 824.0 L 250.5 739.0 L 266.5 647.0 L 304.5 512.0 L 352.5 392.0 L 390.5 326.0 L 401.0 313.5 L 418.0 300.5 L 427.0 297.5 L 448.0 300.5 L 472.0 314.5 L 502.0 339.5 L 546.5 388.0 L 618.0 483.5 L 626.0 484.5 L 701.0 471.5 L 752.0 470.5 L 825.0 471.5 L 916.0 483.5 L 977.5 401.0 L 1033.0 340.5 L 1083.0 302.5 L 1095.0 297.5 L 1116.0 300.5 L 1133.0 311.5 L 1153.0 338.5 L 1184.5 397.0 L 1233.5 522.0 L 1269.5 655.0 L 1285.5 748.0 L 1293.5 825.0 L 1292.5 881.0 L 1288.5 910.0 L 1270.5 980.0 L 1247.5 1029.0 L 1226.5 1062.0 L 1205.5 1088.0 L 1155.0 1134.5 L 1090.0 1174.5 L 1032.0 1199.5 L 941.0 1224.5 L 855.0 1236.5 L 776.0 1239.5 Z"/></svg>
+                </div>
+              ))}
             </div>
           </div>
         </section>
@@ -605,11 +568,10 @@ export default function LandingPage() {
         <SectionDivider />
 
         {/* ── Reviews ── */}
-        <section id="reviews" className="public-section section-highlight py-14 text-foreground sm:py-16">
+        <section id="reviews" className="public-section section-highlight py-14 text-foreground sm:py-16 overflow-hidden">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <Reveal className="text-center">
-              <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                <Quote className="h-4 w-4 text-primary" />
+              <div className="inline-flex items-center justify-center rounded-lg bg-black px-4 py-2 text-xs uppercase tracking-[0.22em] !text-white" style={{ border: 'none' }}>
                 Trusted by communities
               </div>
               <h2 className="mt-6 text-3xl sm:text-4xl">
@@ -620,65 +582,35 @@ export default function LandingPage() {
                 Staff teams get faster moderation, cleaner dashboards, and fewer scattered bot surfaces.
               </p>
             </Reveal>
-            <div className="mt-10 space-y-5">
-              <div className="marquee-shell">
-                <div className="animate-review-left flex w-[200%] gap-5">
-                  {[...leftReviews, ...leftReviews].map((review, index) => (
-                    <ReviewCard key={`${review.name}-${index}`} review={review} />
-                  ))}
-                </div>
-              </div>
-              <div className="marquee-shell">
-                <div className="animate-review-right flex w-[200%] gap-5">
-                  {[...rightReviews, ...rightReviews].map((review, index) => (
-                    <ReviewCard key={`${review.name}-${index}`} review={review} />
-                  ))}
-                </div>
-              </div>
+          </div>
+
+          {/* Single row — scroll left, full width */}
+          <div className="relative overflow-hidden mt-2" style={{ height: '280px', perspective: '1000px' }}>
+            <div className="flex absolute left-0" style={{ width: 'max-content', animation: 'hex-scroll-left 50s linear infinite', transform: 'translate3d(0, 0, 0)', willChange: 'transform', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', contain: 'layout style paint' }}>
+              {[...leftReviews, ...rightReviews, ...leftReviews, ...rightReviews].map((review, index) => (
+                <SquareReviewCard key={`rev-${index}`} review={review} index={index} />
+              ))}
             </div>
           </div>
         </section>
 
-        <SectionDivider />
-
         {/* ── CTA ── */}
-        <section className="public-section section-neutral px-4 py-14 text-foreground sm:px-6 sm:py-16 lg:px-8">
-          <div className="mx-auto max-w-6xl">
-            <InteractiveSurface className="grid overflow-hidden p-0 lg:grid-cols-[1.02fr_0.98fr]">
-              <div className="relative z-10 p-8 sm:p-10 lg:p-12">
-                <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                  <Zap className="h-4 w-4 text-primary" />
-                  Final call
-                </div>
-                <h2 className="mt-6 text-3xl sm:text-4xl">
-                  Keep the server premium.
-                  <span className="block text-primary">Keep operations under control.</span>
-                </h2>
-                <p className="mt-5 max-w-xl text-sm leading-7 text-foreground/82 sm:text-base">
-                  One command stack, one dashboard language, one polished member experience. That is what the landing page now communicates from the first second.
-                </p>
-                <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-                  <MagneticButton href={dashboardUrl}>
-                    Open Dashboard
-                    <ArrowRight className="h-4 w-4" />
-                  </MagneticButton>
-                  <MagneticButton href="/features" variant="secondary">
-                    Explore Features
-                  </MagneticButton>
-                </div>
+        <section className="public-section section-neutral px-4 py-16 text-foreground sm:px-6 sm:py-20 lg:px-8">
+          <div className="mx-auto max-w-2xl">
+            <div className="lux-surface overflow-hidden rounded-xl p-8 sm:p-10 text-center">
+              <div className="inline-flex items-center justify-center rounded-lg bg-black px-4 py-2 text-xs uppercase tracking-[0.22em] !text-white" style={{ border: 'none' }}>
+                Ready?
               </div>
-              <div className="relative flex min-h-[20rem] items-center justify-center overflow-hidden p-10">
-                <div className="relative z-10 flex flex-col items-center text-center">
-                  <CommandSigil className="w-44 sm:w-56" />
-                  <div className="mt-8 rounded-lg border border-border bg-background px-5 py-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                    Command control stack
-                  </div>
-                </div>
-              </div>
-            </InteractiveSurface>
+              <h2 className="mt-5 text-3xl sm:text-4xl">
+                Built relentless.
+                <span className="block text-primary">Scales without limit.</span>
+              </h2>
+              <p className="mt-4 text-xs text-muted-foreground tracking-wide">
+                No compromise. All power. By <span className="text-primary font-semibold">Akira</span>
+              </p>
+            </div>
           </div>
         </section>
-
       </main>
     </div>
   );

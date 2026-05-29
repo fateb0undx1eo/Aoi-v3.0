@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { LayoutDashboard } from "lucide-react";
 import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
 
 /**
@@ -51,16 +50,10 @@ export default function DashboardHome() {
 
   return (
     <div className="dashboard-canvas min-h-screen px-4 py-16 text-foreground sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-4xl">
-        <div className="dashboard-panel overflow-hidden rounded-[32px] p-10 text-center sm:p-12">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-primary/12 text-primary">
-            <LayoutDashboard className="h-7 w-7" />
-          </div>
-          <p className="mt-6 text-xs uppercase tracking-[0.28em] text-muted-foreground">Discord Bot Dashboard</p>
-          <h1 className="mt-4 text-4xl font-bold sm:text-5xl">Manage your servers from one premium control center.</h1>
-          <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-foreground/82 sm:text-base">
-            Login with Discord, choose a guild, and move through modules without leaving the same polished workspace.
-          </p>
+      <div className="mx-auto max-w-2xl">
+        <div className="dashboard-panel overflow-hidden rounded-[32px] p-6 text-center sm:p-8">
+          <p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Discord Bot Dashboard</p>
+          <h1 className="mt-3 text-2xl font-bold sm:text-3xl">Manage your servers from one control center.</h1>
 
           {errorMessage && (
             <div className="mx-auto mt-6 max-w-xl rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">

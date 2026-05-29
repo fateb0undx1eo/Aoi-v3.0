@@ -64,7 +64,7 @@ export default function DashboardServerPicker() {
             <p className="subtext text-xs uppercase tracking-[0.24em] text-muted-foreground">Dashboard</p>
             <h1 className="mt-3 text-4xl font-bold sm:text-5xl">Choose your server</h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-foreground/86 sm:text-base">
-              Pick a guild to open its control surface. Installed servers jump straight into the premium dashboard.
+              Pick a guild to open its control surface. Installed servers jump straight into the dashboard.
             </p>
           </div>
           <button

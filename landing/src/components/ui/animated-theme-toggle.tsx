@@ -3,7 +3,6 @@
 import { motion, useMotionValue, useTransform } from "motion/react";
 import { useTheme } from "next-themes";
 import { useEffect, useState, type ReactNode } from "react";
-import { Atom } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getActiveTheme, getNextTheme, getThemeLabel } from "@/lib/themes";
 
@@ -56,7 +55,6 @@ export const AnimatedThemeToggle = ({
   const activeTheme = mounted ? getActiveTheme(theme, resolvedTheme) : "light";
   const nextTheme = getNextTheme(activeTheme);
   const isDark = activeTheme === "dark";
-  const isAtomic = activeTheme === "atomic";
 
   const toggleTheme = () => {
     setTheme(nextTheme);
@@ -81,20 +79,10 @@ export const AnimatedThemeToggle = ({
       aria-label={`Switch to ${getThemeLabel(nextTheme)} mode`}
       title={`${getThemeLabel(activeTheme)} theme`}
     >
-      {isAtomic ? <AtomicSwitch /> : <SolarSwitch isDark={isDark} />}
+      <SolarSwitch isDark={isDark} />
     </Button>
   );
 };
-
-const AtomicSwitch = () => (
-  <motion.div
-    initial={{ scale: 0.82, rotate: -18, opacity: 0 }}
-    animate={{ scale: 1, rotate: 0, opacity: 1 }}
-    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-  >
-    <Atom className="h-5 w-5" strokeWidth={2} />
-  </motion.div>
-);
 
 const SolarSwitch = ({ isDark }: { isDark: boolean }) => {
   const duration = 0.7;
