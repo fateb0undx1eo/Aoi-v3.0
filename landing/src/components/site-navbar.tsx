@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ChevronDown, Sparkles } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { AnimatedThemeToggle } from "@/components/ui/animated-theme-toggle";
 
 type SiteNavbarProps = {
@@ -21,11 +21,48 @@ const alternateAnchors = [
   { href: "/#dashboard-preview", label: "Preview" },
 ];
 
-const pageLinks = [
-  { href: "/features", label: "Features Page" },
-  { href: "/commands", label: "Commands Page" },
-  { href: "/changelogs", label: "Changelogs Page" },
+const pageGroups = [
+  { heading: "Explore", links: [{ href: "/features", label: "Features" }, { href: "/commands", label: "Commands" }, { href: "/changelogs", label: "Changelogs" }] },
+  { heading: "Resources", links: [{ href: "/premium", label: "Premium" }, { href: "/docs", label: "Docs" }, { href: "/support", label: "Support" }, { href: "/announcements", label: "Announcements" }] },
 ];
+
+function HamburgerMenu() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="theme-animate flex items-center justify-center rounded-lg border border-border bg-card p-2 text-foreground/86 hover:border-primary/45"
+        aria-label="Menu"
+      >
+        {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="theme-animate absolute right-0 mt-3 w-52 overflow-hidden rounded-xl border border-border bg-card p-3 shadow-sm z-50">
+            {pageGroups.map((group) => (
+              <div key={group.heading} className="mb-2 last:mb-0">
+                <div className="px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{group.heading}</div>
+                {group.links.map((page) => (
+                  <Link
+                    key={page.href}
+                    href={page.href}
+                    onClick={() => setOpen(false)}
+                    className="block rounded-lg px-2 py-1.5 text-sm text-foreground/82 transition-colors hover:bg-background/72 hover:text-foreground"
+                  >
+                    {page.label}
+                  </Link>
+                ))}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export function SiteNavbar({ showAnchors = true }: SiteNavbarProps) {
   const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "/dashboard";
@@ -61,24 +98,7 @@ export function SiteNavbar({ showAnchors = true }: SiteNavbarProps) {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <details className="group relative">
-            <summary className="theme-animate flex cursor-pointer list-none items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground/86 hover:border-primary/45">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="hidden sm:inline">Pages</span>
-              <ChevronDown className="h-4 w-4 transition-transform duration-300 group-open:rotate-180" />
-            </summary>
-            <div className="theme-animate absolute right-0 mt-3 w-56 overflow-hidden rounded-xl border border-border bg-card p-2 shadow-sm">
-              {pageLinks.map((page) => (
-                <Link
-                  key={page.href}
-                  href={page.href}
-                  className="block rounded-xl px-3 py-2.5 text-sm text-foreground/82 transition-colors hover:bg-background/72 hover:text-foreground"
-                >
-                  {page.label}
-                </Link>
-              ))}
-            </div>
-          </details>
+          <HamburgerMenu />
           <AnimatedThemeToggle />
           <Link
             href={dashboardUrl}
