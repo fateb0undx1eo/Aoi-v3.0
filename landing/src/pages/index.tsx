@@ -232,18 +232,10 @@ function ModulesCarousel() {
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: idx * 0.12, ease: [0.16, 1, 0.3, 1] }}
-                    className="relative overflow-hidden p-6 sm:p-7 rounded-xl flex flex-col hover:bg-foreground/5 transition-colors"
+                    className="p-6 sm:p-7 rounded-xl flex flex-col hover:bg-foreground/5 transition-colors"
                     style={{ backgroundColor: '#000000' }}
                   >
-                    <div
-                      className="absolute inset-0 pointer-events-none"
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`,
-                        backgroundRepeat: 'repeat',
-                        backgroundSize: '100px 100px',
-                      }}
-                    />
-                    <div className="relative z-10 flex items-center gap-3 mb-4">
+                    <div className="flex items-center gap-3 mb-4">
                       <div className="inline-flex rounded-lg p-2.5 flex-shrink-0" style={{ backgroundColor: titleColor + '20' }}>
                         <Icon className="h-5 w-5" style={{ color: titleColor }} />
                       </div>
