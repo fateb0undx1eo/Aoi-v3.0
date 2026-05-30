@@ -366,13 +366,13 @@ export default function LandingPage() {
                   href={dashboardUrl}
                   className="inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold bg-[#5865F2] !text-white hover:bg-[#4752C4] transition-colors min-h-[2.75rem]"
                 >
-                  Open Dashboard
+                  DASHBOARD
                 </Link>
                 <Link
                   href="/#modules"
                   className="inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold bg-gray-500 !text-white hover:bg-gray-600 transition-colors min-h-[2.75rem]"
                 >
-                  Explore Bot Modules
+                  DOCS
                 </Link>
               </div>
               <div className="mt-16 flex flex-col items-center">
