@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Megaphone, Plus, Copy, Trash2, ChevronDown, ChevronUp,
   Send, Save, X, Palette, Eye, ExternalLink, Check, Bot, Globe, Webhook, 
