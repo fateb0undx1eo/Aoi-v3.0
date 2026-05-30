@@ -25,44 +25,52 @@ function normalizeFields(fields) {
   }));
 }
 
+function normalizeComponentItem(comp) {
+  if (!comp || !comp.type) return null;
+  const type = comp.type === 2 ? 'button' : comp.type === 3 ? 'select' : comp.type;
+  if (type === 'button' || comp.type === 'button') {
+    return {
+      type: 'button',
+      style: Math.min(Math.max(Number(comp.style) || 1, 1), 5),
+      label: trimString(comp.label, 80),
+      custom_id: trimString(comp.custom_id, 100),
+      url: trimString(comp.url, 512),
+      emoji: comp.emoji || null,
+      disabled: Boolean(comp.disabled),
+    };
+  }
+  if (type === 'select' || comp.type === 'select') {
+    return {
+      type: 'select',
+      custom_id: trimString(comp.custom_id, 100),
+      placeholder: trimString(comp.placeholder, 150),
+      min_values: Math.max(Number(comp.min_values) || 1, 0),
+      max_values: Math.max(Number(comp.max_values) || 1, 1),
+      disabled: Boolean(comp.disabled),
+      options: (comp.options || []).slice(0, 25).map((opt) => ({
+        label: trimString(opt.label, 100) || 'Option',
+        value: trimString(opt.value, 100) || `opt_${Date.now()}`,
+        description: opt.description ? trimString(opt.description, 100) : undefined,
+        emoji: opt.emoji || undefined,
+      })),
+    };
+  }
+  return null;
+}
+
 function normalizeComponents(rows) {
   if (!Array.isArray(rows)) return [];
+  // Handle API format: [{ type: 1, components: [...] }]
+  if (rows.length > 0 && !Array.isArray(rows[0]) && typeof rows[0] === 'object' && rows[0].type === 1) {
+    return rows
+      .map((row) => (row.components || []).map(normalizeComponentItem).filter(Boolean))
+      .filter((row) => row.length > 0 && row.length <= 5);
+  }
+  // Handle array-of-arrays format
   return rows
     .map((row) => {
       if (!Array.isArray(row)) return [];
-      return row
-        .map((comp) => {
-          if (!comp || !comp.type) return null;
-          if (comp.type === 'button') {
-            return {
-              type: 'button',
-              style: Math.min(Math.max(Number(comp.style) || 1, 1), 5),
-              label: trimString(comp.label, 80),
-              custom_id: trimString(comp.custom_id, 100),
-              url: trimString(comp.url, 512),
-              emoji: comp.emoji || null,
-              disabled: Boolean(comp.disabled),
-            };
-          }
-          if (comp.type === 'select') {
-            return {
-              type: 'select',
-              custom_id: trimString(comp.custom_id, 100),
-              placeholder: trimString(comp.placeholder, 150),
-              min_values: Math.max(Number(comp.min_values) || 1, 0),
-              max_values: Math.max(Number(comp.max_values) || 1, 1),
-              disabled: Boolean(comp.disabled),
-              options: (comp.options || []).slice(0, 25).map((opt) => ({
-                label: trimString(opt.label, 100) || 'Option',
-                value: trimString(opt.value, 100) || `opt_${Date.now()}`,
-                description: opt.description ? trimString(opt.description, 100) : undefined,
-                emoji: opt.emoji || undefined,
-              })),
-            };
-          }
-          return null;
-        })
-        .filter(Boolean);
+      return row.map(normalizeComponentItem).filter(Boolean);
     })
     .filter((row) => row.length > 0 && row.length <= 5);
 }
@@ -100,25 +108,75 @@ function hasLegacyType(entry) {
   return entry?.type === 'normal' || entry?.type === 'embed' || entry?.type === 'container';
 }
 
+function apiEmbedToFlat(e) {
+  if (!e) return {};
+  return {
+    title: trimString(e.title, 256),
+    description: trimString(e.description, 4000),
+    url: trimString(e.url, 1000),
+    color: e.color != null ? e.color : null,
+    author_name: trimString(e.author?.name, 256),
+    author_icon_url: trimString(e.author?.icon_url, 1000),
+    author_url: trimString(e.author?.url, 1000),
+    fields: normalizeFields(e.fields),
+    footer_text: trimString(e.footer?.text, 2048),
+    footer_icon_url: trimString(e.footer?.icon_url, 1000),
+    image_url: trimString(e.image?.url, 1000),
+    thumbnail_url: trimString(e.thumbnail?.url, 1000),
+    timestamp: trimString(e.timestamp, 64),
+  };
+}
+
 function normalizeEntry(rawEntry = {}) {
   if (hasLegacyType(rawEntry)) {
     const type = rawEntry.type;
+    const legacyEmbed = {
+      title: trimString(rawEntry?.embed?.title, 256),
+      description: trimString(rawEntry?.embed?.description, 4000),
+      footer_text: trimString(rawEntry?.embed?.footer_text, 2048),
+      image_url: trimString(rawEntry?.embed?.image_url, 1000),
+      color: normalizeColor(rawEntry?.embed?.color),
+    };
     return {
       id: trimString(rawEntry.id, 64),
       type,
       edit_existing: Boolean(rawEntry?.edit_existing),
       message_link: trimString(rawEntry?.message_link, 500),
       content: trimString(rawEntry.content, 2000),
-      embed: {
-        title: trimString(rawEntry?.embed?.title, 256),
-        description: trimString(rawEntry?.embed?.description, 4000),
-        footer_text: trimString(rawEntry?.embed?.footer_text, 2048),
-        image_url: trimString(rawEntry?.embed?.image_url, 1000),
-        color: normalizeColor(rawEntry?.embed?.color),
-      },
+      embed: legacyEmbed,
+      embeds: [legacyEmbed],
       container_blocks: normalizeContainerBlocks(rawEntry?.container_blocks),
       components: [],
     };
+  }
+
+  // Collect embeds from rawEntry.embeds (APIEmbed array) or rawEntry.embed (flat)
+  const embeds = [];
+  if (Array.isArray(rawEntry.embeds)) {
+    for (const e of rawEntry.embeds) {
+      if (e && (e.title || e.description || (e.fields && e.fields.length) || e.image?.url || e.thumbnail?.url || e.footer?.text || e.author?.name)) {
+        embeds.push(apiEmbedToFlat(e));
+      }
+    }
+  } else if (rawEntry.embed) {
+    const flat = {
+      title: trimString(rawEntry.embed.title, 256),
+      description: trimString(rawEntry.embed.description, 4000),
+      url: trimString(rawEntry.embed.url, 1000),
+      color: normalizeColor(rawEntry.embed.color),
+      author_name: trimString(rawEntry.embed.author_name, 256),
+      author_icon_url: trimString(rawEntry.embed.author_icon_url, 1000),
+      author_url: trimString(rawEntry.embed.author_url, 1000),
+      fields: normalizeFields(rawEntry.embed.fields),
+      footer_text: trimString(rawEntry.embed.footer_text, 2048),
+      footer_icon_url: trimString(rawEntry.embed.footer_icon_url, 1000),
+      image_url: trimString(rawEntry.embed.image_url, 1000),
+      thumbnail_url: trimString(rawEntry.embed.thumbnail_url, 1000),
+      timestamp: trimString(rawEntry.embed.timestamp, 64),
+    };
+    if (flat.title || flat.description || flat.fields.length > 0 || flat.image_url || flat.thumbnail_url || flat.footer_text || flat.author_name) {
+      embeds.push(flat);
+    }
   }
 
   return {
@@ -127,23 +185,13 @@ function normalizeEntry(rawEntry = {}) {
     edit_existing: Boolean(rawEntry?.edit_existing),
     message_link: trimString(rawEntry?.message_link, 500),
     content: trimString(rawEntry.content, 2000),
-    embed: {
-      title: trimString(rawEntry?.embed?.title, 256),
-      description: trimString(rawEntry?.embed?.description, 4000),
-      url: trimString(rawEntry?.embed?.url, 1000),
-      color: normalizeColor(rawEntry?.embed?.color),
-      author_name: trimString(rawEntry?.embed?.author_name, 256),
-      author_icon_url: trimString(rawEntry?.embed?.author_icon_url, 1000),
-      author_url: trimString(rawEntry?.embed?.author_url, 1000),
-      fields: normalizeFields(rawEntry?.embed?.fields),
-      footer_text: trimString(rawEntry?.embed?.footer_text, 2048),
-      footer_icon_url: trimString(rawEntry?.embed?.footer_icon_url, 1000),
-      image_url: trimString(rawEntry?.embed?.image_url, 1000),
-      thumbnail_url: trimString(rawEntry?.embed?.thumbnail_url, 1000),
-      timestamp: trimString(rawEntry?.embed?.timestamp, 64),
-    },
+    embed: embeds[0] || {},
+    embeds,
     container_blocks: [],
     components: normalizeComponents(rawEntry?.components),
+    flags: rawEntry.flags ? Number(rawEntry.flags) : undefined,
+    thread_name: trimString(rawEntry.thread_name, 100),
+    allowed_mentions: rawEntry.allowed_mentions || undefined,
   };
 }
 
@@ -159,7 +207,7 @@ function normalizePayload(rawPayload = {}) {
           if (entry.type === 'embed') return Boolean(entry.embed.title || entry.embed.description || entry.embed.image_url || entry.embed.footer_text);
           return entry.container_blocks.length > 0;
         }
-        return Boolean(entry.content) || Boolean(entry.embed.title || entry.embed.description || entry.embed.image_url || entry.embed.thumbnail_url || entry.embed.footer_text || entry.embed.author_name || entry.embed.fields.length > 0) || entry.components.length > 0;
+        return Boolean(entry.content) || entry.embeds.length > 0 || entry.components.length > 0;
       })
     : [];
 
@@ -264,11 +312,20 @@ function buildEntryPayload(entry) {
 
   const payload = { allowedMentions: { parse: [] } };
   if (entry.content) payload.content = entry.content;
-  if (entry.embed.title || entry.embed.description || entry.embed.fields.length > 0 || entry.embed.image_url || entry.embed.thumbnail_url || entry.embed.footer_text || entry.embed.author_name) {
-    payload.embeds = [buildEmbed(entry.embed)];
+  if (entry.embeds.length > 0) {
+    payload.embeds = entry.embeds.map(buildEmbed);
   }
   if (entry.components.length > 0) {
     payload.components = buildDiscordComponents(entry.components);
+  }
+  if (entry.flags) {
+    payload.flags = entry.flags;
+  }
+  if (entry.thread_name) {
+    payload.thread_name = entry.thread_name;
+  }
+  if (entry.allowed_mentions) {
+    payload.allowedMentions = entry.allowed_mentions;
   }
   return payload;
 }

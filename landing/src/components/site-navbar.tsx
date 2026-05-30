@@ -23,7 +23,7 @@ const alternateAnchors = [
 
 const pageGroups = [
   { heading: "Explore", links: [{ href: "/features", label: "Features" }, { href: "/commands", label: "Commands" }, { href: "/changelogs", label: "Changelogs" }] },
-  { heading: "Resources", links: [{ href: "/premium", label: "Premium" }, { href: "/docs", label: "Docs" }, { href: "/support", label: "Support" }, { href: "/announcements", label: "Announcements" }] },
+  { heading: "Resources", links: [{ href: "/premium", label: "Premium" }, { href: "/docs", label: "Docs" }, { href: "/support", label: "Support" }] },
 ];
 
 function HamburgerMenu() {

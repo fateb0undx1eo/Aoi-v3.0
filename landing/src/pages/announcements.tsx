@@ -564,17 +564,57 @@ function ComponentEditor({ rows, onChange }: { rows: AnnouncementComponent[][]; 
   );
 }
 
+const SAMPLE_ANNOUNCEMENT: AnnouncementForm = {
+  channel_ids: [],
+  entries: [
+    {
+      ...createAnnouncementEntry(),
+      content: "🎉 **New update is here!** Check out what's new in v3.2:\n\n• Improved performance\n• New dashboard UI\n• Bug fixes & more",
+      embed: {
+        title: "Version 3.2 Release Notes",
+        description: "We're excited to announce the latest update! This release brings significant improvements to the announcement system with rich embed support, component buttons, and more.\n\n*Full changelog available below.*",
+        url: "https://example.com/changelog",
+        color: "#5865f2",
+        author_name: "AOI Team",
+        author_icon_url: "https://cdn.discordapp.com/embed/avatars/0.png",
+        author_url: "",
+        fields: [
+          { name: "✨ New Features", value: "• Rich embed editor\n• Component buttons & selects\n• Multi-message support", inline: true },
+          { name: "🔧 Improvements", value: "• 40% faster load times\n• Better mobile support\n• Enhanced preview", inline: true },
+          { name: "📦 Installation", value: "Update your bot to the latest version via `npm update`", inline: false },
+        ],
+        footer_text: "Release date • May 2026",
+        footer_icon_url: "",
+        image_url: "",
+        thumbnail_url: "",
+        timestamp: "2026-05-15T12:00:00Z",
+      },
+      components: [
+        [
+          { type: "button", style: 1, label: "View Changelog", custom_id: "btn_changelog", url: "https://example.com/changelog", emoji: { name: "📋", id: "", animated: false }, disabled: false, options: [], placeholder: "", min_values: 1, max_values: 1 },
+          { type: "button", style: 3, label: "Get Started", custom_id: "btn_getstarted", url: "", emoji: null, disabled: false, options: [], placeholder: "", min_values: 1, max_values: 1 },
+          { type: "select", style: 1, label: "", custom_id: "select_help", url: "", emoji: null, disabled: false, options: [
+            { label: "Documentation", value: "docs", description: "Read the docs", emoji: { name: "📚", id: "", animated: false } },
+            { label: "Support Server", value: "support", description: "Join our Discord", emoji: { name: "💬", id: "", animated: false } },
+          ], placeholder: "Need help?", min_values: 1, max_values: 1 },
+        ],
+      ],
+      edit_existing: false,
+      message_link: "",
+    },
+  ],
+};
+
 export default function AnnouncementsPage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const [form, setForm] = useState<AnnouncementForm>(DEFAULT_ANNOUNCEMENT_FORM);
+  const [form, setForm] = useState<AnnouncementForm>(SAMPLE_ANNOUNCEMENT);
   const [presets, setPresets] = useState<AnnouncementPreset[]>([]);
   const [presetName, setPresetName] = useState("");
   const [status, setStatus] = useState<StatusMessage | null>(null);
   const [previewEntryId, setPreviewEntryId] = useState<string>(form.entries[0]?.id || "");
   const [editTab, setEditTab] = useState<"content" | "embed" | "components">("content");
-  const [expandedEmbeds, setExpandedEmbeds] = useState<Record<string, boolean>>({});
 
   const activeEntry = useMemo(() => form.entries.find((e) => e.id === previewEntryId), [form.entries, previewEntryId]);
 
@@ -675,29 +715,9 @@ export default function AnnouncementsPage() {
     setStatus({ state: "success", text: "Preset removed." });
   }, []);
 
-  const handleSend = useCallback(async () => {
-    if (form.entries.length === 0) {
-      setStatus({ state: "error", text: "Add at least one message." });
-      return;
-    }
-    if (form.channel_ids.length === 0) {
-      setStatus({ state: "error", text: "Select at least one channel." });
-      return;
-    }
-    setStatus({ state: "sending", text: "Sending announcement..." });
-    try {
-      const response = await fetch(`/api/guilds/announcements`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.error || "Failed to send announcement");
-      setStatus({ state: "success", text: "Announcement sent successfully!" });
-    } catch (error) {
-      setStatus({ state: "error", text: error instanceof Error ? error.message : "Failed to send announcement" });
-    }
-  }, [form]);
+  const handleDashboardRedirect = useCallback(() => {
+    window.open("/dashboard", "_blank");
+  }, []);
 
   if (!mounted) return null;
 
@@ -985,20 +1005,15 @@ export default function AnnouncementsPage() {
               )}
             </div>
 
-            {/* Send */}
+            {/* Dashboard CTA */}
             <div style={{ backgroundColor: "#000000" }} className="rounded-xl p-5">
-              <button type="button" onClick={handleSend}
-                disabled={status?.state === "sending"}
-                className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold transition-all disabled:opacity-50"
+              <Link href="/dashboard"
+                className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold transition-all hover:brightness-110"
                 style={{ backgroundColor: ACCENT_COLOR, color: "#fff" }}>
-                {status?.state === "sending" ? (
-                  <>Sending...</>
-                ) : (
-                  <><Send className="h-4 w-4" /> Send Announcement</>
-                )}
-              </button>
+                <Send className="h-4 w-4" /> Open Dashboard to Send
+              </Link>
               <p className="mt-2 text-center text-[10px] text-zinc-600">
-                {form.channel_ids.length} channel{form.channel_ids.length !== 1 ? "s" : ""} selected · {form.entries.length} message{form.entries.length !== 1 ? "s" : ""}
+                Authenticate with Discord to send announcements to your server
               </p>
             </div>
           </div>
