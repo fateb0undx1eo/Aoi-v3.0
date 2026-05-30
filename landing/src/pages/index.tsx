@@ -506,7 +506,7 @@ export default function LandingPage() {
                         points={graphData.map((val, i) => `${(i / 5) * 500},${160 - (val / 100) * 160}`).join(" ")}
                         fill="none"
                         stroke={isDark ? "#ffffff" : "#000000"}
-                        strokeWidth={isDark ? "2" : "3"}
+                        strokeWidth={isDark ? "1" : "1.5"}
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         initial={{ pathLength: 0 }}
