@@ -1618,7 +1618,6 @@ export default function CommunityPage() {
         channel_ids: Array.from(selected),
       };
     });
-    setAnnouncementChannelPickerOpen(true);
   }
 
   function updateAnnouncementEntry(entryId: string, updates: Partial<AnnouncementEntry>) {
