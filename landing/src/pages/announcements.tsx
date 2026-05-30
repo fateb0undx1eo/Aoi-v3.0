@@ -2,9 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { motion } from "framer-motion";
 import {
   Megaphone, Plus, Copy, Trash2, GripVertical, ChevronDown, ChevronUp,
-  Send, Save, FileText, ImageIcon, Link, X, Palette, Eye,
-  Upload, Bot, Clock, Check, AlertCircle, ExternalLink, List,
-  LayoutGrid, AlignLeft, Bold, Italic, Underline,
+  Send, Save, X, Palette, Eye,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { SiteNavbar } from "@/components/site-navbar";
