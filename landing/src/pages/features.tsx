@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { motion } from "motion/react";
+import { motion } from "framer-motion";
 import { Boxes, ShieldCheck, Sparkles, Ticket, Wand2, Zap } from "lucide-react";
 import { SiteNavbar } from "@/components/site-navbar";
 
