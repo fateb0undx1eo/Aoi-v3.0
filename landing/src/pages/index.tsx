@@ -158,7 +158,7 @@ function ModulesCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [pressedButton, setPressedButton] = useState<'prev' | 'next' | null>(null);
   const [cardsPerView, setCardsPerView] = useState(3);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout>(null);
 
   useEffect(() => {
     const update = () => {
@@ -241,7 +241,7 @@ function ModulesCarousel() {
                       </div>
                       <h3 className="card-heading text-[1.18rem] leading-tight" style={{ color: titleColor }}>{module.title}</h3>
                     </div>
-                    <p className="relative z-10 mt-3 text-sm leading-relaxed flex-grow" style={{ color: '#8a8a8a' }}>{module.description}</p>
+                    <p className="mt-3 text-sm leading-relaxed flex-grow" style={{ color: '#8a8a8a' }}>{module.description}</p>
                   </motion.div>
                 );
               })}
