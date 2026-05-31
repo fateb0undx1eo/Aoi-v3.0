@@ -261,14 +261,14 @@ function MergedReviewCard({ reviews }: { reviews: typeof trustedReviews }) {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrent((prev) => (prev + 1) % reviews.length);
-    }, 5000);
+    }, 10000);
     return () => clearInterval(interval);
   }, [reviews.length]);
 
   const review = reviews[current];
   return (
     <div
-      className="relative overflow-hidden w-full max-w-[240px] sm:max-w-[320px] aspect-square rounded-xl mx-auto"
+      className="relative overflow-hidden w-full max-w-[280px] sm:max-w-[360px] aspect-square rounded-xl mx-auto"
       style={{ 
         backgroundColor: '#000000',
       }}
@@ -284,19 +284,19 @@ function MergedReviewCard({ reviews }: { reviews: typeof trustedReviews }) {
       <AnimatePresence mode="wait">
         <motion.div
           key={current}
-          className="absolute inset-0 z-10 flex flex-col px-4 sm:px-6 py-4 sm:py-6"
+          className="absolute inset-0 z-10 flex flex-col px-5 sm:px-8 py-5 sm:py-8"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.4 }}
+          transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
         >
-          <div className="text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-2 sm:mb-3 text-center" style={{ color: '#888' }}>{review.name}</div>
+          <div className="text-xs sm:text-sm uppercase tracking-[0.2em] mb-3 sm:mb-4 text-center" style={{ color: '#888' }}>{review.name}</div>
           <div className="flex-1 flex flex-col items-start justify-center">
             <div className="w-full">
-              <svg viewBox="0 0 40 32" className="w-5 h-4 sm:w-6 sm:h-5 mb-1" fill="white" xmlns="http://www.w3.org/2000/svg">
+              <svg viewBox="0 0 40 32" className="w-6 h-5 sm:w-7 sm:h-6 mb-1.5" fill="white" xmlns="http://www.w3.org/2000/svg">
                 <path d="M14 32H0V18c0-8.4 4-14.4 14-18v8c-4 2-6 5.2-6 10h6v14Zm26 0H26V18c0-8.4 4-14.4 14-18v8c-4 2-6 5.2-6 10h6v14Z"/>
               </svg>
-              <p className="text-[11px] sm:text-sm leading-5 sm:leading-6 pl-4 sm:pl-6" style={{ color: '#ccc' }}>{review.quote}</p>
+              <p className="text-xs sm:text-base leading-5 sm:leading-7 pl-4 sm:pl-6" style={{ color: '#ccc' }}>{review.quote}</p>
             </div>
           </div>
         </motion.div>
@@ -461,35 +461,39 @@ export default function LandingPage() {
               </h2>
             </Reveal>
             <Reveal>
-              <div className="lux-surface overflow-hidden rounded-xl p-6 sm:p-8 mt-10">
-                <div className="relative h-52">
-                  <div className="absolute left-0 top-0 bottom-8 w-8 sm:w-10 flex flex-col justify-between text-[8px] sm:text-[10px] uppercase tracking-widest text-muted-foreground">
+              <div className="lux-surface overflow-hidden rounded-xl p-4 sm:p-8 mt-10">
+                <div className="relative" style={{ height: '180px' }}>
+                  <div className="absolute left-0 top-0 bottom-8 sm:bottom-8 w-6 sm:w-10 flex flex-col justify-between text-[6px] sm:text-[10px] uppercase tracking-widest text-muted-foreground">
                     <span>100</span>
                     <span>75</span>
                     <span>50</span>
                     <span>25</span>
                     <span>0</span>
                   </div>
-                  <div className="ml-8 sm:ml-12 h-full relative">
-                    {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((val) => (
-                      <div
-                        key={val}
-                        className="absolute left-0 right-0"
-                        style={{ 
-                          bottom: `${val}%`,
-                          borderTop: val % 25 === 0 ? '1px solid rgba(0,0,0,0.12)' : '1px solid rgba(0,0,0,0.05)'
-                        }}
-                      />
-                    ))}
+                  <div className="ml-6 sm:ml-12 h-full relative">
+                    {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((val) => {
+                      const gridColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)';
+                      const gridColorLight = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+                      return (
+                        <div
+                          key={val}
+                          className="absolute left-0 right-0"
+                          style={{ 
+                            bottom: `${val}%`,
+                            borderTop: val % 25 === 0 ? `1px solid ${gridColor}` : `1px solid ${gridColorLight}`
+                          }}
+                        />
+                      );
+                    })}
                     <svg
-                      className="absolute inset-0 w-full h-full overflow-visible"
+                      className="absolute inset-0 w-full h-full"
                       viewBox="0 0 500 160"
                       preserveAspectRatio="none"
                     >
                       <motion.path
                         key={`area-${graphData.join("-")}`}
                         d={`M0,160 ${graphData.map((val, i) => `L${(i / 5) * 500},${160 - (val / 100) * 160}`).join(" ")} L500,160 Z`}
-                        fill="rgba(0,0,0,0.04)"
+                        fill={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: 0.6 }}
@@ -510,9 +514,9 @@ export default function LandingPage() {
                       />
                     </svg>
                   </div>
-                  <div className="ml-8 sm:ml-12 flex justify-between mt-2 sm:mt-3 gap-1">
+                  <div className="absolute bottom-0 left-6 sm:left-12 right-0 flex justify-between">
                     {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
-                      <span key={label} className="text-[8px] sm:text-[10px] uppercase tracking-[0.1em] sm:tracking-[0.2em] text-muted-foreground whitespace-nowrap">{label}</span>
+                      <span key={label} className="text-[6px] sm:text-[10px] uppercase tracking-[0.03em] sm:tracking-[0.2em] text-muted-foreground whitespace-nowrap">{label}</span>
                     ))}
                   </div>
                 </div>
@@ -621,7 +625,7 @@ export default function LandingPage() {
               </pattern>
             </defs>
             <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle"
-              fontFamily="sans-serif" fontWeight="900" fontSize="200"
+              fontFamily="sans-serif" fontWeight="900" fontSize="320"
               letterSpacing="0.08em" fill="url(#dots)">
               AOI V3
             </text>
