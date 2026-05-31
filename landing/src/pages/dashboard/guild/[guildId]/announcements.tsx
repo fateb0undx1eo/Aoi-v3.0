@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
@@ -12,7 +13,7 @@ import {
   Megaphone, Plus, Copy, Trash2, ChevronDown, ChevronUp,
   Send, Save, X, Palette, Eye, ExternalLink, Check, Bot, Globe, Webhook, 
   Search, Hash, Folder, Flag, Activity, CloudSun, Gift, Clock, ArrowUpDown,
-  Smile, MessageSquare, FileText, Image, Music, Video,
+  Smile, MessageSquare, FileText, Image, Music, Video, Minus,
   Zap, Layers, ToggleLeft,
 } from "lucide-react";
 
@@ -66,7 +67,31 @@ type APIComponentInActionRow = APIButtonComponent | APIStringSelectComponent
 
 interface APIActionRowComponent { type: 1; components: APIComponentInActionRow[]; }
 
-type APITopLevelComponent = APIActionRowComponent;
+// ── V2 component types ──────────────────────────────────────────────
+
+interface APIV2TextDisplay { type: 10; content: string; }
+interface APIV2Separator { type: 14; divider: boolean; spacing: number; }
+interface APIV2MediaItem { media: { url: string }; }
+interface APIV2MediaGallery { type: 12; items: APIV2MediaItem[]; }
+interface APIV2Thumbnail { type: 11; items: APIV2MediaItem[]; }
+interface APIV2File { type: 13; items: APIV2MediaItem[]; }
+
+interface APIV2Section {
+  type: 9;
+  components: APIV2ChildComponent[];
+  accessory?: APIButtonComponent | APIV2Thumbnail;
+}
+
+interface APIContainerComponent {
+  type: 17;
+  components: APIV2ChildComponent[];
+  accent_color?: number;
+  spoiler?: boolean;
+}
+
+type APIV2ChildComponent = APIV2TextDisplay | APIV2Separator | APIV2MediaGallery | APIV2Thumbnail | APIV2File | APIV2Section | APIActionRowComponent;
+
+type APITopLevelComponent = APIActionRowComponent | APIContainerComponent;
 
 interface APIEmbedField { name: string; value: string; inline?: boolean; }
 interface APIEmbedFooter { text: string; icon_url?: string; proxy_icon_url?: string; }
@@ -177,7 +202,7 @@ const UNICODE_EMOJIS: Record<string, string[]> = {
 
 // ── Helper functions ────────────────────────────────────────────────
 
-const MessageFlagsEnum = { IsComponentsV2: 1 << 12, SuppressEmbeds: 1 << 2, SuppressNotifications: 1 << 13 };
+const MessageFlagsEnum = { IsComponentsV2: 1 << 15, SuppressEmbeds: 1 << 2, SuppressNotifications: 1 << 12 };
 
 function intToHex(num: number | null | undefined): string {
   if (num == null) return "#57f287";
@@ -204,11 +229,70 @@ function cloneQueryData(data: QueryData): QueryData {
 }
 
 function isComponentsV2(flags?: number): boolean {
-  return !!(flags && (flags & (1 << 12)));
+  return !!(flags && (flags & (1 << 15)));
 }
 
 function hasFlag(flags: number | undefined | null, bit: number): boolean {
   return !!(flags && (flags & bit));
+}
+
+// ── Discord API Limits ──────────────────────────────────────────────
+
+const DISCORD_LIMITS = {
+  CONTENT: 2000,
+  EMBEDS_PER_MESSAGE: 10,
+  EMBED_TITLE: 256,
+  EMBED_DESCRIPTION: 4000,
+  EMBED_FIELDS: 25,
+  FIELD_NAME: 256,
+  FIELD_VALUE: 1024,
+  FOOTER_TEXT: 2048,
+  AUTHOR_NAME: 256,
+  TOTAL_EMBED_CHARS: 6000,
+  V1_ROWS: 5,
+  V1_COMPONENTS_PER_ROW: 5,
+  V2_TOTAL_COMPONENTS: 40,
+  V2_COMPONENT_CHARS: 4000,
+} as const;
+
+function getMessageLimitWarnings(msg: QueryDataMessageData): string[] {
+  const warnings: string[] = [];
+  const c = msg.content || "";
+  if (c.length > DISCORD_LIMITS.CONTENT) warnings.push(`Content exceeds ${DISCORD_LIMITS.CONTENT} characters (${c.length}).`);
+
+  const embeds = msg.embeds || [];
+  if (embeds.length > DISCORD_LIMITS.EMBEDS_PER_MESSAGE) warnings.push(`Too many embeds (${embeds.length}/${DISCORD_LIMITS.EMBEDS_PER_MESSAGE}).`);
+
+  let totalEmbedChars = 0;
+  for (const e of embeds) {
+    if ((e.title?.length || 0) > DISCORD_LIMITS.EMBED_TITLE) warnings.push(`Embed title exceeds ${DISCORD_LIMITS.EMBED_TITLE} characters.`);
+    if ((e.description?.length || 0) > DISCORD_LIMITS.EMBED_DESCRIPTION) warnings.push(`Embed description exceeds ${DISCORD_LIMITS.EMBED_DESCRIPTION} characters.`);
+    if ((e.footer?.text?.length || 0) > DISCORD_LIMITS.FOOTER_TEXT) warnings.push(`Embed footer exceeds ${DISCORD_LIMITS.FOOTER_TEXT} characters.`);
+    if ((e.author?.name?.length || 0) > DISCORD_LIMITS.AUTHOR_NAME) warnings.push(`Embed author name exceeds ${DISCORD_LIMITS.AUTHOR_NAME} characters.`);
+    const fields = e.fields || [];
+    if (fields.length > DISCORD_LIMITS.EMBED_FIELDS) warnings.push(`Embed has ${fields.length} fields (max ${DISCORD_LIMITS.EMBED_FIELDS}).`);
+    for (const f of fields) {
+      if ((f.name?.length || 0) > DISCORD_LIMITS.FIELD_NAME) warnings.push(`Field name exceeds ${DISCORD_LIMITS.FIELD_NAME} characters.`);
+      if ((f.value?.length || 0) > DISCORD_LIMITS.FIELD_VALUE) warnings.push(`Field value exceeds ${DISCORD_LIMITS.FIELD_VALUE} characters.`);
+    }
+    totalEmbedChars += (e.title?.length || 0) + (e.description?.length || 0) + (e.author?.name?.length || 0) + (e.footer?.text?.length || 0);
+    totalEmbedChars += fields.reduce((a, f) => a + (f.name?.length || 0) + (f.value?.length || 0), 0);
+  }
+  if (totalEmbedChars > DISCORD_LIMITS.TOTAL_EMBED_CHARS) warnings.push(`Total embed content exceeds ${DISCORD_LIMITS.TOTAL_EMBED_CHARS} characters (${totalEmbedChars}).`);
+
+  const comps = msg.components || [];
+  const isV2 = comps.some((r) => r.type !== 1);
+  if (!isV2) {
+    if (comps.length > DISCORD_LIMITS.V1_ROWS) warnings.push(`Too many action rows (${comps.length}/${DISCORD_LIMITS.V1_ROWS}).`);
+    for (const row of comps) {
+      if (row.type === 1 && row.components.length > DISCORD_LIMITS.V1_COMPONENTS_PER_ROW) warnings.push(`Action row has ${row.components.length} components (max ${DISCORD_LIMITS.V1_COMPONENTS_PER_ROW}).`);
+    }
+  } else {
+    const total = comps.reduce((a, r) => a + 1 + ("components" in r ? (r as any).components?.length || 0 : 0), 0);
+    if (total > DISCORD_LIMITS.V2_TOTAL_COMPONENTS) warnings.push(`Too many V2 components (${total}/${DISCORD_LIMITS.V2_TOTAL_COMPONENTS}).`);
+  }
+
+  return warnings;
 }
 
 function formatTimestamp(iso: string): string {
@@ -274,8 +358,8 @@ function EmojiPickerPopover({ open, onClose, onEmojiSelect, serverEmojis }: {
     ? allUnicode.filter((e) => e.includes(search))
     : UNICODE_EMOJIS[category] || [];
 
-  return (
-    <div ref={ref} className="absolute z-50 mt-1 w-[352px] rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+  const content = (
+    <div ref={ref} className="fixed left-1/2 top-1/2 z-[100] w-[352px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl">
       {/* Search */}
       <div className="border-b border-zinc-800 p-2">
         <div className="relative">
@@ -285,42 +369,32 @@ function EmojiPickerPopover({ open, onClose, onEmojiSelect, serverEmojis }: {
             className="w-full rounded-lg border border-zinc-700 bg-black py-1.5 pl-8 pr-3 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-zinc-500" />
         </div>
       </div>
-
-      {/* Tabs */}
       {!search && (
         <div className="flex border-b border-zinc-800">
           {(["unicode", "server"] as const).map((tab) => (
             <button key={tab} type="button" onClick={() => setCustomTab(tab)}
-              className={`flex-1 py-1.5 text-xs font-medium transition-colors ${
-                customTab === tab ? "border-b-2 text-white" : "text-zinc-500 hover:text-zinc-300"
-              }`} style={customTab === tab ? { borderColor: ACCENT, color: ACCENT } : {}}>
+              className={`flex-1 py-1.5 text-xs font-medium transition-colors ${customTab === tab ? "border-b-2 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+              style={customTab === tab ? { borderColor: ACCENT, color: ACCENT } : {}}>
               {tab === "unicode" ? "Unicode" : `Server (${serverEmojis.length})`}
             </button>
           ))}
         </div>
       )}
-
       {customTab === "unicode" && !search && (
         <div className="flex border-b border-zinc-800 px-2 py-1">
           {UNICODE_EMOJI_CATEGORIES.map((cat) => (
             <button key={cat.id} type="button" onClick={() => setCategory(cat.id)}
               className={`rounded px-1.5 py-1 text-sm transition-colors ${category === cat.id ? "bg-zinc-700" : "hover:bg-zinc-800"}`}
-              title={cat.label}>
-              {cat.icon}
-            </button>
+              title={cat.label}>{cat.icon}</button>
           ))}
         </div>
       )}
-
-      {/* Emoji grid */}
       <div className="max-h-60 overflow-y-auto p-2">
         {customTab === "unicode" ? (
           <div className="grid grid-cols-8 gap-0.5">
             {filteredUnicode.map((emo, i) => (
               <button key={`${emo}-${i}`} type="button" onClick={() => { onEmojiSelect({ name: emo }); onClose(); }}
-                className="flex aspect-square items-center justify-center rounded p-0.5 text-xl hover:bg-zinc-800">
-                {emo}
-              </button>
+                className="flex aspect-square items-center justify-center rounded p-0.5 text-xl hover:bg-zinc-800">{emo}</button>
             ))}
             {filteredUnicode.length === 0 && <div className="col-span-8 py-6 text-center text-xs text-zinc-500">No emojis found</div>}
           </div>
@@ -337,8 +411,6 @@ function EmojiPickerPopover({ open, onClose, onEmojiSelect, serverEmojis }: {
           </div>
         )}
       </div>
-
-      {/* Custom emoji by ID */}
       {customTab === "server" && (
         <div className="border-t border-zinc-800 p-2">
           <p className="mb-1 text-[10px] text-zinc-500">Add custom emoji by ID or name:</p>
@@ -350,6 +422,14 @@ function EmojiPickerPopover({ open, onClose, onEmojiSelect, serverEmojis }: {
         </div>
       )}
     </div>
+  );
+
+  return createPortal(
+    <div>
+      <div className="fixed inset-0 z-[99] bg-black/50" onClick={onClose} />
+      {content}
+    </div>,
+    document.body
   );
 }
 
@@ -645,10 +725,10 @@ function ComponentEditModal({ open, onClose, component, onChange, serverEmojis }
 
 // ── Discord Message Preview ─────────────────────────────────────────
 
-function DiscordPreview({ message, isV2, targets }: { message: QueryDataMessageData; isV2?: boolean; targets?: QueryDataTarget[] }) {
+function DiscordPreview({ message, isV2, targets, onEditComponent }: { message: QueryDataMessageData; isV2?: boolean; targets?: QueryDataTarget[]; onEditComponent?: (comp: APIComponentInActionRow) => void }) {
   const hasContent = !!message.content;
   const hasEmbeds = message.embeds && message.embeds.length > 0;
-  const hasComponents = message.components && message.components.length > 0 && message.components.some((r) => r.type === 1 && r.components.length > 0);
+  const hasComponents = message.components && message.components.length > 0 && message.components.some((r) => (r.type === 1 && r.components.length > 0) || r.type === 17);
 
   const webhookName = targets?.find((t) => t.type === TargetType.Webhook)?.url ? "Webhook" : undefined;
 
@@ -727,8 +807,8 @@ function DiscordPreview({ message, isV2, targets }: { message: QueryDataMessageD
         </div>
       ))}
 
-      {hasComponents && message.components!.map((row, ri) => (
-        row.type === 1 && row.components.length > 0 && (
+      {hasComponents && message.components!.map((row, ri) =>
+        row.type === 1 && row.components.length > 0 ? (
           <div key={ri} className={`flex flex-wrap gap-2 ${hasContent || hasEmbeds ? "mt-2" : ""}`}>
             {row.components.map((comp, ci) => {
               if (comp.type === 2) {
@@ -744,6 +824,7 @@ function DiscordPreview({ message, isV2, targets }: { message: QueryDataMessageD
                 }
                 return (
                   <button key={ci} type="button" disabled={comp.disabled}
+                    onClick={() => onEditComponent?.(comp)}
                     className="inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm font-medium transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                     style={{ color: s.color, backgroundColor: s.bg, border: `1px solid ${s.border}` }}>
                     {comp.emoji?.name && <span>{comp.emoji.name}</span>}{comp.label || "Button"}
@@ -752,14 +833,16 @@ function DiscordPreview({ message, isV2, targets }: { message: QueryDataMessageD
               }
               if (comp.type === 3) {
                 return (
-                  <div key={ci} className="inline-flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-400" style={{ backgroundColor: "#4e5058" }}>
+                  <div key={ci} onClick={() => onEditComponent?.(comp)}
+                    className="inline-flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm text-zinc-400 hover:brightness-110" style={{ backgroundColor: "#4e5058" }}>
                     <ChevronDown className="h-3 w-3" />{comp.placeholder || "Select an option"}
                   </div>
                 );
               }
               if (comp.type >= 5 && comp.type <= 8) {
                 return (
-                  <div key={ci} className="inline-flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-400" style={{ backgroundColor: "#4e5058" }}>
+                  <div key={ci} onClick={() => onEditComponent?.(comp)}
+                    className="inline-flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm text-zinc-400 hover:brightness-110" style={{ backgroundColor: "#4e5058" }}>
                     <ChevronDown className="h-3 w-3" />{comp.placeholder || "Select..."}
                   </div>
                 );
@@ -767,8 +850,90 @@ function DiscordPreview({ message, isV2, targets }: { message: QueryDataMessageD
               return null;
             })}
           </div>
-        )
-      ))}
+        ) : row.type === 17 ? (
+          <ContainerPreview key={ri} container={row} hasTopMargin={hasContent || hasEmbeds} onEditComponent={onEditComponent} />
+        ) : null
+      )}
+    </div>
+  );
+}
+
+// ── Container Preview (V2) ─────────────────────────────────────────
+
+function ContainerPreview({ container, hasTopMargin, onEditComponent }: { container: APIContainerComponent; hasTopMargin: boolean; onEditComponent?: (comp: APIComponentInActionRow) => void }) {
+  const accentColor = container.accent_color != null ? intToHex(container.accent_color) : null;
+  return (
+    <div className={`flex ${hasTopMargin ? "mt-2" : ""}`}>
+      {accentColor && (
+        <div className="mr-2 w-1 flex-shrink-0 rounded-full" style={{ backgroundColor: accentColor }} />
+      )}
+      <div className="min-w-0 flex-1 space-y-1">
+        {container.components.map((item, ci) => {
+          if (item.type === 10) {
+            return <div key={ci} className="whitespace-pre-wrap text-sm" style={{ color: TEXT_COLOR }}>{item.content}</div>;
+          }
+          if (item.type === 11 || item.type === 12) {
+            const url = item.items?.[0]?.media?.url;
+            return url ? <img key={ci} src={url} alt="" className="max-h-80 w-full rounded-lg object-cover" /> : null;
+          }
+          if (item.type === 13) {
+            const url = item.items?.[0]?.media?.url;
+            if (!url) return null;
+            const filename = url.split("/").pop() || "file";
+            return (
+              <div key={ci} className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-black/30 px-3 py-2">
+                <FileText className="h-4 w-4 shrink-0 text-zinc-400" />
+                <a href={url} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate text-xs hover:underline" style={{ color: "#00a8fc" }}>{filename}</a>
+              </div>
+            );
+          }
+          if (item.type === 14) {
+            return <div key={ci} className="h-px w-full bg-zinc-700" />;
+          }
+          if (item.type === 9) {
+            const textChild = item.components?.find((c): c is APIV2TextDisplay => c.type === 10);
+            const thumbChild = item.components?.find((c): c is APIV2Thumbnail => c.type === 11);
+            const accessory = item.accessory;
+            return (
+              <div key={ci} className="flex items-start gap-3 rounded-lg bg-black/20 px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  {textChild && <div className="whitespace-pre-wrap text-sm" style={{ color: TEXT_COLOR }}>{textChild.content}</div>}
+                  {thumbChild && (() => {
+                    const url = thumbChild.items?.[0]?.media?.url;
+                    return url ? <img src={url} alt="" className="mt-1 max-h-40 rounded-lg object-cover" /> : null;
+                  })()}
+                </div>
+                {accessory?.type === 2 && (() => {
+                  const btn = accessory as APIButtonComponent;
+                  const s = BUTTON_STYLES[btn.style] || BUTTON_STYLES[1];
+                  if (btn.style === 5) {
+                    return (
+                      <a key="acc" href={btn.url || "#"} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex shrink-0 items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium transition-colors hover:brightness-110"
+                        style={{ color: s.color, backgroundColor: s.bg, border: `1px solid ${s.border}` }}>
+                        {btn.label || "Link"}<ExternalLink className="h-2.5 w-2.5" />
+                      </a>
+                    );
+                  }
+                  return (
+                    <button key="acc" type="button" disabled={btn.disabled}
+                      onClick={() => onEditComponent?.(btn)}
+                      className="inline-flex shrink-0 items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium transition-colors hover:brightness-110 disabled:opacity-50"
+                      style={{ color: s.color, backgroundColor: s.bg, border: `1px solid ${s.border}` }}>
+                      {btn.label || "Button"}
+                    </button>
+                  );
+                })()}
+                {accessory?.type === 11 && (() => {
+                  const url = (accessory as APIV2Thumbnail).items?.[0]?.media?.url;
+                  return url ? <img src={url} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" /> : null;
+                })()}
+              </div>
+            );
+          }
+          return null;
+        })}
+      </div>
     </div>
   );
 }
@@ -790,12 +955,20 @@ function StatusBanner({ status }: { status: StatusMsg }) {
 
 function ColorSwatch({ value, onChange }: { value: number | null; onChange: (v: number | null) => void }) {
   const [open, setOpen] = useState(false);
+  const [hexInput, setHexInput] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
     if (open) { document.addEventListener("mousedown", handler); return () => document.removeEventListener("mousedown", handler); }
   }, [open]);
   const hex = intToHex(value);
+  useEffect(() => { if (open) setHexInput(hex.replace("#", "")); }, [open, hex]);
+  const commitHex = (raw: string) => {
+    const clean = raw.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
+    if (clean.length === 6) onChange(Number.parseInt(clean, 16));
+    else if (!clean) onChange(null);
+    setHexInput(clean);
+  };
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={() => setOpen(!open)} className="flex h-8 w-12 items-center justify-center rounded border border-zinc-700" style={{ backgroundColor: hex }}>
@@ -812,11 +985,12 @@ function ColorSwatch({ value, onChange }: { value: number | null; onChange: (v: 
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-zinc-400">#</span>
-            <input type="text" value={hex.replace("#", "")}
-              onChange={(e) => { const v = e.target.value.replace(/[^0-9a-fA-F]/g, "").slice(0, 6); if (v.length <= 6) onChange(hexToInt("#" + v)); }}
+            <input type="text" value={hexInput}
+              onChange={(e) => commitHex(e.target.value)}
+              onBlur={() => onChange(hexInput.length >= 3 ? Number.parseInt(hexInput, 16) : null)}
               className="flex-1 rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200" placeholder="000000" />
           </div>
-          <input type="color" value={hex} onChange={(e) => onChange(hexToInt(e.target.value))} className="mt-2 h-6 w-full cursor-pointer rounded border border-zinc-700" />
+          <input type="color" value={value != null ? intToHex(value) : "#57f287"} onChange={(e) => { onChange(hexToInt(e.target.value)); setHexInput(e.target.value.replace("#", "")); }} className="mt-2 h-6 w-full cursor-pointer rounded border border-zinc-700" />
         </div>
       )}
     </div>
@@ -928,14 +1102,216 @@ function EmbedEditor({ embed, onChange }: { embed: APIEmbed; onChange: (e: APIEm
 
 // ── Component Editor ────────────────────────────────────────────────
 
-function ComponentEditorForMessage({ components, onChange, onEditComponent, serverEmojis }: {
+function V2ChildEditor({ child, onChange, onRemove, serverEmojis }: {
+  child: APIV2ChildComponent;
+  onChange: (c: APIV2ChildComponent) => void;
+  onRemove: () => void;
+  serverEmojis: GuildEmoji[];
+}) {
+  const [sectionAccessoryOpen, setSectionAccessoryOpen] = useState(false);
+
+  if (child.type === 10) {
+    return (
+      <div className="rounded border border-zinc-700 bg-black/30 p-2">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-[10px] text-zinc-500">Text Display</span>
+          <button type="button" onClick={onRemove} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
+        </div>
+        <textarea value={child.content} onChange={(e) => onChange({ ...child, content: e.target.value })}
+          placeholder="Text content..." rows={2} maxLength={2000}
+          className="w-full rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 resize-none outline-none" />
+      </div>
+    );
+  }
+
+  if (child.type === 11 || child.type === 12) {
+    const label = child.type === 11 ? "Thumbnail" : "Media Gallery";
+    return (
+      <div className="rounded border border-zinc-700 bg-black/30 p-2">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-[10px] text-zinc-500">{label}</span>
+          <button type="button" onClick={onRemove} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
+        </div>
+        <input type="text" value={child.items?.[0]?.media?.url || ""}
+          onChange={(e) => onChange({ ...child, items: [{ media: { url: e.target.value } }] } as any)}
+          placeholder="Image URL..." className="w-full rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
+      </div>
+    );
+  }
+
+  if (child.type === 13) {
+    return (
+      <div className="rounded border border-zinc-700 bg-black/30 p-2">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-[10px] text-zinc-500">File</span>
+          <button type="button" onClick={onRemove} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
+        </div>
+        <input type="text" value={child.items?.[0]?.media?.url || ""}
+          onChange={(e) => onChange({ ...child, items: [{ media: { url: e.target.value } }] } as any)}
+          placeholder="File URL..." className="w-full rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
+      </div>
+    );
+  }
+
+  if (child.type === 14) {
+    return (
+      <div className="flex items-center gap-2 rounded border border-zinc-700 bg-black/30 px-2 py-1">
+        <div className="h-px flex-1 bg-zinc-700" />
+        <span className="text-[10px] text-zinc-500">Separator</span>
+        <div className="h-px flex-1 bg-zinc-700" />
+        <button type="button" onClick={onRemove} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
+      </div>
+    );
+  }
+
+  if (child.type === 9) {
+    const textChild = child.components?.find((c): c is APIV2TextDisplay => c.type === 10);
+    const thumbChild = child.components?.find((c): c is APIV2Thumbnail => c.type === 11);
+    return (
+      <div className="rounded border border-zinc-700 bg-black/30 p-2">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-[10px] text-zinc-500">Section</span>
+          <button type="button" onClick={onRemove} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
+        </div>
+        <textarea value={textChild?.content || ""}
+          onChange={(e) => onChange({ ...child, components: [{ type: 10, content: e.target.value }] } as any)}
+          placeholder="Section text..." rows={2} maxLength={2000}
+          className="mb-1 w-full rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 resize-none outline-none" />
+        {thumbChild && (
+          <input type="text" value={thumbChild.items?.[0]?.media?.url || ""}
+            onChange={(e) => onChange({ ...child, components: [textChild || { type: 10, content: "" }, { type: 11, items: [{ media: { url: e.target.value } }] }] } as any)}
+            placeholder="Thumbnail URL..." className="mb-1 w-full rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
+        )}
+        <div className="flex gap-1">
+          {!thumbChild && (
+            <button type="button" onClick={() => onChange({ ...child, components: [...(child.components || []), { type: 11, items: [{ media: { url: "" } }] }] } as any)}
+              className="rounded px-1.5 py-0.5 text-[9px] uppercase text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"><Image className="mr-0.5 inline h-2.5 w-2.5" />+Thumbnail</button>
+          )}
+          {thumbChild && (
+            <button type="button" onClick={() => onChange({ ...child, components: child.components.filter((c) => c.type !== 11) } as any)}
+              className="rounded px-1.5 py-0.5 text-[9px] uppercase text-zinc-500 hover:bg-zinc-800 hover:text-red-300">-Thumbnail</button>
+          )}
+          <div className="relative">
+            <button type="button" onClick={() => setSectionAccessoryOpen(!sectionAccessoryOpen)}
+              className="rounded px-1.5 py-0.5 text-[9px] uppercase text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300">
+              {child.accessory ? "Edit Acc" : "+Acc"}
+            </button>
+            {sectionAccessoryOpen && (
+              <div className="absolute bottom-full left-0 z-10 mb-1 w-44 rounded border border-zinc-700 bg-zinc-900 p-2 shadow-xl">
+                {child.accessory?.type === 2 && (
+                  <div className="space-y-1">
+                    <p className="text-[9px] text-zinc-500">Button Accessory</p>
+                    <input type="text" value={(child.accessory as APIButtonComponent).label || ""}
+                      onChange={(e) => onChange({ ...child, accessory: { ...child.accessory, label: e.target.value } as APIButtonComponent } as any)}
+                      placeholder="Label" className="w-full rounded border border-zinc-700 bg-black px-1.5 py-0.5 text-[10px] text-zinc-200 outline-none" />
+                    <input type="text" value={(child.accessory as APIButtonComponent).url || (child.accessory as APIButtonComponent).custom_id || ""}
+                      onChange={(e) => {
+                        const acc = child.accessory as APIButtonComponent;
+                        if (acc.style === 5) onChange({ ...child, accessory: { ...acc, url: e.target.value } } as any);
+                        else onChange({ ...child, accessory: { ...acc, custom_id: e.target.value } } as any);
+                      }}
+                      placeholder="URL / Custom ID" className="w-full rounded border border-zinc-700 bg-black px-1.5 py-0.5 text-[10px] text-zinc-200 outline-none" />
+                    <select value={(child.accessory as APIButtonComponent).style}
+                      onChange={(e) => onChange({ ...child, accessory: { ...child.accessory, style: Number(e.target.value) as ButtonStyle } } as any)}
+                      className="w-full rounded border border-zinc-700 bg-black px-1.5 py-0.5 text-[10px] text-zinc-200 outline-none">
+                      {[1, 2, 3, 4, 5].map((s) => <option key={s} value={s}>{BUTTON_STYLES[s]?.label || s}</option>)}
+                    </select>
+                  </div>
+                )}
+                {child.accessory?.type === 11 && (
+                  <div className="space-y-1">
+                    <p className="text-[9px] text-zinc-500">Thumbnail Accessory</p>
+                    <input type="text" value={(child.accessory as APIV2Thumbnail).items?.[0]?.media?.url || ""}
+                      onChange={(e) => onChange({ ...child, accessory: { type: 11, items: [{ media: { url: e.target.value } }] } } as any)}
+                      placeholder="URL..." className="w-full rounded border border-zinc-700 bg-black px-1.5 py-0.5 text-[10px] text-zinc-200 outline-none" />
+                  </div>
+                )}
+                {!child.accessory && (
+                  <div className="space-y-1">
+                    <button type="button" onClick={() => onChange({ ...child, accessory: { type: 2, style: 1, label: "Button", custom_id: `btn_${randomId()}` } } as any)}
+                      className="block w-full rounded px-1.5 py-1 text-[10px] text-left text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200">Button</button>
+                    <button type="button" onClick={() => onChange({ ...child, accessory: { type: 11, items: [{ media: { url: "" } }] } } as any)}
+                      className="block w-full rounded px-1.5 py-1 text-[10px] text-left text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200">Thumbnail</button>
+                  </div>
+                )}
+                {(child.accessory) && (
+                  <button type="button" onClick={() => onChange({ ...child, accessory: undefined } as any)}
+                    className="mt-1 w-full rounded px-1.5 py-0.5 text-[9px] text-red-400 hover:bg-zinc-800">Remove</button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function V2ContainerEditor({ container, onContainerChange, onRemove, serverEmojis }: {
+  container: APIContainerComponent;
+  onContainerChange: (c: APIContainerComponent) => void;
+  onRemove: () => void;
+  serverEmojis: GuildEmoji[];
+}) {
+  const addChild = (type: APIV2ChildComponent["type"]) => {
+    const item: APIV2ChildComponent = type === 10 ? { type: 10, content: "" }
+      : type === 11 ? { type: 11, items: [{ media: { url: "" } }] }
+      : type === 12 ? { type: 12, items: [{ media: { url: "" } }] }
+      : type === 13 ? { type: 13, items: [{ media: { url: "" } }] }
+      : type === 14 ? { type: 14, divider: true, spacing: 1 }
+      : { type: 9, components: [{ type: 10, content: "" }] };
+    onContainerChange({ ...container, components: [...container.components, item] });
+  };
+  const updateChild = (ci: number, c: APIV2ChildComponent) => {
+    const next = [...container.components];
+    next[ci] = c;
+    onContainerChange({ ...container, components: next });
+  };
+  const removeChild = (ci: number) => {
+    onContainerChange({ ...container, components: container.components.filter((_, i) => i !== ci) });
+  };
+
+  return (
+    <div className="rounded-lg border border-zinc-700 bg-zinc-900/50 p-2">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-xs font-medium text-zinc-400">V2 Container ({container.components.length} items)</span>
+        <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
+            <ColorSwatch value={container.accent_color ?? null} onChange={(v) => onContainerChange({ ...container, accent_color: v ?? undefined })} />
+          </div>
+          <button type="button" onClick={onRemove} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
+        </div>
+      </div>
+      <div className="mb-1 space-y-1">
+        {container.components.length === 0 ? (
+          <div className="py-1 text-center text-[10px] text-zinc-600">Empty container</div>
+        ) : (
+          container.components.map((child, ci) => (
+            <V2ChildEditor key={ci} child={child} onChange={(c) => updateChild(ci, c)} onRemove={() => removeChild(ci)} serverEmojis={serverEmojis} />
+          ))
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {([10, 14, 12, 11, 13, 9] as const).map((t) => (
+          <button key={t} type="button" onClick={() => addChild(t)}
+            className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] uppercase text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300">
+            +{t === 10 ? "Text" : t === 11 ? "Thumb" : t === 12 ? "Media" : t === 13 ? "File" : t === 14 ? "Divider" : "Section"}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ComponentEditorForMessage({ components, onChange, onEditComponent, serverEmojis, isV2 }: {
   components: APITopLevelComponent[];
   onChange: (c: APITopLevelComponent[]) => void;
   onEditComponent: (comp: APIComponentInActionRow) => void;
   serverEmojis: GuildEmoji[];
+  isV2?: boolean;
 }) {
-  const isV1 = components.every((c) => c.type === 1);
-
   const addRow = () => onChange([...components, { type: 1, components: [] }]);
   const removeRow = (ri: number) => onChange(components.filter((_, i) => i !== ri));
   const addButton = (ri: number, style: ButtonStyle = 1) => {
@@ -956,13 +1332,46 @@ function ComponentEditorForMessage({ components, onChange, onEditComponent, serv
     onChange(components.map((r, i) => i === ri && r.type === 1 ? { ...r, components: r.components.filter((_, j) => j !== ci) } : r));
   };
 
+  const addV2Container = (itemType: APIV2ChildComponent["type"]) => {
+    const item: APIV2ChildComponent = itemType === 10 ? { type: 10, content: "" }
+      : itemType === 11 ? { type: 11, items: [{ media: { url: "" } }] }
+      : itemType === 12 ? { type: 12, items: [{ media: { url: "" } }] }
+      : itemType === 13 ? { type: 13, items: [{ media: { url: "" } }] }
+      : itemType === 14 ? { type: 14, divider: true, spacing: 1 }
+      : { type: 9, components: [{ type: 10, content: "" }] };
+    onChange([...components, { type: 17, components: [item] }]);
+  };
+
+  const updateContainer = (ri: number, updated: APIContainerComponent) => {
+    onChange(components.map((r, i) => i === ri ? updated : r));
+  };
+
+  const v2AddLabels: { type: APIV2ChildComponent["type"]; label: string }[] = [
+    { type: 10, label: "Text" },
+    { type: 14, label: "Divider" },
+    { type: 12, label: "Media" },
+    { type: 11, label: "Thumb" },
+    { type: 13, label: "File" },
+    { type: 9, label: "Section" },
+  ];
+
   return (
     <div className="space-y-2">
-      <p className="text-[10px] text-zinc-500">
-        {isV1 ? "Action Rows (V1)" : "Top-Level Components"}
-      </p>
-      {components.map((row, ri) => (
-        row.type === 1 && (
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-zinc-500">{isV2 ? "Layout Containers (V2)" : "Action Rows"}</p>
+        {isV2 && (
+          <div className="flex gap-1">
+            {v2AddLabels.map(({ type, label }) => (
+              <button key={type} type="button" onClick={() => addV2Container(type)}
+                className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] uppercase text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200">
+                <Plus className="h-2.5 w-2.5" /> {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {components.map((row, ri) =>
+        row.type === 1 ? (
           <div key={ri} className="rounded-lg border border-zinc-800 bg-black/50 p-2">
             <div className="mb-1 flex items-center justify-between">
               <span className="text-xs font-medium text-zinc-400">Row {ri + 1} ({row.components.length}/5)</span>
@@ -994,12 +1403,16 @@ function ComponentEditorForMessage({ components, onChange, onEditComponent, serv
               </div>
             )}
           </div>
-        )
-      ))}
-      <button type="button" onClick={addRow}
-        className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-700 py-1.5 text-xs text-zinc-500 hover:border-zinc-500 hover:text-zinc-300">
-        <Plus className="h-3 w-3" /> Add Row
-      </button>
+        ) : row.type === 17 ? (
+          <V2ContainerEditor key={ri} container={row} onContainerChange={(c) => updateContainer(ri, c)} onRemove={() => removeRow(ri)} serverEmojis={serverEmojis} />
+        ) : null
+      )}
+      {!isV2 && (
+        <button type="button" onClick={addRow}
+          className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-700 py-1.5 text-xs text-zinc-500 hover:border-zinc-500 hover:text-zinc-300">
+          <Plus className="h-3 w-3" /> Add Row
+        </button>
+      )}
     </div>
   );
 }
@@ -1079,7 +1492,7 @@ export default function GuildAnnouncementsPage() {
   }, [data, selectedMessageIndex, setD]);
 
   const addMessage = useCallback((isComponentsV2Msg?: boolean) => {
-    const flags = isComponentsV2Msg ? (1 << 12) : undefined;
+    const flags = isComponentsV2Msg ? (1 << 15) : undefined;
     const msg = createMessage(flags);
     const next = [...data.messages, msg];
     setD({ ...data, messages: next });
@@ -1339,6 +1752,27 @@ export default function GuildAnnouncementsPage() {
                 {isV2 && <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">Components V2</span>}
               </h2>
 
+              {/* Limit warnings */}
+              {(() => {
+                const ws = getMessageLimitWarnings(message.data);
+                if (!ws.length) return null;
+                return (
+                  <div className="mb-3 space-y-1">
+                    {ws.map((w, i) => (
+                      <div key={i} className="flex items-start gap-1.5 rounded-lg border border-red-700/40 bg-red-500/10 px-3 py-2 text-[10px] text-red-300">
+                        <span className="mt-0.5 shrink-0">⚠</span>
+                        <span>{w}</span>
+                      </div>
+                    ))}
+                    {ws.length >= 2 && (
+                      <div className="rounded-lg border border-amber-700/40 bg-amber-500/10 px-3 py-2 text-[10px] text-amber-300">
+                        <strong>Consider splitting into multiple messages.</strong> Use the +Add button to create additional messages.
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Flags */}
               <div className="mb-3 flex flex-wrap gap-2">
                 <label className="flex items-center gap-1.5 text-[10px] text-zinc-500">
@@ -1352,10 +1786,10 @@ export default function GuildAnnouncementsPage() {
                   Suppress Embeds
                 </label>
                 <label className="flex items-center gap-1.5 text-[10px] text-zinc-500">
-                  <input type="checkbox" checked={hasFlag(message.data.flags, 8192)}
+                  <input type="checkbox" checked={hasFlag(message.data.flags, 4096)}
                     onChange={(e) => {
                       let f = message.data.flags || 0;
-                      f = e.target.checked ? f | 8192 : f & ~8192;
+                      f = e.target.checked ? f | 4096 : f & ~4096;
                       updateMessageData({ flags: f || undefined });
                     }}
                     className="h-3 w-3 rounded border-zinc-700 bg-zinc-800" />
@@ -1436,7 +1870,8 @@ export default function GuildAnnouncementsPage() {
                   components={msg?.components || []}
                   onChange={(components) => updateMessageData({ components })}
                   onEditComponent={(comp) => { setEditingComponent(comp); setComponentModalOpen(true); }}
-                  serverEmojis={serverEmojis} />
+                  serverEmojis={serverEmojis}
+                  isV2={isV2} />
               )}
             </section>
           )}
@@ -1448,7 +1883,7 @@ export default function GuildAnnouncementsPage() {
           <div className="dashboard-panel rounded-2xl p-5">
             <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-3">Preview</h2>
             {msg ? (
-              <DiscordPreview message={msg} isV2={isV2} targets={data.targets} />
+              <DiscordPreview message={msg} isV2={isV2} targets={data.targets} onEditComponent={(comp) => { setEditingComponent(comp); setComponentModalOpen(true); }} />
             ) : (
               <div className="flex items-center justify-center rounded-lg bg-background/50 py-12 text-sm text-muted-foreground">No message selected</div>
             )}
