@@ -112,6 +112,15 @@ function normalizeRawV2Component(comp) {
     }
     return { type: 9, components: sectionChildren, ...(accessory ? { accessory } : {}) };
   }
+  if (comp.type === 17) {
+    const children = Array.isArray(comp.components) ? comp.components.map(normalizeRawV2Component).filter(Boolean) : [];
+    return {
+      type: 17,
+      components: children,
+      accent_color: comp.accent_color != null ? Number(comp.accent_color) : undefined,
+      spoiler: Boolean(comp.spoiler) || undefined,
+    };
+  }
   return null;
 }
 
