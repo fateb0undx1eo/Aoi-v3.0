@@ -1,6 +1,9 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { requireGuildAccess } from '../middleware/requireGuildAccess.js';
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
 export function createGuildRoutes({ guildService, accessControlService, client, authService, dmBroadcastService, announcementService }) {
   const router = Router();
@@ -162,9 +165,45 @@ export function createGuildRoutes({ guildService, accessControlService, client, 
     }
   });
 
-  router.post('/:guildId/announcements', async (req, res, next) => {
+  router.post('/:guildId/announcements', upload.any(), async (req, res, next) => {
     try {
-      const result = await announcementService.send(req.params.guildId, req.body ?? {});
+      let payload = req.body ?? {};
+      if (req.body?.payload) {
+        try { payload = JSON.parse(req.body.payload); } catch { payload = {}; }
+      }
+      // Collect per-entry file arrays from multipart fields
+      const entryMetas = {};
+      const entryBuffers = {};
+      const bodyKeys = Object.keys(req.body);
+      for (const key of bodyKeys) {
+        const metaMatch = key.match(/^filemeta_(.+)$/);
+        if (metaMatch) {
+          const entryId = metaMatch[1];
+          try { entryMetas[entryId] = JSON.parse(req.body[key]); } catch {}
+        }
+      }
+      for (const f of req.files || []) {
+        const fieldMatch = f.fieldname?.match(/^file_(.+)$/);
+        if (fieldMatch) {
+          const entryId = fieldMatch[1];
+          if (!entryBuffers[entryId]) entryBuffers[entryId] = [];
+          entryBuffers[entryId].push(f);
+        }
+      }
+      payload._entryFiles = {};
+      for (const [entryId, metas] of Object.entries(entryMetas)) {
+        const files = entryBuffers[entryId] || [];
+        const metaArr = Array.isArray(metas) ? metas : [metas];
+        payload._entryFiles[entryId] = files.map((f, i) => ({
+          buffer: f.buffer,
+          originalname: metaArr[i]?.name || f.originalname,
+          mimetype: f.mimetype,
+          size: f.size,
+          spoiler: metaArr[i]?.spoiler || false,
+          description: metaArr[i]?.description || undefined,
+        }));
+      }
+      const result = await announcementService.send(req.params.guildId, payload);
       res.status(200).json({ ok: true, result });
     } catch (error) {
       if (error instanceof Error) {

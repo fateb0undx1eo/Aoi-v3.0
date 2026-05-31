@@ -1,4 +1,4 @@
-import { EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, StringSelectMenuBuilder, ButtonStyle } from 'discord.js';
+import { AttachmentBuilder, EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, StringSelectMenuBuilder, ButtonStyle } from 'discord.js';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -124,6 +124,54 @@ function normalizeRawV2Component(comp) {
   return null;
 }
 
+function normalizeFlows(rawFlows) {
+  if (!Array.isArray(rawFlows)) return [];
+  return rawFlows.map((f) => {
+    if (!f || typeof f.type !== 'string') return null;
+    const type = f.type;
+    if (type === 'add_role' || type === 'remove_role') {
+      return {
+        ri: Number.isInteger(f.ri) ? f.ri : 0,
+        ci: Number.isInteger(f.ci) ? f.ci : 0,
+        type,
+        role_id: trimString(f.role_id, 32),
+        option_value: f.option_value ? trimString(f.option_value, 100) : undefined,
+      };
+    }
+    if (type === 'send_message') {
+      return {
+        ri: Number.isInteger(f.ri) ? f.ri : 0,
+        ci: Number.isInteger(f.ci) ? f.ci : 0,
+        type,
+        channel_id: trimString(f.channel_id, 32),
+        message_content: f.message_content ? trimString(f.message_content, 2000) : undefined,
+        option_value: f.option_value ? trimString(f.option_value, 100) : undefined,
+      };
+    }
+    if (type === 'create_thread') {
+      return {
+        ri: Number.isInteger(f.ri) ? f.ri : 0,
+        ci: Number.isInteger(f.ci) ? f.ci : 0,
+        type,
+        thread_name: trimString(f.thread_name, 100),
+        channel_id: f.channel_id ? trimString(f.channel_id, 32) : undefined,
+        option_value: f.option_value ? trimString(f.option_value, 100) : undefined,
+      };
+    }
+    if (type === 'custom') {
+      return {
+        ri: Number.isInteger(f.ri) ? f.ri : 0,
+        ci: Number.isInteger(f.ci) ? f.ci : 0,
+        type,
+        custom_event: trimString(f.custom_event, 100),
+        custom_data: f.custom_data ? trimString(f.custom_data, 4000) : undefined,
+        option_value: f.option_value ? trimString(f.option_value, 100) : undefined,
+      };
+    }
+    return null;
+  }).filter(Boolean);
+}
+
 function normalizeContainerBlocks(blocks) {
   if (!Array.isArray(blocks)) return [];
   return blocks
@@ -196,6 +244,7 @@ function normalizeEntry(rawEntry = {}) {
       embeds: [legacyEmbed],
       container_blocks: normalizeContainerBlocks(rawEntry?.container_blocks),
       components: [],
+      flows: normalizeFlows(rawEntry.flows),
     };
   }
 
@@ -242,6 +291,7 @@ function normalizeEntry(rawEntry = {}) {
     container_blocks: [],
     components: hasV2 ? [] : normalizeComponents(rawEntry?.components),
     _rawComponents: hasV2 ? rawComponents.map(normalizeRawV2Component).filter(Boolean) : undefined,
+    flows: normalizeFlows(rawEntry.flows),
     flags: rawEntry.flags ? Number(rawEntry.flags) : undefined,
     thread_name: trimString(rawEntry.thread_name, 100),
     allowed_mentions: rawEntry.allowed_mentions || undefined,
@@ -253,14 +303,27 @@ function normalizePayload(rawPayload = {}) {
     ? Array.from(new Set(rawPayload.channel_ids.map((value) => trimString(value, 32)).filter(Boolean)))
     : [];
 
+  const entryFiles = rawPayload._entryFiles || {};
+
   const entries = Array.isArray(rawPayload?.entries)
-    ? rawPayload.entries.map(normalizeEntry).filter((entry) => {
+    ? rawPayload.entries.map((raw) => {
+        const entry = normalizeEntry(raw);
+        const files = entryFiles[entry.id] || [];
+        if (files.length > 0) {
+          entry._files = files.slice(0, 10).map((f) => new AttachmentBuilder(f.buffer, {
+            name: f.originalname,
+            description: f.description,
+            spoiler: f.spoiler,
+          }));
+        }
+        return entry;
+      }).filter((entry) => {
         if (hasLegacyType(entry)) {
           if (entry.type === 'normal') return Boolean(entry.content);
           if (entry.type === 'embed') return Boolean(entry.embed.title || entry.embed.description || entry.embed.image_url || entry.embed.footer_text);
           return entry.container_blocks.length > 0;
         }
-        return Boolean(entry.content) || entry.embeds.length > 0 || entry.components.length > 0 || (entry._rawComponents && entry._rawComponents.length > 0);
+        return Boolean(entry.content) || entry.embeds.length > 0 || entry.components.length > 0 || (entry._rawComponents && entry._rawComponents.length > 0) || (entry._files && entry._files.length > 0);
       })
     : [];
 
@@ -429,6 +492,9 @@ export class AnnouncementService {
   async sendEntry(channel, entry) {
     const payload = buildEntryPayload(entry);
     if (!payload) return;
+    if (entry._files?.length > 0) {
+      payload.files = entry._files;
+    }
     await channel.send(payload);
   }
 
@@ -453,6 +519,9 @@ export class AnnouncementService {
       : buildEntryPayload(entry);
     if (!payload) {
       throw new Error('Add at least one message component before editing this message.');
+    }
+    if (entry._files?.length > 0) {
+      payload.files = entry._files;
     }
     await message.edit(payload);
   }
