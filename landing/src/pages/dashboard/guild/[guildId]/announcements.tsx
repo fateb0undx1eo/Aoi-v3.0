@@ -469,6 +469,22 @@ function ComponentEditModal({ open, onClose, component, onChange, serverEmojis }
           </DialogDescription>
         </DialogHeader>
 
+        {/* How it works — explains what this component does */}
+        {isButton && (
+          <div className="rounded-lg border border-zinc-800 bg-black/30 px-3 py-2 text-xs text-zinc-400 space-y-1">
+            <p className="font-medium text-zinc-300">How this button works</p>
+            <p>Users see the <strong className="text-zinc-200">Label</strong> text with your chosen <strong className="text-zinc-200">Style</strong> color. Clicking it triggers your bot via the <strong className="text-zinc-200">Custom ID</strong> — this ID is what your code listens for.</p>
+            <p className="text-zinc-500">Tip: Use a descriptive Custom ID like <code className="text-zinc-300">claim_reward_123</code> so your bot knows which button was pressed.</p>
+          </div>
+        )}
+        {isSelect && (
+          <div className="rounded-lg border border-zinc-800 bg-black/30 px-3 py-2 text-xs text-zinc-400 space-y-1">
+            <p className="font-medium text-zinc-300">How this select menu works</p>
+            <p>Users pick from the <strong className="text-zinc-200">Options</strong> list. Your bot receives the chosen option&apos;s <strong className="text-zinc-200">Value</strong> through the <strong className="text-zinc-200">Custom ID</strong>.</p>
+            <p className="text-zinc-500">Tip: Set <strong className="text-zinc-200">Min/Max Values</strong> to allow multiple selections.</p>
+          </div>
+        )}
+
         <div className="space-y-4">
           {isButton && (
             <>
@@ -491,14 +507,17 @@ function ComponentEditModal({ open, onClose, component, onChange, serverEmojis }
                     <EmojiPickerPopover open={emojiPickerOpen} onClose={() => setEmojiPickerOpen(false)}
                       onEmojiSelect={(emo) => update({ emoji: emo })} serverEmojis={serverEmojis} />
                   </div>
+                  <span className="text-[9px] text-zinc-600">Optional</span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <Label className="text-xs text-zinc-400">Label</Label>
+                  <Label className="text-xs text-zinc-400">
+                    Label <span className="text-zinc-600 font-normal">— text users see on the button</span>
+                  </Label>
                   <input type="text" value={draft.label || ""} onChange={(e) => update({ label: e.target.value || undefined })}
                     placeholder="Button label" maxLength={80}
                     className="mt-1 w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-600" />
                 </div>
-                <div className="mt-4 flex items-center gap-1.5">
+                <div className="mt-5 flex items-center gap-1.5">
                   <label className="text-[10px] text-zinc-500">Disabled</label>
                   <input type="checkbox" checked={draft.disabled || false}
                     onChange={(e) => update({ disabled: e.target.checked || undefined })}
@@ -509,7 +528,9 @@ function ComponentEditModal({ open, onClose, component, onChange, serverEmojis }
               {/* Style picker */}
               {draft.style !== 5 ? (
                 <div>
-                  <Label className="text-xs text-zinc-400">Style</Label>
+                  <Label className="text-xs text-zinc-400">
+                    Style <span className="text-zinc-600 font-normal">— controls the button&apos;s color</span>
+                  </Label>
                   <div className="mt-1 grid grid-cols-4 gap-1">
                     {[1, 2, 3, 4].map((s) => {
                       const bs = BUTTON_STYLES[s];
@@ -530,7 +551,9 @@ function ComponentEditModal({ open, onClose, component, onChange, serverEmojis }
               {/* URL (link style) or custom_id */}
               {draft.style === 5 ? (
                 <div>
-                  <Label className="text-xs text-zinc-400">URL (Link button)</Label>
+                  <Label className="text-xs text-zinc-400">
+                    URL <span className="text-zinc-600 font-normal">— where the link button sends users</span>
+                  </Label>
                   <input type="url" value={(draft as APIButtonComponent).url || ""}
                     onChange={(e) => update({ url: e.target.value } as Partial<APIButtonComponent>)}
                     placeholder="https://discord.com"
@@ -538,7 +561,9 @@ function ComponentEditModal({ open, onClose, component, onChange, serverEmojis }
                 </div>
               ) : (
                 <div>
-                  <Label className="text-xs text-zinc-400">Custom ID</Label>
+                  <Label className="text-xs text-zinc-400">
+                    Custom ID <span className="text-zinc-600 font-normal">— unique identifier your bot listens for</span>
+                  </Label>
                   <input type="text" value={(draft as APIButtonComponent).custom_id || ""}
                     onChange={(e) => update({ custom_id: e.target.value } as Partial<APIButtonComponent>)}
                     placeholder="my_button_id"
@@ -552,13 +577,15 @@ function ComponentEditModal({ open, onClose, component, onChange, serverEmojis }
             <>
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
-                  <Label className="text-xs text-zinc-400">Placeholder</Label>
+                  <Label className="text-xs text-zinc-400">
+                    Placeholder <span className="text-zinc-600 font-normal">— grey hint text before a choice is made</span>
+                  </Label>
                   <input type="text" value={(draft as APIStringSelectComponent).placeholder || ""}
                     onChange={(e) => update({ placeholder: e.target.value || undefined })}
                     placeholder={isStringSelect ? "Choose an option" : "Select..."} maxLength={150}
                     className="mt-1 w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-600" />
                 </div>
-                <div className="mt-4 flex items-center gap-1.5">
+                <div className="mt-5 flex items-center gap-1.5">
                   <label className="text-[10px] text-zinc-500">Disabled</label>
                   <input type="checkbox" checked={draft.disabled || false}
                     onChange={(e) => update({ disabled: e.target.checked || undefined })}
@@ -567,7 +594,9 @@ function ComponentEditModal({ open, onClose, component, onChange, serverEmojis }
               </div>
 
               <div>
-                <Label className="text-xs text-zinc-400">Custom ID</Label>
+                <Label className="text-xs text-zinc-400">
+                  Custom ID <span className="text-zinc-600 font-normal">— unique identifier your bot listens for</span>
+                </Label>
                 <input type="text" value={draft.custom_id || ""} onChange={(e) => update({ custom_id: e.target.value })}
                   placeholder="select_menu_id"
                   className="mt-1 w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-600" />
@@ -576,7 +605,9 @@ function ComponentEditModal({ open, onClose, component, onChange, serverEmojis }
               {isStringSelect && (
                 <div>
                   <div className="mb-2 flex items-center justify-between">
-                    <Label className="text-xs text-zinc-400">Options ({(draft as APIStringSelectComponent).options.length}/25)</Label>
+                    <Label className="text-xs text-zinc-400">
+                      Options <span className="text-zinc-600 font-normal">— choices users pick from</span> ({(draft as APIStringSelectComponent).options.length}/25)
+                    </Label>
                   </div>
                   <div className="space-y-2">
                     {(draft as APIStringSelectComponent).options.map((opt, oi) => (
@@ -665,14 +696,14 @@ function ComponentEditModal({ open, onClose, component, onChange, serverEmojis }
           {isStringSelect && (
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-xs text-zinc-400">Min Values</Label>
+                <Label className="text-xs text-zinc-400">Min Values <span className="text-zinc-600 font-normal">(0 = optional)</span></Label>
                 <input type="number" value={(draft as APIStringSelectComponent).min_values ?? 1}
                   onChange={(e) => update({ min_values: Math.max(0, Number(e.target.value)) } as Partial<APIStringSelectComponent>)}
                   min={0} max={(draft as APIStringSelectComponent).max_values ?? 1}
                   className="mt-1 w-full rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 outline-none" />
               </div>
               <div>
-                <Label className="text-xs text-zinc-400">Max Values</Label>
+                <Label className="text-xs text-zinc-400">Max Values <span className="text-zinc-600 font-normal">(how many they can select)</span></Label>
                 <input type="number" value={(draft as APIStringSelectComponent).max_values ?? 1}
                   onChange={(e) => update({ max_values: Math.max(1, Number(e.target.value)) } as Partial<APIStringSelectComponent>)}
                   min={1} max={25}
@@ -725,7 +756,7 @@ function ComponentEditModal({ open, onClose, component, onChange, serverEmojis }
 
 // ── Discord Message Preview ─────────────────────────────────────────
 
-function DiscordPreview({ message, isV2, targets, onEditComponent }: { message: QueryDataMessageData; isV2?: boolean; targets?: QueryDataTarget[]; onEditComponent?: (comp: APIComponentInActionRow) => void }) {
+function DiscordPreview({ message, isV2, targets, onEditComponent }: { message: QueryDataMessageData; isV2?: boolean; targets?: QueryDataTarget[]; onEditComponent?: (comp: APIComponentInActionRow, ri?: number, ci?: number) => void }) {
   const hasContent = !!message.content;
   const hasEmbeds = message.embeds && message.embeds.length > 0;
   const hasComponents = message.components && message.components.length > 0 && message.components.some((r) => (r.type === 1 && r.components.length > 0) || r.type === 17);
@@ -824,7 +855,7 @@ function DiscordPreview({ message, isV2, targets, onEditComponent }: { message: 
                 }
                 return (
                   <button key={ci} type="button" disabled={comp.disabled}
-                    onClick={() => onEditComponent?.(comp)}
+                    onClick={() => onEditComponent?.(comp, ri, ci)}
                     className="inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm font-medium transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                     style={{ color: s.color, backgroundColor: s.bg, border: `1px solid ${s.border}` }}>
                     {comp.emoji?.name && <span>{comp.emoji.name}</span>}{comp.label || "Button"}
@@ -833,7 +864,7 @@ function DiscordPreview({ message, isV2, targets, onEditComponent }: { message: 
               }
               if (comp.type === 3) {
                 return (
-                  <div key={ci} onClick={() => onEditComponent?.(comp)}
+                  <div key={ci} onClick={() => onEditComponent?.(comp, ri, ci)}
                     className="inline-flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm text-zinc-400 hover:brightness-110" style={{ backgroundColor: "#4e5058" }}>
                     <ChevronDown className="h-3 w-3" />{comp.placeholder || "Select an option"}
                   </div>
@@ -841,7 +872,7 @@ function DiscordPreview({ message, isV2, targets, onEditComponent }: { message: 
               }
               if (comp.type >= 5 && comp.type <= 8) {
                 return (
-                  <div key={ci} onClick={() => onEditComponent?.(comp)}
+                  <div key={ci} onClick={() => onEditComponent?.(comp, ri, ci)}
                     className="inline-flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm text-zinc-400 hover:brightness-110" style={{ backgroundColor: "#4e5058" }}>
                     <ChevronDown className="h-3 w-3" />{comp.placeholder || "Select..."}
                   </div>
@@ -851,7 +882,7 @@ function DiscordPreview({ message, isV2, targets, onEditComponent }: { message: 
             })}
           </div>
         ) : row.type === 17 ? (
-          <ContainerPreview key={ri} container={row} hasTopMargin={hasContent || hasEmbeds} onEditComponent={onEditComponent} />
+          <ContainerPreview key={ri} container={row} hasTopMargin={hasContent || hasEmbeds} onEditComponent={(comp, _ri, _ci) => onEditComponent?.(comp, ri, _ci)} />
         ) : null
       )}
     </div>
@@ -860,7 +891,7 @@ function DiscordPreview({ message, isV2, targets, onEditComponent }: { message: 
 
 // ── Container Preview (V2) ─────────────────────────────────────────
 
-function ContainerPreview({ container, hasTopMargin, onEditComponent }: { container: APIContainerComponent; hasTopMargin: boolean; onEditComponent?: (comp: APIComponentInActionRow) => void }) {
+function ContainerPreview({ container, hasTopMargin, onEditComponent }: { container: APIContainerComponent; hasTopMargin: boolean; onEditComponent?: (comp: APIComponentInActionRow, ri?: number, ci?: number) => void }) {
   const accentColor = container.accent_color != null ? intToHex(container.accent_color) : null;
   return (
     <div className={`flex ${hasTopMargin ? "mt-2" : ""}`}>
@@ -951,24 +982,115 @@ function StatusBanner({ status }: { status: StatusMsg }) {
   return <div className={`mb-4 rounded-lg border px-3 py-2 text-sm ${m[status.state] || "text-zinc-400"}`}>{status.text}</div>;
 }
 
-// ── Color Swatch ────────────────────────────────────────────────────
+// ── HSV Conversion Utils ────────────────────────────────────────────
+
+function hexToHsv(hex: string) {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const d = max - min;
+  let h = 0;
+  if (d) {
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+    else if (max === g) h = ((b - r) / d + 2) * 60;
+    else h = ((r - g) / d + 4) * 60;
+  }
+  return { h, s: max ? d / max : 0, v: max };
+}
+
+function hsvToHex(h: number, s: number, v: number): string {
+  const f = (n: number) => {
+    const k = (n + h / 60) % 6;
+    return v - v * s * Math.max(Math.min(k, 4 - k, 1), 0);
+  };
+  const r = Math.round(f(5) * 255);
+  const g = Math.round(f(3) * 255);
+  const b = Math.round(f(1) * 255);
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
+// ── Color Swatch (fully custom, no native <input type="color">) ─────
 
 function ColorSwatch({ value, onChange }: { value: number | null; onChange: (v: number | null) => void }) {
   const [open, setOpen] = useState(false);
   const [hexInput, setHexInput] = useState("");
   const ref = useRef<HTMLDivElement>(null);
+  const hueRef = useRef<HTMLDivElement>(null);
+  const svRef = useRef<HTMLDivElement>(null);
+  const hsvRef = useRef({ h: 146, s: 0.5, v: 0.95 });
+  const [hsv, setHsv] = useState({ h: 146, s: 0.5, v: 0.95 });
+
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
     if (open) { document.addEventListener("mousedown", handler); return () => document.removeEventListener("mousedown", handler); }
   }, [open]);
+
   const hex = intToHex(value);
-  useEffect(() => { if (open) setHexInput(hex.replace("#", "")); }, [open, hex]);
+  useEffect(() => {
+    if (open && value != null) {
+      const h = hexToHsv(hex);
+      hsvRef.current = h;
+      setHsv(h);
+      setHexInput(hex.replace("#", ""));
+    }
+  }, [open]);
+
+  const syncColor = (h: number, s: number, v: number) => {
+    const hexColor = hsvToHex(h, s, v);
+    const int = parseInt(hexColor.replace("#", ""), 16);
+    onChange(int);
+    setHexInput(hexColor.replace("#", ""));
+  };
+
   const commitHex = (raw: string) => {
     const clean = raw.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
-    if (clean.length === 6) onChange(Number.parseInt(clean, 16));
-    else if (!clean) onChange(null);
+    if (clean.length === 6) {
+      const int = parseInt(clean, 16);
+      onChange(int);
+      const h = hexToHsv(`#${clean}`);
+      hsvRef.current = h;
+      setHsv(h);
+    } else if (!clean) onChange(null);
     setHexInput(clean);
   };
+
+  const handleHueDrag = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const rect = hueRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const onMove = (e2: MouseEvent) => {
+      const x = Math.max(0, Math.min(1, (e2.clientX - rect.left) / rect.width));
+      const hue = x * 360;
+      const sv = hsvRef.current;
+      syncColor(hue, sv.s, sv.v);
+      hsvRef.current = { h: hue, s: sv.s, v: sv.v };
+      setHsv({ h: hue, s: sv.s, v: sv.v });
+    };
+    const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    onMove(e as unknown as MouseEvent);
+  };
+
+  const handleSvDrag = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const rect = svRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const onMove = (e2: MouseEvent) => {
+      const s = Math.max(0, Math.min(1, (e2.clientX - rect.left) / rect.width));
+      const v = Math.max(0, Math.min(1, 1 - (e2.clientY - rect.top) / rect.height));
+      const h = hsvRef.current.h;
+      syncColor(h, s, v);
+      hsvRef.current = { h, s, v };
+      setHsv({ h, s, v });
+    };
+    const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    onMove(e as unknown as MouseEvent);
+  };
+
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={() => setOpen(!open)} className="flex h-8 w-12 items-center justify-center rounded border border-zinc-700" style={{ backgroundColor: hex }}>
@@ -976,6 +1098,7 @@ function ColorSwatch({ value, onChange }: { value: number | null; onChange: (v: 
       </button>
       {open && (
         <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-lg border border-zinc-700 bg-zinc-900 p-2 shadow-xl">
+          {/* Presets */}
           <div className="mb-2 grid grid-cols-5 gap-1">
             {EMBED_PRESETS.map((p) => (
               <button key={p.value} type="button" title={p.label}
@@ -983,14 +1106,38 @@ function ColorSwatch({ value, onChange }: { value: number | null; onChange: (v: 
                 className="h-6 w-full rounded border border-zinc-700 hover:scale-110 hover:border-white" style={{ backgroundColor: intToHex(p.value) }} />
             ))}
           </div>
+          {/* Hue slider */}
+          <div className="mb-1.5">
+            <div ref={hueRef} onMouseDown={handleHueDrag}
+              className="relative h-4 w-full cursor-crosshair rounded"
+              style={{
+                background: "linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)",
+              }}>
+              <div className="pointer-events-none absolute left-0 top-0 h-full w-full rounded border border-zinc-700" />
+              <div className="pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-1.5 rounded-sm bg-white shadow-md"
+                style={{ left: `${(hsv.h / 360) * 100}%` }} />
+            </div>
+          </div>
+          {/* Saturation / Brightness picker */}
+          <div className="mb-2">
+            <div ref={svRef} onMouseDown={handleSvDrag}
+              className="relative h-20 w-full cursor-crosshair rounded"
+              style={{
+                background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${hsvToHex(hsv.h, 1, 1)})`,
+              }}>
+              <div className="pointer-events-none absolute left-0 top-0 h-full w-full rounded border border-zinc-700" />
+              <div className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-md"
+                style={{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%` }} />
+            </div>
+          </div>
+          {/* Hex input */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-zinc-400">#</span>
             <input type="text" value={hexInput}
               onChange={(e) => commitHex(e.target.value)}
-              onBlur={() => onChange(hexInput.length >= 3 ? Number.parseInt(hexInput, 16) : null)}
-              className="flex-1 rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200" placeholder="000000" />
+              onBlur={() => onChange(hexInput.length >= 3 ? parseInt(hexInput, 16) : null)}
+              className="flex-1 rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 outline-none" placeholder="000000" />
           </div>
-          <input type="color" value={value != null ? intToHex(value) : "#57f287"} onChange={(e) => { onChange(hexToInt(e.target.value)); setHexInput(e.target.value.replace("#", "")); }} className="mt-2 h-6 w-full cursor-pointer rounded border border-zinc-700" />
         </div>
       )}
     </div>
@@ -1308,7 +1455,7 @@ function V2ContainerEditor({ container, onContainerChange, onRemove, serverEmoji
 function ComponentEditorForMessage({ components, onChange, onEditComponent, serverEmojis, isV2 }: {
   components: APITopLevelComponent[];
   onChange: (c: APITopLevelComponent[]) => void;
-  onEditComponent: (comp: APIComponentInActionRow) => void;
+  onEditComponent: (comp: APIComponentInActionRow, ri: number, ci: number) => void;
   serverEmojis: GuildEmoji[];
   isV2?: boolean;
 }) {
@@ -1387,7 +1534,7 @@ function ComponentEditorForMessage({ components, onChange, onEditComponent, serv
               <div className="flex flex-wrap gap-1.5">
                 {row.components.map((comp, ci) => (
                   <button key={ci} type="button"
-                    onClick={() => onEditComponent(comp)}
+                    onClick={() => onEditComponent(comp, ri, ci)}
                     className="group relative rounded border border-zinc-700 bg-zinc-800/50 px-2 py-1 text-[10px] text-zinc-300 hover:border-zinc-500">
                     {comp.type === 2 ? (
                       <span>{comp.label || "Button"} <span className="text-zinc-500">({BUTTON_STYLES[comp.style]?.label || "?"})</span></span>
@@ -1440,6 +1587,7 @@ export default function GuildAnnouncementsPage() {
   const [status, setStatus] = useState<StatusMsg>(null);
   const [editTab, setEditTab] = useState<"content" | "embed" | "components">("content");
   const [editingComponent, setEditingComponent] = useState<APIComponentInActionRow | null>(null);
+  const [editingComponentPos, setEditingComponentPos] = useState<{ ri: number; ci: number } | null>(null);
   const [componentModalOpen, setComponentModalOpen] = useState(false);
   const [newMsgFlags, setNewMsgFlags] = useState<number | undefined>(undefined);
   const [addMsgOpen, setAddMsgOpen] = useState(false);
@@ -1685,23 +1833,93 @@ export default function GuildAnnouncementsPage() {
       <ComponentEditModal open={componentModalOpen} onClose={() => setComponentModalOpen(false)}
         component={editingComponent}
         onChange={(comp) => {
+          if (!editingComponentPos) return;
+          const { ri, ci } = editingComponentPos;
           const components = [...(msg?.components || [])];
-          for (const row of components) {
-            if (row.type === 1) {
-              const idx = row.components.findIndex((c) => c.custom_id && c.custom_id === (comp as any).custom_id);
-              if (idx >= 0) { row.components[idx] = comp; break; }
-            }
+          if (components[ri]?.type === 1) {
+            const row = { ...components[ri], components: [...(components[ri] as APIActionRowComponent).components] };
+            row.components[ci] = comp;
+            components[ri] = row;
+            updateMessageData({ components });
           }
-          updateMessageData({ components });
         }}
         serverEmojis={serverEmojis} />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
-        {/* ── Editor Panel ── */}
-        <div className="dashboard-panel rounded-2xl p-5 space-y-6">
+      <div className="flex gap-6 lg:flex-row flex-col">
+        {/* ── Editor Panel (left 50%) ── */}
+        <div className="flex-1 min-w-0 space-y-4 lg:w-1/2">
+
+          <StatusBanner status={status} />
+
+          {/* Webhook Targets */}
+          <div className="dashboard-panel rounded-2xl p-4">
+            <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+              <Webhook className="mr-1 inline h-3.5 w-3.5" /> Targets ({data.targets?.length || 0})
+            </h2>
+            <div className="flex gap-2">
+              <input type="text" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)}
+                placeholder="Webhook URL or Bot channel..."
+                className="min-w-0 flex-1 rounded-lg border border-border/60 bg-background/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none" />
+              <button type="button" onClick={addTarget}
+                className="rounded-lg px-3 py-2 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20">
+                <Plus className="h-3 w-3" />
+              </button>
+            </div>
+            {data.targets && data.targets.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {data.targets.map((t, ti) => (
+                  <div key={ti} className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/30 px-3 py-2 text-xs">
+                    <Bot className="h-3.5 w-3.5 text-zinc-500" />
+                    <span className="min-w-0 flex-1 truncate text-foreground/70">
+                      {t.type === TargetType.Webhook ? t.url || "Webhook" : `Bot: ${t.channel_id}`}
+                    </span>
+                    <button type="button" onClick={() => removeTarget(ti)} className="text-muted-foreground hover:text-red-400"><X className="h-3 w-3" /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Channels */}
+          <div className="dashboard-panel rounded-2xl p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                <Hash className="mr-1 inline h-3.5 w-3.5" /> Channels ({selectedChannelIds.size})
+              </h2>
+              <div className="flex gap-1">
+                <button type="button" onClick={selectAllChannels}
+                  className="text-[9px] uppercase text-muted-foreground hover:text-foreground">All</button>
+                <button type="button" onClick={deselectAllChannels}
+                  className="text-[9px] uppercase text-muted-foreground hover:text-foreground">None</button>
+              </div>
+            </div>
+            <div className="max-h-32 overflow-y-auto rounded-xl border border-border/60 bg-background/30 p-2">
+              {channels.length === 0 ? (
+                <div className="text-xs text-muted-foreground">No text channels available.</div>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {channels.map((ch) => {
+                    const sel = selectedChannelIds.has(ch.id);
+                    return (
+                      <button key={ch.id} type="button" title={`#${ch.name}`}
+                        onClick={() => toggleChannel(ch.id)}
+                        className={`rounded border px-2 py-1 text-[10px] font-medium transition-colors ${
+                          sel
+                            ? "border-primary/50 bg-primary/10 text-primary"
+                            : "border-border/60 text-muted-foreground hover:border-zinc-600 hover:text-foreground"
+                        }`}>
+                        {sel && <Check className="mr-0.5 inline h-2.5 w-2.5" />}
+                        # {ch.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Messages Section */}
-          <section>
+          <section className="dashboard-panel rounded-2xl p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Messages ({data.messages.length})</h2>
               <div className="relative">
@@ -1746,7 +1964,7 @@ export default function GuildAnnouncementsPage() {
 
           {/* Active Message Editor */}
           {message && (
-            <section>
+            <section className="dashboard-panel rounded-2xl p-4">
               <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-3">
                 Edit Message
                 {isV2 && <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">Components V2</span>}
@@ -1869,97 +2087,15 @@ export default function GuildAnnouncementsPage() {
                 <ComponentEditorForMessage
                   components={msg?.components || []}
                   onChange={(components) => updateMessageData({ components })}
-                  onEditComponent={(comp) => { setEditingComponent(comp); setComponentModalOpen(true); }}
+                  onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri, ci }); setComponentModalOpen(true); }}
                   serverEmojis={serverEmojis}
                   isV2={isV2} />
               )}
             </section>
           )}
-        </div>
-
-        {/* ── Preview + Controls ── */}
-        <div className="space-y-4">
-          {/* Preview */}
-          <div className="dashboard-panel rounded-2xl p-5">
-            <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-3">Preview</h2>
-            {msg ? (
-              <DiscordPreview message={msg} isV2={isV2} targets={data.targets} onEditComponent={(comp) => { setEditingComponent(comp); setComponentModalOpen(true); }} />
-            ) : (
-              <div className="flex items-center justify-center rounded-lg bg-background/50 py-12 text-sm text-muted-foreground">No message selected</div>
-            )}
-          </div>
-
-          {/* Webhook Targets */}
-          <div className="dashboard-panel rounded-2xl p-5">
-            <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-3">
-              <Webhook className="mr-1 inline h-3.5 w-3.5" /> Targets ({data.targets?.length || 0})
-            </h2>
-            <div className="flex gap-2">
-              <input type="text" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)}
-                placeholder="Webhook URL or Bot channel..."
-                className="min-w-0 flex-1 rounded-lg border border-border/60 bg-background/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none" />
-              <button type="button" onClick={addTarget}
-                className="rounded-lg px-3 py-2 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20">
-                <Plus className="h-3 w-3" />
-              </button>
-            </div>
-            {data.targets && data.targets.length > 0 && (
-              <div className="mt-2 space-y-1">
-                {data.targets.map((t, ti) => (
-                  <div key={ti} className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/30 px-3 py-2 text-xs">
-                    <Bot className="h-3.5 w-3.5 text-zinc-500" />
-                    <span className="min-w-0 flex-1 truncate text-foreground/70">
-                      {t.type === TargetType.Webhook ? t.url || "Webhook" : `Bot: ${t.channel_id}`}
-                    </span>
-                    <button type="button" onClick={() => removeTarget(ti)} className="text-muted-foreground hover:text-red-400"><X className="h-3 w-3" /></button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <p className="mt-2 text-[10px] text-muted-foreground">Add a webhook URL to send as a webhook instead of the bot.</p>
-          </div>
-
-          {/* Channels */}
-          <div className="dashboard-panel rounded-2xl p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
-                <Hash className="mr-1 inline h-3.5 w-3.5" /> Channels ({selectedChannelIds.size})
-              </h2>
-              <div className="flex gap-1">
-                <button type="button" onClick={selectAllChannels}
-                  className="text-[9px] uppercase text-muted-foreground hover:text-foreground">All</button>
-                <button type="button" onClick={deselectAllChannels}
-                  className="text-[9px] uppercase text-muted-foreground hover:text-foreground">None</button>
-              </div>
-            </div>
-            <div className="max-h-40 overflow-y-auto rounded-xl border border-border/60 bg-background/30 p-2">
-              {channels.length === 0 ? (
-                <div className="text-xs text-muted-foreground">No text channels available.</div>
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {channels.map((ch) => {
-                    const sel = selectedChannelIds.has(ch.id);
-                    return (
-                      <button key={ch.id} type="button" title={`#${ch.name}`}
-                        onClick={() => toggleChannel(ch.id)}
-                        className={`rounded border px-2 py-1 text-[10px] font-medium transition-colors ${
-                          sel
-                            ? "border-primary/50 bg-primary/10 text-primary"
-                            : "border-border/60 text-muted-foreground hover:border-zinc-600 hover:text-foreground"
-                        }`}>
-                        {sel && <Check className="mr-0.5 inline h-2.5 w-2.5" />}
-                        # {ch.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            <p className="mt-2 text-[10px] text-muted-foreground">Select channels to send this announcement to.</p>
-          </div>
 
           {/* Presets */}
-          <div className="dashboard-panel rounded-2xl p-5">
+          <div className="dashboard-panel rounded-2xl p-4">
             <button type="button" onClick={() => setPresetsOpen(!presetsOpen)}
               className="flex w-full items-center justify-between">
               <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
@@ -1998,7 +2134,7 @@ export default function GuildAnnouncementsPage() {
           </div>
 
           {/* Send */}
-          <div className="dashboard-panel rounded-2xl p-5">
+          <div className="dashboard-panel rounded-2xl p-4">
             <button type="button" onClick={handleSend} disabled={status?.state === "sending"}
               className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold text-white transition-all disabled:opacity-50"
               style={{ backgroundColor: ACCENT }}>
@@ -2008,6 +2144,30 @@ export default function GuildAnnouncementsPage() {
               {data.messages.length} message{data.messages.length !== 1 ? "s" : ""}
               {data.targets?.length ? ` · ${data.targets.length} target${data.targets.length !== 1 ? "s" : ""}` : ""}
             </p>
+          </div>
+        </div>
+
+        {/* ── Preview Panel (right 50%) ── */}
+        <div className="flex-1 min-w-0 lg:w-1/2">
+          <div className="dashboard-panel rounded-2xl p-5 h-full">
+            <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-4">Message Preview</h2>
+            <div className="space-y-6">
+              {data.messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-lg py-16 text-center" style={{ backgroundColor: EMBED_BG }}>
+                  <Eye className="mb-3 h-10 w-10 text-zinc-600" />
+                  <p className="text-sm text-zinc-500">No messages yet</p>
+                  <p className="mt-1 text-xs text-zinc-600">Add a message to start composing</p>
+                </div>
+              ) : (
+                data.messages.map((m, i) => (
+                  <div key={m._id} className={`rounded-lg ${m._id === message?._id ? "ring-2 ring-primary/30" : "opacity-60 hover:opacity-100"}`}
+                    onClick={() => setSelectedMessageIndex(i)} style={{ cursor: message?._id !== m._id ? "pointer" : undefined }}>
+                    <DiscordPreview message={m.data} isV2={isComponentsV2(m.data.flags)} targets={data.targets}
+                      onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri, ci }); setComponentModalOpen(true); }} />
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>

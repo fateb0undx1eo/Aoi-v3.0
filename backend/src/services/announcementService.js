@@ -75,6 +75,46 @@ function normalizeComponents(rows) {
     .filter((row) => row.length > 0 && row.length <= 5);
 }
 
+function isV2Components(components) {
+  return Array.isArray(components) && components.some((c) => c && typeof c.type === 'number' && c.type !== 1);
+}
+
+function normalizeRawV2Component(comp) {
+  if (!comp || typeof comp.type !== 'number') return null;
+  if (comp.type === 10) return { type: 10, content: trimString(comp.content, 2000) };
+  if (comp.type === 14) return { type: 14, divider: true, spacing: Math.max(1, Math.min(Number(comp.spacing) || 1, 4)) };
+  if (comp.type === 11 || comp.type === 12 || comp.type === 13) {
+    const items = Array.isArray(comp.items) ? comp.items.map((item) => ({
+      media: { url: trimString(item?.media?.url, 2000) },
+    })).filter((item) => item.media.url) : [];
+    return { type: comp.type, items };
+  }
+  if (comp.type === 9) {
+    const sectionChildren = Array.isArray(comp.components) ? comp.components.map(normalizeRawV2Component).filter(Boolean) : [];
+    let accessory = null;
+    if (comp.accessory) {
+      if (comp.accessory.type === 2) {
+        accessory = {
+          type: 2,
+          style: Math.min(Math.max(Number(comp.accessory.style) || 1, 1), 6),
+          label: trimString(comp.accessory.label, 80),
+          custom_id: trimString(comp.accessory.custom_id, 100),
+          url: trimString(comp.accessory.url, 512),
+          emoji: comp.accessory.emoji || undefined,
+          disabled: Boolean(comp.accessory.disabled),
+        };
+      } else if (comp.accessory.type === 11) {
+        const items = Array.isArray(comp.accessory.items) ? comp.accessory.items.map((item) => ({
+          media: { url: trimString(item?.media?.url, 2000) },
+        })).filter((item) => item.media.url) : [];
+        accessory = { type: 11, items };
+      }
+    }
+    return { type: 9, components: sectionChildren, ...(accessory ? { accessory } : {}) };
+  }
+  return null;
+}
+
 function normalizeContainerBlocks(blocks) {
   if (!Array.isArray(blocks)) return [];
   return blocks
@@ -179,6 +219,9 @@ function normalizeEntry(rawEntry = {}) {
     }
   }
 
+  const rawComponents = Array.isArray(rawEntry.components) ? rawEntry.components : [];
+  const hasV2 = isV2Components(rawComponents);
+
   return {
     id: trimString(rawEntry.id, 64),
     type: 'new',
@@ -188,7 +231,8 @@ function normalizeEntry(rawEntry = {}) {
     embed: embeds[0] || {},
     embeds,
     container_blocks: [],
-    components: normalizeComponents(rawEntry?.components),
+    components: hasV2 ? [] : normalizeComponents(rawEntry?.components),
+    _rawComponents: hasV2 ? rawComponents.map(normalizeRawV2Component).filter(Boolean) : undefined,
     flags: rawEntry.flags ? Number(rawEntry.flags) : undefined,
     thread_name: trimString(rawEntry.thread_name, 100),
     allowed_mentions: rawEntry.allowed_mentions || undefined,
@@ -207,7 +251,7 @@ function normalizePayload(rawPayload = {}) {
           if (entry.type === 'embed') return Boolean(entry.embed.title || entry.embed.description || entry.embed.image_url || entry.embed.footer_text);
           return entry.container_blocks.length > 0;
         }
-        return Boolean(entry.content) || entry.embeds.length > 0 || entry.components.length > 0;
+        return Boolean(entry.content) || entry.embeds.length > 0 || entry.components.length > 0 || (entry._rawComponents && entry._rawComponents.length > 0);
       })
     : [];
 
@@ -315,11 +359,14 @@ function buildEntryPayload(entry) {
   if (entry.embeds.length > 0) {
     payload.embeds = entry.embeds.map(buildEmbed);
   }
-  if (entry.components.length > 0) {
+  if (entry._rawComponents && entry._rawComponents.length > 0) {
+    payload.components = entry._rawComponents;
+    payload.flags = (payload.flags || 0) | MessageFlags.IsComponentsV2;
+  } else if (entry.components.length > 0) {
     payload.components = buildDiscordComponents(entry.components);
   }
   if (entry.flags) {
-    payload.flags = entry.flags;
+    payload.flags = (payload.flags || 0) | entry.flags;
   }
   if (entry.thread_name) {
     payload.thread_name = entry.thread_name;
