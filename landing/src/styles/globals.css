@@ -26,14 +26,6 @@
     --chart-a: 220 90% 56%;
     --chart-b: 212 92% 40%;
     --card-solid: 217 48% 93%;
-    --dashboard-bg-a: 210 100% 99%;
-    --dashboard-bg-b: 217 88% 96%;
-    --dashboard-bg-c: 221 76% 91%;
-    --dashboard-panel: 0 0% 100%;
-    --dashboard-panel-soft: 215 68% 97%;
-    --dashboard-stroke: 218 34% 82%;
-    --dashboard-shadow: 220 86% 46%;
-    --dashboard-accent: 220 92% 45%;
     --modules-bg: 0 0% 6%;
     --font-body: "Inter", sans-serif;
     --font-heading: "Unbounded", sans-serif;
@@ -62,14 +54,6 @@
     --chart-a: 358 92% 56%;
     --chart-b: 354 86% 36%;
     --card-solid: 352 19% 12%;
-    --dashboard-bg-a: 0 0% 3%;
-    --dashboard-bg-b: 356 30% 7%;
-    --dashboard-bg-c: 358 42% 11%;
-    --dashboard-panel: 0 0% 6%;
-    --dashboard-panel-soft: 0 0% 8%;
-    --dashboard-stroke: 355 16% 17%;
-    --dashboard-shadow: 358 76% 42%;
-    --dashboard-accent: 358 72% 44%;
   }
 
   .theme-surface,
@@ -86,14 +70,6 @@
     --muted-foreground: 0 0% 38%;
     --card-solid: 0 0% 100%;
     --public-bg: 82 100% 97%;
-    --dashboard-bg-a: 0 0% 100%;
-    --dashboard-bg-b: 82 100% 97%;
-    --dashboard-bg-c: 82 28% 94%;
-    --dashboard-panel: 0 0% 98%;
-    --dashboard-panel-soft: 0 0% 96%;
-    --dashboard-stroke: 82 28% 80%;
-    --dashboard-shadow: 78 100% 50%;
-    --dashboard-accent: 78 100% 50%;
   }
 
   .dark .theme-surface,
@@ -110,14 +86,6 @@
     --muted-foreground: 0 0% 72%;
     --card-solid: 0 0% 10%;
     --public-bg: 0 0% 6%;
-    --dashboard-bg-a: 0 0% 3%;
-    --dashboard-bg-b: 356 30% 7%;
-    --dashboard-bg-c: 358 42% 11%;
-    --dashboard-panel: 0 0% 6%;
-    --dashboard-panel-soft: 0 0% 8%;
-    --dashboard-stroke: 355 16% 17%;
-    --dashboard-shadow: 358 76% 42%;
-    --dashboard-accent: 358 72% 44%;
   }
 }
 
@@ -266,7 +234,11 @@
   }
 
   .dark .section-hero-dark {
-    background: hsl(0 0% 3%);
+    background: #0f0f0f;
+  }
+
+  .dark .section-neutral {
+    background: #0f0f0f;
   }
 
   .dark .section-hero-dark,
@@ -561,43 +533,29 @@
 
   .dashboard-canvas {
     position: relative;
-    background:
-      radial-gradient(circle at 12% 8%, hsl(var(--dashboard-accent) / 0.08), transparent 28%),
-      radial-gradient(circle at 88% 12%, hsl(var(--dashboard-accent) / 0.04), transparent 24%),
-      linear-gradient(180deg, hsl(var(--dashboard-bg-b)), hsl(var(--dashboard-bg-a)) 32%, hsl(var(--dashboard-bg-a)) 100%);
+    background: hsl(var(--background));
   }
 
   .dark .dashboard-canvas {
-    background:
-      radial-gradient(circle at 14% 10%, hsl(var(--dashboard-accent) / 0.14), transparent 24%),
-      radial-gradient(circle at 86% 10%, hsl(var(--dashboard-accent) / 0.09), transparent 22%),
-      linear-gradient(180deg, hsl(var(--dashboard-bg-c) / 0.98), hsl(var(--dashboard-bg-b) / 0.98) 24%, hsl(var(--dashboard-bg-a)) 100%);
+    background: hsl(var(--background));
   }
 
   .dashboard-panel {
-    border: 1px solid hsl(var(--dashboard-stroke) / 0.88);
-    background:
-      linear-gradient(180deg, hsl(var(--dashboard-panel) / 0.94), hsl(var(--dashboard-panel-soft) / 0.9));
-    box-shadow:
-      0 28px 64px -44px hsl(var(--dashboard-shadow) / 0.28),
-      inset 0 1px 0 hsl(0 0% 100% / 0.04);
-    backdrop-filter: blur(18px);
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+    border-radius: 0.75rem;
   }
 
   .dashboard-panel-soft {
-    border: 1px solid hsl(var(--dashboard-stroke) / 0.72);
-    background:
-      linear-gradient(180deg, hsl(var(--dashboard-panel-soft) / 0.92), hsl(var(--dashboard-panel) / 0.84));
-    box-shadow:
-      0 20px 46px -34px hsl(var(--dashboard-shadow) / 0.2),
-      inset 0 1px 0 hsl(0 0% 100% / 0.035);
+    border: 1px solid hsl(var(--border) / 0.7);
+    background: hsl(var(--card));
+    border-radius: 0.75rem;
   }
 
   .dashboard-chip {
-    border: 1px solid hsl(var(--dashboard-stroke) / 0.84);
-    background: hsl(var(--dashboard-panel) / 0.72);
-    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.03);
-    backdrop-filter: blur(14px);
+    border: 1px solid hsl(var(--border) / 0.7);
+    background: hsl(var(--card));
+    border-radius: 0.75rem;
   }
 
   .aoi-brand-shell {
@@ -793,62 +751,10 @@
     mask-image: linear-gradient(180deg, transparent, black 12%, black 88%, transparent);
   }
 
-  .dashboard-constellation {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    pointer-events: none;
-  }
 
-  .dashboard-constellation::before,
-  .dashboard-constellation::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-repeat: no-repeat;
-    opacity: 0.54;
-  }
-
-  .dashboard-constellation::before {
-    background-image:
-      radial-gradient(circle at 18% 22%, hsl(var(--dashboard-accent) / 0.42) 0 2px, transparent 2.5px),
-      radial-gradient(circle at 34% 12%, hsl(var(--dashboard-accent) / 0.24) 0 1.5px, transparent 2px),
-      radial-gradient(circle at 82% 18%, hsl(var(--dashboard-accent) / 0.34) 0 2px, transparent 2.5px),
-      linear-gradient(115deg, transparent 0 18%, hsl(var(--dashboard-accent) / 0.12) 18% 19%, transparent 19% 100%);
-    animation: constellation-drift 16s ease-in-out infinite alternate;
-  }
-
-  .dashboard-constellation::after {
-    background-image:
-      radial-gradient(circle at 20% 74%, hsl(var(--dashboard-accent) / 0.28) 0 2px, transparent 2.5px),
-      radial-gradient(circle at 72% 80%, hsl(var(--dashboard-accent) / 0.28) 0 2px, transparent 2.5px),
-      radial-gradient(circle at 88% 62%, hsl(var(--dashboard-accent) / 0.18) 0 1.5px, transparent 2px),
-      linear-gradient(135deg, transparent 0 66%, hsl(var(--dashboard-accent) / 0.08) 66% 67%, transparent 67% 100%);
-    animation: constellation-drift 14s ease-in-out infinite alternate-reverse;
-  }
 
   .dashboard-panel-lift {
     position: relative;
-    overflow: hidden;
-  }
-
-  .dashboard-panel-lift::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(circle at top left, hsl(var(--dashboard-accent) / 0.12), transparent 32%);
-    opacity: 0.88;
-    pointer-events: none;
-  }
-
-  .dashboard-panel-lift::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border: 1px solid hsl(var(--dashboard-accent) / 0.14);
-    mask-image: linear-gradient(180deg, black, transparent 74%);
-    pointer-events: none;
   }
 
   .nav-status-dot {
@@ -876,10 +782,10 @@
     background:
       linear-gradient(
         108deg,
-        hsl(var(--dashboard-panel-soft) / 0.96) 14%,
-        hsl(var(--dashboard-accent) / 0.08) 34%,
+        hsl(var(--card) / 0.96) 14%,
+        hsl(var(--foreground) / 0.08) 34%,
         hsl(var(--foreground) / 0.06) 50%,
-        hsl(var(--dashboard-panel-soft) / 0.96) 72%
+        hsl(var(--card) / 0.96) 72%
       );
     background-size: 220% 100%;
     animation: boneyard-shimmer 1.8s linear infinite;
@@ -887,7 +793,7 @@
 
   .glass-nav {
     border: 1px solid hsl(var(--border));
-    background: hsl(var(--background));
+    background: #ffffff;
     box-shadow: 0 8px 18px -18px hsl(var(--foreground) / 0.28);
     transition:
       border-color 360ms ease,
@@ -898,6 +804,10 @@
   .glass-nav.is-scrolled {
     border-color: hsl(var(--border));
     box-shadow: 0 10px 22px -20px hsl(var(--foreground) / 0.3);
+  }
+
+  .dark .glass-nav {
+    background: hsl(var(--background));
   }
 
   .nav-link {
@@ -1625,14 +1535,6 @@
   }
 }
 
-@keyframes constellation-drift {
-  0% {
-    transform: translate3d(0, 0, 0);
-  }
-  100% {
-    transform: translate3d(0, 10px, 0);
-  }
-}
 
 @keyframes grid-drift {
   0% {

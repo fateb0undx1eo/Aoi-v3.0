@@ -224,8 +224,8 @@ function ModulesCarousel() {
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: idx * 0.12, ease: [0.16, 1, 0.3, 1] }}
-                    className="p-6 sm:p-7 rounded-xl flex flex-col hover:bg-foreground/5 transition-colors"
-                    style={{ backgroundColor: '#000000' }}
+                    className="p-6 sm:p-7 rounded-xl flex flex-col transition-colors"
+                    style={{ backgroundColor: '#0f0f0f' }}
                   >
                     <div className="flex items-center gap-3 mb-4">
                       <div className="inline-flex rounded-lg p-2.5 flex-shrink-0" style={{ backgroundColor: titleColor + '20' }}>
@@ -291,7 +291,7 @@ function MergedReviewCard({ reviews }: { reviews: typeof trustedReviews }) {
           transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
         >
           <div className="text-xs sm:text-sm uppercase tracking-[0.2em] mb-3 sm:mb-4 text-center" style={{ color: '#888' }}>{review.name}</div>
-          <div className="flex-1 flex flex-col items-start justify-center">
+          <div className="flex-1 flex flex-col items-start justify-center mt-4 sm:mt-6">
             <div className="w-full">
               <svg viewBox="0 0 40 32" className="w-6 h-5 sm:w-7 sm:h-6 mb-1.5" fill="white" xmlns="http://www.w3.org/2000/svg">
                 <path d="M14 32H0V18c0-8.4 4-14.4 14-18v8c-4 2-6 5.2-6 10h6v14Zm26 0H26V18c0-8.4 4-14.4 14-18v8c-4 2-6 5.2-6 10h6v14Z"/>
@@ -386,7 +386,7 @@ export default function LandingPage() {
         </section>
 
         {/* ── Modules ── */}
-        <section id="modules" className="public-section section-highlight py-6 sm:py-8 text-foreground" style={{ backgroundColor: 'black' }}>
+        <section id="modules" className="public-section py-6 sm:py-8 text-foreground" style={{ backgroundColor: '#000000' }}>
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <Reveal className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs uppercase tracking-[0.22em] text-muted-foreground mb-1">
               Module architecture
@@ -471,20 +471,13 @@ export default function LandingPage() {
                     <span>0</span>
                   </div>
                   <div className="ml-6 sm:ml-12 h-full relative">
-                    {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((val) => {
-                      const gridColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)';
-                      const gridColorLight = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
-                      return (
-                        <div
-                          key={val}
-                          className="absolute left-0 right-0"
-                          style={{ 
-                            bottom: `${val}%`,
-                            borderTop: val % 25 === 0 ? `1px solid ${gridColor}` : `1px solid ${gridColorLight}`
-                          }}
-                        />
-                      );
-                    })}
+                    <div className="absolute inset-0" style={{
+                      backgroundImage: `
+                        linear-gradient(to right, hsl(var(--foreground) / 0.15) 1px, transparent 1px),
+                        linear-gradient(to bottom, hsl(var(--foreground) / 0.15) 1px, transparent 1px)
+                      `,
+                      backgroundSize: '25% 25%',
+                    }} />
                     <svg
                       className="absolute inset-0 w-full h-full"
                       viewBox="0 0 500 160"
@@ -493,7 +486,7 @@ export default function LandingPage() {
                       <motion.path
                         key={`area-${graphData.join("-")}`}
                         d={`M0,160 ${graphData.map((val, i) => `L${(i / 5) * 500},${160 - (val / 100) * 160}`).join(" ")} L500,160 Z`}
-                        fill={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}
+                        fill="hsl(var(--foreground) / 0.06)"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: 0.6 }}
@@ -502,11 +495,10 @@ export default function LandingPage() {
                         key={`line-${graphData.join("-")}`}
                         points={graphData.map((val, i) => `${(i / 5) * 500},${160 - (val / 100) * 160}`).join(" ")}
                         fill="none"
-                        stroke={isDark ? "#ffffff" : "#000000"}
-                        strokeWidth={isDark ? "1.5" : "2"}
+                        stroke="hsl(var(--foreground))"
+                        strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        vectorEffect="non-scaling-stroke"
                         strokeDasharray="20 12"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
