@@ -1,4 +1,5 @@
 import { REST, Routes } from 'discord.js';
+import { logger } from '../utils/logger.js';
 
 export class DiscordCommandSyncService {
   constructor(env, registry) {
@@ -25,9 +26,9 @@ export class DiscordCommandSyncService {
       };
     });
 
-    console.log(`\n📡 Syncing ${commands.length} command(s) to Discord...`);
+    logger.info(`\n📡 Syncing ${commands.length} command(s) to Discord...`);
     commands.forEach((cmd) => {
-      console.log(`  - /${cmd.name}${cmd.options?.length ? ` [${cmd.options.length} option(s)]` : ''}`);
+      logger.info(`  - /${cmd.name}${cmd.options?.length ? ` [${cmd.options.length} option(s)]` : ''}`);
     });
 
     const rest = new REST({ version: '10' }).setToken(this.env.discord.token);
@@ -40,7 +41,7 @@ export class DiscordCommandSyncService {
         Routes.applicationGuildCommands(this.env.discord.clientId, this.env.discord.guildId),
         { body: commands }
       );
-      console.log(`✓ Synced ${result.length} command(s) to guild ${this.env.discord.guildId}\n`);
+      logger.info(`✓ Synced ${result.length} command(s) to guild ${this.env.discord.guildId}\n`);
 
       // Clear stale global commands so only synced guild commands are visible.
       await rest.put(
@@ -48,7 +49,7 @@ export class DiscordCommandSyncService {
         { body: [] }
       );
     } catch (error) {
-      console.error(`✗ Failed to sync commands:`, error.message);
+      logger.error(`✗ Failed to sync commands:`, error.message);
       throw error;
     }
   }

@@ -206,7 +206,7 @@
   }
 
   .section-hero-dark {
-    background: #fbfef8;
+    background: hsl(var(--public-bg));
   }
 
   .section-hero-dark,

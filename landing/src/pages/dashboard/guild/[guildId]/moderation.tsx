@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Shield, Ban, AlertTriangle, Clock, UserX, Search, CheckCircle, XCircle } from "lucide-react";
+import log from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -187,25 +188,25 @@ export default function ModerationPage() {
       setRoles(rolesResult.status === "fulfilled" ? rolesResult.value.roles || [] : []);
 
       if (casesResult.status === "rejected") {
-        console.error("Failed to load moderation cases:", casesResult.reason);
+        log.error("Failed to load moderation cases:", casesResult.reason);
       }
       if (activeResult.status === "rejected") {
-        console.error("Failed to load active punishments:", activeResult.reason);
+        log.error("Failed to load active punishments:", activeResult.reason);
       }
       if (configResult.status === "rejected") {
-        console.error("Failed to load moderation config:", configResult.reason);
+        log.error("Failed to load moderation config:", configResult.reason);
       }
       if (moduleResult.status === "rejected") {
-        console.error("Failed to load moderation module config:", moduleResult.reason);
+        log.error("Failed to load moderation module config:", moduleResult.reason);
       }
       if (channelsResult.status === "rejected") {
-        console.error("Failed to load channels:", channelsResult.reason);
+        log.error("Failed to load channels:", channelsResult.reason);
       }
       if (rolesResult.status === "rejected") {
-        console.error("Failed to load roles:", rolesResult.reason);
+        log.error("Failed to load roles:", rolesResult.reason);
       }
     } catch (err) {
-      console.error("Failed to load moderation data:", err);
+      log.error("Failed to load moderation data:", err);
       setGuildName("Guild");
       setModules([]);
       setCases([]);
@@ -251,7 +252,7 @@ export default function ModerationPage() {
         alert(`Failed to create case: ${errorData.error || response.statusText}`);
       }
     } catch (err) {
-      console.error("Failed to create case:", err);
+      log.error("Failed to create case:", err);
       alert("Network error - check console");
     } finally {
       setSubmitting(false);
@@ -270,7 +271,7 @@ export default function ModerationPage() {
         loadData();
       }
     } catch (err) {
-      console.error("Failed to revoke punishment:", err);
+      log.error("Failed to revoke punishment:", err);
     }
   };
 
@@ -286,7 +287,7 @@ export default function ModerationPage() {
         setConfig({ ...config, ...updates });
       }
     } catch (err) {
-      console.error("Failed to update config:", err);
+      log.error("Failed to update config:", err);
     }
   };
 
@@ -333,7 +334,7 @@ export default function ModerationPage() {
         },
       }));
     } catch (err) {
-      console.error("Failed to update case command config:", err);
+      log.error("Failed to update case command config:", err);
       loadData();
     }
   };

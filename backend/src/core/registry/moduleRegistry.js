@@ -1,3 +1,5 @@
+import { logger } from '../../utils/logger.js';
+
 export class ModuleRegistry {
   constructor() {
     this.modules = new Map();
@@ -50,11 +52,11 @@ export class ModuleRegistry {
    * Must be called during bot startup after registry is loaded
    */
   async initializeAsyncModules(dependencies) {
-    console.log(`\n📦 Initializing ${this.asyncModules.size} async module(s)...`);
+    logger.info(`\n📦 Initializing ${this.asyncModules.size} async module(s)...`);
     
     for (const [moduleName, asyncModuleEntry] of this.asyncModules) {
       try {
-        console.log(`  ⏳ Initializing: ${moduleName}`);
+        logger.info(`  ⏳ Initializing: ${moduleName}`);
         const definition = await asyncModuleEntry.initFunction(dependencies);
         
         // Validate the returned definition
@@ -88,16 +90,16 @@ export class ModuleRegistry {
           });
         }
 
-        console.log(`  ✓ ${moduleName} initialized: ${definition.commands.length} command(s), ${definition.events.length} event(s)`);
+        logger.info(`  ✓ ${moduleName} initialized: ${definition.commands.length} command(s), ${definition.events.length} event(s)`);
       } catch (error) {
-        console.error(`  ✗ Failed to initialize async module ${moduleName}:`, error.message);
+        logger.error(`  ✗ Failed to initialize async module ${moduleName}:`, error.message);
         throw error;
       }
     }
 
     // Clear async modules map after initialization
     this.asyncModules.clear();
-    console.log(`✓ All async modules initialized\n`);
+    logger.info(`✓ All async modules initialized\n`);
   }
 
   getCommand(name) {

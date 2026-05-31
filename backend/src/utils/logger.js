@@ -1,51 +1,40 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
+import pino from 'pino';
 
 const contextStorage = new AsyncLocalStorage();
-const LEVELS = { debug: 10, info: 20, warn: 30, error: 40 };
-const configuredLevel = String(process.env.LOG_LEVEL || (process.env.NODE_ENV === 'development' ? 'debug' : 'info')).toLowerCase();
-const minimumLevel = LEVELS[configuredLevel] ?? LEVELS.info;
-const SECRET_KEYS = /token|secret|password|authorization|cookie|key|credential/i;
 
-function redact(value, depth = 0) {
-  if (depth > 6) return '[MaxDepth]';
-  if (value instanceof Error) {
-    return {
-      name: value.name,
-      message: value.message,
-      stack: value.stack,
-      code: value.code
-    };
-  }
-  if (Array.isArray(value)) return value.map((item) => redact(item, depth + 1));
-  if (!value || typeof value !== 'object') return value;
+const level = process.env.LOG_LEVEL || (process.env.NODE_ENV === 'development' ? 'debug' : 'info');
 
-  const output = {};
-  for (const [key, item] of Object.entries(value)) {
-    output[key] = SECRET_KEYS.test(key) ? '[REDACTED]' : redact(item, depth + 1);
-  }
-  return output;
-}
+const transport = pino.transport({
+  target: 'pino-pretty',
+  options: {
+    colorize: true,
+    translateTime: 'SYS:yyyy-mm-dd HH:MM:ss.l',
+    ignore: 'pid,hostname',
+    singleLine: false,
+  },
+});
 
-function normalizeMeta(meta) {
-  if (!meta) return {};
-  if (meta instanceof Error) return { error: redact(meta) };
-  if (typeof meta === 'object') return redact(meta);
-  return { value: meta };
-}
+const baseLogger = pino(
+  {
+    level,
+    redact: {
+      paths: ['token', 'secret', 'password', 'authorization', 'cookie', 'key', 'credential'],
+      censor: '[REDACTED]',
+    },
+  },
+  transport,
+);
 
 function emit(level, message, meta = null) {
-  if ((LEVELS[level] ?? LEVELS.info) < minimumLevel) return;
   const context = contextStorage.getStore() ?? {};
-  const entry = {
-    ts: new Date().toISOString(),
-    level,
-    message: String(message),
-    pid: process.pid,
-    ...context,
-    ...normalizeMeta(meta)
-  };
-  console.log(JSON.stringify(entry));
+  const logFn = baseLogger[level].bind(baseLogger);
+  if (meta) {
+    logFn({ ...context, ...(meta instanceof Error ? { err: meta } : meta) }, String(message));
+  } else {
+    logFn({ ...context }, String(message));
+  }
 }
 
 export function withLogContext(context, fn) {
@@ -71,7 +60,7 @@ export const logger = {
       debug: (message, meta) => withLogContext(context, () => emit('debug', message, meta)),
       info: (message, meta) => withLogContext(context, () => emit('info', message, meta)),
       warn: (message, meta) => withLogContext(context, () => emit('warn', message, meta)),
-      error: (message, meta) => withLogContext(context, () => emit('error', message, meta))
+      error: (message, meta) => withLogContext(context, () => emit('error', message, meta)),
     };
-  }
+  },
 };

@@ -268,7 +268,7 @@ function MergedReviewCard({ reviews }: { reviews: typeof trustedReviews }) {
   const review = reviews[current];
   return (
     <div
-      className="relative overflow-hidden w-full max-w-[200px] sm:max-w-[260px] aspect-square rounded-xl mx-auto"
+      className="relative overflow-hidden w-full max-w-[240px] sm:max-w-[320px] aspect-square rounded-xl mx-auto"
       style={{ 
         backgroundColor: '#000000',
       }}
@@ -614,21 +614,18 @@ export default function LandingPage() {
 
         {/* Footer Section with AOI V3 overlay */}
         <section className="w-full bg-black py-20 sm:py-24 relative overflow-hidden">
-          <div className="absolute inset-0 pointer-events-none flex items-center justify-center" style={{
-            fontSize: 'clamp(6rem, 20vw, 22rem)',
-            fontWeight: '900',
-            color: 'transparent',
-            letterSpacing: '0.08em',
-            whiteSpace: 'nowrap',
-            textAlign: 'center',
-            backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1.5px, transparent 1.5px)',
-            backgroundSize: '5px 5px',
-            backgroundClip: 'text',
-            WebkitBackgroundClip: 'text',
-            opacity: 0.15,
-          }}>
-            AOI V3
-          </div>
+          <svg className="absolute inset-0 pointer-events-none w-full h-full" viewBox="0 0 1200 400" preserveAspectRatio="xMidYMid meet" style={{ opacity: 0.15 }}>
+            <defs>
+              <pattern id="dots" x="0" y="0" width="2" height="2" patternUnits="userSpaceOnUse">
+                <circle cx="1" cy="1" r="0.4" fill="white"/>
+              </pattern>
+            </defs>
+            <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle"
+              fontFamily="sans-serif" fontWeight="900" fontSize="200"
+              letterSpacing="0.08em" fill="url(#dots)">
+              AOI V3
+            </text>
+          </svg>
           <div className="relative z-20 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-3 gap-6 sm:gap-8 mb-12">
               <div>

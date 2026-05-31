@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
+import log from "@/lib/logger";
 import { FeatureCard } from "@/components/feature-card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -690,7 +691,7 @@ export default function CommunityPage() {
       setPremiumTriggerRoleQuery("");
       setSubredditDraft(nextMemeAutopost.subreddits.join(", "));
     } catch (error) {
-      console.error("Failed to load guild data:", error);
+      log.error("Failed to load guild data:", error);
     } finally {
       setLoading(false);
     }
@@ -1061,7 +1062,7 @@ export default function CommunityPage() {
       setRoleColorSaveState("success");
       setRoleColorSaveMessage("Role color rotation updated successfully.");
     } catch (error) {
-      console.error(error);
+      log.error(error);
       setRoleColorSaveState("error");
       setRoleColorSaveMessage(error instanceof Error ? error.message : "Failed to save role color rotation");
     } finally {
@@ -1104,7 +1105,7 @@ export default function CommunityPage() {
       setMemeSaveState("success");
       setMemeSaveMessage("Meme autopost updated successfully.");
     } catch (error) {
-      console.error(error);
+      log.error(error);
       setMemeSaveState("error");
       setMemeSaveMessage(error instanceof Error ? error.message : "Failed to save meme autopost");
     } finally {
@@ -1148,7 +1149,7 @@ export default function CommunityPage() {
       setBotLooksSaveState("success");
       setBotLooksSaveMessage("Bot Looks saved and applied successfully.");
     } catch (error) {
-      console.error(error);
+      log.error(error);
       setBotLooksSaveState("error");
       setBotLooksSaveMessage(error instanceof Error ? error.message : "Failed to save Bot Looks");
     } finally {
@@ -1209,7 +1210,7 @@ export default function CommunityPage() {
       setProfileStyleSaveState("success");
       setProfileStyleSaveMessage("Profile style saved and applied successfully.");
     } catch (error) {
-      console.error(error);
+      log.error(error);
       setProfileStyleSaveState("error");
       setProfileStyleSaveMessage(error instanceof Error ? error.message : "Failed to save profile style");
     } finally {
@@ -1268,7 +1269,7 @@ export default function CommunityPage() {
       setDmWelcomerSaveState("success");
       setDmWelcomerSaveMessage("DM welcomer saved successfully.");
     } catch (error) {
-      console.error(error);
+      log.error(error);
       setDmWelcomerSaveState("error");
       setDmWelcomerSaveMessage(error instanceof Error ? error.message : "Failed to save DM welcomer");
     } finally {
@@ -1324,7 +1325,7 @@ export default function CommunityPage() {
       setPremiumFeatureSaveState("success");
       setPremiumFeatureSaveMessage("Premium Feature #1 updated successfully.");
     } catch (error) {
-      console.error(error);
+      log.error(error);
       setPremiumFeatureSaveState("error");
       setPremiumFeatureSaveMessage(error instanceof Error ? error.message : "Failed to save Premium Feature #1");
     } finally {

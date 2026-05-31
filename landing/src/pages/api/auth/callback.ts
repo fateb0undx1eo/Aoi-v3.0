@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getBackendApiUrl, getFrontendAppUrl } from "@/lib/backend";
 import { parseCookies } from "@/lib/cookies";
+import log from "@/lib/logger";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { code, state } = req.query;
@@ -66,7 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     res.redirect("/dashboard");
   } catch (err) {
-    console.error("Auth callback error:", err);
+    log.error("Auth callback error:", err);
     redirectWithError("authentication_failed");
   }
 }

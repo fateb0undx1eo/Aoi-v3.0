@@ -2,6 +2,7 @@ import { AttachmentBuilder } from 'discord.js';
 import { createCanvas, loadImage, registerFont } from 'canvas';
 import path from 'path';
 import fs from 'fs';
+import { logger } from '../../utils/logger.js';
 
 // ============================================================================
 // REQUIRED FOR LOADER
@@ -26,8 +27,8 @@ const FONT_DIR = path.join(
 // LOGGING
 // ============================================================================
 
-const log = (...a) => console.log('[LEVELING]', ...a);
-const err = (...a) => console.error('[LEVELING]', ...a);
+const log = (...a) => logger.info({ module: 'leveling' }, a.join(' '));
+const err = (...a) => logger.error({ module: 'leveling' }, a.join(' '));
 
 // ============================================================================
 // FONTS

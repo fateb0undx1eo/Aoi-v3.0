@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
 import { FeatureCard } from "@/components/feature-card";
+import log from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -78,7 +79,7 @@ export default function ToolsPage() {
       const toolsModule = (overviewData.modules || []).find((module: ModuleRow) => module.name === "tools");
       setChannelsActivityForm(normalizeChannelsActivityConfig(toolsModule?.config?.channels_activity));
     } catch (error) {
-      console.error("Failed to load tools data:", error);
+      log.error("Failed to load tools data:", error);
     } finally {
       setLoading(false);
     }
@@ -161,7 +162,7 @@ export default function ToolsPage() {
       setChannelsActivitySaveState("success");
       setChannelsActivitySaveMessage("Channels Activity saved successfully.");
     } catch (error) {
-      console.error(error);
+      log.error(error);
       setChannelsActivitySaveState("error");
       setChannelsActivitySaveMessage(error instanceof Error ? error.message : "Failed to save Channels Activity");
     } finally {

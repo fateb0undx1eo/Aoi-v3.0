@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireGuildAccess } from '../middleware/requireGuildAccess.js';
+import { logger } from '../../utils/logger.js';
 
 export function createModerationRoutes({ moderationService, accessControlService, client }) {
   const router = Router();
@@ -103,7 +104,7 @@ export function createModerationRoutes({ moderationService, accessControlService
             break;
         }
       } catch (punishError) {
-        console.warn('Failed to execute Discord punishment:', punishError.message);
+        logger.warn({ err: punishError }, 'Failed to execute Discord punishment');
         // Continue to create case even if Discord action fails
       }
       

@@ -1,6 +1,7 @@
 import { createClient } from 'redis';
 import { env } from './config/env.js';
 import { metrics } from '../observability/metrics.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Redis client wrapper for distributed caching and locking
@@ -28,7 +29,7 @@ class RedisClient {
   logError(message, error) {
     const now = Date.now();
     if (now - this.lastErrorLog > this.errorLogInterval) {
-      console.error(message, error?.message || error);
+      logger.error({ err: error }, message);
       this.lastErrorLog = now;
     }
   }
@@ -40,7 +41,7 @@ class RedisClient {
   async connect() {
     // Prevent duplicate connection attempts
     if (this.isConnecting) {
-      console.log('Redis connection already in progress...');
+      logger.info('Redis connection already in progress...');
       return this.connectPromise ?? this.isConnected;
     }
 
@@ -71,21 +72,21 @@ class RedisClient {
                             env.redis.url?.includes('render.com') ||
                             env.redis.url?.startsWith('redis://default:'); // Render uses default username
 
-      console.log(`Connecting to Redis${isRenderRedis ? ' (Render Redis with TLS)' : ''}...`);
+      logger.info(`Connecting to Redis${isRenderRedis ? ' (Render Redis with TLS)' : ''}...`);
 
       this.client = createClient({
         url: env.redis.url || 'redis://localhost:6379',
         socket: {
           reconnectStrategy: (retries) => {
             if (retries > this.maxReconnectAttempts) {
-              console.error('❌ Redis max reconnection attempts reached. Disabling Redis features.');
+              logger.error('❌ Redis max reconnection attempts reached. Disabling Redis features.');
               this.connectionFailed = true;
               return false; // Stop reconnecting
             }
             // Exponential backoff with max 10s delay
             const delay = Math.min(Math.pow(2, retries) * 1000, 10000);
             if (retries <= 3) {
-              console.log(`⏳ Redis reconnecting in ${delay}ms (attempt ${retries}/${this.maxReconnectAttempts})`);
+              logger.info(`⏳ Redis reconnecting in ${delay}ms (attempt ${retries}/${this.maxReconnectAttempts})`);
             }
             return delay;
           },
@@ -107,19 +108,19 @@ class RedisClient {
         if (err.message?.includes('Socket') || err.message?.includes('ECONNREFUSED')) {
           this.logError('Redis connection error:', err);
         } else {
-          console.error('Redis error:', err.message);
+          logger.error('Redis error:', err.message);
         }
       });
 
       this.client.on('connect', () => {
         if (isFirstConnect) {
-          console.log('✅ Redis Client Connected');
+          logger.info('✅ Redis Client Connected');
           isFirstConnect = false;
         }
       });
 
       this.client.on('ready', () => {
-        console.log('🚀 Redis Client Ready');
+        logger.info('🚀 Redis Client Ready');
         this.isConnected = true;
         this.reconnectAttempts = 0;
         this.connectionFailed = false;
@@ -129,14 +130,14 @@ class RedisClient {
         this.reconnectAttempts++;
         // Only log first few reconnect attempts to prevent spam
         if (this.reconnectAttempts <= 3) {
-          console.log(`⏳ Redis reconnecting... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+          logger.info(`⏳ Redis reconnecting... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
         } else if (this.reconnectAttempts === this.maxReconnectAttempts) {
-          console.log('❌ Redis max reconnections reached, giving up');
+          logger.info('❌ Redis max reconnections reached, giving up');
         }
       });
 
       this.client.on('end', () => {
-        console.log('🔌 Redis Client Disconnected');
+        logger.info('🔌 Redis Client Disconnected');
         this.isConnected = false;
       });
 
@@ -180,7 +181,7 @@ class RedisClient {
    */
   async setex(key, ttl, value) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping setex operation');
+      logger.warn('Redis not ready, skipping setex operation');
       return false;
     }
 
@@ -188,7 +189,7 @@ class RedisClient {
       await this.client.setEx(key, ttl, String(value));
       return true;
     } catch (error) {
-      console.error(`Failed to setex key ${key}:`, error);
+      logger.error(`Failed to setex key ${key}:`, error);
       return false;
     }
   }
@@ -202,7 +203,7 @@ class RedisClient {
    */
   async acquireLock(key, ttl, value = null) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping lock acquisition');
+      logger.warn('Redis not ready, skipping lock acquisition');
       return null;
     }
 
@@ -217,7 +218,7 @@ class RedisClient {
       
       return result === 'OK' ? lockValue : null;
     } catch (error) {
-      console.error(`Failed to acquire lock for key ${key}:`, error);
+      logger.error(`Failed to acquire lock for key ${key}:`, error);
       return null;
     }
   }
@@ -230,7 +231,7 @@ class RedisClient {
    */
   async releaseLock(key, value) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping lock release');
+      logger.warn('Redis not ready, skipping lock release');
       return false;
     }
 
@@ -251,7 +252,7 @@ class RedisClient {
       
       return result === 1;
     } catch (error) {
-      console.error(`Failed to release lock for key ${key}:`, error);
+      logger.error(`Failed to release lock for key ${key}:`, error);
       return false;
     }
   }
@@ -263,7 +264,7 @@ class RedisClient {
    */
   async mget(...keys) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping mget operation');
+      logger.warn('Redis not ready, skipping mget operation');
       return [];
     }
 
@@ -271,7 +272,7 @@ class RedisClient {
       const result = await this.client.mGet(keys);
       return result || [];
     } catch (error) {
-      console.error('Failed to mget keys:', error);
+      logger.error('Failed to mget keys:', error);
       return [];
     }
   }
@@ -283,7 +284,7 @@ class RedisClient {
    */
   async keys(pattern) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping keys operation');
+      logger.warn('Redis not ready, skipping keys operation');
       return [];
     }
 
@@ -291,7 +292,7 @@ class RedisClient {
       const result = await this.client.keys(pattern);
       return result || [];
     } catch (error) {
-      console.error(`Failed to get keys with pattern ${pattern}:`, error);
+      logger.error(`Failed to get keys with pattern ${pattern}:`, error);
       return [];
     }
   }
@@ -310,7 +311,7 @@ class RedisClient {
    */
   async set(key, value, mode, ttl, flag) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping set operation');
+      logger.warn('Redis not ready, skipping set operation');
       return null;
     }
 
@@ -342,7 +343,7 @@ class RedisClient {
       );
       return result;
     } catch (error) {
-      console.error(`Failed to set key ${key}:`, error);
+      logger.error(`Failed to set key ${key}:`, error);
       return null;
     }
   }
@@ -355,7 +356,7 @@ class RedisClient {
    */
   async append(key, value) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping append operation');
+      logger.warn('Redis not ready, skipping append operation');
       return 0;
     }
 
@@ -363,7 +364,7 @@ class RedisClient {
       const result = await this.client.append(key, String(value));
       return result || 0;
     } catch (error) {
-      console.error(`Failed to append to key ${key}:`, error);
+      logger.error(`Failed to append to key ${key}:`, error);
       return 0;
     }
   }
@@ -375,14 +376,14 @@ class RedisClient {
    */
   async incr(key) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping incr operation');
+      logger.warn('Redis not ready, skipping incr operation');
       return null;
     }
 
     try {
       return await this.client.incr(key);
     } catch (error) {
-      console.error(`Failed to incr key ${key}:`, error);
+      logger.error(`Failed to incr key ${key}:`, error);
       return null;
     }
   }
@@ -395,14 +396,14 @@ class RedisClient {
    */
   async incrBy(key, amount = 1) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping incrby operation');
+      logger.warn('Redis not ready, skipping incrby operation');
       return null;
     }
 
     try {
       return await this.client.incrBy(key, amount);
     } catch (error) {
-      console.error(`Failed to incrby key ${key}:`, error);
+      logger.error(`Failed to incrby key ${key}:`, error);
       return null;
     }
   }
@@ -414,14 +415,14 @@ class RedisClient {
    */
   async get(key) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping get operation');
+      logger.warn('Redis not ready, skipping get operation');
       return null;
     }
 
     try {
       return await metrics.time('redis_latency_ms', { operation: 'get' }, () => this.client.get(key));
     } catch (error) {
-      console.error(`Failed to get key ${key}:`, error);
+      logger.error(`Failed to get key ${key}:`, error);
       return null;
     }
   }
@@ -433,7 +434,7 @@ class RedisClient {
    */
   async del(...keys) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping delete operation');
+      logger.warn('Redis not ready, skipping delete operation');
       return 0;
     }
 
@@ -442,7 +443,7 @@ class RedisClient {
       const result = await this.client.del(keys);
       return result || 0;
     } catch (error) {
-      console.error(`Failed to delete keys:`, error);
+      logger.error(`Failed to delete keys:`, error);
       return 0;
     }
   }
@@ -454,7 +455,7 @@ class RedisClient {
    */
   async delete(key) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping delete operation');
+      logger.warn('Redis not ready, skipping delete operation');
       return false;
     }
 
@@ -462,7 +463,7 @@ class RedisClient {
       const result = await this.client.del(key);
       return result > 0;
     } catch (error) {
-      console.error(`Failed to delete key ${key}:`, error);
+      logger.error(`Failed to delete key ${key}:`, error);
       return false;
     }
   }
@@ -481,7 +482,7 @@ class RedisClient {
       const result = await this.client.exists(key);
       return result === 1;
     } catch (error) {
-      console.error(`Failed to check existence of key ${key}:`, error);
+      logger.error(`Failed to check existence of key ${key}:`, error);
       return false;
     }
   }
@@ -495,7 +496,7 @@ class RedisClient {
    */
   async eval(script, numKeys, ...args) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping eval operation');
+      logger.warn('Redis not ready, skipping eval operation');
       return null;
     }
 
@@ -510,7 +511,7 @@ class RedisClient {
       
       return result;
     } catch (error) {
-      console.error('Failed to execute Lua script:', error);
+      logger.error('Failed to execute Lua script:', error);
       return null;
     }
   }
@@ -523,7 +524,7 @@ class RedisClient {
    */
   async setNX(key, value) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping setnx operation');
+      logger.warn('Redis not ready, skipping setnx operation');
       return false;
     }
 
@@ -531,7 +532,7 @@ class RedisClient {
       const result = await this.client.setNX(key, String(value));
       return result === true;
     } catch (error) {
-      console.error(`Failed to setnx key ${key}:`, error);
+      logger.error(`Failed to setnx key ${key}:`, error);
       return false;
     }
   }
@@ -544,7 +545,7 @@ class RedisClient {
    */
   async expire(key, ttl) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping expire operation');
+      logger.warn('Redis not ready, skipping expire operation');
       return false;
     }
 
@@ -552,7 +553,7 @@ class RedisClient {
       const result = await this.client.expire(key, ttl);
       return result === 1;
     } catch (error) {
-      console.error(`Failed to set expiration on key ${key}:`, error);
+      logger.error(`Failed to set expiration on key ${key}:`, error);
       return false;
     }
   }
@@ -566,7 +567,7 @@ class RedisClient {
    */
   async setWithTTL(key, value, ttl) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping set operation');
+      logger.warn('Redis not ready, skipping set operation');
       return false;
     }
 
@@ -574,7 +575,7 @@ class RedisClient {
       await this.client.setEx(key, Math.ceil(ttl / 1000), String(value));
       return true;
     } catch (error) {
-      console.error(`Failed to set key ${key}:`, error);
+      logger.error(`Failed to set key ${key}:`, error);
       return false;
     }
   }
@@ -586,7 +587,7 @@ class RedisClient {
    */
   async pipeline(pipelineFn) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping pipeline operation');
+      logger.warn('Redis not ready, skipping pipeline operation');
       return [];
     }
 
@@ -596,7 +597,7 @@ class RedisClient {
       const results = await pipeline.exec();
       return results || [];
     } catch (error) {
-      console.error('Failed to execute Redis pipeline:', error);
+      logger.error('Failed to execute Redis pipeline:', error);
       return [];
     }
   }
@@ -610,7 +611,7 @@ class RedisClient {
    */
   async lRange(key, start, stop) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping lrange operation');
+      logger.warn('Redis not ready, skipping lrange operation');
       return [];
     }
 
@@ -618,7 +619,7 @@ class RedisClient {
       const result = await this.client.lRange(key, start, stop);
       return result || [];
     } catch (error) {
-      console.error(`Failed to lrange key ${key}:`, error);
+      logger.error(`Failed to lrange key ${key}:`, error);
       return [];
     }
   }
@@ -630,7 +631,7 @@ class RedisClient {
    */
   async lPop(key) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping lpop operation');
+      logger.warn('Redis not ready, skipping lpop operation');
       return null;
     }
 
@@ -638,7 +639,7 @@ class RedisClient {
       const result = await this.client.lPop(key);
       return result;
     } catch (error) {
-      console.error(`Failed to lpop key ${key}:`, error);
+      logger.error(`Failed to lpop key ${key}:`, error);
       return null;
     }
   }
@@ -650,7 +651,7 @@ class RedisClient {
    */
   async lLen(key) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping llen operation');
+      logger.warn('Redis not ready, skipping llen operation');
       return 0;
     }
 
@@ -658,7 +659,7 @@ class RedisClient {
       const result = await this.client.lLen(key);
       return result || 0;
     } catch (error) {
-      console.error(`Failed to llen key ${key}:`, error);
+      logger.error(`Failed to llen key ${key}:`, error);
       return 0;
     }
   }
@@ -671,7 +672,7 @@ class RedisClient {
    */
   async hSet(key, values) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping hset operation');
+      logger.warn('Redis not ready, skipping hset operation');
       return false;
     }
 
@@ -679,7 +680,7 @@ class RedisClient {
       await this.client.hSet(key, values);
       return true;
     } catch (error) {
-      console.error(`Failed to set hash ${key}:`, error);
+      logger.error(`Failed to set hash ${key}:`, error);
       return false;
     }
   }
@@ -691,14 +692,14 @@ class RedisClient {
    */
   async hGetAll(key) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping hgetall operation');
+      logger.warn('Redis not ready, skipping hgetall operation');
       return null;
     }
 
     try {
       return await this.client.hGetAll(key);
     } catch (error) {
-      console.error(`Failed to get hash ${key}:`, error);
+      logger.error(`Failed to get hash ${key}:`, error);
       return null;
     }
   }
@@ -711,7 +712,7 @@ class RedisClient {
    */
   async hDel(key, field) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping hdel operation');
+      logger.warn('Redis not ready, skipping hdel operation');
       return false;
     }
 
@@ -719,7 +720,7 @@ class RedisClient {
       const result = await this.client.hDel(key, field);
       return result > 0;
     } catch (error) {
-      console.error(`Failed to delete hash field ${key}.${field}:`, error);
+      logger.error(`Failed to delete hash field ${key}.${field}:`, error);
       return false;
     }
   }
@@ -732,7 +733,7 @@ class RedisClient {
    */
   async lPush(key, value) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping lpush operation');
+      logger.warn('Redis not ready, skipping lpush operation');
       return 0;
     }
 
@@ -740,7 +741,7 @@ class RedisClient {
       const result = await this.client.lPush(key, value);
       return result;
     } catch (error) {
-      console.error(`Failed to lpush to key ${key}:`, error);
+      logger.error(`Failed to lpush to key ${key}:`, error);
       return 0;
     }
   }
@@ -754,7 +755,7 @@ class RedisClient {
    */
   async lTrim(key, start, stop) {
     if (!this.isReady()) {
-      console.warn('Redis not ready, skipping ltrim operation');
+      logger.warn('Redis not ready, skipping ltrim operation');
       return null;
     }
 
@@ -762,7 +763,7 @@ class RedisClient {
       const result = await this.client.lTrim(key, start, stop);
       return result;
     } catch (error) {
-      console.error(`Failed to ltrim key ${key}:`, error);
+      logger.error(`Failed to ltrim key ${key}:`, error);
       return null;
     }
   }
@@ -774,9 +775,9 @@ class RedisClient {
     if (this.client) {
       try {
         await this.client.quit();
-        console.log('Redis Client Disconnected');
+        logger.info('Redis Client Disconnected');
       } catch (error) {
-        console.error('Error disconnecting Redis:', error);
+        logger.error('Error disconnecting Redis:', error);
       }
     }
     this.isConnected = false;
@@ -799,7 +800,7 @@ let initialized = false;
 
 async function initializeRedis() {
   if (initialized) {
-    console.log('Redis already initialized, skipping...');
+    logger.info('Redis already initialized, skipping...');
     return;
   }
   
@@ -808,14 +809,14 @@ async function initializeRedis() {
   try {
     const connected = await redisClient.connect();
     if (connected) {
-      console.log('✅ Redis initialized successfully');
+      logger.info('✅ Redis initialized successfully');
     } else if (redisClient.connectionFailed) {
-      console.log('⚠️ Redis unavailable - running without cache features');
+      logger.info('⚠️ Redis unavailable - running without cache features');
     } else {
-      console.log('⏳ Redis connection pending...');
+      logger.info('⏳ Redis connection pending...');
     }
   } catch (error) {
-    console.error('Redis initialization error:', error.message);
+    logger.error('Redis initialization error:', error.message);
   }
 }
 

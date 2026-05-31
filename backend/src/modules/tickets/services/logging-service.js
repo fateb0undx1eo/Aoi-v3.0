@@ -1,7 +1,4 @@
-/**
- * Logging service for the tickets module
- * Provides structured logging for all ticket operations
- */
+import { logger } from '../../../utils/logger.js';
 
 const LOG_LEVELS = {
   DEBUG: 0,
@@ -13,61 +10,43 @@ const LOG_LEVELS = {
 class LoggingService {
   constructor(level = LOG_LEVELS.INFO) {
     this.level = level;
+    this._logger = logger.child({ module: 'tickets' });
   }
 
-  /**
-   * Logs a debug message
-   */
   debug(message, metadata = {}) {
     if (this.level <= LOG_LEVELS.DEBUG) {
-      console.log(`[TICKETS:DEBUG] ${message}`, metadata);
+      this._logger.debug({ ...metadata }, message);
     }
   }
 
-  /**
-   * Logs an info message
-   */
   info(message, metadata = {}) {
     if (this.level <= LOG_LEVELS.INFO) {
-      console.log(`[TICKETS:INFO] ${message}`, metadata);
+      this._logger.info({ ...metadata }, message);
     }
   }
 
-  /**
-   * Logs a warning message
-   */
   warn(message, metadata = {}) {
     if (this.level <= LOG_LEVELS.WARN) {
-      console.warn(`[TICKETS:WARN] ${message}`, metadata);
+      this._logger.warn({ ...metadata }, message);
     }
   }
 
-  /**
-   * Logs an error message
-   */
   error(message, metadata = {}) {
     if (this.level <= LOG_LEVELS.ERROR) {
-      console.error(`[TICKETS:ERROR] ${message}`, metadata);
+      this._logger.error({ ...metadata }, message);
     }
   }
 
-  /**
-   * Sets the logging level
-   */
   setLevel(level) {
     this.level = level;
   }
 
-  /**
-   * Gets the current logging level
-   */
   getLevel() {
     return this.level;
   }
 }
 
-// Export singleton instance
-const logger = new LoggingService(LOG_LEVELS.INFO);
+const loggerInstance = new LoggingService(LOG_LEVELS.INFO);
 
-export default logger;
+export default loggerInstance;
 export { LoggingService, LOG_LEVELS };

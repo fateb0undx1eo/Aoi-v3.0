@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
 import { Button } from "@/components/ui/button";
+import log from "@/lib/logger";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -98,7 +99,7 @@ export default function SettingsPage() {
       setErrorLogsEnabled(Boolean(errorLogConfig?.enabled));
       setErrorLogChannelId(String(errorLogConfig?.channel_id || ""));
     } catch (err) {
-      console.error("Failed to load guild data:", err);
+      log.error("Failed to load guild data:", err);
     } finally {
       setLoading(false);
     }
