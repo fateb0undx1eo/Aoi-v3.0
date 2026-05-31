@@ -1071,13 +1071,18 @@ function ColorSwatch({ value, onChange }: { value: number | null; onChange: (v: 
   const [open, setOpen] = useState(false);
   const [hexInput, setHexInput] = useState("");
   const ref = useRef<HTMLDivElement>(null);
+  const portalRef = useRef<HTMLDivElement>(null);
   const hueRef = useRef<HTMLDivElement>(null);
   const svRef = useRef<HTMLDivElement>(null);
   const hsvRef = useRef({ h: 146, s: 0.5, v: 0.95 });
   const [hsv, setHsv] = useState({ h: 146, s: 0.5, v: 0.95 });
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const handler = (e: MouseEvent) => {
+      if (ref.current?.contains(e.target as Node)) return;
+      if (portalRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
     if (open) { document.addEventListener("mousedown", handler); return () => document.removeEventListener("mousedown", handler); }
   }, [open]);
 
@@ -1094,15 +1099,12 @@ function ColorSwatch({ value, onChange }: { value: number | null; onChange: (v: 
   const syncColor = (h: number, s: number, v: number) => {
     const hexColor = hsvToHex(h, s, v);
     const int = parseInt(hexColor.replace("#", ""), 16);
-    onChange(int);
     setHexInput(hexColor.replace("#", ""));
   };
 
   const commitHex = (raw: string) => {
     const clean = raw.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
     if (clean.length === 6) {
-      const int = parseInt(clean, 16);
-      onChange(int);
       const h = hexToHsv(`#${clean}`);
       hsvRef.current = h;
       setHsv(h);
@@ -1146,13 +1148,15 @@ function ColorSwatch({ value, onChange }: { value: number | null; onChange: (v: 
     onMove(e as unknown as MouseEvent);
   };
 
+  const selectedHex = hsvToHex(hsv.h, hsv.s, hsv.v);
+
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={() => setOpen(!open)} className="flex h-8 w-12 items-center justify-center rounded border border-zinc-700" style={{ backgroundColor: hex }}>
         <ChevronDown className="h-3 w-3 text-white/70" />
       </button>
       {open && createPortal(
-        <div>
+        <div ref={portalRef}>
           <div className="fixed inset-0 z-[99]" onClick={() => setOpen(false)} />
           <div className="fixed left-1/2 top-1/2 z-[100] w-56 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-zinc-700 bg-zinc-900 p-2 shadow-2xl">
             {/* Hue slider */}
@@ -1179,13 +1183,21 @@ function ColorSwatch({ value, onChange }: { value: number | null; onChange: (v: 
                   style={{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%` }} />
               </div>
             </div>
-            {/* Hex input */}
-            <div className="flex items-center gap-2">
+            {/* Hex input + preview */}
+            <div className="mb-2 flex items-center gap-2">
+              <div className="h-6 w-6 shrink-0 rounded border border-zinc-700" style={{ backgroundColor: selectedHex }} />
               <span className="text-xs text-zinc-400">#</span>
               <input type="text" value={hexInput}
                 onChange={(e) => commitHex(e.target.value)}
-                onBlur={() => onChange(hexInput.length >= 3 ? parseInt(hexInput, 16) : null)}
                 className="flex-1 rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 outline-none" placeholder="000000" />
+            </div>
+            {/* Select / Cancel */}
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setOpen(false)}
+                className="flex-1 rounded px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200">Cancel</button>
+              <button type="button" onClick={() => { onChange(parseInt(selectedHex.replace("#", ""), 16)); setOpen(false); }}
+                className="flex-1 rounded px-2 py-1.5 text-xs font-medium text-white transition-colors"
+                style={{ backgroundColor: ACCENT }}>Select</button>
             </div>
           </div>
         </div>,
@@ -1826,7 +1838,27 @@ export default function GuildAnnouncementsPage() {
     if (selectedChannelIds.size === 0) {
       setStatus({ state: "error", text: "Select at least one channel to send to." }); return;
     }
-    if (!data.messages.some((m) => m.data.content || m.data.embeds?.length)) {
+    const hasContent = (m: QueryDataMessage) => {
+      if (m.data.content) return true;
+      if (m.data.embeds?.length) return true;
+      const comps = m.data.components || [];
+      for (const row of comps) {
+        if (row.type === 17) {
+          const children = (row as APIContainerComponent).components || [];
+          for (const child of children) {
+            if (child.type === 10 && child.content) return true;
+            if (child.type === 9) {
+              if (child.components?.some((c) => c.type === 10 && (c as APIV2TextDisplay).content)) return true;
+            }
+            if (child.type === 11 || child.type === 12 || child.type === 13) {
+              if (child.items?.some((i: any) => i.media?.url)) return true;
+            }
+          }
+        }
+      }
+      return false;
+    };
+    if (!data.messages.some(hasContent)) {
       setStatus({ state: "error", text: "Add content to at least one message." }); return;
     }
     setStatus({ state: "sending", text: "Sending announcement..." });
@@ -1884,23 +1916,18 @@ export default function GuildAnnouncementsPage() {
         }}
         serverEmojis={serverEmojis} />
 
-      <div className="flex flex-col" style={{ height: "calc(100vh - 210px)" }}>
-        {/* ── Fixed top: header + status ── */}
-        <div className="shrink-0">
-          <div className="mb-6 flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-              <Megaphone className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold">Announcements Studio</h1>
-              <p className="text-muted-foreground">Compose rich messages with embeds, components, and webhook targets.</p>
-            </div>
+      <div className="flex flex-col" style={{ height: "calc(100vh - 160px)" }}>
+        {/* ── Compact header ── */}
+        <div className="shrink-0 mb-3">
+          <div className="flex items-center gap-2">
+            <Megaphone className="h-4 w-4 text-primary" />
+            <h1 className="text-lg font-bold">Announcements Studio</h1>
           </div>
           <StatusBanner status={status} />
         </div>
 
         {/* ── Scrollable panels ── */}
-        <div className="flex gap-6 lg:flex-row flex-col flex-1 min-h-0 mt-4">
+        <div className="flex gap-6 lg:flex-row flex-col flex-1 min-h-0">
           {/* ── Editor Panel (left 50%) ── */}
           <div className="flex-1 min-w-0 lg:w-1/2 overflow-y-auto space-y-4 pr-2">
           {/* Webhook Targets */}
