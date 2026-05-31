@@ -258,38 +258,38 @@ const DISCORD_LIMITS = {
 function getMessageLimitWarnings(msg: QueryDataMessageData): string[] {
   const warnings: string[] = [];
   const c = msg.content || "";
-  if (c.length > DISCORD_LIMITS.CONTENT) warnings.push(`Content exceeds ${DISCORD_LIMITS.CONTENT} characters (${c.length}).`);
+  if (c.length > DISCORD_LIMITS.CONTENT) warnings.push(`Message content is too long (${c.length.toLocaleString()}/${DISCORD_LIMITS.CONTENT.toLocaleString()} chars)`);
 
   const embeds = msg.embeds || [];
-  if (embeds.length > DISCORD_LIMITS.EMBEDS_PER_MESSAGE) warnings.push(`Too many embeds (${embeds.length}/${DISCORD_LIMITS.EMBEDS_PER_MESSAGE}).`);
+  if (embeds.length > DISCORD_LIMITS.EMBEDS_PER_MESSAGE) warnings.push(`Too many embeds (${embeds.length} max: ${DISCORD_LIMITS.EMBEDS_PER_MESSAGE})`);
 
   let totalEmbedChars = 0;
   for (const e of embeds) {
-    if ((e.title?.length || 0) > DISCORD_LIMITS.EMBED_TITLE) warnings.push(`Embed title exceeds ${DISCORD_LIMITS.EMBED_TITLE} characters.`);
-    if ((e.description?.length || 0) > DISCORD_LIMITS.EMBED_DESCRIPTION) warnings.push(`Embed description exceeds ${DISCORD_LIMITS.EMBED_DESCRIPTION} characters.`);
-    if ((e.footer?.text?.length || 0) > DISCORD_LIMITS.FOOTER_TEXT) warnings.push(`Embed footer exceeds ${DISCORD_LIMITS.FOOTER_TEXT} characters.`);
-    if ((e.author?.name?.length || 0) > DISCORD_LIMITS.AUTHOR_NAME) warnings.push(`Embed author name exceeds ${DISCORD_LIMITS.AUTHOR_NAME} characters.`);
+    if ((e.title?.length || 0) > DISCORD_LIMITS.EMBED_TITLE) warnings.push(`Embed title too long (max ${DISCORD_LIMITS.EMBED_TITLE} chars)`);
+    if ((e.description?.length || 0) > DISCORD_LIMITS.EMBED_DESCRIPTION) warnings.push(`Embed description too long (max ${DISCORD_LIMITS.EMBED_DESCRIPTION.toLocaleString()} chars)`);
+    if ((e.footer?.text?.length || 0) > DISCORD_LIMITS.FOOTER_TEXT) warnings.push(`Embed footer too long (max ${DISCORD_LIMITS.FOOTER_TEXT.toLocaleString()} chars)`);
+    if ((e.author?.name?.length || 0) > DISCORD_LIMITS.AUTHOR_NAME) warnings.push(`Embed author name too long (max ${DISCORD_LIMITS.AUTHOR_NAME} chars)`);
     const fields = e.fields || [];
-    if (fields.length > DISCORD_LIMITS.EMBED_FIELDS) warnings.push(`Embed has ${fields.length} fields (max ${DISCORD_LIMITS.EMBED_FIELDS}).`);
+    if (fields.length > DISCORD_LIMITS.EMBED_FIELDS) warnings.push(`Too many embed fields (${fields.length} max: ${DISCORD_LIMITS.EMBED_FIELDS})`);
     for (const f of fields) {
-      if ((f.name?.length || 0) > DISCORD_LIMITS.FIELD_NAME) warnings.push(`Field name exceeds ${DISCORD_LIMITS.FIELD_NAME} characters.`);
-      if ((f.value?.length || 0) > DISCORD_LIMITS.FIELD_VALUE) warnings.push(`Field value exceeds ${DISCORD_LIMITS.FIELD_VALUE} characters.`);
+      if ((f.name?.length || 0) > DISCORD_LIMITS.FIELD_NAME) warnings.push(`Field name too long (max ${DISCORD_LIMITS.FIELD_NAME} chars)`);
+      if ((f.value?.length || 0) > DISCORD_LIMITS.FIELD_VALUE) warnings.push(`Field value too long (max ${DISCORD_LIMITS.FIELD_VALUE.toLocaleString()} chars)`);
     }
     totalEmbedChars += (e.title?.length || 0) + (e.description?.length || 0) + (e.author?.name?.length || 0) + (e.footer?.text?.length || 0);
     totalEmbedChars += fields.reduce((a, f) => a + (f.name?.length || 0) + (f.value?.length || 0), 0);
   }
-  if (totalEmbedChars > DISCORD_LIMITS.TOTAL_EMBED_CHARS) warnings.push(`Total embed content exceeds ${DISCORD_LIMITS.TOTAL_EMBED_CHARS} characters (${totalEmbedChars}).`);
+  if (totalEmbedChars > DISCORD_LIMITS.TOTAL_EMBED_CHARS) warnings.push(`All embed content too long (${totalEmbedChars.toLocaleString()}/${DISCORD_LIMITS.TOTAL_EMBED_CHARS.toLocaleString()} chars)`);
 
   const comps = msg.components || [];
   const isV2 = comps.some((r) => r.type !== 1);
   if (!isV2) {
-    if (comps.length > DISCORD_LIMITS.V1_ROWS) warnings.push(`Too many action rows (${comps.length}/${DISCORD_LIMITS.V1_ROWS}).`);
+    if (comps.length > DISCORD_LIMITS.V1_ROWS) warnings.push(`Too many action rows (max ${DISCORD_LIMITS.V1_ROWS})`);
     for (const row of comps) {
-      if (row.type === 1 && row.components.length > DISCORD_LIMITS.V1_COMPONENTS_PER_ROW) warnings.push(`Action row has ${row.components.length} components (max ${DISCORD_LIMITS.V1_COMPONENTS_PER_ROW}).`);
+      if (row.type === 1 && row.components.length > DISCORD_LIMITS.V1_COMPONENTS_PER_ROW) warnings.push(`A row has too many components (max ${DISCORD_LIMITS.V1_COMPONENTS_PER_ROW} per row)`);
     }
   } else {
     const total = comps.reduce((a, r) => a + 1 + ("components" in r ? (r as any).components?.length || 0 : 0), 0);
-    if (total > DISCORD_LIMITS.V2_TOTAL_COMPONENTS) warnings.push(`Too many V2 components (${total}/${DISCORD_LIMITS.V2_TOTAL_COMPONENTS}).`);
+    if (total > DISCORD_LIMITS.V2_TOTAL_COMPONENTS) warnings.push(`Too many V2 components (max ${DISCORD_LIMITS.V2_TOTAL_COMPONENTS})`);
   }
 
   return warnings;
@@ -754,9 +754,50 @@ function ComponentEditModal({ open, onClose, component, onChange, serverEmojis }
   );
 }
 
+// ── Unified Conversation Preview ───────────────────────────────────
+
+function UnifiedPreview({ messages, targets, selectedId, onSelect, onEditComponent }: {
+  messages: QueryDataMessage[];
+  targets?: QueryDataTarget[];
+  selectedId?: string;
+  onSelect: (i: number) => void;
+  onEditComponent?: (comp: APIComponentInActionRow, ri?: number, ci?: number) => void;
+}) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  return (
+    <div className="rounded-lg" style={{ backgroundColor: EMBED_BG }}>
+      {messages.length === 0 ? (
+        <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+          <Eye className="mb-3 h-10 w-10 text-zinc-600" />
+          <p className="text-sm text-zinc-500">No messages yet</p>
+          <p className="mt-1 text-xs text-zinc-600">Add a message to start composing</p>
+        </div>
+      ) : (
+        messages.map((m, i) => {
+          const isSelected = m._id === selectedId;
+          const isHovered = hoveredIdx === i;
+          return (
+            <div key={m._id} onClick={() => onSelect(i)}
+              onMouseEnter={() => setHoveredIdx(i)} onMouseLeave={() => setHoveredIdx(null)}
+              className={`transition-colors cursor-pointer ${i > 0 ? "border-t border-zinc-700/60" : ""} ${isSelected ? "bg-primary/[0.04]" : isHovered ? "bg-white/[0.03]" : ""}`}>
+              <div className="flex">
+                {isSelected && <div className="w-0.5 shrink-0 rounded-full bg-primary/60" />}
+                <div className="min-w-0 flex-1 px-4 py-2">
+                  <DiscordPreview message={m.data} isV2={isComponentsV2(m.data.flags)} targets={targets}
+                    onEditComponent={onEditComponent} noBg />
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
 // ── Discord Message Preview ─────────────────────────────────────────
 
-function DiscordPreview({ message, isV2, targets, onEditComponent }: { message: QueryDataMessageData; isV2?: boolean; targets?: QueryDataTarget[]; onEditComponent?: (comp: APIComponentInActionRow, ri?: number, ci?: number) => void }) {
+function DiscordPreview({ message, isV2, targets, onEditComponent, noBg }: { message: QueryDataMessageData; isV2?: boolean; targets?: QueryDataTarget[]; onEditComponent?: (comp: APIComponentInActionRow, ri?: number, ci?: number) => void; noBg?: boolean }) {
   const hasContent = !!message.content;
   const hasEmbeds = message.embeds && message.embeds.length > 0;
   const hasComponents = message.components && message.components.length > 0 && message.components.some((r) => (r.type === 1 && r.components.length > 0) || r.type === 17);
@@ -765,16 +806,16 @@ function DiscordPreview({ message, isV2, targets, onEditComponent }: { message: 
 
   if (!hasContent && !hasEmbeds && !hasComponents) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg px-6 py-12 text-center" style={{ backgroundColor: EMBED_BG }}>
+      <div className="flex flex-col items-center justify-center rounded-lg px-6 py-12 text-center" style={{ backgroundColor: noBg ? "transparent" : EMBED_BG }}>
         <Eye className="mb-3 h-10 w-10 text-zinc-600" />
         <p className="text-sm text-zinc-500">Your message preview will appear here</p>
-        <p className="mt-1 text-xs text-zinc-600">Add content, embeds, or components to get started</p>
+        <p className="mt-1 text-xs text-zinc-600">{isV2 ? "Add V2 containers with text, images, or sections" : "Add content, embeds, or components to get started"}</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg px-4 py-3 text-sm leading-relaxed" style={{ backgroundColor: EMBED_BG }}>
+    <div className={`rounded-lg px-4 py-3 text-sm leading-relaxed ${noBg ? "" : ""}`} style={{ backgroundColor: noBg ? "transparent" : EMBED_BG }}>
       <div className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-500 text-sm font-bold text-white">
           {webhookName ? "W" : "A"}
@@ -894,76 +935,90 @@ function DiscordPreview({ message, isV2, targets, onEditComponent }: { message: 
 function ContainerPreview({ container, hasTopMargin, onEditComponent }: { container: APIContainerComponent; hasTopMargin: boolean; onEditComponent?: (comp: APIComponentInActionRow, ri?: number, ci?: number) => void }) {
   const accentColor = container.accent_color != null ? intToHex(container.accent_color) : null;
   return (
-    <div className={`flex ${hasTopMargin ? "mt-2" : ""}`}>
-      {accentColor && (
-        <div className="mr-2 w-1 flex-shrink-0 rounded-full" style={{ backgroundColor: accentColor }} />
-      )}
-      <div className="min-w-0 flex-1 space-y-1">
-        {container.components.map((item, ci) => {
-          if (item.type === 10) {
-            return <div key={ci} className="whitespace-pre-wrap text-sm" style={{ color: TEXT_COLOR }}>{item.content}</div>;
-          }
-          if (item.type === 11 || item.type === 12) {
-            const url = item.items?.[0]?.media?.url;
-            return url ? <img key={ci} src={url} alt="" className="max-h-80 w-full rounded-lg object-cover" /> : null;
-          }
-          if (item.type === 13) {
-            const url = item.items?.[0]?.media?.url;
-            if (!url) return null;
-            const filename = url.split("/").pop() || "file";
-            return (
-              <div key={ci} className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-black/30 px-3 py-2">
-                <FileText className="h-4 w-4 shrink-0 text-zinc-400" />
-                <a href={url} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate text-xs hover:underline" style={{ color: "#00a8fc" }}>{filename}</a>
-              </div>
-            );
-          }
-          if (item.type === 14) {
-            return <div key={ci} className="h-px w-full bg-zinc-700" />;
-          }
-          if (item.type === 9) {
-            const textChild = item.components?.find((c): c is APIV2TextDisplay => c.type === 10);
-            const thumbChild = item.components?.find((c): c is APIV2Thumbnail => c.type === 11);
-            const accessory = item.accessory;
-            return (
-              <div key={ci} className="flex items-start gap-3 rounded-lg bg-black/20 px-3 py-2">
-                <div className="min-w-0 flex-1">
-                  {textChild && <div className="whitespace-pre-wrap text-sm" style={{ color: TEXT_COLOR }}>{textChild.content}</div>}
-                  {thumbChild && (() => {
-                    const url = thumbChild.items?.[0]?.media?.url;
-                    return url ? <img src={url} alt="" className="mt-1 max-h-40 rounded-lg object-cover" /> : null;
+    <div className={`${hasTopMargin ? "mt-2" : ""} rounded-lg border border-zinc-700/50 bg-[#2b2d31] ${container.spoiler ? "blur-sm hover:blur-none transition-all cursor-pointer" : ""}`}>
+      <div className="flex">
+        {accentColor && (
+          <div className="w-1 shrink-0 rounded-l-lg" style={{ backgroundColor: accentColor }} />
+        )}
+        <div className="min-w-0 flex-1 space-y-1.5 px-3 py-2">
+          {container.components.map((item, ci) => {
+            if (item.type === 10) {
+              return <div key={ci} className="whitespace-pre-wrap text-[15px] leading-relaxed" style={{ color: TEXT_COLOR }}>{item.content}</div>;
+            }
+            if (item.type === 11) {
+              const url = item.items?.[0]?.media?.url;
+              return url ? <img key={ci} src={url} alt="" className="max-h-80 w-full rounded-lg object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /> : null;
+            }
+            if (item.type === 12) {
+              const images = item.items?.filter((i) => i.media?.url) || [];
+              if (images.length === 0) return null;
+              const cols = images.length === 1 ? 1 : images.length === 2 ? 2 : 2;
+              return (
+                <div key={ci} className={`grid gap-1 ${cols === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                  {images.map((img, ii) => (
+                    <img key={ii} src={img.media.url} alt="" className="w-full rounded-lg object-cover max-h-60" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  ))}
+                </div>
+              );
+            }
+            if (item.type === 13) {
+              const url = item.items?.[0]?.media?.url;
+              if (!url) return null;
+              const filename = url.split("/").pop() || "file";
+              return (
+                <div key={ci} className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-black/40 px-3 py-2">
+                  <FileText className="h-4 w-4 shrink-0 text-zinc-400" />
+                  <a href={url} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate text-xs hover:underline" style={{ color: "#00a8fc" }}>{filename}</a>
+                </div>
+              );
+            }
+            if (item.type === 14) {
+              return <div key={ci} className="h-px w-full bg-zinc-700" />;
+            }
+            if (item.type === 9) {
+              const textChild = item.components?.find((c): c is APIV2TextDisplay => c.type === 10);
+              const thumbChild = item.components?.find((c): c is APIV2Thumbnail => c.type === 11);
+              const accessory = item.accessory;
+              return (
+                <div key={ci} className="flex items-start gap-3 rounded-lg bg-black/30 px-3 py-2.5">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    {textChild && <div className="whitespace-pre-wrap text-sm leading-relaxed" style={{ color: TEXT_COLOR }}>{textChild.content}</div>}
+                    {thumbChild && (() => {
+                      const url = thumbChild.items?.[0]?.media?.url;
+                      return url ? <img src={url} alt="" className="mt-1 max-h-40 w-full rounded-lg object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /> : null;
+                    })()}
+                  </div>
+                  {accessory?.type === 2 && (() => {
+                    const btn = accessory as APIButtonComponent;
+                    const s = BUTTON_STYLES[btn.style] || BUTTON_STYLES[1];
+                    if (btn.style === 5) {
+                      return (
+                        <a key="acc" href={btn.url || "#"} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex shrink-0 items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium transition-colors hover:brightness-110"
+                          style={{ color: s.color, backgroundColor: s.bg, border: `1px solid ${s.border}` }}>
+                          {btn.label || "Link"}<ExternalLink className="h-2.5 w-2.5" />
+                        </a>
+                      );
+                    }
+                    return (
+                      <button key="acc" type="button" disabled={btn.disabled}
+                        onClick={() => onEditComponent?.(btn)}
+                        className="inline-flex shrink-0 items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium transition-colors hover:brightness-110 disabled:opacity-50"
+                        style={{ color: s.color, backgroundColor: s.bg, border: `1px solid ${s.border}` }}>
+                        {btn.label || "Button"}
+                      </button>
+                    );
+                  })()}
+                  {accessory?.type === 11 && (() => {
+                    const url = (accessory as APIV2Thumbnail).items?.[0]?.media?.url;
+                    return url ? <img src={url} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /> : null;
                   })()}
                 </div>
-                {accessory?.type === 2 && (() => {
-                  const btn = accessory as APIButtonComponent;
-                  const s = BUTTON_STYLES[btn.style] || BUTTON_STYLES[1];
-                  if (btn.style === 5) {
-                    return (
-                      <a key="acc" href={btn.url || "#"} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex shrink-0 items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium transition-colors hover:brightness-110"
-                        style={{ color: s.color, backgroundColor: s.bg, border: `1px solid ${s.border}` }}>
-                        {btn.label || "Link"}<ExternalLink className="h-2.5 w-2.5" />
-                      </a>
-                    );
-                  }
-                  return (
-                    <button key="acc" type="button" disabled={btn.disabled}
-                      onClick={() => onEditComponent?.(btn)}
-                      className="inline-flex shrink-0 items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium transition-colors hover:brightness-110 disabled:opacity-50"
-                      style={{ color: s.color, backgroundColor: s.bg, border: `1px solid ${s.border}` }}>
-                      {btn.label || "Button"}
-                    </button>
-                  );
-                })()}
-                {accessory?.type === 11 && (() => {
-                  const url = (accessory as APIV2Thumbnail).items?.[0]?.media?.url;
-                  return url ? <img src={url} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" /> : null;
-                })()}
-              </div>
-            );
-          }
-          return null;
-        })}
+              );
+            }
+            return null;
+          })}
+        </div>
       </div>
     </div>
   );
@@ -1096,49 +1151,45 @@ function ColorSwatch({ value, onChange }: { value: number | null; onChange: (v: 
       <button type="button" onClick={() => setOpen(!open)} className="flex h-8 w-12 items-center justify-center rounded border border-zinc-700" style={{ backgroundColor: hex }}>
         <ChevronDown className="h-3 w-3 text-white/70" />
       </button>
-      {open && (
-        <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-lg border border-zinc-700 bg-zinc-900 p-2 shadow-xl">
-          {/* Presets */}
-          <div className="mb-2 grid grid-cols-5 gap-1">
-            {EMBED_PRESETS.map((p) => (
-              <button key={p.value} type="button" title={p.label}
-                onClick={() => { onChange(p.value); setOpen(false); }}
-                className="h-6 w-full rounded border border-zinc-700 hover:scale-110 hover:border-white" style={{ backgroundColor: intToHex(p.value) }} />
-            ))}
-          </div>
-          {/* Hue slider */}
-          <div className="mb-1.5">
-            <div ref={hueRef} onMouseDown={handleHueDrag}
-              className="relative h-4 w-full cursor-crosshair rounded"
-              style={{
-                background: "linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)",
-              }}>
-              <div className="pointer-events-none absolute left-0 top-0 h-full w-full rounded border border-zinc-700" />
-              <div className="pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-1.5 rounded-sm bg-white shadow-md"
-                style={{ left: `${(hsv.h / 360) * 100}%` }} />
+      {open && createPortal(
+        <div>
+          <div className="fixed inset-0 z-[99]" onClick={() => setOpen(false)} />
+          <div className="fixed left-1/2 top-1/2 z-[100] w-56 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-zinc-700 bg-zinc-900 p-2 shadow-2xl">
+            {/* Hue slider */}
+            <div className="mb-1.5">
+              <div ref={hueRef} onMouseDown={handleHueDrag}
+                className="relative h-4 w-full cursor-crosshair rounded"
+                style={{
+                  background: "linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)",
+                }}>
+                <div className="pointer-events-none absolute left-0 top-0 h-full w-full rounded border border-zinc-700" />
+                <div className="pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-1.5 rounded-sm bg-white shadow-md"
+                  style={{ left: `${(hsv.h / 360) * 100}%` }} />
+              </div>
+            </div>
+            {/* Saturation / Brightness picker */}
+            <div className="mb-2">
+              <div ref={svRef} onMouseDown={handleSvDrag}
+                className="relative h-20 w-full cursor-crosshair rounded"
+                style={{
+                  background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${hsvToHex(hsv.h, 1, 1)})`,
+                }}>
+                <div className="pointer-events-none absolute left-0 top-0 h-full w-full rounded border border-zinc-700" />
+                <div className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-md"
+                  style={{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%` }} />
+              </div>
+            </div>
+            {/* Hex input */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-zinc-400">#</span>
+              <input type="text" value={hexInput}
+                onChange={(e) => commitHex(e.target.value)}
+                onBlur={() => onChange(hexInput.length >= 3 ? parseInt(hexInput, 16) : null)}
+                className="flex-1 rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 outline-none" placeholder="000000" />
             </div>
           </div>
-          {/* Saturation / Brightness picker */}
-          <div className="mb-2">
-            <div ref={svRef} onMouseDown={handleSvDrag}
-              className="relative h-20 w-full cursor-crosshair rounded"
-              style={{
-                background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${hsvToHex(hsv.h, 1, 1)})`,
-              }}>
-              <div className="pointer-events-none absolute left-0 top-0 h-full w-full rounded border border-zinc-700" />
-              <div className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-md"
-                style={{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%` }} />
-            </div>
-          </div>
-          {/* Hex input */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-400">#</span>
-            <input type="text" value={hexInput}
-              onChange={(e) => commitHex(e.target.value)}
-              onBlur={() => onChange(hexInput.length >= 3 ? parseInt(hexInput, 16) : null)}
-              className="flex-1 rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 outline-none" placeholder="000000" />
-          </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -1817,19 +1868,7 @@ export default function GuildAnnouncementsPage() {
 
   return (
     <DashboardLayout guildId={String(guildId || "")} guildName={guild?.name || "Guild"} heading="Announcements" modules={modules}>
-      <div className="mb-6 flex items-center gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-          <Megaphone className="h-6 w-6 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-bold">Announcements Studio</h1>
-          <p className="text-muted-foreground">Compose rich messages with embeds, components, and webhook targets.</p>
-        </div>
-      </div>
-
-      <StatusBanner status={status} />
-
-      {/* Component Edit Modal */}
+      {/* Component Edit Modal (portal, doesn't affect layout) */}
       <ComponentEditModal open={componentModalOpen} onClose={() => setComponentModalOpen(false)}
         component={editingComponent}
         onChange={(comp) => {
@@ -1845,12 +1884,25 @@ export default function GuildAnnouncementsPage() {
         }}
         serverEmojis={serverEmojis} />
 
-      <div className="flex gap-6 lg:flex-row flex-col">
-        {/* ── Editor Panel (left 50%) ── */}
-        <div className="flex-1 min-w-0 space-y-4 lg:w-1/2">
-
+      <div className="flex flex-col" style={{ height: "calc(100vh - 210px)" }}>
+        {/* ── Fixed top: header + status ── */}
+        <div className="shrink-0">
+          <div className="mb-6 flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+              <Megaphone className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold">Announcements Studio</h1>
+              <p className="text-muted-foreground">Compose rich messages with embeds, components, and webhook targets.</p>
+            </div>
+          </div>
           <StatusBanner status={status} />
+        </div>
 
+        {/* ── Scrollable panels ── */}
+        <div className="flex gap-6 lg:flex-row flex-col flex-1 min-h-0 mt-4">
+          {/* ── Editor Panel (left 50%) ── */}
+          <div className="flex-1 min-w-0 lg:w-1/2 overflow-y-auto space-y-4 pr-2">
           {/* Webhook Targets */}
           <div className="dashboard-panel rounded-2xl p-4">
             <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">
@@ -2147,29 +2199,17 @@ export default function GuildAnnouncementsPage() {
           </div>
         </div>
 
-        {/* ── Preview Panel (right 50%) ── */}
-        <div className="flex-1 min-w-0 lg:w-1/2">
-          <div className="dashboard-panel rounded-2xl p-5 h-full">
+        {/* ── Preview Panel (right 50%, independent scroll) ── */}
+        <div className="flex-1 min-w-0 lg:w-1/2 overflow-y-auto pl-2">
+          <div className="dashboard-panel rounded-2xl p-5">
             <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-4">Message Preview</h2>
-            <div className="space-y-6">
-              {data.messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-lg py-16 text-center" style={{ backgroundColor: EMBED_BG }}>
-                  <Eye className="mb-3 h-10 w-10 text-zinc-600" />
-                  <p className="text-sm text-zinc-500">No messages yet</p>
-                  <p className="mt-1 text-xs text-zinc-600">Add a message to start composing</p>
-                </div>
-              ) : (
-                data.messages.map((m, i) => (
-                  <div key={m._id} className={`rounded-lg ${m._id === message?._id ? "ring-2 ring-primary/30" : "opacity-60 hover:opacity-100"}`}
-                    onClick={() => setSelectedMessageIndex(i)} style={{ cursor: message?._id !== m._id ? "pointer" : undefined }}>
-                    <DiscordPreview message={m.data} isV2={isComponentsV2(m.data.flags)} targets={data.targets}
-                      onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri, ci }); setComponentModalOpen(true); }} />
-                  </div>
-                ))
-              )}
-            </div>
+            <UnifiedPreview messages={data.messages} targets={data.targets}
+              selectedId={message?._id}
+              onSelect={setSelectedMessageIndex}
+              onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri, ci }); setComponentModalOpen(true); }} />
           </div>
         </div>
+      </div>
       </div>
     </DashboardLayout>
   );
