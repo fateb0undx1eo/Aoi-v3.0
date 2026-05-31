@@ -80,8 +80,8 @@
     --card-foreground: 0 0% 8%;
     --border: 86 28% 78%;
     --input: 86 28% 78%;
-    --ring: 78 100% 50%;
-    --primary: 78 100% 50%;
+    --ring: 156 100% 13%;
+    --primary: 156 100% 13%;
     --primary-foreground: 0 0% 6%;
     --muted-foreground: 0 0% 38%;
     --card-solid: 0 0% 100%;
@@ -238,7 +238,7 @@
   }
 
   .section-hero-dark .text-primary {
-    color: #afff00;
+    color: #014421;
   }
 
   .section-hero-dark .text-muted-foreground,

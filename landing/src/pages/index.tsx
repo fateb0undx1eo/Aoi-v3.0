@@ -146,14 +146,6 @@ function InteractiveSurface({ children, className = "", delay = 0, style = {} }:
   );
 }
 
-function SectionDivider() {
-  return (
-    <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-      <div className="section-divider" />
-    </div>
-  );
-}
-
 function ModulesCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [pressedButton, setPressedButton] = useState<'prev' | 'next' | null>(null);
@@ -265,11 +257,19 @@ function ModulesCarousel() {
 }
 
 function MergedReviewCard({ reviews }: { reviews: typeof trustedReviews }) {
+  const [current, setCurrent] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % reviews.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [reviews.length]);
+
+  const review = reviews[current];
   return (
     <div
-      className="relative overflow-hidden w-full rounded-xl"
+      className="relative overflow-hidden w-full max-w-[200px] sm:max-w-[260px] aspect-square rounded-xl mx-auto"
       style={{ 
-        height: '260px',
         backgroundColor: '#000000',
       }}
     >
@@ -281,25 +281,26 @@ function MergedReviewCard({ reviews }: { reviews: typeof trustedReviews }) {
           backgroundSize: '100px 100px',
         }}
       />
-      <div className="absolute inset-0 z-10 flex">
-        {reviews.map((review, idx) => (
-          <div key={idx} className="flex-1 flex flex-col items-center justify-center text-center px-6 py-8 relative">
-            {idx > 0 && (
-              <div style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: '1px',
-                backgroundColor: 'rgba(255,255,255,0.3)',
-              }} />
-            )}
-            {idx !== 1 && <div className="text-xs uppercase tracking-[0.2em] mb-3" style={{ color: '#888' }}>{review.name}</div>}
-            <p className="text-sm leading-6" style={{ color: '#ccc' }}>&quot;{review.quote}&quot;</p>
-            {idx === 1 && <div className="text-xs uppercase tracking-[0.2em] mt-3" style={{ color: '#888' }}>{review.name}</div>}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={current}
+          className="absolute inset-0 z-10 flex flex-col px-4 sm:px-6 py-4 sm:py-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <div className="text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-2 sm:mb-3 text-center" style={{ color: '#888' }}>{review.name}</div>
+          <div className="flex-1 flex flex-col items-start justify-center">
+            <div className="w-full">
+              <svg viewBox="0 0 40 32" className="w-5 h-4 sm:w-6 sm:h-5 mb-1" fill="white" xmlns="http://www.w3.org/2000/svg">
+                <path d="M14 32H0V18c0-8.4 4-14.4 14-18v8c-4 2-6 5.2-6 10h6v14Zm26 0H26V18c0-8.4 4-14.4 14-18v8c-4 2-6 5.2-6 10h6v14Z"/>
+              </svg>
+              <p className="text-[11px] sm:text-sm leading-5 sm:leading-6 pl-4 sm:pl-6" style={{ color: '#ccc' }}>{review.quote}</p>
+            </div>
           </div>
-        ))}
-      </div>
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
@@ -353,16 +354,16 @@ export default function LandingPage() {
               <h1 className="mt-4 text-3xl leading-[1.02] tracking-normal sm:text-4xl font-bold">
                 Manage your servers from one <span className="text-primary">control center</span>
               </h1>
-              <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+              <div className="mt-8 flex flex-row items-center justify-center gap-3 sm:gap-4">
                 <Link
                   href={dashboardUrl}
-                  className="inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold bg-[#5865F2] !text-white hover:bg-[#4752C4] transition-colors min-h-[2.75rem]"
+                  className="inline-flex items-center justify-center rounded-full px-4 sm:px-5 py-3 text-sm font-semibold bg-[#5865F2] !text-white hover:bg-[#4752C4] transition-colors min-h-[2.75rem]"
                 >
                   DASHBOARD
                 </Link>
                 <Link
                   href="/#modules"
-                  className="inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold bg-gray-500 !text-white hover:bg-gray-600 transition-colors min-h-[2.75rem]"
+                  className="inline-flex items-center justify-center rounded-full px-4 sm:px-5 py-3 text-sm font-semibold bg-gray-500 !text-white hover:bg-gray-600 transition-colors min-h-[2.75rem]"
                 >
                   DOCS
                 </Link>
@@ -370,7 +371,7 @@ export default function LandingPage() {
               <div className="mt-16 flex flex-col items-center">
                 <div className="relative inline-block">
                   {/* Stats Card */}
-                  <div className="flex flex-wrap items-center justify-center gap-8 sm:gap-12 p-6 rounded-lg" style={{ backgroundColor: '#000000' }}>
+                  <div className="flex flex-row items-center justify-center gap-4 sm:gap-12 p-4 sm:p-6 rounded-lg" style={{ backgroundColor: '#000000' }}>
                     {heroStats.map((stat, idx) => (
                       <div key={idx} className="text-center">
                         <div className="text-2xl sm:text-3xl font-bold" style={{ color: 'white' }}>{stat.value}</div>
@@ -400,7 +401,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <SectionDivider />
+
 
         {/* ── Workflow with Animated Fading Grid Background ── */}
         <section
@@ -462,14 +463,14 @@ export default function LandingPage() {
             <Reveal>
               <div className="lux-surface overflow-hidden rounded-xl p-6 sm:p-8 mt-10">
                 <div className="relative h-52">
-                  <div className="absolute left-0 top-0 bottom-8 w-10 flex flex-col justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
+                  <div className="absolute left-0 top-0 bottom-8 w-8 sm:w-10 flex flex-col justify-between text-[8px] sm:text-[10px] uppercase tracking-widest text-muted-foreground">
                     <span>100</span>
                     <span>75</span>
                     <span>50</span>
                     <span>25</span>
                     <span>0</span>
                   </div>
-                  <div className="ml-12 h-full relative">
+                  <div className="ml-8 sm:ml-12 h-full relative">
                     {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((val) => (
                       <div
                         key={val}
@@ -498,18 +499,20 @@ export default function LandingPage() {
                         points={graphData.map((val, i) => `${(i / 5) * 500},${160 - (val / 100) * 160}`).join(" ")}
                         fill="none"
                         stroke={isDark ? "#ffffff" : "#000000"}
-                        strokeWidth={isDark ? "1" : "1.5"}
+                        strokeWidth={isDark ? "1.5" : "2"}
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        initial={{ pathLength: 0 }}
-                        animate={{ pathLength: 1 }}
-                        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                        vectorEffect="non-scaling-stroke"
+                        strokeDasharray="20 12"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.6 }}
                       />
                     </svg>
                   </div>
-                  <div className="ml-12 flex justify-between mt-3">
+                  <div className="ml-8 sm:ml-12 flex justify-between mt-2 sm:mt-3 gap-1">
                     {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
-                      <span key={label} className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{label}</span>
+                      <span key={label} className="text-[8px] sm:text-[10px] uppercase tracking-[0.1em] sm:tracking-[0.2em] text-muted-foreground whitespace-nowrap">{label}</span>
                     ))}
                   </div>
                 </div>
