@@ -33,7 +33,7 @@ function HamburgerMenu() {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="theme-animate flex items-center justify-center rounded-lg border border-border bg-card p-2 text-foreground/86 hover:border-primary/45"
+        className="theme-animate flex items-center justify-center p-2 text-foreground/86 hover:text-foreground"
         aria-label="Menu"
       >
         {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -102,7 +102,7 @@ export function SiteNavbar({ showAnchors = true }: SiteNavbarProps) {
           <AnimatedThemeToggle />
           <Link
             href={dashboardUrl}
-            className="nav-dashboard-button inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold sm:px-4"
+            className="nav-dashboard-button inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold sm:px-4"
           >
             Dashboard
           </Link>

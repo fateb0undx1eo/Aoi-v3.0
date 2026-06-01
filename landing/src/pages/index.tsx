@@ -362,7 +362,7 @@ export default function LandingPage() {
                   DASHBOARD
                 </Link>
                 <Link
-                  href="/#modules"
+                  href="/docs"
                   className="inline-flex items-center justify-center rounded-full px-4 sm:px-5 py-3 text-sm font-semibold bg-gray-500 !text-white hover:bg-gray-600 transition-colors min-h-[2.75rem]"
                 >
                   DOCS
@@ -635,7 +635,7 @@ export default function LandingPage() {
               <div>
                 <h3 className="text-sm font-semibold text-white mb-4">Docs</h3>
                 <ul className="space-y-3 text-sm">
-                  <li><a href="#docs" className="text-white hover:text-primary transition">Documentation</a></li>
+                  <li><a href="/docs" className="text-white hover:text-primary transition">Documentation</a></li>
                   <li><a href="#guides" className="text-white hover:text-primary transition">Guides</a></li>
                   <li><a href="#api" className="text-white hover:text-primary transition">API Reference</a></li>
                 </ul>
@@ -644,9 +644,9 @@ export default function LandingPage() {
               <div>
                 <h3 className="text-sm font-semibold text-white mb-4">Legal</h3>
                 <ul className="space-y-3 text-sm">
-                  <li><a href="#privacy" className="text-white hover:text-primary transition">Privacy</a></li>
-                  <li><a href="#terms" className="text-white hover:text-primary transition">Terms</a></li>
-                  <li><a href="#contact" className="text-white hover:text-primary transition">Contact</a></li>
+                  <li><a href="/privacy" className="text-white hover:text-primary transition">Privacy</a></li>
+                  <li><a href="/terms" className="text-white hover:text-primary transition">Terms</a></li>
+                  <li><a href="/contact" className="text-white hover:text-primary transition">Contact</a></li>
                 </ul>
               </div>
             </div>

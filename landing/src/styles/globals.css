@@ -311,7 +311,7 @@
 
   .theme-surface .glass-nav,
   .public-page .glass-nav {
-    background: hsl(var(--public-bg) / 0.94);
+    background: hsl(var(--public-bg) / 0.85);
     border-color: transparent;
     box-shadow: none;
   }
@@ -380,14 +380,7 @@
   .theme-surface .nav-dashboard-button,
   .public-page .nav-dashboard-button {
     min-height: 2.75rem;
-    border: 1px solid hsl(var(--border));
-    background: hsl(var(--card));
     color: hsl(var(--foreground));
-  }
-
-  .theme-surface .nav-dashboard-button:hover,
-  .public-page .nav-dashboard-button:hover {
-    border-color: hsl(var(--foreground));
   }
 
   .mascot-stage {
@@ -807,7 +800,7 @@
   }
 
   .dark .glass-nav {
-    background: hsl(var(--background));
+    background: hsl(var(--background) / 0.85);
   }
 
   .nav-link {
