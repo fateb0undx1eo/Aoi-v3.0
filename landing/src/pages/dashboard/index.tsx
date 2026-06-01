@@ -69,7 +69,7 @@ export default function DashboardHome() {
             ) : (
               <Link
                 href="/api/auth/discord"
-                className="theme-animate inline-flex items-center rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_24px_52px_-28px_hsl(var(--primary)/0.78)] hover:opacity-90"
+                className="theme-animate inline-flex items-center rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
               >
                 Login with Discord
               </Link>

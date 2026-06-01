@@ -379,14 +379,14 @@ export default function GuildOverviewPage() {
       {!loading && !error && guild && (
         <div className="space-y-6">
           <section className="overflow-hidden rounded-[30px] border border-border/70 bg-card/80">
-            <div className="border-b border-border/60 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.16),transparent_34%)] px-6 py-6">
+            <div className="border-b border-border/60 px-6 py-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex items-center gap-4">
                   {guildIconUrl(guild) ? (
                     <img
                       src={guildIconUrl(guild) || ""}
                       alt={guild.name}
-                      className="h-16 w-16 rounded-2xl border border-border/70 object-cover shadow-[0_24px_50px_-28px_hsl(var(--primary)/0.5)]"
+                      className="h-16 w-16 rounded-2xl border border-border/70 object-cover"
                     />
                   ) : (
                     <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border/70 bg-primary/12 text-2xl font-bold text-primary">
@@ -489,15 +489,15 @@ export default function GuildOverviewPage() {
                       </div>
                     </div>
 
-                    <div className="mt-6 h-[220px] overflow-hidden rounded-[22px] border border-border/60 bg-[linear-gradient(180deg,hsl(var(--primary)/0.08),transparent)] p-4">
+                    <div className="mt-6 h-[220px] overflow-hidden rounded-[22px] border border-border/60 bg-card/50 p-4">
                       <svg viewBox="0 0 520 180" className="h-full w-full">
                         <defs>
                           <linearGradient id="overviewLineFill" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.38" />
-                            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
+                            <stop offset="0%" stopColor="hsl(var(--foreground))" stopOpacity="0.15" />
+                            <stop offset="100%" stopColor="hsl(var(--foreground))" stopOpacity="0" />
                           </linearGradient>
                         </defs>
-                        <path d={chartPath} fill="none" stroke="hsl(var(--primary))" strokeWidth="3" strokeLinecap="round" />
+                        <path d={chartPath} fill="none" stroke="hsl(var(--foreground))" strokeWidth="2" strokeLinecap="round" />
                         {chartPath && (
                           <path
                             d={`${chartPath} L 520 180 L 0 180 Z`}
