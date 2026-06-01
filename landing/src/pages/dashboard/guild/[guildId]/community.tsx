@@ -562,6 +562,7 @@ export default function CommunityPage() {
   const [loading, setLoading] = useState(true);
 
   const [botProfileOpen, setBotProfileOpen] = useState(false);
+  const [memeOpen, setMemeOpen] = useState(false);
   const [roleColorOpen, setRoleColorOpen] = useState(false);
   const [dmWelcomerOpen, setDmWelcomerOpen] = useState(false);
   const [dmAllOpen, setDmAllOpen] = useState(false);
