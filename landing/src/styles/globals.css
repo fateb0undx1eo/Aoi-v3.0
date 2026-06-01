@@ -311,7 +311,7 @@
 
   .theme-surface .glass-nav,
   .public-page .glass-nav {
-    background: hsl(var(--public-bg) / 0.94);
+    background: #ffffff;
     border-color: transparent;
     box-shadow: none;
   }
