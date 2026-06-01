@@ -224,7 +224,6 @@ export default function FunPage() {
           <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
             <CardHeader>
               <CardTitle>Waifu / Husbando Drops</CardTitle>
-              <CardDescription className="text-zinc-400">Configure the `fun` module for `/waifu` and `/husbando`, including cooldowns, button lifetime, public vs ephemeral result messages, and DM receipt copy.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
               <div className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3">

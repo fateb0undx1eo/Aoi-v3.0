@@ -187,16 +187,6 @@ export default function SettingsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-              <Settings className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">Settings</h1>
-              <p className="text-muted-foreground">Website-only controls for guild prefix and error log routing.</p>
-            </div>
-          </div>
-
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>

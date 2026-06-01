@@ -200,16 +200,6 @@ export default function ToolsPage() {
   return (
     <DashboardLayout guildId={String(guildId || "")} guildName={guild?.name || "Guild"} heading="Tools" modules={modules}>
       <div className="space-y-8">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            <ListChecks className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold">Tools</h1>
-            <p className="text-muted-foreground">Utility features, roster automation, and lightweight helper systems live here.</p>
-          </div>
-        </div>
-
         <section>
           <h2 className="card-heading mb-4 text-sm uppercase tracking-wider text-muted-foreground">Feature Cards</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">

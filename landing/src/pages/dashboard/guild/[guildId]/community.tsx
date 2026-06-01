@@ -4,6 +4,7 @@ import { DashboardLayout } from "@/components/dashboard-layout";
 import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
 import log from "@/lib/logger";
 import { FeatureCard } from "@/components/feature-card";
+import { BotProfilePreview } from "@/components/bot-profile-preview";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -560,10 +561,8 @@ export default function CommunityPage() {
   const [emojis, setEmojis] = useState<GuildEmoji[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [botProfileOpen, setBotProfileOpen] = useState(false);
   const [roleColorOpen, setRoleColorOpen] = useState(false);
-  const [memeOpen, setMemeOpen] = useState(false);
-  const [botLooksOpen, setBotLooksOpen] = useState(false);
-  const [profileStyleOpen, setProfileStyleOpen] = useState(false);
   const [dmWelcomerOpen, setDmWelcomerOpen] = useState(false);
   const [dmAllOpen, setDmAllOpen] = useState(false);
   const [premiumFeatureOpen, setPremiumFeatureOpen] = useState(false);
@@ -1244,6 +1243,82 @@ export default function CommunityPage() {
       setProfileStyleSaveMessage("Profile style reset to Discord defaults.");
     } finally {
       setProfileStyleResetting(false);
+    }
+  }
+
+  async function handleBotProfileSave() {
+    if (!guildId || typeof guildId !== "string") return;
+
+    setBotLooksSaving(true);
+    setBotLooksSaveState("idle");
+    setBotLooksSaveMessage("");
+
+    try {
+      const colors = profileStyleForm.colors
+        .filter((value) => Number.isFinite(value) && value >= 0 && value <= 0xffffff)
+        .slice(0, 2);
+
+      await persistCommunityConfig({
+        ...(communityModule?.config ?? {}),
+        bot_looks: {
+          ...botLooksForm,
+          activity_text: botLooksForm.activity_text.trim(),
+          custom_status: botLooksForm.custom_status.trim(),
+          streaming_url: botLooksForm.streaming_url.trim(),
+        },
+        profile_style: {
+          ...profileStyleForm,
+          colors,
+        },
+      });
+
+      await loadGuildData();
+      setBotLooksSaveState("success");
+      setBotLooksSaveMessage("Bot profile saved and applied successfully.");
+    } catch (error) {
+      log.error(error);
+      setBotLooksSaveState("error");
+      setBotLooksSaveMessage(error instanceof Error ? error.message : "Failed to save bot profile");
+    } finally {
+      setBotLooksSaving(false);
+    }
+  }
+
+  async function handleBotProfileReset() {
+    setBotLooksResetting(true);
+    setProfileStyleResetting(true);
+    setBotLooksSaveState("idle");
+    setBotLooksSaveMessage("");
+
+    try {
+      setBotLooksForm(DEFAULT_BOT_LOOKS_CONFIG);
+      setProfileStyleForm(DEFAULT_PROFILE_STYLE_CONFIG);
+      const colors: number[] = [];
+      await persistCommunityConfig({
+        ...(communityModule?.config ?? {}),
+        bot_looks: { ...DEFAULT_BOT_LOOKS_CONFIG, activity_text: "", custom_status: "", streaming_url: "" },
+        profile_style: { ...DEFAULT_PROFILE_STYLE_CONFIG, colors },
+      });
+      await loadGuildData();
+      setBotLooksSaveState("success");
+      setBotLooksSaveMessage("Bot profile reset to Discord defaults.");
+    } finally {
+      setBotLooksResetting(false);
+      setProfileStyleResetting(false);
+    }
+  }
+
+  async function handleBotProfileReload() {
+    setBotLooksReloading(true);
+    setBotLooksSaveState("idle");
+    setBotLooksSaveMessage("");
+
+    try {
+      await loadGuildData();
+      setBotLooksSaveState("info");
+      setBotLooksSaveMessage("Reloaded the latest bot profile config.");
+    } finally {
+      setBotLooksReloading(false);
     }
   }
 
@@ -1980,34 +2055,16 @@ export default function CommunityPage() {
   return (
     <DashboardLayout guildId={String(guildId || "")} guildName={guild?.name || "Guild"} heading="Community" modules={modules}>
       <div className="space-y-8">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            <Users className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold">Community</h1>
-            <p className="text-muted-foreground">Bot looks, profile styling, message features, role color rotation, and lightweight meme autopost controls live here now.</p>
-          </div>
-        </div>
-
         <section>
           <h2 className="card-heading mb-4 text-sm uppercase tracking-wider text-muted-foreground">Feature Cards</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             <FeatureCard
               icon={<Bot className="h-6 w-6" />}
-              title="Bot Looks"
-              description={botLooksSummary}
-              badge={botLooksForm.enabled ? "Applied" : "Default"}
+              title="Bot Profile"
+              description={`${botLooksForm.enabled || profileStyleForm.enabled ? "Active" : "Default"} \u2022 ${botLooksForm.status} \u2022 ${botLooksForm.activity_type}${profileStyleForm.enabled ? " \u2022 Styled" : ""}`}
+              badge={botLooksForm.enabled || profileStyleForm.enabled ? "Active" : "Default"}
               iconColor="text-cyan-400"
-              onClick={() => setBotLooksOpen(true)}
-            />
-            <FeatureCard
-              icon={<Eye className="h-6 w-6" />}
-              title="Profile Style"
-              description={profileStyleSummary}
-              badge={profileStyleForm.enabled ? "Styled" : "Default"}
-              iconColor="text-violet-400"
-              onClick={() => setProfileStyleOpen(true)}
+              onClick={() => setBotProfileOpen(true)}
             />
             <FeatureCard
               icon={<LogIn className="h-6 w-6" />}
@@ -3018,157 +3075,252 @@ export default function CommunityPage() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={botLooksOpen} onOpenChange={setBotLooksOpen}>
+        <Dialog open={botProfileOpen} onOpenChange={setBotProfileOpen}>
           <DialogContent className="max-h-[92vh] max-w-[min(94vw,1080px)] overflow-y-auto border-border/70 bg-zinc-950 text-zinc-100">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-3">
                 <Bot className="h-5 w-5 text-cyan-400" />
-                Bot Looks
+                Bot Profile
               </DialogTitle>
               <DialogDescription className="text-zinc-400">
-                Change the bot&apos;s documented Discord presence fields from the web. This is global bot presence, so if the bot joins multiple servers the last applied Bot Looks config wins.
+                Change the bot&apos;s presence, activity, status, name font, effects, and colors all in one place. Changes are saved to the community config and reapplied on restart.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-6">
-              <div className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="font-medium text-zinc-100">Presence Status</div>
-                  <div className="text-sm text-zinc-400">
-                    {botLooksForm.enabled ? "Bot Looks is active and will be restored on startup until you change or reset it." : "Bot Looks is currently off and the bot stays on its default Discord presence."}
+              <BotProfilePreview
+                status={botLooksForm.status}
+                activityType={botLooksForm.activity_type}
+                activityText={botLooksForm.activity_text}
+                customStatus={botLooksForm.custom_status}
+                streamingUrl={botLooksForm.streaming_url}
+                fontLabel={PROFILE_STYLE_FONTS.find((f) => f.id === profileStyleForm.font_id)?.label || "Default"}
+                effectLabel={PROFILE_STYLE_EFFECTS.find((e) => e.id === profileStyleForm.effect_id)?.label || "Solid"}
+                primaryColor={profileStyleForm.colors[0] !== undefined ? decimalToHexColor(profileStyleForm.colors[0]) : ""}
+                secondaryColor={profileStyleForm.colors[1] !== undefined ? decimalToHexColor(profileStyleForm.colors[1]) : ""}
+              />
+
+              <div className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-zinc-100">Bot Profile Active</div>
+                    <div className="text-sm text-zinc-400">Toggle all custom presence and profile styling.</div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Label className="text-sm text-zinc-200">Enabled</Label>
+                    <Switch
+                      checked={botLooksForm.enabled || profileStyleForm.enabled}
+                      onCheckedChange={(checked) => {
+                        setBotLooksForm((c) => ({ ...c, enabled: checked }));
+                        setProfileStyleForm((c) => ({ ...c, enabled: checked }));
+                      }}
+                    />
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Label htmlFor="bot-looks-enabled" className="text-sm text-zinc-200">Enabled</Label>
-                  <Switch
-                    id="bot-looks-enabled"
-                    checked={botLooksForm.enabled}
-                    onCheckedChange={(checked) => setBotLooksForm((current) => ({ ...current, enabled: checked }))}
-                  />
-                </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="text-zinc-200">Online Status</Label>
-                  <Select
-                    value={botLooksForm.status}
-                    onValueChange={(value) =>
-                      setBotLooksForm((current) => ({
-                        ...current,
-                        status: value as BotLooksConfig["status"],
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="border-zinc-800 bg-black text-zinc-100">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent className="border-zinc-800 bg-black text-zinc-100">
-                      <SelectItem value="online" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Online</SelectItem>
-                      <SelectItem value="idle" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Idle</SelectItem>
-                      <SelectItem value="dnd" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Do Not Disturb</SelectItem>
-                      <SelectItem value="invisible" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Invisible</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
+                <h3 className="mb-3 text-sm font-medium text-zinc-200">Presence & Activity</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-zinc-200">Online Status</Label>
+                    <Select
+                      value={botLooksForm.status}
+                      onValueChange={(value) =>
+                        setBotLooksForm((current) => ({
+                          ...current,
+                          status: value as BotLooksConfig["status"],
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="border-zinc-800 bg-black text-zinc-100">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent className="border-zinc-800 bg-black text-zinc-100">
+                        <SelectItem value="online" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Online</SelectItem>
+                        <SelectItem value="idle" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Idle</SelectItem>
+                        <SelectItem value="dnd" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Do Not Disturb</SelectItem>
+                        <SelectItem value="invisible" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Invisible</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-200">Activity Mode</Label>
+                    <Select
+                      value={botLooksForm.activity_type}
+                      onValueChange={(value) =>
+                        setBotLooksForm((current) => ({
+                          ...current,
+                          activity_type: value as BotLooksConfig["activity_type"],
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="border-zinc-800 bg-black text-zinc-100">
+                        <SelectValue placeholder="Select activity mode" />
+                      </SelectTrigger>
+                      <SelectContent className="border-zinc-800 bg-black text-zinc-100">
+                        <SelectItem value="custom" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Custom Status</SelectItem>
+                        <SelectItem value="playing" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Playing</SelectItem>
+                        <SelectItem value="streaming" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Streaming</SelectItem>
+                        <SelectItem value="listening" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Listening</SelectItem>
+                        <SelectItem value="watching" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Watching</SelectItem>
+                        <SelectItem value="competing" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Competing</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-zinc-200">Activity Mode</Label>
-                  <Select
-                    value={botLooksForm.activity_type}
-                    onValueChange={(value) =>
-                      setBotLooksForm((current) => ({
-                        ...current,
-                        activity_type: value as BotLooksConfig["activity_type"],
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="border-zinc-800 bg-black text-zinc-100">
-                      <SelectValue placeholder="Select activity mode" />
-                    </SelectTrigger>
-                    <SelectContent className="border-zinc-800 bg-black text-zinc-100">
-                      <SelectItem value="custom" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Custom Status</SelectItem>
-                      <SelectItem value="playing" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Playing</SelectItem>
-                      <SelectItem value="streaming" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Streaming</SelectItem>
-                      <SelectItem value="listening" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Listening</SelectItem>
-                      <SelectItem value="watching" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Watching</SelectItem>
-                      <SelectItem value="competing" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Competing</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="bot-looks-activity" className="text-zinc-200">
-                    {botLooksForm.activity_type === "custom" ? "Fallback Activity Text" : "Activity Text"}
-                  </Label>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="bot-profile-activity" className="text-zinc-200">
+                      {botLooksForm.activity_type === "custom" ? "Fallback Activity Text" : "Activity Text"}
+                    </Label>
+                    <Input
+                      id="bot-profile-activity"
+                      value={botLooksForm.activity_text}
+                      maxLength={128}
+                      placeholder={botLooksForm.activity_type === "custom" ? "Used only if custom status is empty" : "What the bot should show"}
+                      className="border-zinc-800 bg-zinc-950 text-zinc-100"
+                      onChange={(event) =>
+                        setBotLooksForm((current) => ({
+                          ...current,
+                          activity_text: event.target.value.slice(0, 128),
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bot-profile-custom" className="text-zinc-200">Custom Status Text</Label>
+                    <Input
+                      id="bot-profile-custom"
+                      value={botLooksForm.custom_status}
+                      maxLength={128}
+                      placeholder="Only used when Activity Mode is Custom Status"
+                      className="border-zinc-800 bg-zinc-950 text-zinc-100"
+                      onChange={(event) =>
+                        setBotLooksForm((current) => ({
+                          ...current,
+                          custom_status: event.target.value.slice(0, 128),
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  <Label htmlFor="bot-profile-streaming" className="text-zinc-200">Streaming URL</Label>
                   <Input
-                    id="bot-looks-activity"
-                    value={botLooksForm.activity_text}
-                    maxLength={128}
-                    placeholder={botLooksForm.activity_type === "custom" ? "Used only if custom status is empty" : "What the bot should show"}
+                    id="bot-profile-streaming"
+                    value={botLooksForm.streaming_url}
+                    placeholder="https://twitch.tv/yourchannel"
                     className="border-zinc-800 bg-zinc-950 text-zinc-100"
+                    disabled={botLooksForm.activity_type !== "streaming"}
                     onChange={(event) =>
                       setBotLooksForm((current) => ({
                         ...current,
-                        activity_text: event.target.value.slice(0, 128),
-                      }))
-                    }
-                  />
-                  <p className="text-xs text-zinc-500">
-                    {botLooksForm.activity_type === "custom"
-                      ? "Custom Status uses the field below first. This text is only used as fallback."
-                      : "This is the visible activity name shown by Discord."}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="bot-looks-custom" className="text-zinc-200">Custom Status Text</Label>
-                  <Input
-                    id="bot-looks-custom"
-                    value={botLooksForm.custom_status}
-                    maxLength={128}
-                    placeholder="Only used when Activity Mode is Custom Status"
-                    className="border-zinc-800 bg-zinc-950 text-zinc-100"
-                    onChange={(event) =>
-                      setBotLooksForm((current) => ({
-                        ...current,
-                        custom_status: event.target.value.slice(0, 128),
+                        streaming_url: event.target.value.slice(0, 256),
                       }))
                     }
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="bot-looks-streaming" className="text-zinc-200">Streaming URL</Label>
-                <Input
-                  id="bot-looks-streaming"
-                  value={botLooksForm.streaming_url}
-                  placeholder="https://twitch.tv/yourchannel"
-                  className="border-zinc-800 bg-zinc-950 text-zinc-100"
-                  disabled={botLooksForm.activity_type !== "streaming"}
-                  onChange={(event) =>
-                    setBotLooksForm((current) => ({
-                      ...current,
-                      streaming_url: event.target.value.slice(0, 256),
-                    }))
-                  }
-                />
-                <p className="text-xs text-zinc-500">
-                  Only used for Streaming mode. Unsupported profile-only fields like pronouns, about me, name styles, effects, colors, and nameplates are intentionally not exposed here because bots cannot set them through Discord&apos;s documented API.
-                </p>
-              </div>
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
+                <h3 className="mb-3 text-sm font-medium text-zinc-200">Name Style & Colors</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-zinc-200">Font</Label>
+                    <Select
+                      value={String(profileStyleForm.font_id)}
+                      onValueChange={(value) =>
+                        setProfileStyleForm((current) => ({
+                          ...current,
+                          font_id: Number(value),
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="border-zinc-800 bg-black text-zinc-100">
+                        <SelectValue placeholder="Select font" />
+                      </SelectTrigger>
+                      <SelectContent className="border-zinc-800 bg-black text-zinc-100">
+                        {PROFILE_STYLE_FONTS.map((font) => (
+                          <SelectItem key={font.id} value={String(font.id)} className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">
+                            {font.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-zinc-200">Effect</Label>
+                    <Select
+                      value={String(profileStyleForm.effect_id)}
+                      onValueChange={(value) =>
+                        setProfileStyleForm((current) => ({
+                          ...current,
+                          effect_id: Number(value),
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="border-zinc-800 bg-black text-zinc-100">
+                        <SelectValue placeholder="Select effect" />
+                      </SelectTrigger>
+                      <SelectContent className="border-zinc-800 bg-black text-zinc-100">
+                        {PROFILE_STYLE_EFFECTS.map((effect) => (
+                          <SelectItem key={effect.id} value={String(effect.id)} className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">
+                            {effect.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-              <div className="rounded-2xl border border-cyan-900/50 bg-cyan-500/5 p-4 text-sm text-cyan-100">
-                <div className="font-medium">Preview</div>
-                <div className="mt-2 text-cyan-200/90">{botLooksSummary}</div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="bot-profile-color1" className="text-zinc-200">Primary Color</Label>
+                    <Input
+                      id="bot-profile-color1"
+                      type="color"
+                      value={profileStyleForm.colors[0] !== undefined ? decimalToHexColor(profileStyleForm.colors[0]) : "#5865F2"}
+                      className="h-11 border-zinc-800 bg-zinc-950 text-zinc-100"
+                      onChange={(event) => {
+                        const parsed = parseHexColor(event.target.value);
+                        setProfileStyleForm((current) => ({
+                          ...current,
+                          colors: parsed === null ? current.colors : [parsed, ...current.colors.slice(1, 2)],
+                        }));
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bot-profile-color2" className="text-zinc-200">Secondary Color</Label>
+                    <Input
+                      id="bot-profile-color2"
+                      type="color"
+                      value={profileStyleForm.colors[1] !== undefined ? decimalToHexColor(profileStyleForm.colors[1]) : "#00FFFF"}
+                      className="h-11 border-zinc-800 bg-zinc-950 text-zinc-100"
+                      onChange={(event) => {
+                        const parsed = parseHexColor(event.target.value);
+                        setProfileStyleForm((current) => {
+                          const first = current.colors[0];
+                          if (parsed === null) return current;
+                          return {
+                            ...current,
+                            colors: first === undefined ? [parsed] : [first, parsed],
+                          };
+                        });
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex flex-col gap-3 border-t border-zinc-800 pt-4">
                 {renderStatusMessage(
                   botLooksSaveState,
                   botLooksSaveMessage,
-                  "Save & apply updates the live bot presence immediately and restores it again on startup."
+                  "Save & apply updates the bot presence and profile style immediately. Use /profile style to sync or /profile clear to reset in Discord."
                 )}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex flex-wrap gap-3">
@@ -3176,8 +3328,8 @@ export default function CommunityPage() {
                       type="button"
                       variant="outline"
                       className="gap-2 border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900"
-                      onClick={handleBotLooksReload}
-                      disabled={botLooksReloading || botLooksSaving || botLooksResetting}
+                      onClick={handleBotProfileReload}
+                      disabled={botLooksReloading || botLooksSaving}
                     >
                       <RefreshCcw className="h-4 w-4" />
                       {botLooksReloading ? "Reloading..." : "Reload"}
@@ -3186,192 +3338,46 @@ export default function CommunityPage() {
                       type="button"
                       variant="outline"
                       className="gap-2 border-red-900/80 bg-red-950/40 text-red-200 hover:bg-red-950"
-                      onClick={handleBotLooksReset}
-                      disabled={botLooksResetting || botLooksSaving || botLooksReloading}
+                      onClick={handleBotProfileReset}
+                      disabled={botLooksResetting || botLooksSaving}
                     >
                       <X className="h-4 w-4" />
-                      {botLooksResetting ? "Resetting..." : "Reset"}
+                      {botLooksResetting ? "Resetting..." : "Reset All"}
                     </Button>
                   </div>
-                  <Button
-                    type="button"
-                    onClick={() => handleBotLooksSave()}
-                    disabled={botLooksSaving || botLooksResetting}
-                    className="gap-2 bg-cyan-600 text-white hover:bg-cyan-500"
-                  >
-                    <Save className="h-4 w-4" />
-                    {botLooksSaving ? "Saving..." : hasPersistedBotLooksConfig ? "Update & Apply" : "Save & Apply"}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={profileStyleOpen} onOpenChange={setProfileStyleOpen}>
-          <DialogContent className="max-h-[92vh] max-w-[min(94vw,980px)] overflow-y-auto border-border/70 bg-zinc-950 text-zinc-100">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-3">
-                <Eye className="h-5 w-5 text-violet-400" />
-                Profile Style
-              </DialogTitle>
-              <DialogDescription className="text-zinc-400">
-                Save the bot&apos;s guild profile styling here or through <code>/profile style</code>. This stores one shared community config and reapplies it after restart.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-6">
-              <div className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="font-medium text-zinc-100">Profile Style Status</div>
-                  <div className="text-sm text-zinc-400">
-                    {profileStyleForm.enabled ? "Profile style is active and will be restored on startup." : "Profile style is currently off and the bot keeps the default Discord look."}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Label htmlFor="profile-style-enabled" className="text-sm text-zinc-200">Enabled</Label>
-                  <Switch
-                    id="profile-style-enabled"
-                    checked={profileStyleForm.enabled}
-                    onCheckedChange={(checked) => setProfileStyleForm((current) => ({ ...current, enabled: checked }))}
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="text-zinc-200">Font</Label>
-                  <Select
-                    value={String(profileStyleForm.font_id)}
-                    onValueChange={(value) =>
-                      setProfileStyleForm((current) => ({
-                        ...current,
-                        font_id: Number(value),
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="border-zinc-800 bg-black text-zinc-100">
-                      <SelectValue placeholder="Select font" />
-                    </SelectTrigger>
-                    <SelectContent className="border-zinc-800 bg-black text-zinc-100">
-                      {PROFILE_STYLE_FONTS.map((font) => (
-                        <SelectItem key={font.id} value={String(font.id)} className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">
-                          {font.label} ({font.id})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-zinc-200">Effect</Label>
-                  <Select
-                    value={String(profileStyleForm.effect_id)}
-                    onValueChange={(value) =>
-                      setProfileStyleForm((current) => ({
-                        ...current,
-                        effect_id: Number(value),
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="border-zinc-800 bg-black text-zinc-100">
-                      <SelectValue placeholder="Select effect" />
-                    </SelectTrigger>
-                    <SelectContent className="border-zinc-800 bg-black text-zinc-100">
-                      {PROFILE_STYLE_EFFECTS.map((effect) => (
-                        <SelectItem key={effect.id} value={String(effect.id)} className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">
-                          {effect.label} ({effect.id})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="profile-style-color1" className="text-zinc-200">Primary Color</Label>
-                  <Input
-                    id="profile-style-color1"
-                    type="color"
-                    value={profileStyleForm.colors[0] !== undefined ? decimalToHexColor(profileStyleForm.colors[0]) : "#5865F2"}
-                    className="h-11 border-zinc-800 bg-zinc-950 text-zinc-100"
-                    onChange={(event) => {
-                      const parsed = parseHexColor(event.target.value);
-                      setProfileStyleForm((current) => ({
-                        ...current,
-                        colors: parsed === null ? current.colors : [parsed, ...current.colors.slice(1, 2)],
-                      }));
-                    }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="profile-style-color2" className="text-zinc-200">Secondary Color</Label>
-                  <Input
-                    id="profile-style-color2"
-                    type="color"
-                    value={profileStyleForm.colors[1] !== undefined ? decimalToHexColor(profileStyleForm.colors[1]) : "#00FFFF"}
-                    className="h-11 border-zinc-800 bg-zinc-950 text-zinc-100"
-                    onChange={(event) => {
-                      const parsed = parseHexColor(event.target.value);
-                      setProfileStyleForm((current) => {
-                        const first = current.colors[0];
-                        if (parsed === null) return current;
-
-                        return {
-                          ...current,
-                          colors: first === undefined ? [parsed] : [first, parsed],
-                        };
-                      });
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-violet-900/50 bg-violet-500/5 p-4 text-sm text-violet-100">
-                <div className="font-medium">Preview</div>
-                <div className="mt-2 text-violet-200/90">{profileStyleSummary}</div>
-                <div className="mt-2 text-xs text-violet-300/70">Slash sync: <code>/profile style</code> or <code>/profile clear</code>.</div>
-              </div>
-
-              <div className="flex flex-col gap-3 border-t border-zinc-800 pt-4">
-                {renderStatusMessage(
-                  profileStyleSaveState,
-                  profileStyleSaveMessage,
-                  "Save & apply updates the guild profile styling now and restores it again on startup."
-                )}
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex flex-wrap gap-3">
                     <Button
                       type="button"
                       variant="outline"
-                      className="gap-2 border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900"
-                      onClick={handleProfileStyleReload}
-                      disabled={profileStyleReloading || profileStyleSaving || profileStyleResetting}
+                      className="gap-2 border-violet-800/60 bg-violet-950/30 text-violet-200 hover:bg-violet-950"
+                      onClick={() => {
+                        setBotLooksSaveState("info");
+                        setBotLooksSaveMessage("Use /profile style in Discord to sync the current config to the bot.");
+                      }}
                     >
-                      <RefreshCcw className="h-4 w-4" />
-                      {profileStyleReloading ? "Reloading..." : "Reload"}
+                      /profile style
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
                       className="gap-2 border-red-900/80 bg-red-950/40 text-red-200 hover:bg-red-950"
-                      onClick={handleProfileStyleReset}
-                      disabled={profileStyleResetting || profileStyleSaving || profileStyleReloading}
+                      onClick={() => {
+                        setBotLooksSaveState("info");
+                        setBotLooksSaveMessage("Use /profile clear in Discord to reset the bot's guild profile.");
+                      }}
                     >
-                      <X className="h-4 w-4" />
-                      {profileStyleResetting ? "Resetting..." : "Reset"}
+                      /profile clear
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleBotProfileSave}
+                      disabled={botLooksSaving || botLooksResetting}
+                      className="gap-2 bg-cyan-600 text-white hover:bg-cyan-500"
+                    >
+                      <Save className="h-4 w-4" />
+                      {botLooksSaving ? "Saving..." : "Save & Apply"}
                     </Button>
                   </div>
-                  <Button
-                    type="button"
-                    onClick={() => handleProfileStyleSave()}
-                    disabled={profileStyleSaving || profileStyleResetting}
-                    className="gap-2 bg-violet-600 text-white hover:bg-violet-500"
-                  >
-                    <Save className="h-4 w-4" />
-                    {profileStyleSaving ? "Saving..." : hasPersistedProfileStyleConfig ? "Update & Apply" : "Save & Apply"}
-                  </Button>
                 </div>
               </div>
             </div>

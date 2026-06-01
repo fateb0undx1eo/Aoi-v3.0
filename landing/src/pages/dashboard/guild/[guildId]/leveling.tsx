@@ -240,9 +240,6 @@ export default function LevelingPage() {
                 <Palette className="h-4 w-4" />
               </div>
               <CardTitle>Rank Card Styling</CardTitle>
-              <CardDescription>
-                The user avatar is locked to whoever runs /rank. Only card colors are configurable here.
-              </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               {COLOR_FIELDS.map((field) => (

@@ -398,18 +398,6 @@ export default function ModerationPage() {
       <div className="space-y-6">
         {/* Header with Actions */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10">
-              <Shield className="h-6 w-6 text-red-500" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">Moderation</h1>
-              <p className="text-sm text-muted-foreground">
-                {activePunishments.length} active punishments • {cases.length} total cases
-              </p>
-            </div>
-          </div>
-
           <div className="flex gap-2">
             <Dialog open={actionOpen} onOpenChange={setActionOpen}>
               <DialogTrigger asChild>
