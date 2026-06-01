@@ -12,6 +12,22 @@ const ACTIVITY_PREFIX: Record<string, string> = {
   watching: "Watching",
   competing: "Competing in",
   custom: "",
+  none: "",
+};
+
+const FONT_STACK: Record<string, string> = {
+  Bangers: "'Bangers', cursive",
+  "Bio Rhyme": "'Bio Rhyme', serif",
+  "Cherry Bomb": "'Cherry Bomb', cursive",
+  Chicle: "'Chicle', cursive",
+  Compagnon: "'Compagnon', serif",
+  "Museo Moderno": "'Museo Moderno', cursive",
+  "Neo Castel": "'Neo Castel', serif",
+  Pixelify: "'Pixelify', sans-serif",
+  Ribes: "'Ribes', serif",
+  Sinistre: "'Sinistre', serif",
+  Default: "inherit",
+  "Zilla Slab": "'Zilla Slab', serif",
 };
 
 export function BotProfilePreview({
@@ -24,6 +40,7 @@ export function BotProfilePreview({
   effectLabel,
   primaryColor,
   secondaryColor,
+  useGradient,
 }: {
   status: string;
   activityType: string;
@@ -34,40 +51,40 @@ export function BotProfilePreview({
   effectLabel: string;
   primaryColor: string;
   secondaryColor: string;
+  useGradient: boolean;
 }) {
   const prefix = ACTIVITY_PREFIX[activityType] || "";
-  const displayActivity = customStatus || activityText || "No activity";
+
+  let nameStyle: React.CSSProperties = {
+    fontFamily: FONT_STACK[fontLabel] || "inherit",
+    fontWeight: 700,
+  };
+
+  if (useGradient && primaryColor && secondaryColor) {
+    nameStyle = {
+      ...nameStyle,
+      background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+      WebkitBackgroundClip: "text",
+      WebkitTextFillColor: "transparent",
+      backgroundClip: "text",
+    };
+  } else if (primaryColor) {
+    nameStyle = {
+      ...nameStyle,
+      color: primaryColor,
+      textShadow: effectLabel === "Glow" ? `0 0 12px ${primaryColor}80` : undefined,
+    };
+  } else {
+    nameStyle = { ...nameStyle, color: "#fff" };
+  }
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-      <div className="flex items-start gap-4">
-        <div className="relative shrink-0">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-700 text-xl font-bold text-zinc-300 ring-2 ring-zinc-600">
-            B
-          </div>
-          <span
-            className="absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-zinc-900"
-            style={{ backgroundColor: STATUS_COLORS[status] || STATUS_COLORS.invisible }}
-          />
-        </div>
-
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 sm:p-5">
+      <div className="flex items-start gap-3 sm:gap-4">
         <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <span
-              className="text-lg font-bold"
-              style={{
-                fontFamily: fontLabel === "Default" ? undefined : fontLabel,
-                color: primaryColor || "#fff",
-                textShadow: effectLabel === "Glow" ? `0 0 12px ${primaryColor || "#5865F2"}80` : undefined,
-              }}
-            >
+          <div className="flex flex-wrap items-baseline gap-2">
+            <span className="text-xl sm:text-2xl font-bold" style={nameStyle}>
               AOI
-            </span>
-            {secondaryColor && (
-              <span className="text-xs text-zinc-500">/ {secondaryColor}</span>
-            )}
-            <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] uppercase text-zinc-400">
-              {effectLabel}
             </span>
           </div>
 
@@ -77,32 +94,27 @@ export function BotProfilePreview({
             </div>
           )}
 
-          {prefix || (activityType !== "custom" && activityText) ? (
+          {activityType !== "custom" && activityType !== "none" && (prefix || activityText) && (
             <div className="mt-1 text-sm text-zinc-400">
               {prefix && <span className="font-medium text-zinc-300">{prefix} </span>}
-              {activityType !== "custom" && activityText ? (
-                <span>{activityText}</span>
-              ) : null}
-            </div>
-          ) : null}
-
-          {activityType === "streaming" && streamingUrl && (
-            <div className="mt-1 text-xs text-purple-400">
-              {streamingUrl}
+              {activityText && <span>{activityText}</span>}
             </div>
           )}
-        </div>
-      </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-[11px] text-zinc-300">
-          {status.charAt(0).toUpperCase() + status.slice(1)}
-        </span>
-        {(primaryColor || secondaryColor) && (
-          <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-[11px] text-zinc-300">
-            Colors active
-          </span>
-        )}
+          {activityType === "streaming" && streamingUrl && (
+            <div className="mt-1 text-xs text-purple-400 truncate">{streamingUrl}</div>
+          )}
+
+          <div className="mt-2 flex flex-wrap gap-2">
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-zinc-800 px-2.5 py-0.5 text-[11px] text-zinc-300"
+            >
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: STATUS_COLORS[status] || STATUS_COLORS.invisible }} />
+              {status.charAt(0).toUpperCase() + status.slice(1)}
+            </span>
+
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -77,7 +77,7 @@ type MemeAutopostConfig = {
 type BotLooksConfig = {
   enabled: boolean;
   status: "online" | "idle" | "dnd" | "invisible";
-  activity_type: "playing" | "streaming" | "listening" | "watching" | "competing" | "custom";
+  activity_type: "none" | "playing" | "streaming" | "listening" | "watching" | "competing" | "custom";
   activity_text: string;
   custom_status: string;
   streaming_url: string;
@@ -603,6 +603,7 @@ export default function CommunityPage() {
   const [profileStyleSaveMessage, setProfileStyleSaveMessage] = useState("");
   const [profileStyleSaveState, setProfileStyleSaveState] = useState<SaveState>("idle");
   const [profileStyleForm, setProfileStyleForm] = useState<ProfileStyleConfig>(DEFAULT_PROFILE_STYLE_CONFIG);
+  const [useGradient, setUseGradient] = useState(false);
   const [dmWelcomerSaving, setDmWelcomerSaving] = useState(false);
   const [dmWelcomerReloading, setDmWelcomerReloading] = useState(false);
   const [dmWelcomerSaveMessage, setDmWelcomerSaveMessage] = useState("");
@@ -3099,30 +3100,12 @@ export default function CommunityPage() {
                 effectLabel={PROFILE_STYLE_EFFECTS.find((e) => e.id === profileStyleForm.effect_id)?.label || "Solid"}
                 primaryColor={profileStyleForm.colors[0] !== undefined ? decimalToHexColor(profileStyleForm.colors[0]) : ""}
                 secondaryColor={profileStyleForm.colors[1] !== undefined ? decimalToHexColor(profileStyleForm.colors[1]) : ""}
+                useGradient={useGradient}
               />
-
-              <div className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-zinc-100">Bot Profile Active</div>
-                    <div className="text-sm text-zinc-400">Toggle all custom presence and profile styling.</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Label className="text-sm text-zinc-200">Enabled</Label>
-                    <Switch
-                      checked={botLooksForm.enabled || profileStyleForm.enabled}
-                      onCheckedChange={(checked) => {
-                        setBotLooksForm((c) => ({ ...c, enabled: checked }));
-                        setProfileStyleForm((c) => ({ ...c, enabled: checked }));
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
 
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
                 <h3 className="mb-3 text-sm font-medium text-zinc-200">Presence & Activity</h3>
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label className="text-zinc-200">Online Status</Label>
                     <Select
@@ -3160,6 +3143,7 @@ export default function CommunityPage() {
                         <SelectValue placeholder="Select activity mode" />
                       </SelectTrigger>
                       <SelectContent className="border-zinc-800 bg-black text-zinc-100">
+                        <SelectItem value="none" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">None</SelectItem>
                         <SelectItem value="custom" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Custom Status</SelectItem>
                         <SelectItem value="playing" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Playing</SelectItem>
                         <SelectItem value="streaming" className="text-zinc-100 focus:bg-zinc-800 focus:text-zinc-100">Streaming</SelectItem>
@@ -3171,64 +3155,69 @@ export default function CommunityPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="bot-profile-activity" className="text-zinc-200">
-                      {botLooksForm.activity_type === "custom" ? "Fallback Activity Text" : "Activity Text"}
-                    </Label>
-                    <Input
-                      id="bot-profile-activity"
-                      value={botLooksForm.activity_text}
-                      maxLength={128}
-                      placeholder={botLooksForm.activity_type === "custom" ? "Used only if custom status is empty" : "What the bot should show"}
-                      className="border-zinc-800 bg-zinc-950 text-zinc-100"
-                      onChange={(event) =>
-                        setBotLooksForm((current) => ({
-                          ...current,
-                          activity_text: event.target.value.slice(0, 128),
-                        }))
-                      }
-                    />
+                {botLooksForm.activity_type !== "none" && (
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="bot-profile-activity" className="text-zinc-200">
+                        {botLooksForm.activity_type === "custom" ? "Fallback Activity Text" : "Activity Text"}
+                      </Label>
+                      <Input
+                        id="bot-profile-activity"
+                        value={botLooksForm.activity_text}
+                        maxLength={128}
+                        placeholder={botLooksForm.activity_type === "custom" ? "Used only if custom status is empty" : "What the bot should show"}
+                        className="border-zinc-800 bg-zinc-950 text-zinc-100"
+                        onChange={(event) =>
+                          setBotLooksForm((current) => ({
+                            ...current,
+                            activity_text: event.target.value.slice(0, 128),
+                          }))
+                        }
+                      />
+                    </div>
+                    {botLooksForm.activity_type === "custom" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="bot-profile-custom" className="text-zinc-200">Custom Status Text</Label>
+                        <Input
+                          id="bot-profile-custom"
+                          value={botLooksForm.custom_status}
+                          maxLength={128}
+                          placeholder="Only used when Activity Mode is Custom Status"
+                          className="border-zinc-800 bg-zinc-950 text-zinc-100"
+                          onChange={(event) =>
+                            setBotLooksForm((current) => ({
+                              ...current,
+                              custom_status: event.target.value.slice(0, 128),
+                            }))
+                          }
+                        />
+                      </div>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="bot-profile-custom" className="text-zinc-200">Custom Status Text</Label>
-                    <Input
-                      id="bot-profile-custom"
-                      value={botLooksForm.custom_status}
-                      maxLength={128}
-                      placeholder="Only used when Activity Mode is Custom Status"
-                      className="border-zinc-800 bg-zinc-950 text-zinc-100"
-                      onChange={(event) =>
-                        setBotLooksForm((current) => ({
-                          ...current,
-                          custom_status: event.target.value.slice(0, 128),
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
+                )}
 
-                <div className="mt-4 space-y-2">
-                  <Label htmlFor="bot-profile-streaming" className="text-zinc-200">Streaming URL</Label>
-                  <Input
-                    id="bot-profile-streaming"
-                    value={botLooksForm.streaming_url}
-                    placeholder="https://twitch.tv/yourchannel"
-                    className="border-zinc-800 bg-zinc-950 text-zinc-100"
-                    disabled={botLooksForm.activity_type !== "streaming"}
-                    onChange={(event) =>
-                      setBotLooksForm((current) => ({
-                        ...current,
-                        streaming_url: event.target.value.slice(0, 256),
-                      }))
-                    }
-                  />
-                </div>
+                {botLooksForm.activity_type === "streaming" && (
+                  <div className="mt-4 space-y-2">
+                    <Label htmlFor="bot-profile-streaming" className="text-zinc-200">Streaming URL</Label>
+                    <Input
+                      id="bot-profile-streaming"
+                      value={botLooksForm.streaming_url}
+                      placeholder="https://twitch.tv/yourchannel"
+                      className="border-zinc-800 bg-zinc-950 text-zinc-100"
+                      onChange={(event) =>
+                        setBotLooksForm((current) => ({
+                          ...current,
+                          streaming_url: event.target.value.slice(0, 256),
+                        }))
+                      }
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
                 <h3 className="mb-3 text-sm font-medium text-zinc-200">Name Style & Colors</h3>
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label className="text-zinc-200">Font</Label>
                     <Select
@@ -3277,30 +3266,41 @@ export default function CommunityPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="bot-profile-color1" className="text-zinc-200">Primary Color</Label>
-                    <Input
-                      id="bot-profile-color1"
-                      type="color"
-                      value={profileStyleForm.colors[0] !== undefined ? decimalToHexColor(profileStyleForm.colors[0]) : "#5865F2"}
-                      className="h-11 border-zinc-800 bg-zinc-950 text-zinc-100"
-                      onChange={(event) => {
-                        const parsed = parseHexColor(event.target.value);
-                        setProfileStyleForm((current) => ({
-                          ...current,
-                          colors: parsed === null ? current.colors : [parsed, ...current.colors.slice(1, 2)],
-                        }));
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="bot-profile-color2" className="text-zinc-200">Secondary Color</Label>
+                <div className="mt-4 space-y-2">
+                  <Label htmlFor="bot-profile-color1" className="text-zinc-200">Primary Color</Label>
+                  <Input
+                    id="bot-profile-color1"
+                    type="color"
+                    value={profileStyleForm.colors[0] !== undefined ? decimalToHexColor(profileStyleForm.colors[0]) : "#5865F2"}
+                    className="h-11 w-full border-zinc-800 bg-zinc-950 text-zinc-100"
+                    onChange={(event) => {
+                      const parsed = parseHexColor(event.target.value);
+                      setProfileStyleForm((current) => ({
+                        ...current,
+                        colors: parsed === null ? current.colors : [parsed, ...current.colors.slice(1, 2)],
+                      }));
+                    }}
+                  />
+                </div>
+
+                {useGradient && (
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="bot-profile-color2" className="text-zinc-200">Secondary Color</Label>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="gradient-toggle" className="text-[11px] text-zinc-400">Gradient</Label>
+                        <Switch
+                          id="gradient-toggle"
+                          checked={useGradient}
+                          onCheckedChange={setUseGradient}
+                        />
+                      </div>
+                    </div>
                     <Input
                       id="bot-profile-color2"
                       type="color"
                       value={profileStyleForm.colors[1] !== undefined ? decimalToHexColor(profileStyleForm.colors[1]) : "#00FFFF"}
-                      className="h-11 border-zinc-800 bg-zinc-950 text-zinc-100"
+                      className="h-11 w-full border-zinc-800 bg-zinc-950 text-zinc-100"
                       onChange={(event) => {
                         const parsed = parseHexColor(event.target.value);
                         setProfileStyleForm((current) => {
@@ -3314,7 +3314,18 @@ export default function CommunityPage() {
                       }}
                     />
                   </div>
-                </div>
+                )}
+
+                {!useGradient && (
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    <Label htmlFor="gradient-toggle" className="text-[11px] text-zinc-400">Gradient</Label>
+                    <Switch
+                      id="gradient-toggle"
+                      checked={useGradient}
+                      onCheckedChange={setUseGradient}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col gap-3 border-t border-zinc-800 pt-4">
@@ -3347,28 +3358,6 @@ export default function CommunityPage() {
                     </Button>
                   </div>
                   <div className="flex flex-wrap gap-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="gap-2 border-violet-800/60 bg-violet-950/30 text-violet-200 hover:bg-violet-950"
-                      onClick={() => {
-                        setBotLooksSaveState("info");
-                        setBotLooksSaveMessage("Use /profile style in Discord to sync the current config to the bot.");
-                      }}
-                    >
-                      /profile style
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="gap-2 border-red-900/80 bg-red-950/40 text-red-200 hover:bg-red-950"
-                      onClick={() => {
-                        setBotLooksSaveState("info");
-                        setBotLooksSaveMessage("Use /profile clear in Discord to reset the bot's guild profile.");
-                      }}
-                    >
-                      /profile clear
-                    </Button>
                     <Button
                       type="button"
                       onClick={handleBotProfileSave}
