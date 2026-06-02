@@ -15,25 +15,25 @@ class LoggingService {
 
   debug(message, metadata = {}) {
     if (this.level <= LOG_LEVELS.DEBUG) {
-      this._logger.debug({ ...metadata }, message);
+      this._logger.debug(message, { ...metadata });
     }
   }
 
   info(message, metadata = {}) {
     if (this.level <= LOG_LEVELS.INFO) {
-      this._logger.info({ ...metadata }, message);
+      this._logger.info(message, { ...metadata });
     }
   }
 
   warn(message, metadata = {}) {
     if (this.level <= LOG_LEVELS.WARN) {
-      this._logger.warn({ ...metadata }, message);
+      this._logger.warn(message, { ...metadata });
     }
   }
 
   error(message, metadata = {}) {
     if (this.level <= LOG_LEVELS.ERROR) {
-      this._logger.error({ ...metadata }, message);
+      this._logger.error(message, { ...metadata });
     }
   }
 
