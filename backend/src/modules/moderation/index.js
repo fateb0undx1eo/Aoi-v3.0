@@ -492,15 +492,14 @@ async function applyModerationAction(interaction, context, actionType, reason, t
   const isModal = interaction.isModalSubmit?.();
 
   const respond = async (content) => {
-    const payload = {
-      content,
-      components: [],
+    const v2Payload = {
+      components: [{ type: 17, components: [{ type: 10, content }] }],
       allowedMentions: { parse: [] }
     };
 
     if (isModal) {
       // Modals must always use reply(), never update()
-      await interaction.reply({ ...payload, ephemeral: true });
+      await interaction.reply({ content, components: [], ephemeral: true, allowedMentions: { parse: [] } });
       return;
     }
 
@@ -511,12 +510,12 @@ async function applyModerationAction(interaction, context, actionType, reason, t
 
     if (shouldEditInPlace) {
       try {
-        await interaction.update(payload);
+        await interaction.update(v2Payload);
         return;
       } catch {}
     }
 
-    await interaction.reply({ ...payload, ephemeral: true });
+    await interaction.reply({ content, components: [], ephemeral: true, allowedMentions: { parse: [] } });
   };
 
   const report = await buildReportFromToken(interaction, token);
@@ -588,8 +587,8 @@ async function handleCaseAction(interaction) {
 
   if (actionKey === 'warn') {
     await interaction.update({
-      content: 'Select a warning reason:',
       components: [
+        { type: 17, components: [{ type: 10, content: 'Select a warning reason:' }] },
         {
           type: 1,
           components: [
@@ -700,7 +699,7 @@ async function handleWarnReasonSelect(interaction, context) {
   const selected = interaction.values?.[0];
 
   if (!selected || !token) {
-    await interaction.update({ content: 'Invalid selection.', components: [], allowedMentions: { parse: [] } });
+    await interaction.update({ components: [{ type: 17, components: [{ type: 10, content: 'Invalid selection.' }] }], allowedMentions: { parse: [] } });
     return;
   }
 
