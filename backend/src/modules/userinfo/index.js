@@ -47,10 +47,14 @@ export default {
             }
 
             if (badgeUrl?.startsWith('https://')) {
-              const emojiId = await getOrCreateBadgeEmoji(context.discordClient, badgeUrl);
-              if (emojiId) {
-                const emojiName = `badge_${badgeUrl.split('/').pop().replace('.png', '').slice(0, 8)}`;
-                badgeText = ` <${emojiName}:${emojiId}>`;
+              try {
+                const emojiId = await getOrCreateBadgeEmoji(context.discordClient, badgeUrl);
+                if (emojiId) {
+                  const emojiName = `badge_${badgeUrl.split('/').pop().replace('.png', '').slice(0, 8)}`;
+                  badgeText = ` <${emojiName}:${emojiId}>`;
+                }
+              } catch {
+                // badge emoji unavailable, skip it
               }
             }
           }

@@ -50,45 +50,52 @@ async function downloadBadgeImage(badgeUrl) {
 }
 
 async function getOrCreateBadgeEmoji(client, badgeUrl) {
-  const cleanUrl = badgeUrl.includes('?size=') ? badgeUrl.split('?size=')[0] : badgeUrl;
-
-  await loadMappingsSync();
-
-  if (memoryCache.has(cleanUrl)) {
-    return memoryCache.get(cleanUrl);
-  }
-
-  const badgeHash = cleanUrl.split('/').pop().replace('.png', '');
-  const emojiName = `${BADGE_EMOJI_NAME_PREFIX}${badgeHash.slice(0, 8)}`;
-
-  const application = client.application ?? await client.application.fetch();
-  const existing = application.emojis.cache.find(e => e.name === emojiName);
-  if (existing) {
-    memoryCache.set(cleanUrl, existing.id);
-    await saveBadgeMappings();
-    return existing.id;
-  }
-
-  const imageData = await downloadBadgeImage(cleanUrl);
-  if (!imageData) return null;
-
   try {
-    const emoji = await application.emojis.create({
-      name: emojiName,
-      attachment: imageData
-    });
-    memoryCache.set(cleanUrl, emoji.id);
-    await saveBadgeMappings();
-    return emoji.id;
-  } catch (err) {
-    if (err.code === 30063) {
-      const refreshed = application.emojis.cache.find(e => e.name === emojiName);
-      if (refreshed) {
-        memoryCache.set(cleanUrl, refreshed.id);
-        await saveBadgeMappings();
-        return refreshed.id;
-      }
+    const cleanUrl = badgeUrl.includes('?size=') ? badgeUrl.split('?size=')[0] : badgeUrl;
+
+    await loadMappingsSync();
+
+    if (memoryCache.has(cleanUrl)) {
+      return memoryCache.get(cleanUrl);
     }
+
+    if (!client.application) {
+      return null;
+    }
+
+    const badgeHash = cleanUrl.split('/').pop().replace('.png', '');
+    const emojiName = `${BADGE_EMOJI_NAME_PREFIX}${badgeHash.slice(0, 8)}`;
+
+    const existing = client.application.emojis.cache.find(e => e.name === emojiName);
+    if (existing) {
+      memoryCache.set(cleanUrl, existing.id);
+      await saveBadgeMappings();
+      return existing.id;
+    }
+
+    const imageData = await downloadBadgeImage(cleanUrl);
+    if (!imageData) return null;
+
+    try {
+      const emoji = await client.application.emojis.create({
+        name: emojiName,
+        attachment: imageData
+      });
+      memoryCache.set(cleanUrl, emoji.id);
+      await saveBadgeMappings();
+      return emoji.id;
+    } catch (err) {
+      if (err.code === 30063) {
+        const refreshed = client.application.emojis.cache.find(e => e.name === emojiName);
+        if (refreshed) {
+          memoryCache.set(cleanUrl, refreshed.id);
+          await saveBadgeMappings();
+          return refreshed.id;
+        }
+      }
+      return null;
+    }
+  } catch {
     return null;
   }
 }
