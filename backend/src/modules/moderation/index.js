@@ -208,7 +208,7 @@ function computeMessageContentLimit({ guildId, channelId, messageId, targetUserI
 function buildPreviewContainerText(report) {
   const hasContent = report.messageContent && report.messageContent !== 'No text content.';
   const lines = [
-    '**Message Case Report**',
+    '# CASE REPORT',
     `**Author**: <@${report.targetUserId}> (${escapeMarkdown(report.targetUsername)})`,
     `**Reported By**: <@${report.reporterId}>`,
     `**Reported At**: <t:${report.reportedTimestamp}:F>`
@@ -222,16 +222,21 @@ function buildPreviewContainerText(report) {
 }
 
 function buildLogBody(report, reason, resolvedLabel) {
-  const linkLabel = report.messageContent || 'view message';
-  return [
-    '# Message Case Report',
+  const hasContent = report.messageContent && report.messageContent !== 'No text content.';
+  const lines = [
+    '# CASE REPORT',
     `**Author**: <@${report.targetUserId}> (${escapeMarkdown(report.targetUsername)})`,
     `**Reported By**: <@${report.reporterId}>`,
     `**Reported At**: <t:${report.reportedTimestamp}:F>`,
-    `**Reason**: ${escapeMarkdown(reason)}`,
-    `[${linkLabel}](${report.messageUrl})`,
-    `**Action Taken**: ${resolvedLabel}`
-  ].join('\n');
+    `**Reason**: ${escapeMarkdown(reason)}`
+  ];
+  if (hasContent) {
+    lines.push(`**Message Content**: [${report.messageContent}](${report.messageUrl})`);
+  } else {
+    lines.push(`[view message](${report.messageUrl})`);
+  }
+  lines.push(`**Action Taken**: ${resolvedLabel}`);
+  return lines.join('\n');
 }
 
 async function fetchAttachmentBuffer(url, name) {
@@ -284,22 +289,20 @@ function parseStatelessToken(token) {
 function buildPreviewComponents(report) {
   const token = buildStatelessToken(report);
   return [
-    { type: 17, components: [{ type: 10, content: buildPreviewContainerText(report) }] },
-    new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`${CASE_ACTION_PREFIX}:warn:${token}`)
-          .setStyle(ButtonStyle.Secondary)
-          .setLabel('Warn'),
-        new ButtonBuilder()
-          .setCustomId(`${CASE_ACTION_PREFIX}:timeout:${token}`)
-          .setStyle(ButtonStyle.Primary)
-          .setLabel('Timeout'),
-        new ButtonBuilder()
-          .setCustomId(`${CASE_ACTION_PREFIX}:kick:${token}`)
-          .setStyle(ButtonStyle.Danger)
-          .setLabel('Kick')
-      )
+    {
+      type: 17,
+      components: [
+        { type: 10, content: buildPreviewContainerText(report) },
+        {
+          type: 1,
+          components: [
+            { type: 2, custom_id: `${CASE_ACTION_PREFIX}:warn:${token}`, style: ButtonStyle.Secondary, label: 'Warn' },
+            { type: 2, custom_id: `${CASE_ACTION_PREFIX}:timeout:${token}`, style: ButtonStyle.Primary, label: 'Timeout' },
+            { type: 2, custom_id: `${CASE_ACTION_PREFIX}:kick:${token}`, style: ButtonStyle.Danger, label: 'Kick' }
+          ]
+        }
+      ]
+    }
   ];
 }
 
@@ -552,7 +555,7 @@ async function applyModerationAction(interaction, context, actionType, reason, t
   }
 
   const resolvedLabel = actionType === 'TIMEOUT'
-    ? `TIMEOUT (${timeoutLabel ?? `${Math.floor(durationSeconds / 60)} minute(s)`})`
+    ? `TIMEOUT (expires <t:${Math.floor(Date.now() / 1000) + durationSeconds}:R>)`
     : actionType;
 
   const { components, files } = await buildLoggedComponents(report, reason, resolvedLabel);
@@ -628,12 +631,23 @@ async function handleCaseAction(interaction) {
           .setRequired(true)
           .setMaxLength(500)
       ),
+      {
+        type: 18,
+        label: 'Select duration (optional)',
+        component: {
+          type: 3,
+          custom_id: 'duration_preset',
+          placeholder: 'Choose a preset duration',
+          min_values: 0,
+          options: TIMEOUT_PRESETS.map((p) => ({ label: p.label, value: String(p.minutes) }))
+        }
+      },
       textInputRow(
         new TextInputBuilder()
-          .setCustomId('duration')
-          .setLabel('Duration (minutes)')
+          .setCustomId('custom_duration')
+          .setLabel('Or type custom minutes')
           .setStyle(TextInputStyle.Short)
-          .setRequired(true)
+          .setRequired(false)
           .setPlaceholder('e.g. 30 (1-10080)')
       )
     );
@@ -678,7 +692,6 @@ async function handleCaseWarnModal(interaction, context) {
 
 async function handleCaseTimeoutModal(interaction, context) {
   const reason = truncate(interaction.fields.getTextInputValue('reason'), 500);
-  const durationMinutes = Number.parseInt(interaction.fields.getTextInputValue('duration'), 10);
   const token = interaction.customId.slice(`${CASE_TIMEOUT_MODAL_PREFIX}:`.length);
 
   if (!token) {
@@ -686,8 +699,14 @@ async function handleCaseTimeoutModal(interaction, context) {
     return;
   }
 
+  const presetMinutes = interaction.fields.getField('duration_preset')?.value;
+  const customMinutesText = interaction.fields.getTextInputValue('custom_duration');
+  const durationMinutes = presetMinutes
+    ? Number.parseInt(presetMinutes, 10)
+    : Number.parseInt(customMinutesText, 10);
+
   if (!durationMinutes || durationMinutes < 1 || durationMinutes > 10080) {
-    await interaction.reply({ content: 'Invalid duration. Must be between 1 and 10080 minutes (up to 7 days).', ephemeral: true });
+    await interaction.reply({ content: 'Select a preset duration or type a custom duration between 1 and 10080 minutes.', ephemeral: true });
     return;
   }
 
