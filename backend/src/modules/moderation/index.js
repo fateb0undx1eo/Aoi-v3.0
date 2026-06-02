@@ -689,7 +689,7 @@ async function handleCaseAction(interaction) {
 }
 
 async function handleCaseWarnModal(interaction, context) {
-  const presetReason = interaction.fields.getField('reason_preset')?.value;
+  const [presetReason] = interaction.fields.getStringSelectValues('reason_preset');
   const customReason = interaction.fields.getTextInputValue('custom_reason');
 
   const hasPreset = presetReason && presetReason !== '__none__';
@@ -714,7 +714,7 @@ async function handleCaseTimeoutModal(interaction, context) {
     return;
   }
 
-  const presetMinutes = interaction.fields.getField('duration_preset')?.value;
+  const [presetMinutes] = interaction.fields.getStringSelectValues('duration_preset');
   const customMinutesText = interaction.fields.getTextInputValue('custom_duration');
 
   const hasPreset = presetMinutes && presetMinutes !== '__none__';
