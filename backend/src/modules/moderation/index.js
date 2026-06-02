@@ -590,7 +590,6 @@ async function handleCaseAction(interaction) {
           type: 3,
           custom_id: 'reason_preset',
           placeholder: 'Choose a reason',
-          min_values: 0,
           options: [
             { label: 'No preset (write below)', value: '__none__' },
             { label: 'Inappropriate language', value: 'Inappropriate language' },
@@ -639,7 +638,6 @@ async function handleCaseAction(interaction) {
           type: 3,
           custom_id: 'duration_preset',
           placeholder: 'Choose a duration',
-          min_values: 0,
           options: [
             { label: 'No preset (type below)', value: '__none__' },
             ...TIMEOUT_PRESETS.map((p) => ({ label: p.label, value: String(p.minutes) }))
