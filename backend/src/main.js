@@ -41,6 +41,7 @@ import { ProfileStyleService } from './services/profileStyleService.js';
 import { StaffRatingService } from './services/staffRatingService.js';
 import { CommunityService } from './services/communityService.js';
 import { ToolsService } from './services/toolsService.js';
+import { FunService } from './services/funService.js';
 import { PlaceholderEngine } from './core/placeholderEngine/placeholderEngine.js';
 
 const PORT = env.apiPort || 3001;
@@ -186,6 +187,7 @@ async function main() {
     const staffRatingService = new StaffRatingService();
     const communityService = new CommunityService(configService, staffRatingService);
     const toolsService = new ToolsService(configService);
+    const funService = new FunService({ configService });
 
     const services = {
       configService,
@@ -206,7 +208,8 @@ async function main() {
       profileStyleService,
       staffRatingService,
       communityService,
-      toolsService
+      toolsService,
+      funService
     };
 
     const queues = [operationalQueue];
