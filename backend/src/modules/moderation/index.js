@@ -586,6 +586,7 @@ async function handleCaseAction(interaction) {
       {
         type: 18,
         label: 'Select a preset reason',
+        required: false,
         component: {
           type: 3,
           custom_id: 'reason_preset',
@@ -635,6 +636,7 @@ async function handleCaseAction(interaction) {
       {
         type: 18,
         label: 'Select duration',
+        required: false,
         component: {
           type: 3,
           custom_id: 'duration_preset',
