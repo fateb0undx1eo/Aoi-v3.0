@@ -8,6 +8,7 @@ import {
   MessageFlags,
   ModalBuilder,
   PermissionFlagsBits,
+  StringSelectMenuBuilder,
   TextInputBuilder,
   TextInputStyle
 } from 'discord.js';
@@ -16,16 +17,6 @@ const CASE_ACTION_PREFIX = 'case:a';
 const CASE_TIMEOUT_MODAL_PREFIX = 'case:t';
 const CASE_KICK_MODAL_PREFIX = 'case:k';
 const CASE_WARN_MODAL_PREFIX = 'case:w';
-const CASE_WARN_REASON_PREFIX = 'case:wr';
-
-const WARN_REASON_PRESETS = [
-  { label: 'Inappropriate language', value: 'Inappropriate language' },
-  { label: 'Spam', value: 'Spam' },
-  { label: 'Harassment', value: 'Harassment' },
-  { label: 'Breaking server rules', value: 'Breaking server rules' },
-  { label: 'Advertising', value: 'Advertising' },
-  { label: 'Other... (custom)', value: '__custom__' }
-];
 
 const CASE_REPORT_CHANNEL_ID = '1475835319571189820';
 const CASE_ALLOWED_ROLE_ID = '1457403601512169724';
@@ -586,25 +577,38 @@ async function handleCaseAction(interaction) {
   const token = parts.slice(3).join(':');
 
   if (actionKey === 'warn') {
-    await interaction.update({
-      components: [
-        { type: 17, components: [{ type: 10, content: 'Select a warning reason:' }] },
-        {
-          type: 1,
-          components: [
-            {
-              type: 3,
-              custom_id: `${CASE_WARN_REASON_PREFIX}:${token}`,
-              placeholder: 'Choose a reason',
-              min_values: 1,
-              max_values: 1,
-              options: WARN_REASON_PRESETS
-            }
-          ]
-        }
-      ],
-      allowedMentions: { parse: [] }
-    });
+    const modal = new ModalBuilder()
+      .setCustomId(`${CASE_WARN_MODAL_PREFIX}:${token}`)
+      .setTitle('Warn User');
+    modal.addComponents(
+      new ActionRowBuilder()
+        .addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('reason_preset')
+            .setPlaceholder('Select a preset reason (optional)')
+            .addOptions([
+              { label: 'Inappropriate language', value: 'Inappropriate language' },
+              { label: 'Spam', value: 'Spam' },
+              { label: 'Harassment', value: 'Harassment' },
+              { label: 'Breaking server rules', value: 'Breaking server rules' },
+              { label: 'Advertising', value: 'Advertising' }
+            ])
+        ),
+      new ActionRowBuilder()
+        .addComponents(
+          new TextInputBuilder()
+            .setCustomId('custom_reason')
+            .setLabel('Custom reason')
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(false)
+            .setMaxLength(500)
+        )
+    );
+    try {
+      await interaction.showModal(modal);
+    } catch (error) {
+      await interaction.reply({ content: `Failed to open warn form: ${error?.message ?? 'unknown error'}`, ephemeral: true });
+    }
     return;
   }
 
@@ -662,7 +666,9 @@ async function handleCaseAction(interaction) {
 }
 
 async function handleCaseWarnModal(interaction, context) {
-  const reason = truncate(interaction.fields.getTextInputValue('reason'), 500);
+  const presetReason = interaction.fields.getField('reason_preset')?.value;
+  const customReason = interaction.fields.getTextInputValue('custom_reason');
+  const reason = truncate(customReason || presetReason || 'No reason provided', 500);
   const token = interaction.customId.slice(`${CASE_WARN_MODAL_PREFIX}:`.length);
   await applyModerationAction(interaction, context, 'WARN', reason, token);
 }
@@ -694,40 +700,6 @@ async function handleCaseKickModal(interaction, context) {
   await applyModerationAction(interaction, context, 'KICK', reason, token);
 }
 
-async function handleWarnReasonSelect(interaction, context) {
-  const token = interaction.customId.slice(`${CASE_WARN_REASON_PREFIX}:`.length);
-  const selected = interaction.values?.[0];
-
-  if (!selected || !token) {
-    await interaction.update({ components: [{ type: 17, components: [{ type: 10, content: 'Invalid selection.' }] }], allowedMentions: { parse: [] } });
-    return;
-  }
-
-  if (selected === '__custom__') {
-    const modal = new ModalBuilder()
-      .setCustomId(`${CASE_WARN_MODAL_PREFIX}:${token}`)
-      .setTitle('Warn User');
-    modal.addComponents(
-      textInputRow(
-        new TextInputBuilder()
-          .setCustomId('reason')
-          .setLabel('Reason for warning')
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(true)
-          .setMaxLength(500)
-      )
-    );
-    try {
-      await interaction.showModal(modal);
-    } catch (error) {
-      await interaction.reply({ content: `Failed to open form: ${error?.message ?? 'unknown error'}`, ephemeral: true });
-    }
-    return;
-  }
-
-  await applyModerationAction(interaction, context, 'WARN', selected, token);
-}
-
 export default {
   name: 'moderation',
   configSchema: MODERATION_SCHEMA,
@@ -753,10 +725,6 @@ export default {
         try {
           if (interaction.isButton() && interaction.customId?.startsWith(`${CASE_ACTION_PREFIX}:`)) {
             await handleCaseAction(interaction);
-            return;
-          }
-          if (interaction.isStringSelectMenu() && interaction.customId?.startsWith(`${CASE_WARN_REASON_PREFIX}:`)) {
-            await handleWarnReasonSelect(interaction, context);
             return;
           }
           if (interaction.isModalSubmit() && interaction.customId?.startsWith(`${CASE_WARN_MODAL_PREFIX}:`)) {
