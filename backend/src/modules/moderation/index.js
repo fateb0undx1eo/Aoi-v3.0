@@ -2,6 +2,7 @@ import {
   ActionRowBuilder,
   ApplicationCommandType,
   AttachmentBuilder,
+  ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
   MessageFlags,
@@ -12,7 +13,6 @@ import {
 } from 'discord.js';
 
 const CASE_ACTION_PREFIX = 'case:a';
-const CASE_TIMEOUT_SELECT_PREFIX = 'case:s';
 const CASE_TIMEOUT_MODAL_PREFIX = 'case:t';
 const CASE_KICK_MODAL_PREFIX = 'case:k';
 const CASE_WARN_MODAL_PREFIX = 'case:w';
@@ -153,16 +153,6 @@ function buildMessageUrl(guildId, channelId, messageId) {
   return `https://discord.com/channels/${guildId}/${channelId}/${messageId}`;
 }
 
-function buildTimeoutPresetText() {
-  return TIMEOUT_PRESETS.map((p, i) => `${i + 1}. ${p.label}`).join(', ');
-}
-
-function buildTimeoutSelectOptions() {
-  return TIMEOUT_PRESETS.map((preset) => ({
-    label: preset.label,
-    value: String(preset.minutes)
-  }));
-}
 
 function getWebhookIdentity() {
   const name = String(process.env.CASE_WEBHOOK_NAME ?? CASE_WEBHOOK_NAME).trim() || CASE_WEBHOOK_NAME;
@@ -215,15 +205,18 @@ function computeMessageContentLimit({ guildId, channelId, messageId, targetUserI
   return Math.max(0, 4000 - scaffold.length - 16);
 }
 
-function buildPreviewBody(report) {
+function buildPreviewEmbed(report) {
   const linkLabel = report.messageContent || 'view message';
-  return [
-    '# Message Case Report',
-    `**Author**: <@${report.targetUserId}> (${escapeMarkdown(report.targetUsername)})`,
-    `**Reported By**: <@${report.reporterId}>`,
-    `**Reported At**: <t:${report.reportedTimestamp}:F>`,
-    `[${linkLabel}](${report.messageUrl})`
-  ].join('\n');
+  return new EmbedBuilder()
+    .setTitle('Message Case Report')
+    .setColor(0x5865F2)
+    .setDescription([
+      `**Author**: <@${report.targetUserId}> (${escapeMarkdown(report.targetUsername)})`,
+      `**Reported By**: <@${report.reporterId}>`,
+      `**Reported At**: <t:${report.reportedTimestamp}:F>`,
+      `[${linkLabel}](${report.messageUrl})`
+    ].join('\n'))
+    .setTimestamp();
 }
 
 function buildLogBody(report, reason, resolvedLabel) {
@@ -288,16 +281,21 @@ function parseStatelessToken(token) {
 
 function buildPreviewComponents(report) {
   const token = buildStatelessToken(report);
-  return [
-    {
-      type: 1,
-      components: [
-        { type: 2, custom_id: `${CASE_ACTION_PREFIX}:warn:${token}`, style: ButtonStyle.Secondary, label: 'Warn' },
-        { type: 2, custom_id: `${CASE_ACTION_PREFIX}:timeout:${token}`, style: ButtonStyle.Primary, label: 'Timeout' },
-        { type: 2, custom_id: `${CASE_ACTION_PREFIX}:kick:${token}`, style: ButtonStyle.Danger, label: 'Kick' }
-      ]
-    }
-  ];
+  return new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${CASE_ACTION_PREFIX}:warn:${token}`)
+        .setStyle(ButtonStyle.Secondary)
+        .setLabel('Warn'),
+      new ButtonBuilder()
+        .setCustomId(`${CASE_ACTION_PREFIX}:timeout:${token}`)
+        .setStyle(ButtonStyle.Primary)
+        .setLabel('Timeout'),
+      new ButtonBuilder()
+        .setCustomId(`${CASE_ACTION_PREFIX}:kick:${token}`)
+        .setStyle(ButtonStyle.Danger)
+        .setLabel('Kick')
+    );
 }
 
 async function buildLoggedComponents(report, reason, resolvedLabel) {
@@ -320,6 +318,7 @@ async function performGuildAction({ member, actionType, reason, durationSeconds 
     case 'WARN':
       return;
     case 'TIMEOUT':
+      if (!durationSeconds || durationSeconds <= 0) throw new Error('Duration required for timeout');
       await member.timeout(durationSeconds * 1000, reason || 'Timed out by moderator');
       return;
     case 'KICK':
@@ -464,8 +463,8 @@ async function handleCaseCommand(interaction) {
 
   await interaction.reply({
     ephemeral: true,
-    content: buildPreviewBody(report),
-    components: buildPreviewComponents(report),
+    embeds: [buildPreviewEmbed(report)],
+    components: [buildPreviewComponents(report)],
     allowedMentions: { parse: [] }
   });
 }
@@ -524,12 +523,15 @@ async function applyModerationAction(interaction, context, actionType, reason, t
   }
 
   const moderationService = getModerationService(context);
+  if (!moderationService) {
+    await respond('Moderation service unavailable.');
+    return;
+  }
+
   const moderatorName = interaction.user.tag ?? interaction.user.username;
 
   try {
-    await performGuildAction({ member, actionType, reason, durationSeconds });
-
-    await moderationService.createCase({
+    const caseData = await moderationService.createCase({
       guildId: interaction.guildId,
       targetUserId: report.targetUserId,
       targetUsername: report.targetUsername,
@@ -539,6 +541,8 @@ async function applyModerationAction(interaction, context, actionType, reason, t
       reason: `${reason} (reported message: ${report.messageUrl})`,
       durationSeconds
     });
+
+    await performGuildAction({ member, actionType, reason, durationSeconds });
   } catch (error) {
     await respond(`Failed to apply action: ${error.message}`);
     return;
@@ -591,25 +595,32 @@ async function handleCaseAction(interaction) {
   }
 
   if (actionKey === 'timeout') {
-    await interaction.update({
-      content: 'Select timeout duration:',
-      components: [
-        {
-          type: 1,
-          components: [
-            {
-              type: 3,
-              custom_id: `${CASE_TIMEOUT_SELECT_PREFIX}:${token}`,
-              placeholder: 'Choose duration',
-              min_values: 1,
-              max_values: 1,
-              options: buildTimeoutSelectOptions()
-            }
-          ]
-        }
-      ],
-      allowedMentions: { parse: [] }
-    });
+    const modal = new ModalBuilder()
+      .setCustomId(`${CASE_TIMEOUT_MODAL_PREFIX}:${token}`)
+      .setTitle('Timeout User');
+    modal.addComponents(
+      textInputRow(
+        new TextInputBuilder()
+          .setCustomId('reason')
+          .setLabel('Reason for timeout')
+          .setStyle(TextInputStyle.Paragraph)
+          .setRequired(true)
+          .setMaxLength(500)
+      ),
+      textInputRow(
+        new TextInputBuilder()
+          .setCustomId('duration')
+          .setLabel('Duration (minutes)')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setPlaceholder('e.g. 30 (1-10080)')
+      )
+    );
+    try {
+      await interaction.showModal(modal);
+    } catch (error) {
+      await interaction.reply({ content: `Failed to open timeout form: ${error?.message ?? 'unknown error'}`, ephemeral: true });
+    }
     return;
   }
 
@@ -632,40 +643,7 @@ async function handleCaseAction(interaction) {
     } catch (error) {
       await interaction.reply({ content: `Failed to open kick form: ${error?.message ?? 'unknown error'}`, ephemeral: true });
     }
-  }
-}
-
-async function handleTimeoutDurationSelect(interaction) {
-  const token = interaction.customId.slice(`${CASE_TIMEOUT_SELECT_PREFIX}:`.length);
-  const minutes = Number.parseInt(interaction.values?.[0] ?? '', 10);
-  const preset = TIMEOUT_PRESETS.find((p) => p.minutes === minutes);
-
-  if (!preset || !token) {
-    await interaction.update({
-      content: `Invalid duration selection. Choose one of: ${buildTimeoutPresetText()}`,
-      components: [],
-      allowedMentions: { parse: [] }
-    });
     return;
-  }
-
-  const modal = new ModalBuilder()
-    .setCustomId(`${CASE_TIMEOUT_MODAL_PREFIX}:${preset.minutes}:${token}`)
-    .setTitle('Timeout Reason');
-  modal.addComponents(
-    textInputRow(
-      new TextInputBuilder()
-        .setCustomId('reason')
-        .setLabel('Reason for timeout')
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true)
-        .setMaxLength(500)
-    )
-  );
-  try {
-    await interaction.showModal(modal);
-  } catch (error) {
-    await interaction.reply({ content: `Failed to open timeout reason form: ${error?.message ?? 'unknown error'}`, ephemeral: true });
   }
 }
 
@@ -677,18 +655,23 @@ async function handleCaseWarnModal(interaction, context) {
 
 async function handleCaseTimeoutModal(interaction, context) {
   const reason = truncate(interaction.fields.getTextInputValue('reason'), 500);
-  const raw = interaction.customId.slice(`${CASE_TIMEOUT_MODAL_PREFIX}:`.length);
-  const [minutesText, ...tokenParts] = raw.split(':');
-  const minutes = Number.parseInt(minutesText, 10);
-  const token = tokenParts.join(':');
-  const preset = TIMEOUT_PRESETS.find((p) => p.minutes === minutes);
+  const durationMinutes = Number.parseInt(interaction.fields.getTextInputValue('duration'), 10);
+  const token = interaction.customId.slice(`${CASE_TIMEOUT_MODAL_PREFIX}:`.length);
 
-  if (!preset || !token) {
+  if (!token) {
     await interaction.reply({ content: 'Invalid timeout payload.', ephemeral: true });
     return;
   }
 
-  await applyModerationAction(interaction, context, 'TIMEOUT', reason, token, preset.minutes * 60, preset.label);
+  if (!durationMinutes || durationMinutes < 1 || durationMinutes > 10080) {
+    await interaction.reply({ content: 'Invalid duration. Must be between 1 and 10080 minutes (up to 7 days).', ephemeral: true });
+    return;
+  }
+
+  const preset = TIMEOUT_PRESETS.find((p) => p.minutes === durationMinutes);
+  const label = preset?.label ?? `${durationMinutes} minute(s)`;
+
+  await applyModerationAction(interaction, context, 'TIMEOUT', reason, token, durationMinutes * 60, label);
 }
 
 async function handleCaseKickModal(interaction, context) {
@@ -707,7 +690,11 @@ export default {
       defer: false,
       ephemeral: true,
       async execute(interaction) {
-        await handleCaseCommand(interaction);
+        try {
+          await handleCaseCommand(interaction);
+        } catch (error) {
+          await interaction.reply({ content: `Case command failed: ${error?.message ?? 'unknown error'}`, ephemeral: true }).catch(() => null);
+        }
       }
     }
   ],
@@ -716,23 +703,19 @@ export default {
       name: 'interactionCreate',
       async execute(interaction, context) {
         try {
-          if (interaction.isButton() && interaction.customId.startsWith(`${CASE_ACTION_PREFIX}:`)) {
+          if (interaction.isButton() && interaction.customId?.startsWith(`${CASE_ACTION_PREFIX}:`)) {
             await handleCaseAction(interaction);
             return;
           }
-          if (interaction.isStringSelectMenu() && interaction.customId.startsWith(`${CASE_TIMEOUT_SELECT_PREFIX}:`)) {
-            await handleTimeoutDurationSelect(interaction);
-            return;
-          }
-          if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_WARN_MODAL_PREFIX}:`)) {
+          if (interaction.isModalSubmit() && interaction.customId?.startsWith(`${CASE_WARN_MODAL_PREFIX}:`)) {
             await handleCaseWarnModal(interaction, context);
             return;
           }
-          if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_TIMEOUT_MODAL_PREFIX}:`)) {
+          if (interaction.isModalSubmit() && interaction.customId?.startsWith(`${CASE_TIMEOUT_MODAL_PREFIX}:`)) {
             await handleCaseTimeoutModal(interaction, context);
             return;
           }
-          if (interaction.isModalSubmit() && interaction.customId.startsWith(`${CASE_KICK_MODAL_PREFIX}:`)) {
+          if (interaction.isModalSubmit() && interaction.customId?.startsWith(`${CASE_KICK_MODAL_PREFIX}:`)) {
             await handleCaseKickModal(interaction, context);
           }
         } catch (error) {
@@ -748,7 +731,7 @@ export default {
       name: 'messageDelete',
       async execute(message, context) {
         const moderationService = getModerationService(context);
-        if (!message?.guild || !message.mentions?.users?.size) return;
+        if (!moderationService || !message?.guild || !message.mentions?.users?.size) return;
         await moderationService.recordGhostPing({
           guild_id: message.guild.id,
           message_id: message.id,
@@ -763,7 +746,7 @@ export default {
       name: 'messageCreate',
       async execute(message, context) {
         const moderationService = getModerationService(context);
-        if (!message.guild || message.author.bot) return;
+        if (!moderationService || !message.guild || message.author.bot) return;
         const afk = await moderationService.getAfk(message.guild.id, message.author.id);
         if (afk) {
           await moderationService.clearAfk(message.guild.id, message.author.id);

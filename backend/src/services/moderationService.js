@@ -213,6 +213,7 @@ export class ModerationService {
     await this.createCase({
       guildId,
       targetUserId: existingCase.target_user_id,
+      targetUsername: existingCase.target_username,
       moderatorUserId,
       type: unType,
       reason: reason || `Revoked case #${existingCase.case_number}`
