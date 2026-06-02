@@ -205,18 +205,20 @@ function computeMessageContentLimit({ guildId, channelId, messageId, targetUserI
   return Math.max(0, 4000 - scaffold.length - 16);
 }
 
-function buildPreviewEmbed(report) {
-  const linkLabel = report.messageContent || 'view message';
-  return new EmbedBuilder()
-    .setTitle('Message Case Report')
-    .setColor(0x5865F2)
-    .setDescription([
-      `**Author**: <@${report.targetUserId}> (${escapeMarkdown(report.targetUsername)})`,
-      `**Reported By**: <@${report.reporterId}>`,
-      `**Reported At**: <t:${report.reportedTimestamp}:F>`,
-      `[${linkLabel}](${report.messageUrl})`
-    ].join('\n'))
-    .setTimestamp();
+function buildPreviewContainerText(report) {
+  const hasContent = report.messageContent && report.messageContent !== 'No text content.';
+  const lines = [
+    '**Message Case Report**',
+    `**Author**: <@${report.targetUserId}> (${escapeMarkdown(report.targetUsername)})`,
+    `**Reported By**: <@${report.reporterId}>`,
+    `**Reported At**: <t:${report.reportedTimestamp}:F>`
+  ];
+  if (hasContent) {
+    lines.push(`**Message Content**: [${report.messageContent}](${report.messageUrl})`);
+  } else {
+    lines.push(`[view message](${report.messageUrl})`);
+  }
+  return lines.join('\n');
 }
 
 function buildLogBody(report, reason, resolvedLabel) {
@@ -281,21 +283,24 @@ function parseStatelessToken(token) {
 
 function buildPreviewComponents(report) {
   const token = buildStatelessToken(report);
-  return new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId(`${CASE_ACTION_PREFIX}:warn:${token}`)
-        .setStyle(ButtonStyle.Secondary)
-        .setLabel('Warn'),
-      new ButtonBuilder()
-        .setCustomId(`${CASE_ACTION_PREFIX}:timeout:${token}`)
-        .setStyle(ButtonStyle.Primary)
-        .setLabel('Timeout'),
-      new ButtonBuilder()
-        .setCustomId(`${CASE_ACTION_PREFIX}:kick:${token}`)
-        .setStyle(ButtonStyle.Danger)
-        .setLabel('Kick')
-    );
+  return [
+    { type: 17, components: [{ type: 10, content: buildPreviewContainerText(report) }] },
+    new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`${CASE_ACTION_PREFIX}:warn:${token}`)
+          .setStyle(ButtonStyle.Secondary)
+          .setLabel('Warn'),
+        new ButtonBuilder()
+          .setCustomId(`${CASE_ACTION_PREFIX}:timeout:${token}`)
+          .setStyle(ButtonStyle.Primary)
+          .setLabel('Timeout'),
+        new ButtonBuilder()
+          .setCustomId(`${CASE_ACTION_PREFIX}:kick:${token}`)
+          .setStyle(ButtonStyle.Danger)
+          .setLabel('Kick')
+      )
+  ];
 }
 
 async function buildLoggedComponents(report, reason, resolvedLabel) {
@@ -462,9 +467,8 @@ async function handleCaseCommand(interaction) {
   };
 
   await interaction.reply({
-    ephemeral: true,
-    embeds: [buildPreviewEmbed(report)],
-    components: [buildPreviewComponents(report)],
+    flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+    components: buildPreviewComponents(report),
     allowedMentions: { parse: [] }
   });
 }
