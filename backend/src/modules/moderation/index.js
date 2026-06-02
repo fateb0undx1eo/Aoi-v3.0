@@ -585,14 +585,13 @@ async function handleCaseAction(interaction) {
     modal.addComponents(
       {
         type: 18,
-        label: 'Select a preset reason (optional)',
-        required: false,
+        label: 'Select a preset reason',
         component: {
           type: 3,
           custom_id: 'reason_preset',
-          placeholder: 'Choose a reason (optional)',
-          min_values: 0,
+          placeholder: 'Choose a reason',
           options: [
+            { label: 'No preset (write below)', value: '__none__' },
             { label: 'Inappropriate language', value: 'Inappropriate language' },
             { label: 'Spam', value: 'Spam' },
             { label: 'Harassment', value: 'Harassment' },
@@ -634,14 +633,15 @@ async function handleCaseAction(interaction) {
       ),
       {
         type: 18,
-        label: 'Select duration (optional)',
-        required: false,
+        label: 'Select duration',
         component: {
           type: 3,
           custom_id: 'duration_preset',
-          placeholder: 'Choose a preset duration',
-          min_values: 0,
-          options: TIMEOUT_PRESETS.map((p) => ({ label: p.label, value: String(p.minutes) }))
+          placeholder: 'Choose a duration',
+          options: [
+            { label: 'No preset (type below)', value: '__none__' },
+            ...TIMEOUT_PRESETS.map((p) => ({ label: p.label, value: String(p.minutes) }))
+          ]
         }
       },
       textInputRow(
@@ -687,7 +687,7 @@ async function handleCaseAction(interaction) {
 async function handleCaseWarnModal(interaction, context) {
   const presetReason = interaction.fields.getField('reason_preset')?.value;
   const customReason = interaction.fields.getTextInputValue('custom_reason');
-  const reason = truncate(customReason || presetReason || 'No reason provided', 500);
+  const reason = truncate(customReason || (presetReason && presetReason !== '__none__' ? presetReason : '') || 'No reason provided', 500);
   const token = interaction.customId.slice(`${CASE_WARN_MODAL_PREFIX}:`.length);
   await applyModerationAction(interaction, context, 'WARN', reason, token);
 }
@@ -703,7 +703,7 @@ async function handleCaseTimeoutModal(interaction, context) {
 
   const presetMinutes = interaction.fields.getField('duration_preset')?.value;
   const customMinutesText = interaction.fields.getTextInputValue('custom_duration');
-  const durationMinutes = presetMinutes
+  const durationMinutes = presetMinutes && presetMinutes !== '__none__'
     ? Number.parseInt(presetMinutes, 10)
     : Number.parseInt(customMinutesText, 10);
 
