@@ -586,7 +586,8 @@ async function handleCaseAction(interaction) {
         component: {
           type: 3,
           custom_id: 'reason_preset',
-          placeholder: 'Choose a reason',
+          placeholder: 'Choose a reason (optional)',
+          min_values: 0,
           options: [
             { label: 'Inappropriate language', value: 'Inappropriate language' },
             { label: 'Spam', value: 'Spam' },
