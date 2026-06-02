@@ -8,7 +8,6 @@ import {
   MessageFlags,
   ModalBuilder,
   PermissionFlagsBits,
-  StringSelectMenuBuilder,
   TextInputBuilder,
   TextInputStyle
 } from 'discord.js';
@@ -581,19 +580,22 @@ async function handleCaseAction(interaction) {
       .setCustomId(`${CASE_WARN_MODAL_PREFIX}:${token}`)
       .setTitle('Warn User');
     modal.addComponents(
-      new ActionRowBuilder()
-        .addComponents(
-          new StringSelectMenuBuilder()
-            .setCustomId('reason_preset')
-            .setPlaceholder('Select a preset reason (optional)')
-            .addOptions([
-              { label: 'Inappropriate language', value: 'Inappropriate language' },
-              { label: 'Spam', value: 'Spam' },
-              { label: 'Harassment', value: 'Harassment' },
-              { label: 'Breaking server rules', value: 'Breaking server rules' },
-              { label: 'Advertising', value: 'Advertising' }
-            ])
-        ),
+      {
+        type: 18,
+        label: 'Select a preset reason (optional)',
+        component: {
+          type: 3,
+          custom_id: 'reason_preset',
+          placeholder: 'Choose a reason',
+          options: [
+            { label: 'Inappropriate language', value: 'Inappropriate language' },
+            { label: 'Spam', value: 'Spam' },
+            { label: 'Harassment', value: 'Harassment' },
+            { label: 'Breaking server rules', value: 'Breaking server rules' },
+            { label: 'Advertising', value: 'Advertising' }
+          ]
+        }
+      },
       new ActionRowBuilder()
         .addComponents(
           new TextInputBuilder()
