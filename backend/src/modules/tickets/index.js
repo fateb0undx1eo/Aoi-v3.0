@@ -58,7 +58,7 @@ export async function initializeTicketsModule(options) {
     environment = 'development'
   } = options;
 
-  logger.info('Initializing tickets module...', { environment });
+  logger.info({ environment }, 'Initializing tickets module...');
 
   // Initialize repositories
   const ticketRepository = new TicketRepository(database);
