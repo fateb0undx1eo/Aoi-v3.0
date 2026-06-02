@@ -586,11 +586,11 @@ async function handleCaseAction(interaction) {
       {
         type: 18,
         label: 'Select a preset reason',
-        required: false,
         component: {
           type: 3,
           custom_id: 'reason_preset',
           placeholder: 'Choose a reason',
+          required: false,
           min_values: 0,
           options: [
             { label: 'No preset (write below)', value: '__none__' },
@@ -636,11 +636,11 @@ async function handleCaseAction(interaction) {
       {
         type: 18,
         label: 'Select duration',
-        required: false,
         component: {
           type: 3,
           custom_id: 'duration_preset',
           placeholder: 'Choose a duration',
+          required: false,
           min_values: 0,
           options: [
             { label: 'No preset (type below)', value: '__none__' },
