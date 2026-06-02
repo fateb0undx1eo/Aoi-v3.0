@@ -583,32 +583,14 @@ async function handleCaseAction(interaction) {
       .setCustomId(`${CASE_WARN_MODAL_PREFIX}:${token}`)
       .setTitle('Warn User');
     modal.addComponents(
-      {
-        type: 18,
-        label: 'Select a preset reason',
-        component: {
-          type: 3,
-          custom_id: 'reason_preset',
-          placeholder: 'Choose a reason',
-          options: [
-            { label: 'No preset (write below)', value: '__none__' },
-            { label: 'Inappropriate language', value: 'Inappropriate language' },
-            { label: 'Spam', value: 'Spam' },
-            { label: 'Harassment', value: 'Harassment' },
-            { label: 'Breaking server rules', value: 'Breaking server rules' },
-            { label: 'Advertising', value: 'Advertising' }
-          ]
-        }
-      },
-      new ActionRowBuilder()
-        .addComponents(
-          new TextInputBuilder()
-            .setCustomId('custom_reason')
-            .setLabel('Custom reason')
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(false)
-            .setMaxLength(500)
-        )
+      textInputRow(
+        new TextInputBuilder()
+          .setCustomId('custom_reason')
+          .setLabel('Reason')
+          .setStyle(TextInputStyle.Paragraph)
+          .setRequired(true)
+          .setMaxLength(500)
+      )
     );
     try {
       await interaction.showModal(modal);
@@ -631,25 +613,12 @@ async function handleCaseAction(interaction) {
           .setRequired(true)
           .setMaxLength(500)
       ),
-      {
-        type: 18,
-        label: 'Select duration',
-        component: {
-          type: 3,
-          custom_id: 'duration_preset',
-          placeholder: 'Choose a duration',
-          options: [
-            { label: 'No preset (type below)', value: '__none__' },
-            ...TIMEOUT_PRESETS.map((p) => ({ label: p.label, value: String(p.minutes) }))
-          ]
-        }
-      },
       textInputRow(
         new TextInputBuilder()
           .setCustomId('custom_duration')
-          .setLabel('Or type custom minutes')
+          .setLabel('Duration in minutes')
           .setStyle(TextInputStyle.Short)
-          .setRequired(false)
+          .setRequired(true)
           .setPlaceholder('e.g. 30 (1-10080)')
       )
     );
@@ -685,18 +654,7 @@ async function handleCaseAction(interaction) {
 }
 
 async function handleCaseWarnModal(interaction, context) {
-  const [presetReason] = interaction.fields.getStringSelectValues('reason_preset');
-  const customReason = interaction.fields.getTextInputValue('custom_reason');
-
-  const hasPreset = presetReason && presetReason !== '__none__';
-  const hasCustom = customReason && customReason.trim().length > 0;
-
-  if (!hasPreset && !hasCustom) {
-    await interaction.reply({ content: 'Please select a preset reason or provide a custom reason.', ephemeral: true });
-    return;
-  }
-
-  const reason = truncate(hasCustom ? customReason : presetReason, 500);
+  const reason = truncate(interaction.fields.getTextInputValue('custom_reason'), 500);
   const token = interaction.customId.slice(`${CASE_WARN_MODAL_PREFIX}:`.length);
   await applyModerationAction(interaction, context, 'WARN', reason, token);
 }
@@ -710,28 +668,15 @@ async function handleCaseTimeoutModal(interaction, context) {
     return;
   }
 
-  const [presetMinutes] = interaction.fields.getStringSelectValues('duration_preset');
   const customMinutesText = interaction.fields.getTextInputValue('custom_duration');
-
-  const hasPreset = presetMinutes && presetMinutes !== '__none__';
-  const hasCustom = customMinutesText && customMinutesText.trim().length > 0;
-
-  if (!hasPreset && !hasCustom) {
-    await interaction.reply({ content: 'Please select a preset duration or type a custom duration in minutes.', ephemeral: true });
-    return;
-  }
-
-  const durationMinutes = hasPreset
-    ? Number.parseInt(presetMinutes, 10)
-    : Number.parseInt(customMinutesText, 10);
+  const durationMinutes = Number.parseInt(customMinutesText, 10);
 
   if (!durationMinutes || durationMinutes < 1 || durationMinutes > 10080) {
     await interaction.reply({ content: 'Duration must be between 1 and 10080 minutes.', ephemeral: true });
     return;
   }
 
-  const preset = TIMEOUT_PRESETS.find((p) => p.minutes === durationMinutes);
-  const label = preset?.label ?? `${durationMinutes} minute(s)`;
+  const label = `${durationMinutes} minute(s)`;
 
   await applyModerationAction(interaction, context, 'TIMEOUT', reason, token, durationMinutes * 60, label);
 }
