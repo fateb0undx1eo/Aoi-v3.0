@@ -687,7 +687,16 @@ async function handleCaseAction(interaction) {
 async function handleCaseWarnModal(interaction, context) {
   const presetReason = interaction.fields.getField('reason_preset')?.value;
   const customReason = interaction.fields.getTextInputValue('custom_reason');
-  const reason = truncate(customReason || (presetReason && presetReason !== '__none__' ? presetReason : '') || 'No reason provided', 500);
+
+  const hasPreset = presetReason && presetReason !== '__none__';
+  const hasCustom = customReason && customReason.trim().length > 0;
+
+  if (!hasPreset && !hasCustom) {
+    await interaction.reply({ content: 'Please select a preset reason or provide a custom reason.', ephemeral: true });
+    return;
+  }
+
+  const reason = truncate(hasCustom ? customReason : presetReason, 500);
   const token = interaction.customId.slice(`${CASE_WARN_MODAL_PREFIX}:`.length);
   await applyModerationAction(interaction, context, 'WARN', reason, token);
 }
@@ -703,12 +712,21 @@ async function handleCaseTimeoutModal(interaction, context) {
 
   const presetMinutes = interaction.fields.getField('duration_preset')?.value;
   const customMinutesText = interaction.fields.getTextInputValue('custom_duration');
-  const durationMinutes = presetMinutes && presetMinutes !== '__none__'
+
+  const hasPreset = presetMinutes && presetMinutes !== '__none__';
+  const hasCustom = customMinutesText && customMinutesText.trim().length > 0;
+
+  if (!hasPreset && !hasCustom) {
+    await interaction.reply({ content: 'Please select a preset duration or type a custom duration in minutes.', ephemeral: true });
+    return;
+  }
+
+  const durationMinutes = hasPreset
     ? Number.parseInt(presetMinutes, 10)
     : Number.parseInt(customMinutesText, 10);
 
   if (!durationMinutes || durationMinutes < 1 || durationMinutes > 10080) {
-    await interaction.reply({ content: 'Select a preset duration or type a custom duration between 1 and 10080 minutes.', ephemeral: true });
+    await interaction.reply({ content: 'Duration must be between 1 and 10080 minutes.', ephemeral: true });
     return;
   }
 
