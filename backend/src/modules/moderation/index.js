@@ -209,14 +209,14 @@ function buildPreviewContainerText(report) {
   const hasContent = report.messageContent && report.messageContent !== 'No text content.';
   const lines = [
     '# CASE REPORT',
-    `**Author**: <@${report.targetUserId}> (${escapeMarkdown(report.targetUsername)})`,
-    `**Reported By**: <@${report.reporterId}>`,
-    `**Reported At**: <t:${report.reportedTimestamp}:F>`
+    `_ _ **Author**: <@${report.targetUserId}> (${escapeMarkdown(report.targetUsername)})`,
+    `_ _ **Reported By**: <@${report.reporterId}>`,
+    `_ _ **Reported At**: <t:${report.reportedTimestamp}:F>`
   ];
   if (hasContent) {
-    lines.push(`**Message Content**: [${report.messageContent}](${report.messageUrl})`);
+    lines.push(`_ _ **Message Content**: [${report.messageContent}](${report.messageUrl})`);
   } else {
-    lines.push(`[view message](${report.messageUrl})`);
+    lines.push(`_ _ [view message](${report.messageUrl})`);
   }
   return lines.join('\n');
 }
@@ -225,17 +225,17 @@ function buildLogBody(report, reason, resolvedLabel) {
   const hasContent = report.messageContent && report.messageContent !== 'No text content.';
   const lines = [
     '# CASE REPORT',
-    `**Author**: <@${report.targetUserId}> (${escapeMarkdown(report.targetUsername)})`,
-    `**Reported By**: <@${report.reporterId}>`,
-    `**Reported At**: <t:${report.reportedTimestamp}:F>`,
-    `**Reason**: ${escapeMarkdown(reason)}`
+    `_ _ **Author**: <@${report.targetUserId}> (${escapeMarkdown(report.targetUsername)})`,
+    `_ _ **Reported By**: <@${report.reporterId}>`,
+    `_ _ **Reported At**: <t:${report.reportedTimestamp}:F>`,
+    `_ _ **Reason**: ${escapeMarkdown(reason)}`
   ];
   if (hasContent) {
-    lines.push(`**Message Content**: [${report.messageContent}](${report.messageUrl})`);
+    lines.push(`_ _ **Message Content**: [${report.messageContent}](${report.messageUrl})`);
   } else {
-    lines.push(`[view message](${report.messageUrl})`);
+    lines.push(`_ _ [view message](${report.messageUrl})`);
   }
-  lines.push(`**Action Taken**: ${resolvedLabel}`);
+  lines.push(`_ _ **Action Taken**: ${resolvedLabel}`);
   return lines.join('\n');
 }
 
@@ -297,8 +297,8 @@ function buildPreviewComponents(report) {
           type: 1,
           components: [
             { type: 2, custom_id: `${CASE_ACTION_PREFIX}:warn:${token}`, style: ButtonStyle.Secondary, label: 'Warn' },
-            { type: 2, custom_id: `${CASE_ACTION_PREFIX}:timeout:${token}`, style: ButtonStyle.Primary, label: 'Timeout' },
-            { type: 2, custom_id: `${CASE_ACTION_PREFIX}:kick:${token}`, style: ButtonStyle.Danger, label: 'Kick' }
+            { type: 2, custom_id: `${CASE_ACTION_PREFIX}:timeout:${token}`, style: ButtonStyle.Secondary, label: 'Timeout' },
+            { type: 2, custom_id: `${CASE_ACTION_PREFIX}:kick:${token}`, style: ButtonStyle.Secondary, label: 'Kick' }
           ]
         }
       ]
