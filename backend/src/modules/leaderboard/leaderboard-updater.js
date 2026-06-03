@@ -75,7 +75,7 @@ function buildLeaderboardContainer(bucket, entries) {
   }
 
   components.push({ type: 14, divider: true });
-  components.push({ type: 10, content: `-# \`UPDATES\` <t:${getNextHourUnix()}:R> <a:fish111:1511786107384103082> \`RESETS\` <t:${getResetUnix(bucket)}:R>` });
+  components.push({ type: 10, content: `-# \`UPDATES\` <t:${getNextHourUnix()}:R>     <a:fish111:1511786107384103082>     \`RESETS\` <t:${getResetUnix(bucket)}:R>` });
 
   return {
     type: 17,
