@@ -53,7 +53,7 @@ export async function handleSetupLeaderboard(interaction, { redis, discordClient
     const container = {
       type: 17,
       components: [
-        { type: 10, content: `### <a:flower111:1511786386359976036> ${titles[i]}` },
+        { type: 10, content: `### ${titles[i]}` },
         { type: 10, content: 'Loading...' }
       ]
     };

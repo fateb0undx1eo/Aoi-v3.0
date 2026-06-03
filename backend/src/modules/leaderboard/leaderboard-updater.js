@@ -64,7 +64,7 @@ const TITLES = {
 };
 
 function buildLeaderboardContainer(bucket, entries) {
-  const components = [{ type: 10, content: `### <a:flower111:1511786386359976036> ${TITLES[bucket]}` }];
+  const components = [{ type: 10, content: `### ${TITLES[bucket]}` }];
 
   if (entries.length === 0) {
     components.push({ type: 10, content: '_No messages recorded yet._' });
