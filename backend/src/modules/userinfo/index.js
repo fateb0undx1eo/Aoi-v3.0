@@ -179,14 +179,6 @@ export default {
 
         const userId = interaction.customId.split('_')[1];
 
-        if (interaction.user.id !== userId) {
-          await interaction.reply({
-            content: 'These buttons are not for you.',
-            ephemeral: true
-          });
-          return;
-        }
-
         const member = interaction.guild?.members.cache.get(userId);
         if (!member) {
           await interaction.reply({
