@@ -3,7 +3,7 @@ import { logger } from '../../utils/logger.js';
 import { REDIS_KEYS, BUCKETS } from './redis-keys.js';
 
 const RANK_EMOJIS = [
-  '<:one:1511686430571630763>',
+  '<:1one:1511749251477274684>',
   '<:two:1511686447151972493>',
   '<:three:1511686465732608022>',
   '<:four:1511686491317997578>',
