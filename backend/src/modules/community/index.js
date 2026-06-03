@@ -1,18 +1,7 @@
 import { EmbedBuilder, MessageFlags, WebhookClient, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import { randomUUID } from 'node:crypto';
-import { env } from '../../core/config/env.js';
 
-const DOMAIN_EXPANSION_PENDING_MS = 10 * 60 * 1000;
-const DOMAIN_EXPANSION_MESSAGE_DELETE_MS = 15_000;
-const DEADLY_GIF =
-  'https://cdn.discordapp.com/attachments/1457404028760625327/1475165182077698108/ezgif-34f5623570ffe407.gif?ex=699c7e22&is=699b2ca2&hm=85b3a92f761fff6dc8f1e1e1e1e9549012ebeaa1bbb46e9545f7f80a876528b8';
-const FREE_GIF =
-  'https://media.discordapp.net/attachments/1489131113082261564/1490752931048325191/ezgif-5cd40aa21eb72603.gif?ex=69d5335b&is=69d3e1db&hm=c3c73e9688b19f8f4ada917dc65a656c8a3b7da25291b95a81d01df087c6d99b&=';
-const DOMAIN_ACTION_PREFIX = 'domainexpansion:action';
-const FREE_ACTION_PREFIX = 'free:action';
 const MEME_ACTION_PREFIX = 'memes:autopost';
-const pendingDomainExpansions = new Map();
-const pendingFreeActions = new Map();
 const pendingMemeAutopostActions = new Map();
 const premiumFeatureCooldowns = new Map();
 const pendingProfileStyleSelections = new Map();
@@ -168,47 +157,6 @@ function buildEmbed(title, description, color) {
     .setTimestamp();
 }
 
-function buildActionPromptComponents({ title, prompt, buttonRows, locked = false, actionLabel = '' }) {
-  const components = [
-    {
-      type: 17,
-      components: [
-        {
-          type: 10,
-          content: `# ${title}`
-        },
-        {
-          type: 14,
-          divider: true,
-          spacing: 1
-        },
-        {
-          type: 10,
-          content: prompt
-        }
-      ]
-    }
-  ];
-
-  if (!locked && buttonRows?.length) {
-    for (const row of buttonRows) {
-      components[0].components.push({
-        type: 1,
-        components: row
-      });
-    }
-  } else if (locked) {
-    components[0].components.push({
-      type: 10,
-      content: actionLabel
-        ? `Action selected: ${actionLabel}.`
-        : 'This Domain Expansion has already been resolved.'
-    });
-  }
-
-  return components;
-}
-
 function normalizePremiumTrigger(rawTrigger) {
   const responseLinks = Array.isArray(rawTrigger?.response_links)
     ? rawTrigger.response_links
@@ -306,42 +254,6 @@ async function sendPremiumFeatureResponse({ message, config, triggerConfig }) {
   await message.channel.send(payload).catch(() => null);
 }
 
-function buildAnnouncementComponents({ title, body, gifUrl }) {
-  return [
-    {
-      type: 17,
-      components: [
-        {
-          type: 10,
-          content: `# ${title}`
-        },
-        {
-          type: 14,
-          divider: true,
-          spacing: 1
-        },
-        {
-          type: 12,
-          items: [
-            {
-              media: { url: gifUrl }
-            }
-          ]
-        },
-        {
-          type: 14,
-          divider: true,
-          spacing: 1
-        },
-        {
-          type: 10,
-          content: body
-        }
-      ]
-    }
-  ];
-}
-
 function buildMemeAutopostControlEmbed(config, stats = []) {
   const latest = stats.slice(0, 5).map((row) => {
     const when = row.fetched_at ? new Date(row.fetched_at).toLocaleString() : 'unknown time';
@@ -393,7 +305,7 @@ function storePendingAction(store, data) {
   const token = randomUUID();
   const timeout = setTimeout(() => {
     store.delete(token);
-  }, DOMAIN_EXPANSION_PENDING_MS);
+  }, 600000);
 
   store.set(token, {
     ...data,
@@ -402,55 +314,6 @@ function storePendingAction(store, data) {
   });
 
   return token;
-}
-
-function clearPendingAction(store, token) {
-  const pending = store.get(token);
-  if (pending?.timeout) {
-    clearTimeout(pending.timeout);
-  }
-  store.delete(token);
-}
-
-async function deleteRecentMessagesFromChannel(channel, targetId) {
-  if (!channel?.isTextBased?.() || !channel.messages?.fetch || !channel.bulkDelete) {
-    return { attempted: false, deletedCount: 0 };
-  }
-
-  const cutoff = Date.now() - (60 * 60 * 1000);
-  let before;
-  let deletedCount = 0;
-
-  for (let batch = 0; batch < 10; batch += 1) {
-    const messages = await channel.messages.fetch({
-      limit: 100,
-      ...(before ? { before } : {})
-    });
-
-    if (!messages.size) {
-      break;
-    }
-
-    const deletable = messages.filter(
-      (message) =>
-        message.author?.id === targetId &&
-        message.createdTimestamp >= cutoff
-    );
-
-    if (deletable.size) {
-      const deleted = await channel.bulkDelete(deletable, true).catch(() => null);
-      deletedCount += deleted?.size ?? 0;
-    }
-
-    const oldest = messages.last();
-    if (!oldest || oldest.createdTimestamp < cutoff) {
-      break;
-    }
-
-    before = oldest.id;
-  }
-
-  return { attempted: true, deletedCount };
 }
 
 export default {
@@ -560,197 +423,6 @@ export default {
         });
       }
     },
-    {
-      name: 'domain-expansion',
-      description: 'Activate a Domain Expansion',
-      ephemeral: true,
-      options: [
-        {
-          name: 'technique',
-          type: 3,
-          description: 'Choose a domain',
-          required: true,
-          choices: [
-            {
-              name: 'Deadly Sentencing (Higuruma)',
-              value: 'deadly'
-            }
-          ]
-        },
-        {
-          name: 'target',
-          type: 6,
-          description: 'User to judge',
-          required: true
-        }
-      ],
-      async execute(interaction) {
-        const domainRoleId = env.discord.domainExpansionRoleId;
-        const accusedRoleId = env.discord.accusedRoleId;
-
-        if (!domainRoleId) {
-          await interaction.editReply('DOMAIN_EXPANSION is missing in the backend environment.');
-          return;
-        }
-
-        if (!accusedRoleId) {
-          await interaction.editReply('ACCUSED_ROLE is missing in the backend environment.');
-          return;
-        }
-
-        if (!interaction.member.roles.cache.has(domainRoleId)) {
-          await interaction.editReply('You lack authority to expand a Domain.');
-          return;
-        }
-
-        const technique = interaction.options.getString('technique', true);
-        const target = interaction.options.getUser('target', true);
-        const member = await interaction.guild.members.fetch(target.id).catch(() => null);
-        if (!member) {
-          await interaction.editReply('That user could not be found in this server.');
-          return;
-        }
-
-        const accusedRole = interaction.guild.roles.cache.get(accusedRoleId)
-          ?? (await interaction.guild.roles.fetch(accusedRoleId).catch(() => null));
-        if (!accusedRole) {
-          await interaction.editReply('The configured ACCUSED_ROLE does not exist in this server.');
-          return;
-        }
-
-        if (accusedRole.managed || !accusedRole.editable) {
-          await interaction.editReply('The configured ACCUSED_ROLE cannot be managed by this bot.');
-          return;
-        }
-
-        if (technique !== 'deadly') {
-          await interaction.editReply('That domain technique is not supported yet.');
-          return;
-        }
-
-        const token = storePendingAction(pendingDomainExpansions, {
-          guildId: interaction.guildId,
-          issuerId: interaction.user.id,
-          targetId: target.id,
-          accusedRoleId,
-          technique,
-          channelId: interaction.channelId
-        });
-
-        await interaction.editReply({
-          flags: MessageFlags.IsComponentsV2,
-          components: buildActionPromptComponents({
-            title: 'Domain Expansion: Deadly Sentencing',
-            prompt:
-              `Do you really want to do this to <@${target.id}>?\n\n` +
-              'YES: apply the accused role.\n' +
-              'YES+: apply the accused role and delete the target user\'s last hour of messages in this channel.',
-            buttonRows: [[
-              {
-                type: 2,
-                custom_id: `${DOMAIN_ACTION_PREFIX}:${token}:apply`,
-                label: 'YES',
-                style: 1
-              },
-              {
-                type: 2,
-                custom_id: `${DOMAIN_ACTION_PREFIX}:${token}:purge`,
-                label: 'YES+',
-                style: 4
-              }
-            ]]
-          }),
-          allowedMentions: {
-            users: [target.id]
-          }
-        });
-      }
-    },
-    {
-      name: 'free',
-      description: 'Free a user from the accused role',
-      ephemeral: true,
-      options: [
-        {
-          name: 'target',
-          type: 6,
-          description: 'User to free',
-          required: true
-        }
-      ],
-      async execute(interaction) {
-        const domainRoleId = env.discord.domainExpansionRoleId;
-        const accusedRoleId = env.discord.accusedRoleId;
-
-        if (!domainRoleId) {
-          await interaction.editReply('DOMAIN_EXPANSION is missing in the backend environment.');
-          return;
-        }
-
-        if (!accusedRoleId) {
-          await interaction.editReply('ACCUSED_ROLE is missing in the backend environment.');
-          return;
-        }
-
-        if (!interaction.member.roles.cache.has(domainRoleId)) {
-          await interaction.editReply('You lack authority to free this user.');
-          return;
-        }
-
-        const target = interaction.options.getUser('target', true);
-        const member = await interaction.guild.members.fetch(target.id).catch(() => null);
-        if (!member) {
-          await interaction.editReply('That user could not be found in this server.');
-          return;
-        }
-
-        const accusedRole = interaction.guild.roles.cache.get(accusedRoleId)
-          ?? (await interaction.guild.roles.fetch(accusedRoleId).catch(() => null));
-        if (!accusedRole) {
-          await interaction.editReply('The configured ACCUSED_ROLE does not exist in this server.');
-          return;
-        }
-
-        if (accusedRole.managed || !accusedRole.editable) {
-          await interaction.editReply('The configured ACCUSED_ROLE cannot be managed by this bot.');
-          return;
-        }
-
-        if (!member.roles.cache.has(accusedRole.id)) {
-          await interaction.editReply('That user does not currently have the accused role.');
-          return;
-        }
-
-        const token = storePendingAction(pendingFreeActions, {
-          guildId: interaction.guildId,
-          issuerId: interaction.user.id,
-          targetId: target.id,
-          accusedRoleId,
-          channelId: interaction.channelId
-        });
-
-        await interaction.editReply({
-          flags: MessageFlags.IsComponentsV2,
-          components: buildActionPromptComponents({
-            title: 'You wanna let them out?',
-            prompt:
-              `Do you want to free the user <@${target.id}>?\n\n` +
-              'YES: click this to free the user.',
-            buttonRows: [[
-              {
-                type: 2,
-                custom_id: `${FREE_ACTION_PREFIX}:${token}:release`,
-                label: 'YES',
-                style: 3
-              }
-            ]]
-          }),
-          allowedMentions: {
-            users: [target.id]
-          }
-        });
-      }
-    }
   ],
   events: [
     {
@@ -900,70 +572,16 @@ export default {
       async execute(interaction, { services }) {
         if (
           !interaction.isButton() ||
-          (!interaction.customId.startsWith(`${DOMAIN_ACTION_PREFIX}:`) &&
-            !interaction.customId.startsWith(`${FREE_ACTION_PREFIX}:`) &&
-            !interaction.customId.startsWith(`${MEME_ACTION_PREFIX}:`))
+          !interaction.customId.startsWith(`${MEME_ACTION_PREFIX}:`)
         ) {
           return;
         }
 
-        if (interaction.customId.startsWith(`${MEME_ACTION_PREFIX}:`)) {
-          const [, , token, action] = interaction.customId.split(':');
-          const pending = pendingMemeAutopostActions.get(token);
-          if (!pending) {
-            await interaction.reply({
-              content: 'This meme autopost panel expired. Run the command again.',
-              ephemeral: true
-            });
-            return;
-          }
-
-          if (pending.issuerId !== interaction.user.id) {
-            await interaction.reply({
-              content: 'Only the original invoker can use this meme autopost panel.',
-              ephemeral: true
-            });
-            return;
-          }
-
-          if (pending.guildId !== interaction.guildId) {
-            await interaction.reply({
-              content: 'This meme autopost panel belongs to a different server context.',
-              ephemeral: true
-            });
-            return;
-          }
-
-          if (action !== 'start' && action !== 'stop') {
-            await interaction.reply({
-              content: 'That meme autopost action is not recognized anymore.',
-              ephemeral: true
-            });
-            return;
-          }
-
-          const nextEnabled = action === 'start';
-          const config = await services.memeService.updateGuildConfig(interaction.guildId, {
-            enabled: nextEnabled
-          });
-          const { stats } = await services.memeService.getAutopostStatus(interaction.guildId);
-
-          await interaction.update({
-            embeds: [buildMemeAutopostControlEmbed(config, stats)],
-            components: buildMemeAutopostButtons(token, config.enabled)
-          });
-          return;
-        }
-
-        const [prefix, , token, action] = interaction.customId.split(':');
-        const isFreeAction = prefix === 'free';
-        const store = isFreeAction ? pendingFreeActions : pendingDomainExpansions;
-        const pending = store.get(token);
+        const [, , token, action] = interaction.customId.split(':');
+        const pending = pendingMemeAutopostActions.get(token);
         if (!pending) {
           await interaction.reply({
-            content: isFreeAction
-              ? 'This free prompt expired. Run the slash command again.'
-              : 'This domain prompt expired. Run the slash command again.',
+            content: 'This meme autopost panel expired. Run the command again.',
             ephemeral: true
           });
           return;
@@ -971,9 +589,7 @@ export default {
 
         if (pending.issuerId !== interaction.user.id) {
           await interaction.reply({
-            content: isFreeAction
-              ? 'Only the original invoker can confirm this free action.'
-              : 'Only the original invoker can confirm this Domain Expansion.',
+            content: 'Only the original invoker can use this meme autopost panel.',
             ephemeral: true
           });
           return;
@@ -981,133 +597,30 @@ export default {
 
         if (pending.guildId !== interaction.guildId) {
           await interaction.reply({
-            content: isFreeAction
-              ? 'This free action belongs to a different server context.'
-              : 'This Domain Expansion belongs to a different server context.',
+            content: 'This meme autopost panel belongs to a different server context.',
             ephemeral: true
           });
           return;
         }
 
-        const validAction = isFreeAction
-          ? action === 'release'
-          : action === 'apply' || action === 'purge';
-
-        if (!validAction) {
+        if (action !== 'start' && action !== 'stop') {
           await interaction.reply({
-            content: isFreeAction
-              ? 'That free action is not recognized anymore.'
-              : 'That domain action is not recognized anymore.',
+            content: 'That meme autopost action is not recognized anymore.',
             ephemeral: true
           });
           return;
         }
 
-        const guild = interaction.guild ?? (await interaction.client.guilds.fetch(pending.guildId).catch(() => null));
-        if (!guild) {
-          clearPendingAction(store, token);
-          await interaction.reply({
-            content: 'The guild could not be resolved anymore.',
-            ephemeral: true
-          });
-          return;
-        }
+        const nextEnabled = action === 'start';
+        const config = await services.memeService.updateGuildConfig(interaction.guildId, {
+          enabled: nextEnabled
+        });
+        const { stats } = await services.memeService.getAutopostStatus(interaction.guildId);
 
-        const member = await guild.members.fetch(pending.targetId).catch(() => null);
-        if (!member) {
-          clearPendingAction(store, token);
-          await interaction.reply({
-            content: 'That user is no longer available in this server.',
-            ephemeral: true
-          });
-          return;
-        }
-
-        const accusedRole = guild.roles.cache.get(pending.accusedRoleId)
-          ?? (await guild.roles.fetch(pending.accusedRoleId).catch(() => null));
-        if (!accusedRole || accusedRole.managed || !accusedRole.editable) {
-          clearPendingAction(store, token);
-          await interaction.reply({
-            content: 'The configured accused role is missing or cannot be managed by this bot.',
-            ephemeral: true
-          });
-          return;
-        }
-
-        try {
-          if (isFreeAction) {
-            await member.roles.remove(accusedRole.id, 'Free command release');
-          } else {
-            await member.roles.add(accusedRole.id, 'Deadly Sentencing domain expansion');
-          }
-
-          let deletedCount = 0;
-
-          if (!isFreeAction && action === 'purge') {
-            const channel = interaction.channel ?? guild.channels.cache.get(pending.channelId) ?? null;
-            const purgeResult = await deleteRecentMessagesFromChannel(channel, member.id);
-            deletedCount = purgeResult.deletedCount;
-          }
-
-          clearPendingAction(store, token);
-
-          await interaction.update({
-            flags: MessageFlags.IsComponentsV2,
-            components: buildActionPromptComponents({
-              title: isFreeAction ? 'You wanna let them out?' : 'Domain Expansion: Deadly Sentencing',
-              prompt: isFreeAction
-                ? `Do you want to free the user <@${member.id}>?\n\nYES: click this to free the user.`
-                : (
-                    `Do you really want to do this to <@${member.id}>?\n\n` +
-                    'YES: apply the accused role.\n' +
-                    'YES+: apply the accused role and delete the target user\'s last hour of messages in this channel.'
-                  ),
-              locked: true,
-              actionLabel: isFreeAction
-                ? 'YES selected. Accused role removed.'
-                : action === 'purge'
-                  ? `YES+ selected. Removed ${deletedCount} recent message${deletedCount === 1 ? '' : 's'} from this channel.`
-                  : 'YES selected. Accused role applied.'
-            })
-          });
-
-          const announcement = await interaction.followUp({
-            flags: MessageFlags.IsComponentsV2,
-            components: buildAnnouncementComponents({
-              title: isFreeAction ? 'You are truly free now' : 'Domain Expansion: Deadly Sentencing',
-              gifUrl: isFreeAction ? FREE_GIF : DEADLY_GIF,
-              body: isFreeAction
-                ? `Freed <@${member.id}>.`
-                : (
-                    'The court is in session.\n' +
-                    `<@${member.id}> has been summoned as the **Defendant**.\n\n` +
-                    (action === 'purge'
-                      ? `YES+ was invoked. ${deletedCount} message${deletedCount === 1 ? '' : 's'} from the last hour were removed in <#${interaction.channelId}>.\n\n`
-                      : '') +
-                    'Judgment will be passed.'
-                  )
-            }),
-            allowedMentions: {
-              users: [member.id]
-            }
-          });
-          if (announcement?.deletable) {
-            setTimeout(() => {
-              announcement.delete().catch(() => null);
-            }, DOMAIN_EXPANSION_MESSAGE_DELETE_MS);
-          }
-        } catch {
-          clearPendingAction(store, token);
-          const fallback = {
-            content: isFreeAction ? 'The free command failed.' : 'The Domain failed to form.',
-            ephemeral: true
-          };
-          if (interaction.deferred || interaction.replied) {
-            await interaction.followUp(fallback).catch(() => null);
-          } else {
-            await interaction.reply(fallback).catch(() => null);
-          }
-        }
+        await interaction.update({
+          embeds: [buildMemeAutopostControlEmbed(config, stats)],
+          components: buildMemeAutopostButtons(token, config.enabled)
+        });
       }
     },
     {

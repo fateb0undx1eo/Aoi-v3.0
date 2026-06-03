@@ -2,6 +2,7 @@
  * Interaction router - routes all Discord interactions to appropriate handlers
  */
 
+import { MessageFlags } from 'discord.js';
 import logger from '../services/logging-service.js';
 import {
   parseResolvedCreatorId,
@@ -63,7 +64,7 @@ export class InteractionRouter {
     logger.debug('Ticket tag selected', { userId: interaction.user.id, value: interaction.values[0] });
 
     // Defer immediately to prevent 3-second timeout
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     // Check for creation lock
     const hasLock = await this.lockService.hasCreationLock(interaction.user.id);
