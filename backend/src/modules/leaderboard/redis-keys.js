@@ -13,7 +13,7 @@ export const REDIS_KEYS = {
   workerLastLeaderboardUpdate: 'worker:last_leaderboard_update'
 };
 
-export const BUCKETS = Object.freeze(['daily', 'weekly', 'monthly']);
+export const BUCKETS = Object.freeze(['monthly', 'weekly', 'daily']);
 
 export const HEARTBEAT_TTL_SECONDS = 1200;
 export const HEARTBEAT_TTL_MS = HEARTBEAT_TTL_SECONDS * 1000;

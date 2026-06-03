@@ -19,7 +19,7 @@ export async function handleSetupLeaderboard(interaction, { redis, discordClient
   if (oldChannelId && guild) {
     const oldChannel = await guild.channels.fetch(oldChannelId).catch(() => null);
     if (oldChannel?.isTextBased?.()) {
-      for (const key of ['leaderboard:msg:header', 'leaderboard:msg:daily', 'leaderboard:msg:weekly', 'leaderboard:msg:monthly']) {
+      for (const key of ['leaderboard:msg:header', 'leaderboard:msg:monthly', 'leaderboard:msg:weekly', 'leaderboard:msg:daily']) {
         const oldMsgId = await redis.get(key);
         if (oldMsgId) {
           try {
@@ -46,8 +46,8 @@ export async function handleSetupLeaderboard(interaction, { redis, discordClient
     return;
   }
 
-  const buckets = ['daily', 'weekly', 'monthly'];
-  const titles = ['DAILY', 'WEEKLY', 'MONTHLY'];
+  const buckets = ['monthly', 'weekly', 'daily'];
+  const titles = ['MONTHLY', 'WEEKLY', 'DAILY'];
 
   for (let i = 0; i < buckets.length; i++) {
     const container = {
