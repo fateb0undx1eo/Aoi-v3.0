@@ -31,24 +31,27 @@ export async function handleSetupLeaderboard(interaction, { redis, discordClient
   await redis.set(REDIS_KEYS.leaderboardChannel, channel.id);
 
   const buckets = ['daily', 'weekly', 'monthly'];
-  const titles = ['CHAT LEADERBOARD — DAILY', 'CHAT LEADERBOARD — WEEKLY', 'CHAT LEADERBOARD — MONTHLY'];
-  const colors = [0x57F287, 0x5865F2, 0xFEE75C];
+  const titles = ['CHAT LEADERBOARD DAILY', 'CHAT LEADERBOARD WEEKLY', 'CHAT LEADERBOARD MONTHLY'];
 
   for (let i = 0; i < buckets.length; i++) {
-    const embed = {
-      title: titles[i],
-      color: colors[i],
-      description: 'Loading...',
-      timestamp: new Date().toISOString()
+    const container = {
+      type: 17,
+      components: [
+        { type: 10, content: `# ${titles[i]}` },
+        { type: 10, content: 'Loading...' }
+      ]
     };
 
     try {
-      const sent = await channel.send({ embeds: [embed] });
+      const sent = await channel.send({
+        flags: MessageFlags.IsComponentsV2,
+        components: [container]
+      });
       await redis.set(`leaderboard:msg:${buckets[i]}`, sent.id);
     } catch (err) {
       await interaction.editReply({
         flags: MessageFlags.IsComponentsV2,
-        components: [{ type: 17, components: [{ type: 10, content: `Failed to send ${buckets[i]} leaderboard embed.` }] }]
+        components: [{ type: 17, components: [{ type: 10, content: `Failed to send ${buckets[i]} leaderboard.` }] }]
       });
       return;
     }
@@ -59,6 +62,6 @@ export async function handleSetupLeaderboard(interaction, { redis, discordClient
 
   await interaction.editReply({
     flags: MessageFlags.IsComponentsV2,
-    components: [{ type: 17, components: [{ type: 10, content: 'Leaderboard setup complete. Messages will update every hour.' }] }]
+    components: [{ type: 17, components: [{ type: 10, content: 'Leaderboard setup complete.' }] }]
   });
 }

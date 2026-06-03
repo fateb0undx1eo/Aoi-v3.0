@@ -1,44 +1,35 @@
-import { EmbedBuilder, MessageFlags } from 'discord.js';
+import { MessageFlags } from 'discord.js';
 import { logger } from '../../utils/logger.js';
 import { REDIS_KEYS, BUCKETS, activeUsersKey, messagesKey } from './redis-keys.js';
 
-const EMBED_COLORS = {
-  daily: 0x57F287,
-  weekly: 0x5865F2,
-  monthly: 0xFEE75C
-};
-
-const EMBED_TITLES = {
-  daily: 'CHAT LEADERBOARD — DAILY',
-  weekly: 'CHAT LEADERBOARD — WEEKLY',
-  monthly: 'CHAT LEADERBOARD — MONTHLY'
+const TITLES = {
+  daily: 'CHAT LEADERBOARD DAILY',
+  weekly: 'CHAT LEADERBOARD WEEKLY',
+  monthly: 'CHAT LEADERBOARD MONTHLY'
 };
 
 function getNextHourUnix() {
   const now = Date.now();
-  const nextHour = Math.ceil(now / 3600000) * 3600000;
-  return Math.floor(nextHour / 1000);
+  return Math.floor(Math.ceil(now / 3600000) * 3600000 / 1000);
 }
 
 function getResetUnix(bucket) {
   const now = new Date();
+  const utc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   switch (bucket) {
     case 'daily': {
-      const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
-      return Math.floor(next.getTime() / 1000);
+      return Math.floor((utc + 86400000) / 1000);
     }
     case 'weekly': {
       const dayOfWeek = now.getUTCDay();
       const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
-      const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysUntilMonday));
-      return Math.floor(next.getTime() / 1000);
+      return Math.floor((utc + daysUntilMonday * 86400000) / 1000);
     }
     case 'monthly': {
       const nextMonth = now.getUTCMonth() + 1;
       const nextYear = nextMonth > 11 ? now.getUTCFullYear() + 1 : now.getUTCFullYear();
       const nextMonthIndex = nextMonth > 11 ? 0 : nextMonth;
-      const next = new Date(Date.UTC(nextYear, nextMonthIndex, 1));
-      return Math.floor(next.getTime() / 1000);
+      return Math.floor(Date.UTC(nextYear, nextMonthIndex, 1) / 1000);
     }
     default:
       return 0;
@@ -47,6 +38,26 @@ function getResetUnix(bucket) {
 
 function formatNumber(n) {
   return n.toLocaleString('en-US');
+}
+
+function buildLeaderboardContainer(bucket, sorted) {
+  const lines = [`# ${TITLES[bucket]}`];
+
+  if (sorted.length === 0) {
+    lines.push('No data yet.');
+  } else {
+    for (let i = 0; i < sorted.length; i++) {
+      lines.push(`**${i + 1}.** <@${sorted[i][0]}>  **${formatNumber(sorted[i][1])}** messages`);
+    }
+  }
+
+  lines.push(`Updates <t:${getNextHourUnix()}:R>`);
+  lines.push(`Resets <t:${getResetUnix(bucket)}:R>`);
+
+  return {
+    type: 17,
+    components: lines.map((line) => ({ type: 10, content: line }))
+  };
 }
 
 export async function updateLeaderboard(redis, discordClient, supabase) {
@@ -125,44 +136,32 @@ async function updateSingleLeaderboard(bucket, redis, rawClient, supabase, chann
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10);
 
-  const descriptionLines = sorted.map(([userId, count], i) => {
-    return `**${i + 1}.** <@${userId}>  **${formatNumber(count)}** messages`;
-  });
-  const description = descriptionLines.length > 0
-    ? descriptionLines.join('\n')
-    : 'No data yet.';
-
-  const embed = new EmbedBuilder()
-    .setTitle(EMBED_TITLES[bucket])
-    .setColor(EMBED_COLORS[bucket])
-    .setDescription(description)
-    .addFields(
-      { name: '🔄 Updates', value: `<t:${getNextHourUnix()}:R>`, inline: false },
-      { name: '🔄 Resets', value: `<t:${getResetUnix(bucket)}:R>`, inline: false }
-    )
-    .setFooter({ text: 'Last updated' })
-    .setTimestamp();
-
-  const msgId = await redis.get(REDIS_KEYS[`leaderboardMsg${bucket.charAt(0).toUpperCase() + bucket.slice(1)}`]);
+  const container = buildLeaderboardContainer(bucket, sorted);
+  const msgId = await redis.get(`leaderboard:msg:${bucket}`);
 
   if (msgId) {
     try {
       const msg = await channel.messages.fetch(msgId);
-      await msg.edit({ embeds: [embed] });
-      logger.info({ bucket, msgId }, 'Leaderboard embed updated');
+      await msg.edit({
+        flags: MessageFlags.IsComponentsV2,
+        components: [container]
+      });
+      logger.info({ bucket, msgId }, 'Leaderboard updated');
       return;
     } catch {
       logger.warn({ bucket, msgId }, 'Existing leaderboard message not found, creating new one');
-      await redis.del(REDIS_KEYS[`leaderboardMsg${bucket.charAt(0).toUpperCase() + bucket.slice(1)}`]);
+      await redis.del(`leaderboard:msg:${bucket}`).catch(() => {});
     }
   }
 
   try {
-    const sent = await channel.send({ embeds: [embed] });
-    const key = `leaderboard:msg:${bucket}`;
-    await redis.set(key, sent.id);
-    logger.info({ bucket, msgId: sent.id }, 'New leaderboard embed sent');
+    const sent = await channel.send({
+      flags: MessageFlags.IsComponentsV2,
+      components: [container]
+    });
+    await redis.set(`leaderboard:msg:${bucket}`, sent.id);
+    logger.info({ bucket, msgId: sent.id }, 'New leaderboard sent');
   } catch (err) {
-    logger.error({ err, bucket }, 'Failed to send leaderboard embed');
+    logger.error({ err, bucket }, 'Failed to send leaderboard');
   }
 }
