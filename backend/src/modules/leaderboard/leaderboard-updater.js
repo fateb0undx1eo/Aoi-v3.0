@@ -64,22 +64,23 @@ const TITLES = {
 };
 
 function buildLeaderboardContainer(bucket, entries) {
-  const lines = [`### ${TITLES[bucket]}`];
+  const components = [{ type: 10, content: `### ${TITLES[bucket]}` }];
 
   if (entries.length === 0) {
-    lines.push('_No messages recorded yet._');
+    components.push({ type: 10, content: '_No messages recorded yet._' });
   } else {
     for (let i = 0; i < entries.length; i++) {
-      lines.push(`${getRankEmoji(i + 1)}<@${entries[i][0]}> → **${formatNumber(entries[i][1])}** messages`);
+      components.push({ type: 10, content: `${getRankEmoji(i + 1)}<@${entries[i][0]}> → **${formatNumber(entries[i][1])}** messages` });
     }
   }
 
-  lines.push(`-# Updates <t:${getNextHourUnix()}:R>`);
-  lines.push(`-# Resets <t:${getResetUnix(bucket)}:R>`);
+  components.push({ type: 14, divider: true });
+  components.push({ type: 10, content: `-# Updates <t:${getNextHourUnix()}:R>` });
+  components.push({ type: 10, content: `-# Resets <t:${getResetUnix(bucket)}:R>` });
 
   return {
     type: 17,
-    components: lines.map((line) => ({ type: 10, content: line }))
+    components
   };
 }
 
