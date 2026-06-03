@@ -1,81 +1,47 @@
-# Discord Bot System
+# AOI — Discord Bot & Dashboard
 
-This repo has two active applications:
+Multi-purpose Discord bot with an Express API dashboard. 14 slash/context commands, 15+ passive features, 22 services, 7 REST API route groups, and a WebSocket overview endpoint.
 
-- `backend/`: Discord runtime plus Express API
-- `landing/`: public site and thin dashboard frontend
+## Features
 
-Authentication now lives in the backend. There is no separate `dashboard/` app anymore.
+### Slash Commands
 
-## Current Scope
+| Command | Module | Description |
+|---|---|---|
+| `/user info` | User Info | User info panel (banner, avatar, roles, decoration, timestamps) |
+| `/rank` | Leveling | Canvas-generated rank card with XP, streak, daily/lifetime stats |
+| `/waifu` | Fun | Interactive waifu drop — Smash (claim) or Pass |
+| `/husbando` | Fun | Same as `/waifu` but for husbandos |
+| `/profile` | Community | Interactive bot profile style config (font, effect, colors) — admin only |
+| `/randomizedrolecolor` | Community | Toggle automatic role color rotation |
+| `/memes` | Community | Meme autopost status & controls |
+| `/domain-expansion` | Community | Apply accused role with optional message purge |
+| `/free` | Community | Remove accused role from a user |
+| `/case` | Moderation | Message context menu — Warn / Timeout / Kick |
+| `/ticket` | Tickets | Thread-based ticket panel & user management |
+| `/channel` | Tools | Broadcast a message to every channel |
 
-- single Discord runtime in `backend/src/index.js`
-- backend-owned Discord OAuth session flow
-- landing app that proxies auth and dashboard requests to the backend
-- Supabase used only as the backend data store
-- lightweight feature set first; heavy systems like tickets and XP are intentionally out of scope
+### Passive Features
 
-## Repo Layout
+- DM welcomer, leave messages, boost announcements
+- UWU lock enforcement
+- Premium keyword-triggered responses
+- Meme autopost from Reddit subreddits
+- Role color rotation
+- Bot presence/activity management
+- Ghost ping detection
+- AFK auto-clear & LOA tracking
+- Autoresponder with placeholder templates
+- Staff list auto-update
+- Rate limiting & config cache auto-refresh
 
-```text
-/
-|-- backend/
-|-- landing/
-|-- supabase/
-|-- README.md
-|-- QUICK_START.md
-|-- TESTING.md
-`-- DEPLOYMENT.md
-```
+### Infrastructure
 
-## What Exists Today
+- **Supabase** (PostgreSQL) — all persistent storage
+- **Redis** — caching, rate limiting, queues, session store
+- **Express** — REST API + WebSocket dashboard
+- **discord.js v14** — Discord gateway & API
 
-- Moderation core: warn, timeout, kick, ban, unban, cases, AFK, LOA
-- Community core: welcome, leave, boost, UwU lock, staff rating, staff leaderboard
-- Lightweight tools and meme modules
-- Guild overview, settings, module listing, analytics snapshots, and Discord-based dashboard auth
+## Getting Started
 
-## Local Development
-
-Backend:
-
-```bash
-cd backend
-npm install
-npm run dev
-```
-
-Landing:
-
-```bash
-cd landing
-npm install
-npm run dev
-```
-
-## Required Environment Variables
-
-Backend:
-
-- `DISCORD_TOKEN`
-- `DISCORD_CLIENT_ID`
-- `DISCORD_OAUTH_CLIENT_ID`
-- `DISCORD_OAUTH_CLIENT_SECRET`
-- `DISCORD_OAUTH_REDIRECT_URI`
-- `SESSION_SECRET`
-- `GUILD_ID`
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
-
-Landing:
-
-- `BACKEND_API_URL`
-- `FRONTEND_APP_URL`
-- `DISCORD_REDIRECT_URI`
-- `NEXT_PUBLIC_DASHBOARD_URL` optional
-
-## Notes
-
-- Slash interactions are deferred by default, so handlers should reply with `editReply()`.
-- The frontend should stay thin. Auth, guild access checks, and data writes belong in the backend.
-- If you add new dashboard surfaces, wire the backend route first and keep the page aligned with the actual module set.
+See [QUICK_START.md](./QUICK_START.md) for setup instructions.

@@ -1,3 +1,4 @@
+import { MessageFlags } from 'discord.js';
 import { logger } from '../utils/logger.js';
 import { metrics } from '../observability/metrics.js';
 
@@ -42,7 +43,7 @@ export function registerInteractionRouter(client, registry, context) {
 
           try {
             await interaction.deferReply({
-              ephemeral: command.ephemeral ?? true
+              flags: command.ephemeral !== false ? MessageFlags.Ephemeral : undefined
             });
           } catch (deferError) {
             if (deferError.code === 40060) {

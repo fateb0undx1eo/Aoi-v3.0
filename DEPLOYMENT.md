@@ -1,79 +1,62 @@
-# Deployment Guide
+# Deployment
 
-## Recommended Shape
+## Render (Recommended)
 
-- deploy `backend/` as one Node service
-- deploy `landing/` as one Next.js frontend
-- keep Supabase as the shared database
+Create a **Web Service** connected to your Git repo.
 
-This matches the current architecture: the backend owns Discord auth, sessions, API routes, and the Discord client itself.
+### Settings
 
-## Backend Deployment
+- **Runtime**: Node
+- **Build Command**: `cd backend && npm install`
+- **Start Command**: `cd backend && npm start`
+- **Instance Type**: Starter or higher (the bot uses ~256MB+)
 
-Deploy `backend/` to a Node host such as Render, Railway, or Fly.
+### Environment Variables
 
-Build/start:
+Set all variables from [QUICK_START.md](./QUICK_START.md) in the Render dashboard.
 
-```bash
-cd backend
-npm install
-npm start
-```
+### Redis
 
-Required backend env:
+Use Render's Redis add-on or Upstash. Set `REDIS_URL` accordingly.
 
-- `DISCORD_TOKEN`
-- `DISCORD_CLIENT_ID`
-- `DISCORD_OAUTH_CLIENT_ID`
-- `DISCORD_OAUTH_CLIENT_SECRET`
-- `DISCORD_OAUTH_REDIRECT_URI`
-- `SESSION_SECRET`
-- `GUILD_ID`
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `API_PORT`
+### Health Check
 
-## Landing Deployment
+The Express server listens on `PORT` (default `3001`). Render's health check pings `http://localhost:3001` automatically.
 
-Deploy `landing/` separately as the frontend. This repo now includes a root `render.yaml` that defines the frontend as its own Render web service, separate from the backend.
-
-Build/start:
+## Manual (VPS)
 
 ```bash
-cd landing
-npm install
-npm run build
-npm start
+# Install Node.js 18+
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs git
+
+# Clone & setup
+git clone <repo>
+cd aoi-v3/backend
+cp .env.example .env   # edit with your values
+npm install --production
+
+# Run with process manager
+npm install -g pm2
+pm2 start src/main.js --name aoi-bot
+pm2 save
+pm2 startup
 ```
 
-Render service shape:
+## Supabase
 
-- runtime: `Node`
-- root directory: `landing`
-- build command: `npm install && npm run build`
-- start command: `npm start`
-- `PORT` is provided by Render automatically
+Run migrations or restore your database dump. Key tables:
+- `module_configs` — all guild configurations
+- `rate_limit_rules` — rate limiting
+- `cases`, `afk_status`, `loa_status`, `ghost_pings` — moderation
+- `auto_responses` — autoresponder entries
+- `ticket_configs`, `ticket_audit_logs`, `ticket_cooldowns` — tickets
+- `analytics_events` — analytics data
 
-Required landing env:
+## Updating
 
-- `BACKEND_API_URL`
-- `FRONTEND_APP_URL`
-- `DISCORD_REDIRECT_URI`
-- `NEXT_PUBLIC_DASHBOARD_URL` optional
-
-## Discord OAuth Setup
-
-Register the landing callback URL in the Discord application:
-
-- local example: `http://localhost:3002/api/auth/callback`
-- production example: `https://your-domain.com/api/auth/callback`
-
-The landing app forwards the OAuth exchange to the backend, and the backend issues the session cookie.
-
-## Post-Deploy Checks
-
-1. Verify backend `/healthz`
-2. Verify Discord login from `/dashboard`
-3. Verify server picker loads
-4. Verify one moderation command and one community command
-5. Verify analytics snapshots still write for the configured guild
+```bash
+git pull
+cd backend && npm install
+pm2 restart aoi-bot   # or redeploy on Render
+```

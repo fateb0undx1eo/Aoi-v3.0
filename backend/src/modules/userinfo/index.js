@@ -6,18 +6,30 @@ export default {
   configSchema: { type: 'object', properties: {} },
   commands: [
     {
-      name: 'userinfo',
-      description: 'Show user information',
+      name: 'user',
+      description: 'User information commands',
       ephemeral: false,
       options: [
         {
-          name: 'user',
-          type: 6,
-          description: 'The user to show info for',
-          required: false
+          name: 'info',
+          type: 1,
+          description: 'Show user information',
+          options: [
+            {
+              name: 'user',
+              type: 6,
+              description: 'The user to show info for',
+              required: false
+            }
+          ]
         }
       ],
       async execute(interaction, context) {
+        if (interaction.options.getSubcommand(true) !== 'info') {
+          await interaction.editReply('Unknown subcommand.');
+          return;
+        }
+
         const targetUser = interaction.options.getUser('user') ?? interaction.user;
         const targetMember = interaction.guild
           ? await interaction.guild.members.fetch(targetUser.id).catch(() => null)
@@ -101,14 +113,17 @@ export default {
         const avatarUrl = (targetMember ?? targetUser).displayAvatarURL({ size: 512 });
         if (bodyContent) {
           containerComponents.push({
-            type: 10,
-            content: bodyContent
+            type: 9,
+            components: [{
+              type: 10,
+              content: bodyContent
+            }],
+            accessory: {
+              type: 11,
+              media: { url: avatarUrl }
+            }
           });
         }
-        containerComponents.push({
-          type: 11,
-          media: { url: avatarUrl }
-        });
 
         const buttons = [];
 

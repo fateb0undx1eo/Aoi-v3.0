@@ -1,66 +1,76 @@
 # Quick Start
 
-## 1. Configure the Backend
+## Prerequisites
+
+- Node.js 18+
+- A Discord Application (https://discord.com/developers/applications)
+- A Supabase project (https://supabase.com)
+- A Redis instance (Upstash, Render Redis, or local)
+
+## 1. Clone & Install
 
 ```bash
-cd backend
+git clone <repo>
+cd aoi-v3/backend
 npm install
 ```
 
-Copy `backend/.env.example` to `backend/.env` and set:
+## 2. Environment Variables
 
-- `DISCORD_TOKEN`
-- `DISCORD_CLIENT_ID`
-- `DISCORD_OAUTH_CLIENT_ID`
-- `DISCORD_OAUTH_CLIENT_SECRET`
-- `DISCORD_OAUTH_REDIRECT_URI`
-- `SESSION_SECRET`
-- `GUILD_ID`
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
+Copy the template and fill in your values:
 
-Then start it:
+```env
+# Required
+DISCORD_TOKEN=your_bot_token
+DISCORD_CLIENT_ID=your_client_id
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+# Redis
+REDIS_URL=redis://default:password@host:6379
+
+# OAuth for Dashboard
+DISCORD_OAUTH_CLIENT_ID=your_client_id
+DISCORD_OAUTH_CLIENT_SECRET=your_client_secret
+FRONTEND_URL=https://your-frontend.com
+CORS_ALLOWED_ORIGINS=https://your-frontend.com
+
+# Guild (omit for global commands)
+GUILD_ID=your_guild_id
+
+# Optional: Reddit for meme autopost
+REDDIT_CLIENT_ID=...
+REDDIT_CLIENT_SECRET=...
+REDDIT_USER_AGENT=...
+
+# Optional: role IDs for domain-expansion
+DOMAIN_EXPANSION=role_id
+ACCUSED_ROLE=role_id
+```
+
+## 3. Supabase Setup
+
+Your Supabase schema must include these tables:
+- `module_configs` — guild module configurations
+- `rate_limit_rules` — per-guild rate limit rules
+- Moderation tables: `cases`, `afk_status`, `loa_status`, `ghost_pings`
+- Tools tables: `auto_responses`
+- Analytics tables: `analytics_events`
+- Tickets tables: `ticket_configs`, `ticket_audit_logs`, `ticket_cooldowns`
+
+## 4. Run
 
 ```bash
+# Development (auto-restart on file changes)
 npm run dev
+
+# Production
+npm start
 ```
 
-## 2. Configure the Landing App
+## 5. Bot Intents (Discord Developer Portal)
 
-```bash
-cd landing
-npm install
-```
-
-Copy `landing/.env.example` to `landing/.env` and set:
-
-- `BACKEND_API_URL=http://localhost:3001`
-- `FRONTEND_APP_URL=http://localhost:3002`
-- `DISCORD_REDIRECT_URI=http://localhost:3002/api/auth/callback`
-
-Then start it:
-
-```bash
-npm run dev
-```
-
-## 3. Open the Dashboard
-
-- landing app: `http://localhost:3002`
-- dashboard entry: `http://localhost:3002/dashboard`
-
-The landing app sends Discord auth through the backend, and the backend owns the session cookie.
-
-## 4. What to Verify
-
-- backend boots and logs the Discord client in
-- slash commands sync for your configured guild
-- `http://localhost:3001/healthz` returns `{ ok: true }`
-- logging in through `http://localhost:3002/dashboard` redirects back into the dashboard
-
-## Current Scope
-
-The repo is being kept intentionally light:
-
-- keep: moderation core, community core, settings, lightweight tools
-- skip: tickets, XP/leveling, heavy background systems
+Enable these Privileged Gateway Intents:
+- `SERVER MEMBERS INTENT`
+- `MESSAGE CONTENT INTENT`
+- `GUILD PRESENCES INTENT` (for profile style features)
