@@ -1,3 +1,4 @@
+import { MessageFlags } from 'discord.js';
 import { logger } from '../../utils/logger.js';
 import { REDIS_KEYS, BUCKETS } from './redis-keys.js';
 
@@ -15,9 +16,10 @@ const RANK_EMOJIS = [
 ];
 
 const HEADER_MSG_KEY = 'leaderboard:msg:header';
+const SILENT_MENTIONS = { parse: [] };
 
 function getRankEmoji(rank) {
-  if (rank >= 1 && rank <= 10) return RANK_EMOJIS[rank - 1];
+  if (rank >= 1 && rank <= 10) return `**${RANK_EMOJIS[rank - 1]}**`;
   return `**${rank}.**`;
 }
 
@@ -52,7 +54,7 @@ function formatNumber(n) {
 }
 
 function buildHeaderContent() {
-  return '# <:trophy:1511688001321828403> CHAT LEADERBOARD';
+  return '# <:Empty:1503044372487471328> <:trophy:1511688001321828403> CHAT LEADERBOARD';
 }
 
 const TITLES = {
@@ -61,7 +63,7 @@ const TITLES = {
   monthly: 'MONTHLY'
 };
 
-function buildLeaderboardContent(bucket, entries) {
+function buildLeaderboardContainer(bucket, entries) {
   const lines = [`### ${TITLES[bucket]}`];
 
   if (entries.length === 0) {
@@ -75,17 +77,20 @@ function buildLeaderboardContent(bucket, entries) {
   lines.push(`-# Updates <t:${getNextHourUnix()}:R>`);
   lines.push(`-# Resets <t:${getResetUnix(bucket)}:R>`);
 
-  return lines.join('\n');
+  return {
+    type: 17,
+    components: lines.map((line) => ({ type: 10, content: line }))
+  };
 }
 
-const SILENT_MENTIONS = { parse: [] };
-
-async function updateOrCreateMessage(redis, channel, msgKey, content) {
+async function updateOrCreateMessage(redis, channel, msgKey, opts) {
   const msgId = await redis.get(msgKey);
+  const base = { allowedMentions: SILENT_MENTIONS };
+
   if (msgId) {
     try {
       const msg = await channel.messages.fetch(msgId);
-      await msg.edit({ content, allowedMentions: SILENT_MENTIONS });
+      await msg.edit({ ...base, ...opts });
       logger.info({ msgId, msgKey }, 'Leaderboard message updated');
       return;
     } catch {
@@ -95,7 +100,8 @@ async function updateOrCreateMessage(redis, channel, msgKey, content) {
   }
 
   try {
-    const sent = await channel.send({ content, allowedMentions: SILENT_MENTIONS });
+    const sendOpts = opts.components ? { ...base, ...opts, flags: MessageFlags.IsComponentsV2 } : { ...base, ...opts };
+    const sent = await channel.send(sendOpts);
     await redis.set(msgKey, sent.id);
     logger.info({ msgId: sent.id, msgKey }, 'Leaderboard message sent');
   } catch (err) {
@@ -129,7 +135,7 @@ async function doUpdate(redis, discordClient, supabase) {
     return;
   }
 
-  await updateOrCreateMessage(redis, channel, HEADER_MSG_KEY, buildHeaderContent());
+  await updateOrCreateMessage(redis, channel, HEADER_MSG_KEY, { content: buildHeaderContent() });
 
   for (const bucket of BUCKETS) {
     await updateSingleLeaderboard(bucket, redis, supabase, channel);
@@ -153,8 +159,8 @@ async function updateSingleLeaderboard(bucket, redis, supabase, channel) {
   }
 
   const entries = rows.map((r) => [r.user_id, r.count]);
-  const content = buildLeaderboardContent(bucket, entries);
+  const container = buildLeaderboardContainer(bucket, entries);
   const msgKey = `leaderboard:msg:${bucket}`;
 
-  await updateOrCreateMessage(redis, channel, msgKey, content);
+  await updateOrCreateMessage(redis, channel, msgKey, { components: [container] });
 }

@@ -35,11 +35,8 @@ export async function handleSetupLeaderboard(interaction, { redis, discordClient
 
   await redis.set(REDIS_KEYS.leaderboardChannel, channel.id);
 
-  const buckets = ['daily', 'weekly', 'monthly'];
-  const titles = ['DAILY', 'WEEKLY', 'MONTHLY'];
-
   try {
-    const header = await channel.send({ content: '# <:trophy:1511688001321828403> CHAT LEADERBOARD' });
+    const header = await channel.send({ content: '# <:Empty:1503044372487471328> <:trophy:1511688001321828403> CHAT LEADERBOARD' });
     await redis.set('leaderboard:msg:header', header.id);
   } catch {
     await interaction.editReply({
@@ -49,9 +46,23 @@ export async function handleSetupLeaderboard(interaction, { redis, discordClient
     return;
   }
 
+  const buckets = ['daily', 'weekly', 'monthly'];
+  const titles = ['DAILY', 'WEEKLY', 'MONTHLY'];
+
   for (let i = 0; i < buckets.length; i++) {
+    const container = {
+      type: 17,
+      components: [
+        { type: 10, content: `### ${titles[i]}` },
+        { type: 10, content: 'Loading...' }
+      ]
+    };
+
     try {
-      const sent = await channel.send({ content: `### ${titles[i]}\nLoading...` });
+      const sent = await channel.send({
+        flags: MessageFlags.IsComponentsV2,
+        components: [container]
+      });
       await redis.set(`leaderboard:msg:${buckets[i]}`, sent.id);
     } catch {
       await interaction.editReply({
