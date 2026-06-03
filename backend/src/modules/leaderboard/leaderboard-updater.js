@@ -70,12 +70,12 @@ function buildLeaderboardContainer(bucket, entries) {
     components.push({ type: 10, content: '_No messages recorded yet._' });
   } else {
     for (let i = 0; i < entries.length; i++) {
-      components.push({ type: 10, content: `${getRankEmoji(i + 1)}<@${entries[i][0]}> → **${formatNumber(entries[i][1])}** messages` });
+      components.push({ type: 10, content: `${getRankEmoji(i + 1)}<@${entries[i][0]}> **→** **${formatNumber(entries[i][1])}** messages` });
     }
   }
 
   components.push({ type: 14, divider: true });
-  components.push({ type: 10, content: `-# \`UPDATES\`<t:${getNextHourUnix()}:R><:Empty:1503044372487471328><:Empty:1503044372487471328><:Empty:1503044372487471328>     \`RESETS\`<t:${getResetUnix(bucket)}:R>` });
+  components.push({ type: 10, content: `-# \`UPDATES\` <t:${getNextHourUnix()}:R><:Empty:1503044372487471328><:Empty:1503044372487471328><:Empty:1503044372487471328>     \`RESETS\` <t:${getResetUnix(bucket)}:R>` });
 
   return {
     type: 17,
