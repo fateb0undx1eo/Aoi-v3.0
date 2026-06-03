@@ -23,6 +23,11 @@ function getRankEmoji(rank) {
   return `**${rank}.**`;
 }
 
+function getNextHourUnix() {
+  const now = Date.now();
+  return Math.floor(Math.ceil(now / 3600000) * 3600000 / 1000);
+}
+
 function getResetUnix(bucket) {
   const now = new Date();
   const utc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
@@ -70,7 +75,7 @@ function buildLeaderboardContainer(bucket, entries) {
   }
 
   components.push({ type: 14, divider: true });
-  components.push({ type: 10, content: `-# \`UPDATES\` <a:fish111:1511786107384103082> \`RESETS\` <t:${getResetUnix(bucket)}:R>` });
+  components.push({ type: 10, content: `-# \`UPDATES\` <t:${getNextHourUnix()}:R> <a:fish111:1511786107384103082> \`RESETS\` <t:${getResetUnix(bucket)}:R>` });
 
   return {
     type: 17,
