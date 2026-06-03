@@ -19,14 +19,14 @@ export async function handleSetupLeaderboard(interaction, { redis, discordClient
   if (oldChannelId && guild) {
     const oldChannel = await guild.channels.fetch(oldChannelId).catch(() => null);
     if (oldChannel?.isTextBased?.()) {
-      for (const bucket of ['daily', 'weekly', 'monthly']) {
-        const oldMsgId = await redis.get(`leaderboard:msg:${bucket}`);
+      for (const key of ['leaderboard:msg:header', 'leaderboard:msg:daily', 'leaderboard:msg:weekly', 'leaderboard:msg:monthly']) {
+        const oldMsgId = await redis.get(key);
         if (oldMsgId) {
           try {
             const oldMsg = await oldChannel.messages.fetch(oldMsgId);
             await oldMsg.delete();
           } catch {}
-          await redis.del(`leaderboard:msg:${bucket}`).catch(() => {});
+          await redis.del(key).catch(() => {});
         }
       }
     }
@@ -36,24 +36,24 @@ export async function handleSetupLeaderboard(interaction, { redis, discordClient
   await redis.set(REDIS_KEYS.leaderboardChannel, channel.id);
 
   const buckets = ['daily', 'weekly', 'monthly'];
-  const titles = ['CHAT LEADERBOARD DAILY', 'CHAT LEADERBOARD WEEKLY', 'CHAT LEADERBOARD MONTHLY'];
+  const titles = ['DAILY', 'WEEKLY', 'MONTHLY'];
+
+  try {
+    const header = await channel.send({ content: '# <:trophy:1511688001321828403> CHAT LEADERBOARD' });
+    await redis.set('leaderboard:msg:header', header.id);
+  } catch {
+    await interaction.editReply({
+      flags: MessageFlags.IsComponentsV2,
+      components: [{ type: 17, components: [{ type: 10, content: 'Failed to send header message.' }] }]
+    });
+    return;
+  }
 
   for (let i = 0; i < buckets.length; i++) {
-    const container = {
-      type: 17,
-      components: [
-        { type: 10, content: `# ${titles[i]}` },
-        { type: 10, content: 'Loading...' }
-      ]
-    };
-
     try {
-      const sent = await channel.send({
-        flags: MessageFlags.IsComponentsV2,
-        components: [container]
-      });
+      const sent = await channel.send({ content: `### ${titles[i]}\nLoading...` });
       await redis.set(`leaderboard:msg:${buckets[i]}`, sent.id);
-    } catch (err) {
+    } catch {
       await interaction.editReply({
         flags: MessageFlags.IsComponentsV2,
         components: [{ type: 17, components: [{ type: 10, content: `Failed to send ${buckets[i]} leaderboard.` }] }]

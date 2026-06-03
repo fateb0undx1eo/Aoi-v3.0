@@ -1,12 +1,25 @@
-import { MessageFlags } from 'discord.js';
 import { logger } from '../../utils/logger.js';
 import { REDIS_KEYS, BUCKETS } from './redis-keys.js';
 
-const TITLES = {
-  daily: 'CHAT LEADERBOARD DAILY',
-  weekly: 'CHAT LEADERBOARD WEEKLY',
-  monthly: 'CHAT LEADERBOARD MONTHLY'
-};
+const RANK_EMOJIS = [
+  '<:one:1511686430571630763>',
+  '<:two:1511686447151972493>',
+  '<:three:1511686465732608022>',
+  '<:four:1511686491317997578>',
+  '<:five:1511686509076676719>',
+  '<:six:1511686525283209358>',
+  '<:seven:1511686541565759649>',
+  '<:eight:1511686887687852134>',
+  '<:nine:1511686906784645120>',
+  '<:ten:1511686925226872902>'
+];
+
+const HEADER_MSG_KEY = 'leaderboard:msg:header';
+
+function getRankEmoji(rank) {
+  if (rank >= 1 && rank <= 10) return RANK_EMOJIS[rank - 1];
+  return `**${rank}.**`;
+}
 
 function getNextHourUnix() {
   const now = Date.now();
@@ -38,24 +51,56 @@ function formatNumber(n) {
   return n.toLocaleString('en-US');
 }
 
-function buildLeaderboardContainer(bucket, entries) {
-  const lines = [`# ${TITLES[bucket]}`];
+function buildHeaderContent() {
+  return '# <:trophy:1511688001321828403> CHAT LEADERBOARD';
+}
+
+const TITLES = {
+  daily: 'DAILY',
+  weekly: 'WEEKLY',
+  monthly: 'MONTHLY'
+};
+
+function buildLeaderboardContent(bucket, entries) {
+  const lines = [`### ${TITLES[bucket]}`];
 
   if (entries.length === 0) {
     lines.push('_No messages recorded yet._');
   } else {
     for (let i = 0; i < entries.length; i++) {
-      lines.push(`**${i + 1}.** <@${entries[i][0]}>  **${formatNumber(entries[i][1])}** messages`);
+      lines.push(`${getRankEmoji(i + 1)} <@${entries[i][0]}> → **${formatNumber(entries[i][1])}** messages`);
     }
   }
 
-  lines.push(`Updates <t:${getNextHourUnix()}:R>`);
-  lines.push(`Resets <t:${getResetUnix(bucket)}:R>`);
+  lines.push(`-# Updates <t:${getNextHourUnix()}:R>`);
+  lines.push(`-# Resets <t:${getResetUnix(bucket)}:R>`);
 
-  return {
-    type: 17,
-    components: lines.map((line) => ({ type: 10, content: line }))
-  };
+  return lines.join('\n');
+}
+
+const SILENT_MENTIONS = { parse: [] };
+
+async function updateOrCreateMessage(redis, channel, msgKey, content) {
+  const msgId = await redis.get(msgKey);
+  if (msgId) {
+    try {
+      const msg = await channel.messages.fetch(msgId);
+      await msg.edit({ content, allowedMentions: SILENT_MENTIONS });
+      logger.info({ msgId, msgKey }, 'Leaderboard message updated');
+      return;
+    } catch {
+      logger.warn({ msgId, msgKey }, 'Stored message not found, will send new');
+      await redis.del(msgKey).catch(() => {});
+    }
+  }
+
+  try {
+    const sent = await channel.send({ content, allowedMentions: SILENT_MENTIONS });
+    await redis.set(msgKey, sent.id);
+    logger.info({ msgId: sent.id, msgKey }, 'Leaderboard message sent');
+  } catch (err) {
+    logger.error({ err, msgKey }, 'Failed to send leaderboard message');
+  }
 }
 
 export async function updateLeaderboard(redis, discordClient, supabase) {
@@ -84,6 +129,8 @@ async function doUpdate(redis, discordClient, supabase) {
     return;
   }
 
+  await updateOrCreateMessage(redis, channel, HEADER_MSG_KEY, buildHeaderContent());
+
   for (const bucket of BUCKETS) {
     await updateSingleLeaderboard(bucket, redis, supabase, channel);
   }
@@ -106,33 +153,8 @@ async function updateSingleLeaderboard(bucket, redis, supabase, channel) {
   }
 
   const entries = rows.map((r) => [r.user_id, r.count]);
-  const container = buildLeaderboardContainer(bucket, entries);
-  const msgIdKey = `leaderboard:msg:${bucket}`;
-  const msgId = await redis.get(msgIdKey);
+  const content = buildLeaderboardContent(bucket, entries);
+  const msgKey = `leaderboard:msg:${bucket}`;
 
-  if (msgId) {
-    try {
-      const msg = await channel.messages.fetch(msgId);
-      await msg.edit({
-        flags: MessageFlags.IsComponentsV2,
-        components: [container]
-      });
-      logger.info({ bucket, msgId }, 'Leaderboard updated');
-      return;
-    } catch (err) {
-      logger.warn({ err, bucket, msgId }, 'Failed to edit existing leaderboard — will send new');
-      await redis.del(msgIdKey).catch(() => {});
-    }
-  }
-
-  try {
-    const sent = await channel.send({
-      flags: MessageFlags.IsComponentsV2,
-      components: [container]
-    });
-    await redis.set(msgIdKey, sent.id);
-    logger.info({ bucket, msgId: sent.id }, 'New leaderboard sent');
-  } catch (err) {
-    logger.error({ err, bucket }, 'Failed to send leaderboard');
-  }
+  await updateOrCreateMessage(redis, channel, msgKey, content);
 }

@@ -281,14 +281,14 @@ async function bootstrap(redis, discordClient, supabase) {
   }
 
   let allValid = true;
-  for (const bucket of BUCKETS) {
-    const msgId = await redis.get(`leaderboard:msg:${bucket}`);
+  for (const key of ['leaderboard:msg:header', ...BUCKETS.map((b) => `leaderboard:msg:${b}`)]) {
+    const msgId = await redis.get(key);
     if (msgId) {
       try {
         await channel.messages.fetch(msgId);
       } catch {
-        logger.warn({ bucket, msgId }, 'Stored message deleted, will recreate on next update');
-        await redis.del(`leaderboard:msg:${bucket}`).catch((err) => logger.debug({ err, bucket }, 'Cleanup of stale leaderboard msg key failed'));
+        logger.warn({ key, msgId }, 'Stored message deleted, will recreate on next update');
+        await redis.del(key).catch((err) => logger.debug({ err, key }, 'Cleanup of stale leaderboard msg key failed'));
         allValid = false;
       }
     } else {
@@ -300,10 +300,11 @@ async function bootstrap(redis, discordClient, supabase) {
     updateLeaderboard(redis, discordClient, supabase).catch((err) => logger.warn({ err }, 'Startup leaderboard update failed'));
   }
 
+  const h = await redis.get('leaderboard:msg:header') || 'none';
   const d = await redis.get(leaderboardMsgKey('daily')) || 'none';
   const w = await redis.get(leaderboardMsgKey('weekly')) || 'none';
   const m = await redis.get(leaderboardMsgKey('monthly')) || 'none';
-  logger.info(`Leaderboard ready. Daily: ${d}, Weekly: ${w}, Monthly: ${m}`);
+  logger.info(`Leaderboard ready. Header: ${h}, Daily: ${d}, Weekly: ${w}, Monthly: ${m}`);
 }
 
 export async function initializeLeaderboardModule(options) {
