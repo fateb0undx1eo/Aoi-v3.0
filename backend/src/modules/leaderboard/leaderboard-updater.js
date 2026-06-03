@@ -70,7 +70,7 @@ function buildLeaderboardContainer(bucket, entries) {
     lines.push('_No messages recorded yet._');
   } else {
     for (let i = 0; i < entries.length; i++) {
-      lines.push(`${getRankEmoji(i + 1)} <@${entries[i][0]}> → **${formatNumber(entries[i][1])}** messages`);
+      lines.push(`${getRankEmoji(i + 1)}<@${entries[i][0]}> → **${formatNumber(entries[i][1])}** messages`);
     }
   }
 
