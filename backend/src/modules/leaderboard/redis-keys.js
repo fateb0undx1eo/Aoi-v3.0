@@ -1,36 +1,37 @@
+const PREFIX = {
+  messages: 'messages',
+  active: 'active_users',
+  leaderboard: 'leaderboard',
+  worker: 'worker'
+};
+
 export const REDIS_KEYS = {
-  messagesDaily: (userId) => `messages:daily:${userId}`,
-  messagesWeekly: (userId) => `messages:weekly:${userId}`,
-  messagesMonthly: (userId) => `messages:monthly:${userId}`,
-  activeUsersDaily: 'active_users:daily',
-  activeUsersWeekly: 'active_users:weekly',
-  activeUsersMonthly: 'active_users:monthly',
-  activeUsersDailySyncing: 'active_users:daily:syncing',
-  activeUsersWeeklySyncing: 'active_users:weekly:syncing',
-  activeUsersMonthlySyncing: 'active_users:monthly:syncing',
-  leaderboardMsgDaily: 'leaderboard:msg:daily',
-  leaderboardMsgWeekly: 'leaderboard:msg:weekly',
-  leaderboardMsgMonthly: 'leaderboard:msg:monthly',
   leaderboardChannel: 'leaderboard:channel',
   workerHeartbeat: 'worker:heartbeat',
+  workerResetHeartbeat: 'worker:reset:heartbeat',
   workerLastSync: 'worker:last_sync',
   workerLastLeaderboardUpdate: 'worker:last_leaderboard_update'
 };
 
-export const BUCKETS = ['daily', 'weekly', 'monthly'];
+export const BUCKETS = Object.freeze(['daily', 'weekly', 'monthly']);
+
+export const HEARTBEAT_TTL_SECONDS = 1200;
+export const HEARTBEAT_TTL_MS = HEARTBEAT_TTL_SECONDS * 1000;
+
+export const FORCE_UPDATE_COOLDOWN_MS = 30000;
 
 export function activeUsersKey(bucket) {
-  return `active_users:${bucket}`;
+  return `${PREFIX.active}:${bucket}`;
 }
 
 export function activeUsersSyncingKey(bucket) {
-  return `active_users:${bucket}:syncing`;
+  return `${PREFIX.active}:${bucket}:syncing`;
 }
 
 export function messagesKey(bucket, userId) {
-  return `messages:${bucket}:${userId}`;
+  return `${PREFIX.messages}:${bucket}:${userId}`;
 }
 
 export function leaderboardMsgKey(bucket) {
-  return `leaderboard:msg:${bucket}`;
+  return `${PREFIX.leaderboard}:msg:${bucket}`;
 }

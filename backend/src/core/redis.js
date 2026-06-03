@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { createClient } from 'redis';
 import { env } from './config/env.js';
 import { metrics } from '../observability/metrics.js';
@@ -21,6 +22,8 @@ class RedisClient {
     this.isConnecting = false;
     this.connectPromise = null;
     this.connectionFailed = false;
+    this.recoveryTimer = null;
+    this.skippedOps = 0;
   }
 
   /**
@@ -79,11 +82,11 @@ class RedisClient {
         socket: {
           reconnectStrategy: (retries) => {
             if (retries > this.maxReconnectAttempts) {
-              logger.error('❌ Redis max reconnection attempts reached. Disabling Redis features.');
+              logger.warn(`Redis max reconnection attempts (${this.maxReconnectAttempts}) reached. Entering degraded mode — will retry periodically.`);
               this.connectionFailed = true;
-              return false; // Stop reconnecting
+              this.scheduleRecovery();
+              return false;
             }
-            // Exponential backoff with max 10s delay
             const delay = Math.min(Math.pow(2, retries) * 1000, 10000);
             if (retries <= 3) {
               logger.info(`⏳ Redis reconnecting in ${delay}ms (attempt ${retries}/${this.maxReconnectAttempts})`);
@@ -124,6 +127,11 @@ class RedisClient {
         this.isConnected = true;
         this.reconnectAttempts = 0;
         this.connectionFailed = false;
+        this.skippedOps = 0;
+        if (this.recoveryTimer) {
+          clearTimeout(this.recoveryTimer);
+          this.recoveryTimer = null;
+        }
       });
 
       this.client.on('reconnecting', () => {
@@ -156,11 +164,33 @@ class RedisClient {
     }
   }
 
+  scheduleRecovery() {
+    if (this.recoveryTimer) return;
+    this.recoveryTimer = setTimeout(async () => {
+      this.recoveryTimer = null;
+      this.connectionFailed = false;
+      logger.info('⏳ Attempting Redis recovery...');
+      const ok = await this.connect();
+      if (!ok) {
+        this.scheduleRecovery();
+      } else {
+        this.skippedOps = 0;
+      }
+    }, 60000);
+  }
+
   /**
    * Check if Redis is connected and ready for operations
    */
   isReady() {
-    return this.isConnected && this.client && this.client.isOpen;
+    const ready = this.isConnected && this.client && this.client.isOpen;
+    if (!ready) {
+      this.skippedOps++;
+      if (this.skippedOps % 100 === 0) {
+        logger.warn(`Redis not ready — ${this.skippedOps} operations skipped since last failure`);
+      }
+    }
+    return ready;
   }
 
   /**
@@ -278,66 +308,49 @@ class RedisClient {
   }
 
   /**
-   * Get keys matching a pattern
+   * Scan for keys matching a pattern (uses SCAN, not KEYS — safe for production)
    * @param {string} pattern - Key pattern (e.g., "prefix:*")
+   * @param {number} [count=100] - Batch size per SCAN iteration
    * @returns {Promise<Array>} Array of matching keys
    */
-  async keys(pattern) {
+  async keys(pattern, count = 100) {
     if (!this.isReady()) {
       logger.warn('Redis not ready, skipping keys operation');
       return [];
     }
 
     try {
-      const result = await this.client.keys(pattern);
-      return result || [];
+      const result = [];
+      let cursor = 0;
+      do {
+        const reply = await this.client.scan(cursor, {
+          MATCH: pattern,
+          COUNT: count
+        });
+        cursor = reply.cursor;
+        result.push(...reply.keys);
+      } while (cursor !== 0);
+      return result;
     } catch (error) {
-      logger.error(`Failed to get keys with pattern ${pattern}:`, error);
+      logger.error(`Failed to scan keys with pattern ${pattern}:`, error);
       return [];
     }
   }
 
   /**
    * Set a value with options (NX, EX, PX, XX, etc.)
-   * Supports multiple calling patterns:
-   * - set(key, value, 'PX', ttl, 'NX')
-   * - set(key, value, { PX: ttl, NX: true })
    * @param {string} key - Redis key
    * @param {string} value - Value to set
-   * @param {string|Object} mode - Set mode string ('NX', 'XX', 'PX', 'EX') OR options object
-   * @param {number} ttl - TTL value (if mode is a string like 'PX' or 'EX')
-   * @param {string} flag - Additional flag ('NX' or 'XX') if mode is 'PX'/'EX'
+   * @param {Object} [opts] - Options object: { PX?: number, EX?: number, NX?: boolean, XX?: boolean }
    * @returns {Promise<string|null>} 'OK' if successful, null otherwise
    */
-  async set(key, value, mode, ttl, flag) {
+  async set(key, value, opts = {}) {
     if (!this.isReady()) {
       logger.warn('Redis not ready, skipping set operation');
       return null;
     }
 
     try {
-      let opts = {};
-      
-      // Handle case where mode is an object
-      if (typeof mode === 'object' && mode !== null) {
-        opts = mode;
-      } else if (typeof mode === 'string') {
-        // Handle positional parameter style: set(key, value, 'PX', ms, 'NX')
-        if (mode === 'PX' || mode === 'EX') {
-          opts[mode] = ttl; // Set the TTL option
-          if (flag === 'NX' || flag === 'XX') {
-            opts[flag] = true; // Set the condition flag
-          }
-        } else if (mode === 'NX' || mode === 'XX') {
-          // Handle if mode is just a flag
-          opts[mode] = true;
-          if (ttl === 'PX' || ttl === 'EX') {
-            // Second parameter is actually a TTL mode
-            opts[ttl] = flag;
-          }
-        }
-      }
-      
       const result = await metrics.time('redis_latency_ms', { operation: 'set' }, () =>
         this.client.set(key, String(value), opts)
       );
@@ -381,7 +394,9 @@ class RedisClient {
     }
 
     try {
-      return await this.client.incr(key);
+      return await metrics.time('redis_latency_ms', { operation: 'incr' }, () =>
+        this.client.incr(key)
+      );
     } catch (error) {
       logger.error(`Failed to incr key ${key}:`, error);
       return null;
@@ -401,7 +416,9 @@ class RedisClient {
     }
 
     try {
-      return await this.client.incrBy(key, amount);
+      return await metrics.time('redis_latency_ms', { operation: 'incrBy' }, () =>
+        this.client.incrBy(key, amount)
+      );
     } catch (error) {
       logger.error(`Failed to incrby key ${key}:`, error);
       return null;
@@ -440,7 +457,9 @@ class RedisClient {
 
     try {
       if (keys.length === 0) return 0;
-      const result = await this.client.del(keys);
+      const result = await metrics.time('redis_latency_ms', { operation: 'del' }, () =>
+        this.client.del(keys)
+      );
       return result || 0;
     } catch (error) {
       logger.error(`Failed to delete keys:`, error);
@@ -489,26 +508,38 @@ class RedisClient {
 
   /**
    * Execute a Lua script
+   * Accepts either:
+   *   eval(script, { keys: [...], arguments: [...] })  // object style
+   *   eval(script, numKeys, key1, key2, ..., arg1, arg2)  // legacy positional style
    * @param {string} script - Lua script code
-   * @param {number} numKeys - Number of keys argument
-   * @param {...*} args - Key and argument values
+   * @param {number|Object} numKeysOrOpts - Number of keys (legacy) or { keys, arguments } object
+   * @param {...*} args - Remaining args (legacy style only)
    * @returns {Promise<*>} Script result
    */
-  async eval(script, numKeys, ...args) {
+  async eval(script, numKeysOrOpts, ...args) {
     if (!this.isReady()) {
       logger.warn('Redis not ready, skipping eval operation');
       return null;
     }
 
     try {
-      const keys = args.slice(0, numKeys);
-      const argv = args.slice(numKeys);
-      
-      const result = await this.client.eval(script, {
-        keys: keys.length > 0 ? keys : undefined,
-        arguments: argv.length > 0 ? argv : undefined
-      });
-      
+      let opts;
+      if (typeof numKeysOrOpts === 'object' && numKeysOrOpts !== null) {
+        opts = numKeysOrOpts;
+      } else {
+        const numKeys = numKeysOrOpts;
+        opts = {
+          keys: args.slice(0, numKeys).filter(Boolean),
+          arguments: args.slice(numKeys).filter(Boolean)
+        };
+      }
+
+      const result = await metrics.time('redis_latency_ms', { operation: 'eval' }, () =>
+        this.client.eval(script, {
+          keys: opts.keys?.length > 0 ? opts.keys : undefined,
+          arguments: opts.arguments?.length > 0 ? opts.arguments : undefined
+        })
+      );
       return result;
     } catch (error) {
       logger.error('Failed to execute Lua script:', error);
@@ -581,9 +612,13 @@ class RedisClient {
   }
 
   /**
-   * Execute a pipeline of Redis commands
-   * @param {Function} pipelineFn - Function that receives pipeline object
-   * @returns {Promise<Array>} Array of results
+   * Execute a batch of Redis commands (uses MULTI/EXEC under the hood for atomicity)
+   * 
+   * NOTE: This uses `multi()` internally, which is fully atomic (all-or-nothing).
+   * For large batches (>1000 commands), consider chunking to avoid blocking Redis.
+   *
+   * @param {Function} pipelineFn - Function that receives pipeline object (supports .get, .set, .incr, etc.)
+   * @returns {Promise<Array>} Array of [error, result] pairs per command
    */
   async pipeline(pipelineFn) {
     if (!this.isReady()) {
@@ -594,7 +629,9 @@ class RedisClient {
     try {
       const pipeline = this.client.multi();
       pipelineFn(pipeline);
-      const results = await pipeline.exec();
+      const results = await metrics.time('redis_latency_ms', { operation: 'pipeline' }, () =>
+        pipeline.exec()
+      );
       return results || [];
     } catch (error) {
       logger.error('Failed to execute Redis pipeline:', error);
@@ -784,7 +821,8 @@ class RedisClient {
   }
 
   /**
-   * Get Redis client instance for advanced operations
+   * Get raw Redis client instance for advanced operations.
+   * ⚠️ Bypasses all wrapper safety — use wrapper methods when possible.
    * @returns {import('redis').RedisClientType|null}
    */
   getClient() {

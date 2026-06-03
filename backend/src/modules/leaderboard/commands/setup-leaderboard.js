@@ -2,7 +2,7 @@ import { MessageFlags } from 'discord.js';
 import { REDIS_KEYS } from '../redis-keys.js';
 import { updateLeaderboard } from '../leaderboard-updater.js';
 
-export async function handleSetupLeaderboard(interaction, { redis, discordClient, database }) {
+export async function handleSetupLeaderboard(interaction, { redis, discordClient, database, supabase }) {
   const channel = interaction.options.getChannel('channel', true);
 
   if (!channel.isTextBased()) {
@@ -62,7 +62,6 @@ export async function handleSetupLeaderboard(interaction, { redis, discordClient
     }
   }
 
-  const supabase = (await import('../../../database/supabase.js')).supabase;
   await updateLeaderboard(redis, discordClient, supabase).catch(() => {});
 
   await interaction.editReply({

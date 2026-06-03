@@ -1,6 +1,6 @@
 import { MessageFlags } from 'discord.js';
 import { logger } from '../../utils/logger.js';
-import { REDIS_KEYS, BUCKETS, activeUsersKey, messagesKey } from './redis-keys.js';
+import { REDIS_KEYS, BUCKETS } from './redis-keys.js';
 
 const TITLES = {
   daily: 'CHAT LEADERBOARD DAILY',
@@ -17,12 +17,10 @@ function getResetUnix(bucket) {
   const now = new Date();
   const utc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   switch (bucket) {
-    case 'daily': {
+    case 'daily':
       return Math.floor((utc + 86400000) / 1000);
-    }
     case 'weekly': {
-      const dayOfWeek = now.getUTCDay();
-      const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+      const daysUntilMonday = now.getUTCDay() === 0 ? 1 : 8 - now.getUTCDay();
       return Math.floor((utc + daysUntilMonday * 86400000) / 1000);
     }
     case 'monthly': {
@@ -40,14 +38,14 @@ function formatNumber(n) {
   return n.toLocaleString('en-US');
 }
 
-function buildLeaderboardContainer(bucket, sorted) {
+function buildLeaderboardContainer(bucket, entries) {
   const lines = [`# ${TITLES[bucket]}`];
 
-  if (sorted.length === 0) {
-    lines.push('No data yet.');
+  if (entries.length === 0) {
+    lines.push('_No messages recorded yet._');
   } else {
-    for (let i = 0; i < sorted.length; i++) {
-      lines.push(`**${i + 1}.** <@${sorted[i][0]}>  **${formatNumber(sorted[i][1])}** messages`);
+    for (let i = 0; i < entries.length; i++) {
+      lines.push(`**${i + 1}.** <@${entries[i][0]}>  **${formatNumber(entries[i][1])}** messages`);
     }
   }
 
@@ -61,83 +59,56 @@ function buildLeaderboardContainer(bucket, sorted) {
 }
 
 export async function updateLeaderboard(redis, discordClient, supabase) {
+  const lock = await redis.acquireLock('leaderboard:update:lock', 120000);
+  if (!lock) {
+    logger.debug('Leaderboard update lock held by another instance, skipping');
+    return;
+  }
+  try {
+    await doUpdate(redis, discordClient, supabase);
+  } finally {
+    await redis.releaseLock('leaderboard:update:lock', lock);
+  }
+}
+
+async function doUpdate(redis, discordClient, supabase) {
   const channelId = await redis.get(REDIS_KEYS.leaderboardChannel);
   if (!channelId) {
     logger.warn('Leaderboard channel not configured');
     return;
   }
 
-  const guild = discordClient.guilds.cache.first();
-  if (!guild) {
-    logger.warn('No guild available for leaderboard update');
-    return;
-  }
-
-  const channel = await guild.channels.fetch(channelId).catch(() => null);
+  const channel = await discordClient.channels.fetch(channelId).catch(() => null);
   if (!channel?.isTextBased()) {
     logger.warn({ channelId }, 'Leaderboard channel not found or not text-based');
     return;
   }
 
-  const rawClient = redis.getClient();
-
   for (const bucket of BUCKETS) {
-    await updateSingleLeaderboard(bucket, redis, rawClient, supabase, channel, guild);
+    await updateSingleLeaderboard(bucket, redis, supabase, channel);
   }
 
   await redis.set(REDIS_KEYS.workerLastLeaderboardUpdate, new Date().toISOString());
   logger.info('All leaderboards updated');
 }
 
-async function updateSingleLeaderboard(bucket, redis, rawClient, supabase, channel, guild) {
-  const rpcName = `get_leaderboard_${bucket}`;
-
-  let supabaseResults = [];
+async function updateSingleLeaderboard(bucket, redis, supabase, channel) {
+  let rows = [];
   try {
-    const { data, error } = await supabase.rpc(rpcName, { p_limit: 15, p_offset: 0 });
-    if (!error && data) {
-      supabaseResults = data;
+    const { data, error } = await supabase.rpc(`get_leaderboard_${bucket}`, { p_limit: 10, p_offset: 0 });
+    if (error) {
+      logger.warn({ err: error, bucket }, 'Supabase leaderboard query returned error');
+    } else if (data) {
+      rows = data;
     }
   } catch (err) {
-    logger.warn({ err, bucket }, 'Supabase leaderboard query failed');
+    logger.error({ err, bucket }, 'Supabase leaderboard query threw');
   }
 
-  let redisLiveCounts = new Map();
-  if (rawClient) {
-    try {
-      const activeMembers = await rawClient.sMembers(activeUsersKey(bucket));
-      if (activeMembers.length > 0) {
-        const pipeline = rawClient.multi();
-        for (const userId of activeMembers) {
-          pipeline.get(messagesKey(bucket, userId));
-        }
-        const results = await pipeline.exec();
-        for (let i = 0; i < activeMembers.length; i++) {
-          const count = results[i] ? Number(results[i]) : 0;
-          if (count > 0) {
-            redisLiveCounts.set(activeMembers[i], count);
-          }
-        }
-      }
-    } catch (err) {
-      logger.warn({ err, bucket }, 'Failed to fetch Redis live counts');
-    }
-  }
-
-  const mergedMap = new Map();
-  for (const row of supabaseResults) {
-    mergedMap.set(row.user_id, (mergedMap.get(row.user_id) || 0) + row.count);
-  }
-  for (const [userId, count] of redisLiveCounts) {
-    mergedMap.set(userId, (mergedMap.get(userId) || 0) + count);
-  }
-
-  const sorted = [...mergedMap.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10);
-
-  const container = buildLeaderboardContainer(bucket, sorted);
-  const msgId = await redis.get(`leaderboard:msg:${bucket}`);
+  const entries = rows.map((r) => [r.user_id, r.count]);
+  const container = buildLeaderboardContainer(bucket, entries);
+  const msgIdKey = `leaderboard:msg:${bucket}`;
+  const msgId = await redis.get(msgIdKey);
 
   if (msgId) {
     try {
@@ -148,9 +119,9 @@ async function updateSingleLeaderboard(bucket, redis, rawClient, supabase, chann
       });
       logger.info({ bucket, msgId }, 'Leaderboard updated');
       return;
-    } catch {
-      logger.warn({ bucket, msgId }, 'Existing leaderboard message not found, creating new one');
-      await redis.del(`leaderboard:msg:${bucket}`).catch(() => {});
+    } catch (err) {
+      logger.warn({ err, bucket, msgId }, 'Failed to edit existing leaderboard — will send new');
+      await redis.del(msgIdKey).catch(() => {});
     }
   }
 
@@ -159,7 +130,7 @@ async function updateSingleLeaderboard(bucket, redis, rawClient, supabase, chann
       flags: MessageFlags.IsComponentsV2,
       components: [container]
     });
-    await redis.set(`leaderboard:msg:${bucket}`, sent.id);
+    await redis.set(msgIdKey, sent.id);
     logger.info({ bucket, msgId: sent.id }, 'New leaderboard sent');
   } catch (err) {
     logger.error({ err, bucket }, 'Failed to send leaderboard');
