@@ -13,19 +13,24 @@ export async function handleSetupLeaderboard(interaction, { redis, discordClient
     return;
   }
 
-  const existingChannelId = await redis.get(REDIS_KEYS.leaderboardChannel);
-  if (existingChannelId) {
-    await interaction.editReply({
-      flags: MessageFlags.IsComponentsV2,
-      components: [{
-        type: 17,
-        components: [{
-          type: 10,
-          content: `Leaderboard already configured in <#${existingChannelId}>. Use \`/force-update-leaderboard\` to refresh. To move it, remove the old messages manually first.`
-        }]
-      }]
-    });
-    return;
+  const oldChannelId = await redis.get(REDIS_KEYS.leaderboardChannel);
+  const guild = discordClient.guilds.cache.first();
+
+  if (oldChannelId && guild) {
+    const oldChannel = await guild.channels.fetch(oldChannelId).catch(() => null);
+    if (oldChannel?.isTextBased?.()) {
+      for (const bucket of ['daily', 'weekly', 'monthly']) {
+        const oldMsgId = await redis.get(`leaderboard:msg:${bucket}`);
+        if (oldMsgId) {
+          try {
+            const oldMsg = await oldChannel.messages.fetch(oldMsgId);
+            await oldMsg.delete();
+          } catch {}
+          await redis.del(`leaderboard:msg:${bucket}`).catch(() => {});
+        }
+      }
+    }
+    await redis.del(REDIS_KEYS.leaderboardChannel).catch(() => {});
   }
 
   await redis.set(REDIS_KEYS.leaderboardChannel, channel.id);
