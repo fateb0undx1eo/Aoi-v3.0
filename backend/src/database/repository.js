@@ -1,5 +1,6 @@
 import { supabase } from './supabase.js';
 import { metrics } from '../observability/metrics.js';
+import { ExternalServiceUnavailableError } from '../errors.js';
 
 export class RepositoryError extends Error {
   constructor(message, cause = null) {
@@ -9,27 +10,14 @@ export class RepositoryError extends Error {
   }
 }
 
-const TRANSIENT_NETWORK_MARKERS = [
-  'fetch failed',
-  'ECONNRESET',
-  'ENOTFOUND',
-  'ETIMEDOUT',
-  'UND_ERR_CONNECT_TIMEOUT',
-  'Connect Timeout Error',
-  'network'
-];
-
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function getErrorDetails(error) {
-  return String(error?.details || error?.message || error?.cause?.details || error?.cause?.message || '');
-}
-
 function isTransientNetworkError(error) {
-  const details = getErrorDetails(error);
-  return TRANSIENT_NETWORK_MARKERS.some((marker) => details.includes(marker));
+  const markers = ['fetch failed', 'ECONNRESET', 'ENOTFOUND', 'ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT', 'Connect Timeout Error', 'network'];
+  const details = String(error?.details || error?.message || error?.cause?.details || error?.cause?.message || '');
+  return markers.some((marker) => details.includes(marker));
 }
 
 async function runRepositoryOperation(actionLabel, table, operation, retries = 1) {
@@ -49,6 +37,9 @@ async function runRepositoryOperation(actionLabel, table, operation, retries = 1
     await sleep(400 * (attempt + 1));
   }
 
+  if (isTransientNetworkError(lastError)) {
+    throw new ExternalServiceUnavailableError(`Failed to ${actionLabel} ${table}`, lastError);
+  }
   throw new RepositoryError(`Failed to ${actionLabel} ${table}`, lastError);
 }
 

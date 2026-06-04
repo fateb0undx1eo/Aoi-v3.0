@@ -1,6 +1,11 @@
+import 'express-async-errors';
+import os from 'node:os';
+import { monitorEventLoopDelay } from 'node:perf_hooks';
 import express from 'express';
+import timeout from 'connect-timeout';
 import { createRequestId, logger, withLogContext } from '../utils/logger.js';
 import { RepositoryError } from '../database/repository.js';
+import { ExternalServiceUnavailableError, ValidationError, UnauthorizedError } from '../errors.js';
 import { metrics } from '../observability/metrics.js';
 import { runtimeState } from '../observability/runtimeState.js';
 import { requireAuth } from './middleware/requireAuth.js';
@@ -12,7 +17,17 @@ import { createAnalyticsRoutes } from './routes/analyticsRoutes.js';
 import { createSettingsRoutes } from './routes/settingsRoutes.js';
 import { createModerationRoutes } from './routes/moderationRoutes.js';
 
+function validateDeps(deps) {
+  if (!deps.authService) throw new Error('authService required');
+  if (!deps.env) throw new Error('env required');
+}
+
 export function buildApiServer(deps) {
+  validateDeps(deps);
+
+  const eventLoopHistogram = monitorEventLoopDelay();
+  eventLoopHistogram.enable();
+
   const app = express();
   app.set('trust proxy', 1);
   const allowedOrigins = new Set(deps.env?.frontend?.corsAllowedOrigins ?? []);
@@ -53,13 +68,50 @@ export function buildApiServer(deps) {
   });
 
   app.use(express.json({ limit: '1mb' }));
+  app.use(timeout('30s'));
 
   app.get('/healthz', (_req, res) => {
+    const mem = process.memoryUsage();
+    const cpu = process.cpuUsage();
     res.status(200).json({
       ok: true,
       service: 'discord-ecosystem-backend',
       discord_ready: deps.discordClient?.isReady?.() ?? false,
       redis_ready: deps.redis?.isReady?.() ?? false,
+      system: {
+        hostname: os.hostname(),
+        platform: os.platform(),
+        arch: os.arch(),
+        os_uptime_seconds: Math.round(os.uptime()),
+        loadavg: os.loadavg(),
+        total_memory_mb: Math.round(os.totalmem() / 1024 / 1024),
+        free_memory_mb: Math.round(os.freemem() / 1024 / 1024),
+        cpus: os.cpus().length
+      },
+      event_loop_lag_ms: {
+        min: eventLoopHistogram.min,
+        max: eventLoopHistogram.max,
+        mean: eventLoopHistogram.mean,
+        stddev: eventLoopHistogram.stddev,
+        p50: eventLoopHistogram.percentile(50),
+        p95: eventLoopHistogram.percentile(95),
+        p99: eventLoopHistogram.percentile(99)
+      },
+      process: {
+        pid: process.pid,
+        uptime_seconds: Math.round(process.uptime()),
+        memory: {
+          rss_mb: Math.round(mem.rss / 1024 / 1024),
+          heap_total_mb: Math.round(mem.heapTotal / 1024 / 1024),
+          heap_used_mb: Math.round(mem.heapUsed / 1024 / 1024),
+          external_mb: Math.round(mem.external / 1024 / 1024),
+          array_buffers_mb: Math.round(mem.arrayBuffers / 1024 / 1024)
+        },
+        cpu: {
+          user_ms: Math.round(cpu.user / 1000),
+          system_ms: Math.round(cpu.system / 1000)
+        }
+      },
       runtime: runtimeState.snapshot()
     });
   });
@@ -83,19 +135,23 @@ export function buildApiServer(deps) {
   app.use((error, _req, res, _next) => {
     logger.error('API error', error);
 
-    if (error instanceof RepositoryError) {
-      const details = String(error?.cause?.details || error?.cause?.message || error?.message || '');
-      const isTransient =
-        details.includes('fetch failed') ||
-        details.includes('ECONNRESET') ||
-        details.includes('ENOTFOUND') ||
-        details.includes('ETIMEDOUT') ||
-        details.includes('UND_ERR_CONNECT_TIMEOUT') ||
-        details.includes('Connect Timeout Error');
+    if (error instanceof ExternalServiceUnavailableError) {
+      res.status(503).json({ error: 'config_store_unreachable' });
+      return;
+    }
 
-      res.status(isTransient ? 503 : 500).json({
-        error: isTransient ? 'config_store_unreachable' : 'config_store_failed'
-      });
+    if (error instanceof ValidationError) {
+      res.status(400).json({ error: 'validation_error' });
+      return;
+    }
+
+    if (error instanceof UnauthorizedError) {
+      res.status(401).json({ error: 'unauthorized' });
+      return;
+    }
+
+    if (error instanceof RepositoryError) {
+      res.status(500).json({ error: 'config_store_failed' });
       return;
     }
 
