@@ -4,9 +4,8 @@ import { logger } from '../../utils/logger.js';
 import { REDIS_KEYS, BUCKETS, activeUsersKey, activeUsersSyncingKey, messagesKey, leaderboardMsgKey, HEARTBEAT_TTL_SECONDS, FORCE_UPDATE_COOLDOWN_MS } from './redis-keys.js';
 import { updateLeaderboard } from './leaderboard-updater.js';
 import { getLeaderboardHealth } from './health.js';
-import { handleSetupLeaderboard } from './commands/setup-leaderboard.js';
-import { handleForceUpdateLeaderboard } from './commands/force-update-leaderboard.js';
 
+const LEADERBOARD_CHANNEL_ID = process.env.LEADERBOARD_CHANNEL_ID?.trim() || '';
 const UPDATE_INTERVAL_MS = (Number(process.env.LEADERBOARD_UPDATE_INTERVAL_MINUTES) || 60) * 60 * 1000;
 const SYNC_INTERVAL_MS = (Number(process.env.LEADERBOARD_SYNC_INTERVAL_MINUTES) || 10) * 60 * 1000;
 
@@ -225,8 +224,6 @@ function onMessage(redis, message) {
     .catch((err) => logger.warn({ err }, 'Leaderboard dedup check failed'));
 }
 
-const forceUpdateCooldowns = new Map();
-
 async function validateRpcContract(supabase) {
   for (const bucket of BUCKETS) {
     try {
@@ -284,10 +281,18 @@ async function bootstrap(redis, discordClient, supabase) {
     logger.warn('Leaderboard RPC contract invalid — sync and updates will fail. Run migration.sql in Supabase.');
   }
 
-  const channelId = await redis.get(REDIS_KEYS.leaderboardChannel);
+  const envChannelId = LEADERBOARD_CHANNEL_ID;
+  const redisChannelId = await redis.get(REDIS_KEYS.leaderboardChannel);
+  const channelId = envChannelId || redisChannelId;
+
   if (!channelId) {
-    logger.info('Leaderboard not configured, skipping startup');
+    logger.info('Leaderboard not configured (no LEADERBOARD_CHANNEL_ID in env and no channel in Redis), skipping startup');
     return;
+  }
+
+  if (envChannelId && envChannelId !== redisChannelId) {
+    await redis.set(REDIS_KEYS.leaderboardChannel, envChannelId);
+    logger.info({ channelId: envChannelId }, 'Leaderboard channel set from environment variable');
   }
 
   const guild = discordClient.guilds.cache.first();
@@ -385,6 +390,39 @@ export async function initializeLeaderboardModule(options) {
 
   logger.info('Leaderboard module initialized');
 
+  async function ensureLeaderboardMessages(channel, redis) {
+    const headerId = await redis.get('leaderboard:msg:header');
+    if (headerId) return true;
+
+    try {
+      const header = await channel.send({ content: '# <:Empty:1503044372487471328> <:trophy:1511688001321828403> CHAT LEADERBOARD' });
+      await redis.set('leaderboard:msg:header', header.id);
+    } catch {
+      return false;
+    }
+
+    const buckets = ['monthly', 'weekly', 'daily'];
+    const titles = ['MONTHLY', 'WEEKLY', 'DAILY'];
+
+    for (let i = 0; i < buckets.length; i++) {
+      const container = {
+        type: 17,
+        components: [
+          { type: 10, content: `### ${titles[i]}` },
+          { type: 10, content: 'Loading...' }
+        ]
+      };
+      try {
+        const sent = await channel.send({ flags: MessageFlags.IsComponentsV2, components: [container] });
+        await redis.set(`leaderboard:msg:${buckets[i]}`, sent.id);
+      } catch {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   return {
     name: 'leaderboard',
 
@@ -395,75 +433,112 @@ export async function initializeLeaderboardModule(options) {
 
     commands: [
       {
-        name: 'setup-leaderboard',
-        description: 'Configure the leaderboard system',
-        options: [
-          {
-            name: 'channel',
-            type: 7,
-            description: 'Channel to post leaderboard embeds',
-            required: true
-          }
-        ],
+        name: 'leaderboard',
+        description: 'Set up or update the leaderboard',
         async execute(interaction) {
           try {
-            if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+            const isOwner = interaction.guild?.ownerId === interaction.user.id;
+            if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) && !isOwner) {
               await interaction.editReply({
                 flags: MessageFlags.IsComponentsV2,
-                components: [{ type: 17, components: [{ type: 10, content: 'You need Administrator permission to use this command.' }] }]
+                components: [{ type: 17, components: [{ type: 10, content: 'You need to be an Administrator or server owner to use this command.' }] }]
               });
               return;
             }
-            await handleSetupLeaderboard(interaction, { redis, discordClient, database, supabase });
+
+            const channelId = LEADERBOARD_CHANNEL_ID || (await redis.get(REDIS_KEYS.leaderboardChannel));
+            if (!channelId) {
+              await interaction.editReply({
+                flags: MessageFlags.IsComponentsV2,
+                components: [{ type: 17, components: [{ type: 10, content: 'Leaderboard channel not configured. Set LEADERBOARD_CHANNEL_ID in .env.' }] }]
+              });
+              return;
+            }
+
+            const channel = await discordClient.channels.fetch(channelId).catch(() => null);
+            if (!channel?.isTextBased()) {
+              await interaction.editReply({
+                flags: MessageFlags.IsComponentsV2,
+                components: [{ type: 17, components: [{ type: 10, content: 'Leaderboard channel not found or not text-based.' }] }]
+              });
+              return;
+            }
+
+            if (LEADERBOARD_CHANNEL_ID && LEADERBOARD_CHANNEL_ID !== (await redis.get(REDIS_KEYS.leaderboardChannel))) {
+              await redis.set(REDIS_KEYS.leaderboardChannel, LEADERBOARD_CHANNEL_ID);
+            }
+
+            const existing = await redis.get('leaderboard:msg:header');
+            if (!existing) {
+              const ok = await ensureLeaderboardMessages(channel, redis);
+              if (!ok) {
+                await interaction.editReply({
+                  flags: MessageFlags.IsComponentsV2,
+                  components: [{ type: 17, components: [{ type: 10, content: 'Failed to create leaderboard messages.' }] }]
+                });
+                return;
+              }
+            }
+
+            await updateLeaderboard(redis, discordClient, supabase);
+
+            await interaction.editReply({
+              flags: MessageFlags.IsComponentsV2,
+              components: [{ type: 17, components: [{ type: 10, content: 'Leaderboard updated.' }] }]
+            });
           } catch (error) {
-            logger.error({ err: error }, 'Setup-leaderboard command failed');
+            logger.error({ err: error }, 'Leaderboard command failed');
             try {
               await interaction.editReply({
                 flags: MessageFlags.IsComponentsV2,
                 components: [{ type: 17, components: [{ type: 10, content: `Error: ${error.message}` }] }]
               });
             } catch (innerErr) {
-              logger.debug({ err: innerErr }, 'Failed to send setup-leaderboard error reply');
+              logger.debug({ err: innerErr }, 'Failed to send leaderboard error reply');
             }
           }
         }
       },
       {
-        name: 'force-update-leaderboard',
-        description: 'Force an immediate leaderboard update',
+        name: 'message-count',
+        description: 'Show your message count',
         async execute(interaction) {
           try {
-            if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) &&
-                !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-              await interaction.editReply({
-                flags: MessageFlags.IsComponentsV2,
-                components: [{ type: 17, components: [{ type: 10, content: 'You need Administrator or Manage Server permission to use this command.' }] }]
-              });
-              return;
+            const userId = interaction.user.id;
+            const rawClient = redis.getClient?.();
+            let daily = 0, weekly = 0, monthly = 0;
+
+            if (rawClient) {
+              const results = await rawClient.mget(messagesKey('daily', userId), messagesKey('weekly', userId), messagesKey('monthly', userId));
+              daily = Number(results[0]) || 0;
+              weekly = Number(results[1]) || 0;
+              monthly = Number(results[2]) || 0;
             }
 
-            const now = Date.now();
-            const lastRun = forceUpdateCooldowns.get(interaction.guildId) || 0;
-            if (now - lastRun < FORCE_UPDATE_COOLDOWN_MS) {
-              const remaining = Math.ceil((FORCE_UPDATE_COOLDOWN_MS - (now - lastRun)) / 1000);
-              await interaction.editReply({
-                flags: MessageFlags.IsComponentsV2,
-                components: [{ type: 17, components: [{ type: 10, content: `Please wait ${remaining}s before updating again.` }] }]
-              });
-              return;
-            }
-            forceUpdateCooldowns.set(interaction.guildId, now);
+            const total = daily + weekly + monthly;
 
-            await handleForceUpdateLeaderboard(interaction, { redis, discordClient, database, supabase });
+            await interaction.editReply({
+              flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+              components: [{
+                type: 17,
+                components: [
+                  { type: 10, content: `**YOU HAVE ${total.toLocaleString('en-US')} MESSAGES**` },
+                  { type: 14, divider: true },
+                  { type: 10, content: `Daily: ${daily.toLocaleString('en-US')}` },
+                  { type: 10, content: `Weekly: ${weekly.toLocaleString('en-US')}` },
+                  { type: 10, content: `Monthly: ${monthly.toLocaleString('en-US')}` }
+                ]
+              }]
+            });
           } catch (error) {
-            logger.error({ err: error }, 'Force-update-leaderboard command failed');
+            logger.error({ err: error }, 'Message-count command failed');
             try {
               await interaction.editReply({
                 flags: MessageFlags.IsComponentsV2,
                 components: [{ type: 17, components: [{ type: 10, content: `Error: ${error.message}` }] }]
               });
             } catch (innerErr) {
-              logger.debug({ err: innerErr }, 'Failed to send force-update-leaderboard error reply');
+              logger.debug({ err: innerErr }, 'Failed to send message-count error reply');
             }
           }
         }
@@ -488,7 +563,6 @@ export async function initializeLeaderboardModule(options) {
       if (updateIntervalId) { clearInterval(updateIntervalId); updateIntervalId = null; }
       if (syncIntervalId) { clearInterval(syncIntervalId); syncIntervalId = null; }
       for (const task of cronTasks) task.stop();
-      forceUpdateCooldowns.clear();
       logger.info('Leaderboard module shutdown complete');
     }
   };
