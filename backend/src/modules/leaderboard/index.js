@@ -531,11 +531,7 @@ export async function initializeLeaderboardModule(options) {
               components: [{
                 type: 17,
                 components: [
-                  { type: 10, content: `**YOU HAVE ${total.toLocaleString('en-US')} MESSAGES**` },
-                  { type: 14, divider: true },
-                  { type: 10, content: `Daily: ${daily.toLocaleString('en-US')}` },
-                  { type: 10, content: `Weekly: ${weekly.toLocaleString('en-US')}` },
-                  { type: 10, content: `Monthly: ${monthly.toLocaleString('en-US')}` }
+                  { type: 10, content: `**YOU HAVE ${total.toLocaleString('en-US')} MESSAGES**` }
                 ]
               }]
             });
