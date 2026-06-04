@@ -15,7 +15,6 @@ const RANK_EMOJIS = [
   '<:10ten:1511757667092136108>'
 ];
 
-const HEADER_MSG_KEY = 'leaderboard:msg:header';
 const SILENT_MENTIONS = { parse: [] };
 
 function getNextHourUnix() {
@@ -46,10 +45,6 @@ function getResetUnix(bucket) {
 
 function formatNumber(n) {
   return n.toLocaleString('en-US');
-}
-
-function buildHeaderContent() {
-  return '# <:Empty:1503044372487471328> <:trophy:1511688001321828403> CHAT LEADERBOARD';
 }
 
 const TITLES = {
@@ -153,8 +148,6 @@ async function doUpdate(redis, discordClient, supabase) {
       if (result.status === 'fulfilled') usernameMap.set(result.value.id, result.value.username);
     }
   }
-
-  await updateOrCreateMessage(redis, channel, HEADER_MSG_KEY, { content: buildHeaderContent() });
 
   for (const bucket of BUCKETS) {
     const entries = bucketsData[bucket].map(r => [
