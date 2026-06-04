@@ -11,7 +11,13 @@ const UPDATE_INTERVAL_MS = (Number(process.env.LEADERBOARD_UPDATE_INTERVAL_MINUT
 const SYNC_INTERVAL_MS = (Number(process.env.LEADERBOARD_SYNC_INTERVAL_MINUTES) || 10) * 60 * 1000;
 
 const LUA_SYNC_BUCKET = `
-  redis.call('DEL', KEYS[2])
+  if redis.call('EXISTS', KEYS[2]) == 1 then
+    local leftovers = redis.call('SMEMBERS', KEYS[2])
+    if #leftovers > 0 then
+      redis.call('SADD', KEYS[1], unpack(leftovers))
+    end
+    redis.call('DEL', KEYS[2])
+  end
   if redis.call('EXISTS', KEYS[1]) == 0 then return {} end
   redis.call('RENAME', KEYS[1], KEYS[2])
   local members = redis.call('SMEMBERS', KEYS[2])
@@ -189,19 +195,34 @@ function onMessage(redis, message) {
   if (!message.guild) return;
   if (message.channel?.parentId === '1457403602313412706') return;
 
+  const trimmed = message.content.trim();
+  if (trimmed.length < 3) return;
+  if (/^(.)\1{4,}$/.test(trimmed)) return;
+  if (new Set(trimmed).size / trimmed.length < 0.2) return;
+
   const rawClient = redis.getClient();
   if (!rawClient) return;
 
   const userId = message.author.id;
-  rawClient.multi()
-    .incr(messagesKey('daily', userId))
-    .incr(messagesKey('weekly', userId))
-    .incr(messagesKey('monthly', userId))
-    .sAdd(activeUsersKey('daily'), userId)
-    .sAdd(activeUsersKey('weekly'), userId)
-    .sAdd(activeUsersKey('monthly'), userId)
-    .exec()
-    .catch((err) => logger.warn({ err }, 'Leaderboard count pipeline failed'));
+  const dedupKey = `leaderboard:dedup:${userId}`;
+
+  rawClient.get(dedupKey)
+    .then((lastContent) => {
+      if (lastContent === trimmed) return;
+      return rawClient.setex(dedupKey, 60, trimmed)
+        .then(() => {
+          rawClient.multi()
+            .incr(messagesKey('daily', userId))
+            .incr(messagesKey('weekly', userId))
+            .incr(messagesKey('monthly', userId))
+            .sAdd(activeUsersKey('daily'), userId)
+            .sAdd(activeUsersKey('weekly'), userId)
+            .sAdd(activeUsersKey('monthly'), userId)
+            .exec()
+            .catch((err) => logger.warn({ err }, 'Leaderboard count pipeline failed'));
+        });
+    })
+    .catch((err) => logger.warn({ err }, 'Leaderboard dedup check failed'));
 }
 
 const forceUpdateCooldowns = new Map();
