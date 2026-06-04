@@ -131,41 +131,42 @@ async function doUpdate(redis, discordClient, supabase) {
     return;
   }
 
+  const bucketsData = {};
+  const allIds = new Set();
+
+  for (const bucket of BUCKETS) {
+    let rows = [];
+    try {
+      const { data, error } = await supabase.rpc(`get_leaderboard_${bucket}`, { p_limit: 10, p_offset: 0 });
+      if (!error && data) rows = data;
+    } catch {}
+    bucketsData[bucket] = rows;
+    for (const r of rows) allIds.add(r.user_id);
+  }
+
+  const usernameMap = new Map();
+  if (allIds.size > 0) {
+    const results = await Promise.allSettled(
+      [...allIds].map(id => discordClient.users.fetch(id))
+    );
+    for (const result of results) {
+      if (result.status === 'fulfilled') usernameMap.set(result.value.id, result.value.username);
+    }
+  }
+
   await updateOrCreateMessage(redis, channel, HEADER_MSG_KEY, { content: buildHeaderContent() });
 
   for (const bucket of BUCKETS) {
-    await updateSingleLeaderboard(bucket, redis, discordClient, supabase, channel);
+    const entries = bucketsData[bucket].map(r => [
+      r.user_id,
+      usernameMap.get(r.user_id) || r.user_id,
+      r.count
+    ]);
+    const container = buildLeaderboardContainer(bucket, entries);
+    const msgKey = `leaderboard:msg:${bucket}`;
+    await updateOrCreateMessage(redis, channel, msgKey, { components: [container] });
   }
 
   await redis.set(REDIS_KEYS.workerLastLeaderboardUpdate, new Date().toISOString());
   logger.info('All leaderboards updated');
-}
-
-async function updateSingleLeaderboard(bucket, redis, discordClient, supabase, channel) {
-  let rows = [];
-  try {
-    const { data, error } = await supabase.rpc(`get_leaderboard_${bucket}`, { p_limit: 10, p_offset: 0 });
-    if (error) {
-      logger.warn({ err: error, bucket }, 'Supabase leaderboard query returned error');
-    } else if (data) {
-      rows = data;
-    }
-  } catch (err) {
-    logger.error({ err, bucket }, 'Supabase leaderboard query threw');
-  }
-
-  const entries = [];
-  for (const row of rows) {
-    let username = row.user_id;
-    try {
-      const user = await discordClient.users.fetch(row.user_id);
-      username = user.username;
-    } catch {}
-    entries.push([row.user_id, username, row.count]);
-  }
-
-  const container = buildLeaderboardContainer(bucket, entries);
-  const msgKey = `leaderboard:msg:${bucket}`;
-
-  await updateOrCreateMessage(redis, channel, msgKey, { components: [container] });
 }

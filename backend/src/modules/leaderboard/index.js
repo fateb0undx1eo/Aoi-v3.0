@@ -187,6 +187,7 @@ async function doResetBucket(redis, bucket) {
 function onMessage(redis, message) {
   if (message.author?.bot) return;
   if (!message.guild) return;
+  if (message.channel?.parentId === '1457403602313412706') return;
 
   const rawClient = redis.getClient();
   if (!rawClient) return;
