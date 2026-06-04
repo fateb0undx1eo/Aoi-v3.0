@@ -70,7 +70,7 @@ function buildLeaderboardContainer(bucket, entries) {
     components.push({ type: 10, content: '_No messages recorded yet._' });
   } else {
     for (let i = 0; i < entries.length; i++) {
-      components.push({ type: 10, content: `${getRankEmoji(i + 1)}<@${entries[i][0]}> **→** **${formatNumber(entries[i][1])}** messages` });
+      components.push({ type: 10, content: `${getRankEmoji(i + 1)}\`${entries[i][1]}\` **→** **${formatNumber(entries[i][2])}** messages` });
     }
   }
 
@@ -138,14 +138,14 @@ async function doUpdate(redis, discordClient, supabase) {
   await updateOrCreateMessage(redis, channel, HEADER_MSG_KEY, { content: buildHeaderContent() });
 
   for (const bucket of BUCKETS) {
-    await updateSingleLeaderboard(bucket, redis, supabase, channel);
+    await updateSingleLeaderboard(bucket, redis, discordClient, supabase, channel);
   }
 
   await redis.set(REDIS_KEYS.workerLastLeaderboardUpdate, new Date().toISOString());
   logger.info('All leaderboards updated');
 }
 
-async function updateSingleLeaderboard(bucket, redis, supabase, channel) {
+async function updateSingleLeaderboard(bucket, redis, discordClient, supabase, channel) {
   let rows = [];
   try {
     const { data, error } = await supabase.rpc(`get_leaderboard_${bucket}`, { p_limit: 10, p_offset: 0 });
@@ -158,7 +158,16 @@ async function updateSingleLeaderboard(bucket, redis, supabase, channel) {
     logger.error({ err, bucket }, 'Supabase leaderboard query threw');
   }
 
-  const entries = rows.map((r) => [r.user_id, r.count]);
+  const entries = [];
+  for (const row of rows) {
+    let username = row.user_id;
+    try {
+      const user = await discordClient.users.fetch(row.user_id);
+      username = user.username;
+    } catch {}
+    entries.push([row.user_id, username, row.count]);
+  }
+
   const container = buildLeaderboardContainer(bucket, entries);
   const msgKey = `leaderboard:msg:${bucket}`;
 
