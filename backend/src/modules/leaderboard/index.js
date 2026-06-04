@@ -505,11 +505,10 @@ export async function initializeLeaderboardModule(options) {
         async execute(interaction) {
           try {
             const userId = interaction.user.id;
-            const rawClient = redis.getClient?.();
             let daily = 0, weekly = 0, monthly = 0;
 
-            if (rawClient) {
-              const results = await rawClient.mget(messagesKey('daily', userId), messagesKey('weekly', userId), messagesKey('monthly', userId));
+            if (redis.isReady?.()) {
+              const results = await redis.mget(messagesKey('daily', userId), messagesKey('weekly', userId), messagesKey('monthly', userId));
               daily = Number(results[0]) || 0;
               weekly = Number(results[1]) || 0;
               monthly = Number(results[2]) || 0;
