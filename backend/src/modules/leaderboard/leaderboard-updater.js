@@ -18,11 +18,6 @@ const RANK_EMOJIS = [
 const HEADER_MSG_KEY = 'leaderboard:msg:header';
 const SILENT_MENTIONS = { parse: [] };
 
-function getRankEmoji(rank) {
-  if (rank >= 1 && rank <= 10) return `**${RANK_EMOJIS[rank - 1]}**`;
-  return `**${rank}.**`;
-}
-
 function getNextHourUnix() {
   const now = Date.now();
   return Math.floor(Math.ceil(now / 3600000) * 3600000 / 1000);
@@ -70,7 +65,8 @@ function buildLeaderboardContainer(bucket, entries) {
     components.push({ type: 10, content: '_No messages recorded yet._' });
   } else {
     for (let i = 0; i < entries.length; i++) {
-      components.push({ type: 10, content: `${getRankEmoji(i + 1)}\`${entries[i][1]}\` **→** **${formatNumber(entries[i][2])}** messages` });
+      const rankStr = i < 10 ? RANK_EMOJIS[i] : `${i + 1}.`;
+      components.push({ type: 10, content: `**${rankStr} \`${entries[i][1]}\` → ${formatNumber(entries[i][2])} messages**` });
     }
   }
 
