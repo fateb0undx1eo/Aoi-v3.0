@@ -500,9 +500,19 @@ export async function initializeLeaderboardModule(options) {
         }
       },
       {
-        name: 'message-count',
-        description: 'Show your message count',
+        name: 'message',
+        description: 'Message leaderboard commands',
+        options: [
+          {
+            name: 'count',
+            type: 1,
+            description: 'Show your message count'
+          }
+        ],
         async execute(interaction) {
+          const subcommand = interaction.options.getSubcommand(true);
+          if (subcommand !== 'count') return;
+
           try {
             const userId = interaction.user.id;
             let daily = 0, weekly = 0, monthly = 0;
@@ -530,14 +540,14 @@ export async function initializeLeaderboardModule(options) {
               }]
             });
           } catch (error) {
-            logger.error({ err: error }, 'Message-count command failed');
+            logger.error({ err: error }, 'Message count command failed');
             try {
               await interaction.editReply({
                 flags: MessageFlags.IsComponentsV2,
                 components: [{ type: 17, components: [{ type: 10, content: `Error: ${error.message}` }] }]
               });
             } catch (innerErr) {
-              logger.debug({ err: innerErr }, 'Failed to send message-count error reply');
+              logger.debug({ err: innerErr }, 'Failed to send message count error reply');
             }
           }
         }
