@@ -66,7 +66,7 @@ function buildLeaderboardContainer(bucket, entries) {
   } else {
     for (let i = 0; i < entries.length; i++) {
       const rankStr = i < 10 ? RANK_EMOJIS[i] : `${i + 1}.`;
-      components.push({ type: 10, content: `**${rankStr} \`${entries[i][1]}\` → ${formatNumber(entries[i][2])} messages**` });
+      components.push({ type: 10, content: `**${rankStr} ${entries[i][1]} → ${formatNumber(entries[i][2])} messages**` });
     }
   }
 
