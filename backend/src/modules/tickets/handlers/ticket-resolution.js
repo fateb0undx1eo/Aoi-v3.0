@@ -148,9 +148,12 @@ function renderContent(content, attachments, embeds, stickers, userMap) {
 
       const img = e.image?.url ? `<img class="e-image" src="${escapeHtml(e.image.url)}" alt="" loading="lazy">` : '';
 
-      html += `<div class="embed" style="--accent:${accent};--accent-border:${accentBorder}">
-        <div class="embed-body">${inner}${footerHtml}${img}</div>
-      </div>`;
+      const body = `<div class="embed-body">${inner}${footerHtml}${img}</div>`;
+      if (e.url) {
+        html += `<a class="embed embed-link" href="${escapeHtml(e.url)}" target="_blank" rel="noopener" style="--accent:${accent};--accent-border:${accentBorder}">${body}</a>`;
+      } else {
+        html += `<div class="embed" style="--accent:${accent};--accent-border:${accentBorder}">${body}</div>`;
+      }
     }
   }
 
@@ -467,24 +470,16 @@ export class TicketResolutionHandler {
     border: 1px solid #1e1e24;
     width: 100%;
     background: #000;
+    color-scheme: dark;
   }
-  .media-video::-webkit-media-controls-panel { background: #000; }
-  .media-video::-webkit-media-controls-play-button,
-  .media-video::-webkit-media-controls-start-playback-button { filter: invert(1); }
 
   .media-audio {
     width: 100%;
     margin: 6px 0;
     border-radius: 8px;
-    background: #000;
+    background: #111;
+    color-scheme: dark;
   }
-  .media-audio::-webkit-media-controls-panel { background: #000; }
-  .media-audio::-webkit-media-controls-play-button,
-  .media-audio::-webkit-media-controls-timeline,
-  .media-audio::-webkit-media-controls-current-time-display,
-  .media-audio::-webkit-media-controls-time-remaining-display,
-  .media-audio::-webkit-media-controls-volume-slider,
-  .media-audio::-webkit-media-controls-mute-button { filter: invert(1); }
   .file-link {
     color: #00AFFA;
     text-decoration: none;
@@ -515,7 +510,12 @@ export class TicketResolutionHandler {
     overflow: hidden;
     width: fit-content;
     max-width: 100%;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: border-color .15s;
   }
+  .embed-link:hover { border-color: #3a3a44; }
   .embed-body { padding: 12px 16px 12px 14px; display: flex; flex-direction: column; gap: 5px; }
   .e-author {
     font-size: 13px; color: #b5bac1;
@@ -533,7 +533,7 @@ export class TicketResolutionHandler {
   .e-field.e-inline { flex: 1 1 calc(50% - 10px); min-width: 170px; }
   .e-fn { font-size: 13px; font-weight: 700; color: #dbdee1; margin-bottom: 1px; }
   .e-fv { font-size: 13px; color: #b5bac1; line-height: 1.4; white-space: pre-wrap; }
-  .e-image { max-width: 100%; max-height: 400px; display: block; margin-top: 4px; border-radius: 4px; }
+  .e-image { max-width: 100%; display: block; margin-top: 4px; border-radius: 4px; }
   .e-thumb {
     max-width: 80px; max-height: 80px;
     border-radius: 6px;
