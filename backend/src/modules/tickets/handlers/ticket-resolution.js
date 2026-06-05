@@ -375,6 +375,15 @@ export class TicketResolutionHandler {
     padding-bottom: 24px;
     border-bottom: 1px solid #1f2228;
   }
+  .header-title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .header-icon {
+    flex-shrink: 0;
+  }
   .header h1 {
     font-size: 20px;
     font-weight: 600;
@@ -716,8 +725,16 @@ export class TicketResolutionHandler {
 </head>
 <body>
 <div class="container">
-  <div class="header">
-    <h1>Ticket Transcript</h1>
+    <div class="header">
+      <div class="header-title">
+        <svg class="header-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b949e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 9a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V9Z"/>
+          <path d="M7 9v6"/>
+          <path d="M17 9v6"/>
+          <path d="M12 9v6"/>
+        </svg>
+        <h1>Ticket Transcript</h1>
+      </div>
     <div class="meta">
       <span>${escapeHtml(tagLabel)}</span>
       <span>·</span>
