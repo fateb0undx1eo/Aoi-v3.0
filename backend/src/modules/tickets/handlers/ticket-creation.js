@@ -118,7 +118,6 @@ export class TicketCreationHandler {
 
     const now = Math.floor(Date.now() / 1000);
     const threadLink = `https://discord.com/channels/${thread.guildId}/${thread.id}`;
-    const tag = thread.name.split('-').slice(0, -1).join('-') || 'Ticket';
     const creator = await this.discordClient.users.fetch(creatorId).catch(() => null);
     const avatarUrl = creator?.displayAvatarURL({ extension: 'png', size: 128 }) || this.discordClient.user?.displayAvatarURL();
 
@@ -127,11 +126,11 @@ export class TicketCreationHandler {
     const components = [
       {
         type: 17,
-        accent_color: 0x004225,
+        accent_color: 0x8b2b2b,
         components: [
           {
             type: 10,
-            content: `# 🎫 ${tag.toUpperCase()} — Created`
+            content: `# TICKET CREATED`
           },
           {
             type: 9,

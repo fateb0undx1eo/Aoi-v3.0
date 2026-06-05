@@ -225,9 +225,7 @@ export class TicketResolutionHandler {
     const now = Math.floor(Date.now() / 1000);
     const threadLink = `https://discord.com/channels/${thread.guildId}/${thread.id}`;
     const finalTagLabel = tagLabelFromDb || tagLabel;
-    const tag = thread.name.split('-').slice(0, -1).join('-') || 'ticket';
-    const safeName = thread.name.replace(/[^a-zA-Z0-9_-]/g, '');
-    const transcriptFileName = `${safeName}-transcript.html`;
+    const transcriptFileName = 'transcript.html';
     const creator = await this.discordClient.users.fetch(creatorId).catch(() => null);
     const avatarUrl = creator?.displayAvatarURL({ extension: 'png', size: 128 }) || this.discordClient.user?.displayAvatarURL();
 
@@ -236,11 +234,11 @@ export class TicketResolutionHandler {
     const components = [
       {
         type: 17,
-        accent_color: 0x004225,
+        accent_color: 0x8b2b2b,
         components: [
           {
             type: 10,
-            content: `# 🎫 ${tag.toUpperCase()} — Closed`
+            content: `# TICKET CLOSED`
           },
           {
             type: 9,
@@ -278,7 +276,7 @@ export class TicketResolutionHandler {
         payload.files = [file];
         components[0].components.push({
           type: 13,
-          file: { url: `attachment://${transcriptFileName}` }
+          file: { url: `attachment://transcript.html` }
         });
       }
     }
@@ -289,7 +287,6 @@ export class TicketResolutionHandler {
   buildTranscriptFile(thread, creatorId, resolverId, messages, createdAtUnix, now, tagLabel) {
     const sorted = [...messages.values()].reverse();
     const tag = thread.name.split('-').slice(0, -1).join('-') || 'ticket';
-    const safeName = thread.name.replace(/[^a-zA-Z0-9_-]/g, '');
     const staffRoleIds = new Set(TICKET_STAFF_ROLE_IDS);
 
     const userMap = {};
@@ -639,7 +636,7 @@ export class TicketResolutionHandler {
 </html>`;
 
     const buffer = Buffer.from(html, 'utf-8');
-    return { attachment: buffer, name: `${safeName}-transcript.html` };
+        return { attachment: buffer, name: 'transcript.html' };
   }
 
   async editError(interaction, message) {
