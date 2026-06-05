@@ -21,17 +21,43 @@ function convertMarkdown(text) {
     return `\x00IC${inlineCodes.length - 1}\x00`;
   });
 
+  const lists = [];
+  text = text.replace(/(?:^|\n)((?: {0,2}[-*] .*(?:\n|$)){2,})/gm, (_, block) => {
+    const items = block.trim().split('\n').map(l => l.replace(/^ {0,2}[-*] /, ''));
+    lists.push(`<ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>`);
+    return `\x00UL${lists.length - 1}\x00`;
+  });
+
+  const orderedLists = [];
+  text = text.replace(/(?:^|\n)((?: {0,2}\d+\. .*(?:\n|$)){2,})/gm, (_, block) => {
+    const items = block.trim().split('\n').map(l => l.replace(/^ {0,2}\d+\. /, ''));
+    orderedLists.push(`<ol>${items.map(i => `<li>${i}</li>`).join('')}</ol>`);
+    return `\x00OL${orderedLists.length - 1}\x00`;
+  });
+
   text = text
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/^-# (.+)$/gm, '<div class="subtext">$1</div>')
+    .replace(/^\|\|(.+?)\|\|$/gs, '<span class="spoiler">$1</span>')
     .replace(/\|\|(.+?)\|\|/gs, '<span class="spoiler">$1</span>')
     .replace(/~~(.+?)~~/gs, '<s>$1</s>')
+    .replace(/__\*\*\*(.+?)\*\*\*__/gs, '<u><strong><em>$1</em></strong></u>')
+    .replace(/__\*\*(.+?)\*\*__/gs, '<u><strong>$1</strong></u>')
+    .replace(/__\*(.+?)\*__/gs, '<u><em>$1</em></u>')
+    .replace(/___(.+?)___/gs, '<u><em>$1</em></u>')
     .replace(/__(.+?)__/gs, '<u>$1</u>')
     .replace(/\*\*\*(.+?)\*\*\*/gs, '<strong><em>$1</em></strong>')
     .replace(/\*\*(.+?)\*\*/gs, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/gs, '<em>$1</em>')
     .replace(/_(.+?)_/gs, '<em>$1</em>')
     .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/^&gt;&gt;&gt; (.+)$/gs, '<blockquote class="bq-multi">$1</blockquote>')
     .replace(/^(&gt;|>) (.+)$/gm, '<blockquote>$2</blockquote>');
 
+  text = text.replace(/\x00UL(\d+)\x00/g, (_, i) => lists[i] || '');
+  text = text.replace(/\x00OL(\d+)\x00/g, (_, i) => orderedLists[i] || '');
   text = text.replace(/\x00CB(\d+)\x00/g, (_, i) => codeBlocks[i] || '');
   text = text.replace(/\x00IC(\d+)\x00/g, (_, i) => inlineCodes[i] || '');
   return text;
@@ -43,7 +69,7 @@ function renderContent(content, attachments, embeds, stickers) {
   if (content) {
     let processed = escapeHtml(content);
     processed = processed.replace(/&lt;(a?):(\w+):(\d+)&gt;/g, (_, a, name, id) =>
-      `<img class="emoji" src="https://cdn.discordapp.com/emojis/${id}.${a ? 'gif' : 'png'}" alt=":${name}:" loading="lazy">`
+      `<img class="emoji" src="https://cdn.discordapp.com/emojis/${id}.${a ? 'gif' : 'png'}?size=48" alt=":${name}:" loading="lazy">`
     );
     processed = processed.replace(/&lt;@!?(\d+)&gt;/g, '<span class="mention">@$1</span>');
     processed = processed.replace(/&lt;#(\d+)&gt;/g, '<span class="mention">#$1</span>');
@@ -91,12 +117,8 @@ function renderContent(content, attachments, embeds, stickers) {
         inner += '</div>';
       }
 
-      let sideMedia = '';
-      if (e.image?.url) {
-        sideMedia += `<img class="e-image" src="${escapeHtml(e.image.url)}" alt="" loading="lazy">`;
-      }
       if (e.thumbnail?.url) {
-        sideMedia += `<img class="e-thumb" src="${escapeHtml(e.thumbnail.url)}" alt="" loading="lazy">`;
+        inner += `<img class="e-thumb" src="${escapeHtml(e.thumbnail.url)}" alt="" loading="lazy">`;
       }
 
       let footerHtml = '';
@@ -114,11 +136,17 @@ function renderContent(content, attachments, embeds, stickers) {
         footerHtml += '</div>';
       }
 
-      html += `<div class="embed" style="--accent:${accent};--accent-border:${accentBorder}">${inner}${sideMedia}${footerHtml}</div>`;
+      const img = e.image?.url ? `<img class="e-image" src="${escapeHtml(e.image.url)}" alt="" loading="lazy">` : '';
+
+      html += `<div class="embed" style="--accent:${accent};--accent-border:${accentBorder}">
+        <div class="embed-accent"></div>
+        <div class="embed-body">${inner}${footerHtml}</div>
+        ${img}
+      </div>`;
     }
   }
 
-  return html || '[empty]';
+  return html || (embeds?.length > 0 || attachments?.length > 0 || stickers?.length > 0 ? '' : '[empty]');
 }
 
 export class TicketResolutionHandler {
@@ -205,15 +233,17 @@ export class TicketResolutionHandler {
       avatarURL: this.discordClient.user?.displayAvatarURL()
     };
 
+    const finalTagLabel = tagLabelFromDb || tagLabel;
+
     if (messages && messages.size > 0) {
-      const file = this.buildTranscriptFile(thread, creatorId, resolverId, messages);
+      const file = this.buildTranscriptFile(thread, creatorId, resolverId, messages, createdAtUnix, now, finalTagLabel);
       if (file) payload.files = [file];
     }
 
     await this.webhookService.sendWithRetry(webhook, payload).catch(() => null);
   }
 
-  buildTranscriptFile(thread, creatorId, resolverId, messages) {
+  buildTranscriptFile(thread, creatorId, resolverId, messages, createdAtUnix, now, tagLabel) {
     const sorted = [...messages.values()].reverse();
     const tag = thread.name.split('-').slice(0, -1).join('-') || 'ticket';
     const safeName = thread.name.replace(/[^a-zA-Z0-9_-]/g, '');
@@ -261,15 +291,15 @@ export class TicketResolutionHandler {
   }
   .messages { max-width: 800px; margin: 0 auto; }
 
-  /* ── header ── */
   .header-card {
     background: linear-gradient(135deg, #111114 0%, #141418 100%);
     border: 1px solid #222;
     border-radius: 14px;
-    padding: 24px 28px;
+    padding: 24px 28px 18px;
     margin-bottom: 28px;
     position: relative;
     overflow: hidden;
+    text-align: center;
   }
   .header-card::before {
     content: '';
@@ -283,18 +313,27 @@ export class TicketResolutionHandler {
     font-weight: 700;
     letter-spacing: .5px;
     color: #fff;
+    margin-bottom: 6px;
   }
   .header-card .meta {
     font-size: 13px;
     color: #6d6f78;
-    margin-top: 6px;
     display: flex;
-    gap: 16px;
     flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 16px;
+    margin-top: 6px;
   }
   .header-card .meta span { color: #b5bac1; font-weight: 500; }
+  .header-emojis {
+    font-size: 28px;
+    letter-spacing: 6px;
+    margin-top: 12px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+  }
 
-  /* ── message ── */
   .message {
     display: flex;
     gap: 14px;
@@ -313,8 +352,8 @@ export class TicketResolutionHandler {
   .content { flex: 1; min-width: 0; }
   .header {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    align-items: baseline;
+    gap: 6px;
     flex-wrap: wrap;
     line-height: 1.3;
   }
@@ -333,10 +372,8 @@ export class TicketResolutionHandler {
     font-size: 11px;
     color: #6d6f78;
     font-weight: 400;
-    margin-left: auto;
   }
 
-  /* ── text content ── */
   .text {
     font-size: 15px;
     line-height: 1.55;
@@ -346,10 +383,17 @@ export class TicketResolutionHandler {
   }
   .text strong { font-weight: 700; color: #fff; }
   .text em { font-style: italic; }
-  .text u { text-decoration: underline; text-underline-offset: 2px; }
+  .text u { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1.5px; }
   .text s { text-decoration: line-through; }
   .text a { color: #00AFFA; text-decoration: none; font-weight: 500; }
   .text a:hover { text-decoration: underline; }
+  .text h1, .text h2, .text h3 { color: #fff; font-weight: 700; margin: 10px 0 4px; line-height: 1.3; }
+  .text h1 { font-size: 22px; }
+  .text h2 { font-size: 18px; }
+  .text h3 { font-size: 16px; }
+  .text .subtext { color: #6d6f78; font-size: 13px; margin: 4px 0; }
+  .text ul, .text ol { margin: 4px 0 4px 20px; color: #dbdee1; }
+  .text li { margin: 2px 0; }
   .text code {
     background: #1e1e22;
     padding: 2px 6px;
@@ -368,12 +412,8 @@ export class TicketResolutionHandler {
     border: 1px solid #1e1e24;
   }
   .text pre code {
-    background: none;
-    padding: 0;
-    border-radius: 0;
-    font-size: 13px;
-    border: none;
-    color: #c9d1d9;
+    background: none; padding: 0; border-radius: 0;
+    font-size: 13px; border: none; color: #c9d1d9;
   }
   .text blockquote {
     border-left: 4px solid #5865F2;
@@ -382,6 +422,14 @@ export class TicketResolutionHandler {
     color: #b5bac1;
     background: rgba(88,101,242,.04);
     border-radius: 0 8px 8px 0;
+  }
+  .text blockquote.bq-multi {
+    border-left: 4px solid #5865F2;
+    padding: 10px 14px;
+    margin: 6px 0;
+    color: #b5bac1;
+    background: rgba(88,101,242,.04);
+    border-radius: 8px;
   }
   .text .spoiler {
     background: #2a2a30;
@@ -401,12 +449,11 @@ export class TicketResolutionHandler {
     font-size: 14px;
   }
   .text .emoji {
-    width: 22px; height: 22px;
+    width: 32px; height: 32px;
     vertical-align: middle;
     object-fit: contain;
   }
 
-  /* ── media / files / stickers ── */
   .media {
     max-width: 100%;
     max-height: 340px;
@@ -435,96 +482,61 @@ export class TicketResolutionHandler {
     max-width: 160px;
     max-height: 160px;
     border-radius: 10px;
-    margin: 6px 0;
-    display: block;
+    margin: 6px 0; display: block;
   }
 
-  /* ── embed ── */
   .embed {
     background: #0e0e12;
     border: 1px solid #1e1e24;
-    border-left: 4px solid var(--accent-border, #2b2d31);
     border-radius: 10px;
-    padding: 14px 18px;
     margin: 8px 0;
     max-width: 540px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,.25);
+    position: relative;
   }
+  .embed-accent {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 4px;
+    background: var(--accent-border, #2b2d31);
+    border-radius: 10px 0 0 10px;
+  }
+  .embed-body { padding: 14px 18px 14px 20px; display: flex; flex-direction: column; gap: 6px; }
   .e-author {
-    font-size: 13px;
-    color: #b5bac1;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    font-size: 13px; color: #b5bac1;
+    display: flex; align-items: center; gap: 6px;
     margin-bottom: -2px;
   }
   .e-author a { color: #b5bac1; text-decoration: none; }
   .e-author a:hover { text-decoration: underline; }
   .e-author-icon { width: 20px; height: 20px; border-radius: 50%; }
-  .e-title {
-    font-size: 15px;
-    font-weight: 700;
-    color: #e3e5e8;
-    line-height: 1.3;
-  }
+  .e-title { font-size: 15px; font-weight: 700; color: #e3e5e8; line-height: 1.3; }
   .e-title a { color: #00AFFA; text-decoration: none; }
   .e-title a:hover { text-decoration: underline; }
-  .e-desc {
-    font-size: 14px;
-    color: #b5bac1;
-    line-height: 1.45;
-  }
-  .e-fields {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 12px;
-    margin-top: 2px;
-  }
+  .e-desc { font-size: 14px; color: #b5bac1; line-height: 1.45; }
+  .e-fields { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 2px; }
   .e-field { flex: 1 1 100%; }
   .e-field.e-inline { flex: 1 1 calc(50% - 12px); min-width: 180px; }
-  .e-fn {
-    font-size: 13px;
-    font-weight: 700;
-    color: #dbdee1;
-    margin-bottom: 1px;
-  }
-  .e-fv {
-    font-size: 13px;
-    color: #b5bac1;
-    line-height: 1.4;
-    white-space: pre-wrap;
-  }
-  .e-image {
-    max-width: 100%;
-    max-height: 300px;
-    border-radius: 8px;
-    margin: 4px 0;
-    display: block;
-    border: 1px solid #1e1e24;
-  }
+  .e-fn { font-size: 13px; font-weight: 700; color: #dbdee1; margin-bottom: 1px; }
+  .e-fv { font-size: 13px; color: #b5bac1; line-height: 1.4; white-space: pre-wrap; }
+  .e-image { max-width: 100%; max-height: 300px; display: block; border-top: 1px solid #1e1e24; }
+  .e-media-wrap { position: relative; }
   .e-thumb {
-    max-width: 90px;
-    max-height: 90px;
+    max-width: 90px; max-height: 90px;
     border-radius: 8px;
     float: right;
-    margin: -2px 0 4px 10px;
+    margin: 0 0 4px 10px;
     border: 1px solid #1e1e24;
   }
   .e-footer {
-    font-size: 12px;
-    color: #6d6f78;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    font-size: 12px; color: #6d6f78;
+    display: flex; align-items: center; gap: 6px;
     margin-top: 2px;
   }
   .e-footer-icon { width: 16px; height: 16px; border-radius: 50%; }
   .e-ts::before { content: '·'; margin-right: 6px; color: #6d6f78; }
 
-  /* ── footer ── */
   .footer {
     text-align: center;
     color: #6d6f78;
@@ -534,12 +546,23 @@ export class TicketResolutionHandler {
     border-top: 1px solid #1a1a1e;
     letter-spacing: .3px;
   }
+  .footer-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 24px;
+    margin-top: 8px;
+  }
+  .footer-item { display: flex; align-items: center; gap: 4px; }
+  .footer-item .label { color: #6d6f78; }
+  .footer-item .value { color: #b5bac1; font-weight: 500; }
 
   @media (max-width: 600px) {
     body { padding: 16px 10px; }
     .header-card { padding: 18px 16px; }
     .message { padding: 6px 10px; }
     .e-field.e-inline { flex: 1 1 100%; }
+    .footer-grid { gap: 4px 12px; }
   }
 </style>
 </head>
@@ -548,13 +571,24 @@ export class TicketResolutionHandler {
   <div class="header-card">
     <h1>${escapeHtml(tag.toUpperCase())}</h1>
     <div class="meta">
-      <span>Created by</span> ${escapeHtml(creatorId)}
-      <span>Closed by</span> ${escapeHtml(resolverId)}
-      <span>Messages</span> ${sorted.filter(m => !m.author.bot).length}
+      <span>Created by</span> ${escapeHtml(creatorId)} &middot;
+      <span>Closed by</span> ${escapeHtml(resolverId)} &middot;
+      <span>Messages</span> ${sorted.filter(m => !m.author.bot).length} &middot;
+      <span>Tag</span> ${escapeHtml(tagLabel)}
     </div>
+    <div class="header-emojis">🎫 🔒 📝 ❓</div>
   </div>
   ${body}
-  <div class="footer">End of transcript &mdash; ${new Date().toUTCString()}</div>
+  <div class="footer">
+    <div class="footer-grid">
+      <div class="footer-item"><span class="label">Created by</span> <span class="value">${escapeHtml(creatorId)}</span></div>
+      <div class="footer-item"><span class="label">Created at</span> <span class="value">${createdAtUnix ? new Date(createdAtUnix * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</span></div>
+      <div class="footer-item"><span class="label">Closed by</span> <span class="value">${escapeHtml(resolverId)}</span></div>
+      <div class="footer-item"><span class="label">Closed at</span> <span class="value">${new Date(now * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span></div>
+      <div class="footer-item"><span class="label">Messages</span> <span class="value">${sorted.filter(m => !m.author.bot).length}</span></div>
+      <div class="footer-item"><span class="label">Tag</span> <span class="value">${escapeHtml(tagLabel)}</span></div>
+    </div>
+  </div>
 </div>
 </body>
 </html>`;
