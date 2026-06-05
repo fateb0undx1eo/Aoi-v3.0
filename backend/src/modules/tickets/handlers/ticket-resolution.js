@@ -127,7 +127,7 @@ export class TicketResolutionHandler {
       const avatar = msg.author.displayAvatarURL({ extension: 'png', size: 128 });
       const isCreator = msg.author.id === creatorId;
       const isStaff = msg.member?.roles?.cache?.hasAny?.(...staffRoleIds) ?? false;
-      const color = isCreator ? '#57F287' : '#00AFFA';
+      const color = isCreator ? '#004225' : '#7D1B36';
 
       let content = '';
       if (msg.content) {
