@@ -69,7 +69,7 @@ function renderContent(content, attachments, embeds, stickers) {
   if (content) {
     let processed = escapeHtml(content);
     processed = processed.replace(/&lt;(a?):(\w+):(\d+)&gt;/g, (_, a, name, id) =>
-      `<img class="emoji" src="https://cdn.discordapp.com/emojis/${id}.${a ? 'gif' : 'png'}?size=128" alt=":${name}:" loading="lazy">`
+      `<img class="emoji" src="https://cdn.discordapp.com/emojis/${id}.${a ? 'gif' : 'png'}?size=4096" alt=":${name}:" loading="lazy">`
     );
     processed = processed.replace(/&lt;@!?(\d+)&gt;/g, '<span class="mention">@$1</span>');
     processed = processed.replace(/&lt;#(\d+)&gt;/g, '<span class="mention">#$1</span>');
@@ -569,13 +569,13 @@ export class TicketResolutionHandler {
   <div class="header-card">
     <div class="header-emojis">
       <span class="h-hash">#</span>
-      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=128" alt=":Empty:" loading="lazy">
-      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=128" alt=":Empty:" loading="lazy">
-      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=128" alt=":Empty:" loading="lazy">
-      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503090874417152020.gif?size=128" alt=":Sparkle2:" loading="lazy">
-      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503003731887788072.png?size=128" alt=":Ticket1:" loading="lazy">
-      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503003714213118104.png?size=128" alt=":Ticket2:" loading="lazy">
-      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503090874417152020.gif?size=128" alt=":Sparkle2:" loading="lazy">
+      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=4096" alt=":Empty:" loading="lazy">
+      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=4096" alt=":Empty:" loading="lazy">
+      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=4096" alt=":Empty:" loading="lazy">
+      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503090874417152020.gif?size=4096" alt=":Sparkle2:" loading="lazy">
+      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503003731887788072.png?size=4096" alt=":Ticket1:" loading="lazy">
+      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503003714213118104.png?size=4096" alt=":Ticket2:" loading="lazy">
+      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503090874417152020.gif?size=4096" alt=":Sparkle2:" loading="lazy">
     </div>
   </div>
   ${body}
