@@ -63,7 +63,7 @@ function convertMarkdown(text) {
   return text;
 }
 
-function renderContent(content, attachments, embeds, stickers) {
+function renderContent(content, attachments, embeds, stickers, userMap) {
   let html = '';
 
   if (content) {
@@ -71,9 +71,15 @@ function renderContent(content, attachments, embeds, stickers) {
     processed = processed.replace(/&lt;(a?):(\w+):(\d+)&gt;/g, (_, a, name, id) =>
       `<img class="emoji" src="https://cdn.discordapp.com/emojis/${id}.${a ? 'gif' : 'png'}?size=4096" alt=":${name}:" loading="lazy">`
     );
-    processed = processed.replace(/&lt;@!?(\d+)&gt;/g, '<span class="mention">@$1</span>');
+    processed = processed.replace(/&lt;@!?(\d+)&gt;/g, (_, id) => {
+      const display = userMap?.[id] || id;
+      return `<span class="mention">@${escapeHtml(display)}</span>`;
+    });
     processed = processed.replace(/&lt;#(\d+)&gt;/g, '<span class="mention">#$1</span>');
-    processed = processed.replace(/&lt;@&amp;(\d+)&gt;/g, '<span class="mention">@$1</span>');
+    processed = processed.replace(/&lt;@&amp;(\d+)&gt;/g, (_, id) => {
+      const display = userMap?.[id] || id;
+      return `<span class="mention">@${escapeHtml(display)}</span>`;
+    });
     processed = convertMarkdown(processed);
     html += processed.replace(/\n/g, '<br>');
   }
@@ -251,6 +257,17 @@ export class TicketResolutionHandler {
     const safeName = thread.name.replace(/[^a-zA-Z0-9_-]/g, '');
     const staffRoleIds = new Set(TICKET_STAFF_ROLE_IDS);
 
+    const userMap = {};
+    for (const msg of messages.values()) {
+      if (msg.author?.id) userMap[msg.author.id] = msg.member?.displayName || msg.author.username;
+      if (msg.mentions) {
+        for (const u of msg.mentions.users.values()) {
+          const m = msg.mentions.members?.get(u.id);
+          userMap[u.id] = m?.displayName || u.username;
+        }
+      }
+    }
+
     let body = '';
     for (const msg of sorted) {
       if (msg.author.bot) continue;
@@ -263,7 +280,7 @@ export class TicketResolutionHandler {
       const isStaff = msg.member?.roles?.cache?.hasAny?.(...staffRoleIds) ?? false;
       const color = isCreator ? '#004225' : '#7D1B36';
       const badge = isCreator ? 'OP' : isStaff ? 'STAFF' : '';
-      const content = renderContent(msg.content, [...msg.attachments.values()], msg.embeds, [...msg.stickers.values()]);
+      const content = renderContent(msg.content, [...msg.attachments.values()], msg.embeds, [...msg.stickers.values()], userMap);
 
       body += `<div class="message">
         <img class="avatar" src="${avatar}" alt="" loading="lazy">
@@ -301,6 +318,7 @@ export class TicketResolutionHandler {
     flex-wrap: wrap;
     line-height: 1;
     margin-bottom: 20px;
+    text-align: center;
   }
   .header-emojis .h-emoji {
     width: 36px;
@@ -308,13 +326,7 @@ export class TicketResolutionHandler {
     vertical-align: middle;
     object-fit: contain;
   }
-  .header-emojis .h-hash {
-    color: #b5bac1;
-    font-size: 28px;
-    font-weight: 700;
-    margin-right: 2px;
-  }
-  .header-emojis .tight { margin: 0 -3px; }
+  .header-emojis .h-ticket { display: inline-flex; gap: 0; }
 
   .message {
     display: flex;
@@ -456,11 +468,23 @@ export class TicketResolutionHandler {
     width: 100%;
     background: #000;
   }
+  .media-video::-webkit-media-controls-panel { background: #000; }
+  .media-video::-webkit-media-controls-play-button,
+  .media-video::-webkit-media-controls-start-playback-button { filter: invert(1); }
+
   .media-audio {
     width: 100%;
     margin: 6px 0;
     border-radius: 8px;
+    background: #000;
   }
+  .media-audio::-webkit-media-controls-panel { background: #000; }
+  .media-audio::-webkit-media-controls-play-button,
+  .media-audio::-webkit-media-controls-timeline,
+  .media-audio::-webkit-media-controls-current-time-display,
+  .media-audio::-webkit-media-controls-time-remaining-display,
+  .media-audio::-webkit-media-controls-volume-slider,
+  .media-audio::-webkit-media-controls-mute-button { filter: invert(1); }
   .file-link {
     color: #00AFFA;
     text-decoration: none;
@@ -532,41 +556,50 @@ export class TicketResolutionHandler {
     padding: 16px 16px 4px;
     border-top: 1px solid #1a1a1e;
   }
-  .footer-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; margin-top: 8px; }
-  .footer-item { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
-  .footer-item .label { color: #6d6f78; }
-  .footer-item .value { color: #b5bac1; font-weight: 500; }
+  .footer-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px 16px; margin-top: 6px; }
+  .footer-row:first-of-type { margin-top: 0; }
+  .footer-item { display: inline-flex; align-items: center; gap: 3px; }
+  .footer-item .lbl { color: #6d6f78; }
+  .footer-item .val { color: #b5bac1; font-weight: 500; }
 
   @media (max-width: 600px) {
     body { padding: 16px 10px; }
-    .header-card { padding: 18px 16px; }
+    .header-emojis { gap: 1px; }
+    .header-emojis .h-emoji { width: 28px; height: 28px; }
     .message { padding: 6px 10px; }
     .e-field.e-inline { flex: 1 1 100%; }
-    .footer-grid { gap: 4px 12px; }
+    .footer-row { gap: 2px 8px; font-size: 11px; }
   }
 </style>
 </head>
 <body>
 <div class="messages">
   <div class="header-emojis">
-    <span class="h-hash">#</span>
     <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=4096" alt=":Empty:" loading="lazy">
     <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=4096" alt=":Empty:" loading="lazy">
     <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=4096" alt=":Empty:" loading="lazy">
     <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503090874417152020.gif?size=4096" alt=":Sparkle2:" loading="lazy">
-    <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503003731887788072.png?size=4096" alt=":Ticket1:" loading="lazy">
-    <img class="h-emoji tight" src="https://cdn.discordapp.com/emojis/1503003714213118104.png?size=4096" alt=":Ticket2:" loading="lazy">
+    <span class="h-ticket">
+      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503003731887788072.png?size=4096" alt=":Ticket1:" loading="lazy">
+      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503003714213118104.png?size=4096" alt=":Ticket2:" loading="lazy">
+    </span>
     <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503090874417152020.gif?size=4096" alt=":Sparkle2:" loading="lazy">
   </div>
   ${body}
   <div class="footer">
-    <div class="footer-grid">
-      <div class="footer-item"><span class="label">Created by</span> <span class="value">${escapeHtml(creatorId)}</span></div>
-      <div class="footer-item"><span class="label">Created at</span> <span class="value">${createdAtUnix ? new Date(createdAtUnix * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</span></div>
-      <div class="footer-item"><span class="label">Closed by</span> <span class="value">${escapeHtml(resolverId)}</span></div>
-      <div class="footer-item"><span class="label">Closed at</span> <span class="value">${new Date(now * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span></div>
-      <div class="footer-item"><span class="label">Messages</span> <span class="value">${sorted.filter(m => !m.author.bot).length}</span></div>
-      <div class="footer-item"><span class="label">Tag</span> <span class="value">${escapeHtml(tagLabel)}</span></div>
+    <div class="footer-row">
+      <div class="footer-item"><span class="lbl">Created by</span> <span class="val">${escapeHtml(creatorId)}</span></div>
+      <div class="footer-item"><span class="lbl">·</span></div>
+      <div class="footer-item"><span class="lbl">Closed by</span> <span class="val">${escapeHtml(resolverId)}</span></div>
+    </div>
+    <div class="footer-row">
+      <div class="footer-item"><span class="lbl">Created</span> <span class="val">${createdAtUnix ? new Date(createdAtUnix * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</span></div>
+      <div class="footer-item"><span class="lbl">·</span></div>
+      <div class="footer-item"><span class="lbl">Closed</span> <span class="val">${new Date(now * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span></div>
+      <div class="footer-item"><span class="lbl">·</span></div>
+      <div class="footer-item"><span class="lbl">Messages</span> <span class="val">${sorted.filter(m => !m.author.bot).length}</span></div>
+      <div class="footer-item"><span class="lbl">·</span></div>
+      <div class="footer-item"><span class="lbl">Tag</span> <span class="val">${escapeHtml(tagLabel)}</span></div>
     </div>
   </div>
 </div>
