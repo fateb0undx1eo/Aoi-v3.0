@@ -49,11 +49,11 @@ export default function DashboardHome() {
   }, [router]);
 
   return (
-    <div className="dashboard-canvas min-h-screen px-4 py-16 text-foreground sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-2xl">
-        <div className="dashboard-panel overflow-hidden rounded-[32px] p-6 text-center sm:p-8">
-          <p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Discord Bot Dashboard</p>
-          <h1 className="mt-3 text-2xl font-bold sm:text-3xl">Manage your servers from one control center.</h1>
+    <div className="dashboard-canvas min-h-screen px-4 py-12 text-foreground sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-sm sm:max-w-2xl">
+        <div className="dashboard-panel overflow-hidden rounded-2xl p-5 text-center text-white sm:rounded-[32px] sm:p-8" style={{ backgroundColor: "#000" }}>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 sm:text-xs sm:tracking-[0.28em]">Discord Bot Dashboard</p>
+          <h1 className="mt-3 text-lg font-bold leading-snug text-white sm:text-3xl">Manage your servers from one control center.</h1>
 
           {errorMessage && (
             <div className="mx-auto mt-6 max-w-xl rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
@@ -61,7 +61,7 @@ export default function DashboardHome() {
             </div>
           )}
 
-          <div className="mt-8">
+          <div className="mt-6 sm:mt-8">
             {checking ? (
               <div className="mx-auto max-w-xl">
                 <BoneyardCard lines={2} />
@@ -69,9 +69,9 @@ export default function DashboardHome() {
             ) : (
               <Link
                 href="/api/auth/discord"
-                className="theme-animate inline-flex items-center rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
+                className="theme-animate inline-flex w-full items-center justify-center rounded-2xl bg-[#5865F2] px-6 py-3 text-sm font-semibold text-white hover:opacity-90 sm:w-auto"
               >
-                Login with Discord
+                LOGIN
               </Link>
             )}
           </div>
