@@ -76,7 +76,7 @@ function renderContent(content, attachments, embeds, stickers, userMap) {
   if (content) {
     let processed = escapeHtml(content);
     processed = processed.replace(/&lt;(a?):(\w+):(\d+)&gt;/g, (_, a, name, id) =>
-      `<img class="emoji" src="https://cdn.discordapp.com/emojis/${id}.${a ? 'gif' : 'png'}?size=32" alt=":${name}:" loading="lazy">`
+      `<img class="emoji" src="https://cdn.discordapp.com/emojis/${id}.${a ? 'gif' : 'png'}?size=4096" alt=":${name}:" loading="lazy">`
     );
     processed = processed.replace(/&lt;@!?(\d+)&gt;/g, (_, id) => {
       const display = userMap?.[id] || id;
@@ -95,22 +95,14 @@ function renderContent(content, attachments, embeds, stickers, userMap) {
     for (const a of attachments) {
       if (a.contentType?.startsWith('image/')) {
         html += `<div class="attachment-card image-card">
-          <img class="card-image" src="${escapeHtml(a.url)}" alt="${escapeHtml(a.name)}" loading="lazy">
-          <div class="card-filename">${escapeHtml(a.name)}</div>
+          <img class="card-image" src="${escapeHtml(a.url)}" alt="" loading="lazy">
         </div>`;
       } else if (a.contentType?.startsWith('video/')) {
         html += `<div class="attachment-card video-card">
           <video class="card-video" src="${escapeHtml(a.url)}" controls preload="metadata" playsinline></video>
-          <div class="card-meta">
-            <span class="card-filename">${escapeHtml(a.name)}</span>
-            <span class="card-size">${formatFileSize(a.size)}</span>
-          </div>
         </div>`;
       } else if (a.contentType?.startsWith('audio/')) {
-        html += `<div class="audio-wrapper">
-          <div class="audio-name">${escapeHtml(a.name)}</div>
-          <audio class="audio-player" src="${escapeHtml(a.url)}" controls preload="metadata"></audio>
-        </div>`;
+        html += `<audio class="audio-player" src="${escapeHtml(a.url)}" controls preload="metadata"></audio>`;
       } else {
         html += `<a class="file-card" href="${escapeHtml(a.url)}" target="_blank" rel="noopener">
           <div class="file-icon">
@@ -180,11 +172,7 @@ function renderContent(content, attachments, embeds, stickers, userMap) {
       const img = e.image?.url ? `<img class="e-image" src="${escapeHtml(e.image.url)}" alt="" loading="lazy">` : '';
 
       const body = `<div class="embed-body">${inner}${footerHtml}${img}</div>`;
-      if (e.url) {
-        html += `<a class="embed embed-link" href="${escapeHtml(e.url)}" target="_blank" rel="noopener" style="--accent:${accent}">${body}</a>`;
-      } else {
-        html += `<div class="embed" style="--accent:${accent}">${body}</div>`;
-      }
+      html += `<div class="embed" style="--accent:${accent}">${body}</div>`;
     }
   }
 
@@ -372,7 +360,6 @@ export class TicketResolutionHandler {
   .header {
     margin-bottom: 40px;
     padding-bottom: 24px;
-    border-bottom: 1px solid #1f2228;
   }
   .header-details {
     text-align: center;
@@ -380,6 +367,7 @@ export class TicketResolutionHandler {
   .header-details summary {
     list-style: none;
     cursor: pointer;
+    user-select: none;
   }
   .header-details summary::-webkit-details-marker {
     display: none;
@@ -419,9 +407,6 @@ export class TicketResolutionHandler {
     align-items: center;
     padding: 4px 0;
     font-size: 13px;
-  }
-  .detail-row + .detail-row {
-    border-top: 1px solid #1f2228;
   }
   .detail-lbl {
     color: #6d7178;
@@ -595,26 +580,6 @@ export class TicketResolutionHandler {
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .image-card .card-filename {
-    border-top: 1px solid #1f2228;
-  }
-  .video-card .card-filename {
-    border-top: none;
-    padding-bottom: 0;
-  }
-  .card-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    border-top: 1px solid #1f2228;
-  }
-  .card-meta .card-filename {
-    border-top: none;
-    padding: 0;
-    flex: 1;
-    min-width: 0;
-  }
   .card-size {
     font-size: 11px;
     color: #6d7178;
@@ -687,7 +652,6 @@ export class TicketResolutionHandler {
     display: block;
     box-shadow: 0 2px 8px rgba(0,0,0,.25);
   }
-  .embed-link:hover { border-color: #30363d; }
   .e-author {
     font-size: 12px;
     color: #8b949e;
@@ -764,12 +728,18 @@ export class TicketResolutionHandler {
             <span class="detail-val">${escapeHtml(resolverId)}</span>
           </div>
           <div class="detail-row">
-            <span class="detail-lbl">Created</span>
-            <span class="detail-val">${createdAtUnix ? new Date(createdAtUnix * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-lbl">Closed</span>
-            <span class="detail-val">${new Date(now * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+            <span class="detail-lbl">Duration</span>
+            <span class="detail-val">${(() => {
+              const diff = (now - (createdAtUnix ?? now)) * 1000;
+              const days = Math.floor(diff / 86400000);
+              const hours = Math.floor((diff % 86400000) / 3600000);
+              const minutes = Math.floor((diff % 3600000) / 60000);
+              const parts = [];
+              if (days > 0) parts.push(days + 'd');
+              if (hours > 0) parts.push(hours + 'h');
+              if (minutes > 0 || parts.length === 0) parts.push(minutes + 'm');
+              return parts.join(' ');
+            })()}</span>
           </div>
           <div class="detail-row">
             <span class="detail-lbl">Messages</span>
