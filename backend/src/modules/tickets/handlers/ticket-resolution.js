@@ -4,6 +4,10 @@ import { isTicketStaffFromInteraction } from '../utils/permissions.js';
 import { isThreadNameClosed, markThreadNameClosed, extractTagLabelFromMessage, findWelcomeMessageInThread } from '../utils/thread-utils.js';
 import { AUTO_ARCHIVE_1H, ERROR_MESSAGES, POINTER, TICKET_LOG_CHANNEL_ID, TICKET_TAGS } from '../utils/constants.js';
 
+function escapeHtml(text) {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 export class TicketResolutionHandler {
   constructor(ticketService, webhookService, discordClient) {
     this.ticketService = ticketService;
@@ -94,37 +98,70 @@ export class TicketResolutionHandler {
     if (!messages || messages.size === 0) return;
 
     const sorted = [...messages.values()].reverse();
-    const lines = [];
-    lines.push('═══════════════════════════════════════════');
-    lines.push('            TICKET TRANSCRIPT');
-    lines.push('═══════════════════════════════════════════');
-    lines.push('');
-    lines.push(`Thread: ${thread.name}`);
-    lines.push(`Created by: ${creatorId}`);
-    lines.push(`Closed by: ${resolverId}`);
-    lines.push(`Date: ${new Date().toUTCString()}`);
-    lines.push('');
-    lines.push('───────────────────────────────────────────');
-    lines.push('');
+    const tag = thread.name.split('-').slice(0, -1).join('-') || 'ticket';
+    const safeName = thread.name.replace(/[^a-zA-Z0-9_-]/g, '');
 
+    let body = '';
     for (const msg of sorted) {
       if (msg.author.bot && msg.components?.length > 0) continue;
-      const time = msg.createdAt.toUTCString();
-      const author = `${msg.author.username}${msg.author.discriminator !== '0' ? `#${msg.author.discriminator}` : ''}`;
-      const content = msg.content || '[embed]';
-      for (const line of content.split('\n')) {
-        lines.push(`[${time}] ${author}: ${line}`);
-      }
+      const time = `<span class="time">${msg.createdAt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>`;
+      const name = msg.author.username;
+      const avatar = msg.author.displayAvatarURL({ extension: 'png', size: 32 });
+      const color = msg.member?.displayColor ? `hsl(${msg.member.displayColor}, 70%, 40%)` : '#99aab5';
+      const content = msg.content
+        ? escapeHtml(msg.content)
+        : msg.attachments.size > 0
+          ? `[${msg.attachments.map(a => a.name).join(', ')}]`
+          : '[embed]';
+
+      body += `<div class="message">
+        <img class="avatar" src="${avatar}" alt="" loading="lazy">
+        <div class="content">
+          <div class="header"><span class="name" style="color:${color}">${escapeHtml(name)}</span> ${time}</div>
+          <div class="text">${content.replace(/\n/g, '<br>')}</div>
+        </div>
+      </div>`;
     }
 
-    lines.push('');
-    lines.push('═══════════════════════════════════════════');
-    lines.push('           END OF TRANSCRIPT');
-    lines.push('═══════════════════════════════════════════');
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transcript - ${escapeHtml(thread.name)}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; background: #1e1e2e; color: #dcddde; padding: 20px; }
+  .header-bar { background: #2b2d3a; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; border: 1px solid #3a3c4a; }
+  .header-bar h1 { font-size: 18px; color: #fff; }
+  .header-bar .meta { font-size: 13px; color: #99aab5; margin-top: 4px; }
+  .header-bar .meta span { color: #dcddde; }
+  .messages { max-width: 800px; margin: 0 auto; }
+  .message { display: flex; gap: 12px; padding: 6px 12px; border-radius: 4px; }
+  .message:hover { background: #2b2d3a; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; margin-top: 2px; }
+  .content { flex: 1; min-width: 0; }
+  .header { font-size: 14px; line-height: 1.4; }
+  .name { font-weight: 600; }
+  .time { font-size: 11px; color: #72767d; margin-left: 6px; }
+  .text { font-size: 15px; line-height: 1.5; word-wrap: break-word; color: #dcddde; margin-top: 1px; }
+  .footer { text-align: center; color: #72767d; font-size: 12px; margin-top: 30px; padding: 12px; border-top: 1px solid #3a3c4a; }
+</style>
+</head>
+<body>
+<div class="messages">
+  <div class="header-bar">
+    <h1>${escapeHtml(tag.toUpperCase())}</h1>
+    <div class="meta">Created by <span>${escapeHtml(creatorId)}</span> &middot; Closed by <span>${escapeHtml(resolverId)}</span> &middot; ${sorted.length} messages</div>
+  </div>
+  ${body}
+  <div class="footer">End of transcript &mdash; ${new Date().toUTCString()}</div>
+</div>
+</body>
+</html>`;
 
-    const transcript = lines.join('\n');
-    const buffer = Buffer.from(transcript, 'utf-8');
-    const fileName = `transcript-${thread.name.replace(/[^a-zA-Z0-9_-]/g, '')}.txt`;
+    const buffer = Buffer.from(html, 'utf-8');
+    const fileName = `${safeName}-transcript.html`;
 
     await this.webhookService.sendWithRetry(webhook, {
       files: [{ attachment: buffer, name: fileName }],
