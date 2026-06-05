@@ -163,24 +163,6 @@ export class TicketCreationHandler {
       avatarURL: this.discordClient.user?.displayAvatarURL()
     }).catch(() => null);
   }
-            ],
-            accessory: {
-              type: 11,
-              media: { url: avatarUrl }
-            }
-          }
-        ]
-      }
-    ];
-
-    await this.webhookService.sendWithRetry(webhook, {
-      flags: 1 << 15,
-      components,
-      allowedMentions: { parse: [] },
-      username: 'Ticket System',
-      avatarURL: this.discordClient.user?.displayAvatarURL()
-    }).catch(() => null);
-  }
 
   async replyError(interaction, message) {
     const payload = buildErrorPayload(message);
