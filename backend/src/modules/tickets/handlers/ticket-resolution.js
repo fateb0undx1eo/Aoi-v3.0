@@ -248,7 +248,7 @@ export class TicketResolutionHandler {
                 content: [
                   pointerLine('Creator', `<@${creatorId}>`),
                   pointerLine('Closed By', `<@${resolverId}>`),
-                  pointerLine('Closed At', `<t:${now}:F>`),
+                  pointerLine('Closed At', `<t:${now}:f>`),
                   pointerLine('Thread', threadLink)
                 ].join('\n')
               }
@@ -305,7 +305,7 @@ export class TicketResolutionHandler {
       if (msg.author.bot) continue;
 
       const unix = Math.floor(msg.createdAt.getTime() / 1000);
-      const time = `<span class="time" data-timestamp="${unix}"><t:${unix}:F></span>`;
+      const time = `<span class="time" data-timestamp="${unix}"><t:${unix}:f></span>`;
       const name = msg.author.username;
       const avatar = msg.author.displayAvatarURL({ extension: 'png', size: 128 });
       const isCreator = msg.author.id === creatorId;

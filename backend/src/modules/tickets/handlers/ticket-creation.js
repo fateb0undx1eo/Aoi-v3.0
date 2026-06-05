@@ -140,7 +140,7 @@ export class TicketCreationHandler {
                 content: [
                   pointerLine('Creator', `<@${creatorId}>`),
                   pointerLine('Category', tagLabel),
-                  pointerLine('Created', `<t:${now}:F>`),
+                  pointerLine('Created', `<t:${now}:f>`),
                   pointerLine('Thread', threadLink)
                 ].join('\n')
               }
