@@ -324,20 +324,9 @@ export class TicketResolutionHandler {
     }
 
     let body = '';
-    let lastAuthorId = null;
-    let groupOpen = false;
-
-    function closeGroup() {
-      if (groupOpen) {
-        body += '</div>';
-        groupOpen = false;
-      }
-    }
-
     for (const msg of sorted) {
       if (msg.author.bot) continue;
 
-      const isNewAuthor = msg.author.id !== lastAuthorId;
       const unix = Math.floor(msg.createdAt.getTime() / 1000);
       const name = msg.author.username;
       const avatar = msg.author.displayAvatarURL({ extension: 'png', size: 128 });
@@ -347,24 +336,18 @@ export class TicketResolutionHandler {
       const badge = isCreator ? 'OP' : isStaff ? 'STAFF' : '';
       const content = renderContent(msg.content, [...msg.attachments.values()], msg.embeds, [...msg.stickers.values()], userMap);
 
-      if (isNewAuthor) {
-        closeGroup();
-        body += `<div class="msg-group">
-          <img class="msg-avatar" src="${avatar}" alt="" loading="lazy">
-          <div class="msg-body">
-            <div class="msg-header">
-              <span class="msg-name" style="color:${color}">${escapeHtml(name)}</span>
-              ${badge ? `<span class="msg-badge">${badge}</span>` : ''}
-              <span class="msg-time">${new Date(unix * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span>
-            </div>
-            <div class="msg-content">${content}</div>`;
-        groupOpen = true;
-      } else {
-        body += `<div class="msg-content msg-continued">${content}</div>`;
-      }
-      lastAuthorId = msg.author.id;
+      body += `<div class="msg-group">
+        <img class="msg-avatar" src="${avatar}" alt="" loading="lazy">
+        <div class="msg-body">
+          <div class="msg-header">
+            <span class="msg-name" style="color:${color}">${escapeHtml(name)}</span>
+            ${badge ? `<span class="msg-badge">${badge}</span>` : ''}
+            <span class="msg-time">${new Date(unix * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+          </div>
+          <div class="msg-content">${content}</div>
+        </div>
+      </div>`;
     }
-    closeGroup();
 
     if (!body) return null;
 
@@ -457,10 +440,6 @@ export class TicketResolutionHandler {
     color: #d1d5da;
     word-wrap: break-word;
     margin-top: 1px;
-  }
-  .msg-continued {
-    margin-top: 4px;
-    padding-left: 48px;
   }
   .msg-content strong { font-weight: 600; color: #e1e4e8; }
   .msg-content em { font-style: italic; }
