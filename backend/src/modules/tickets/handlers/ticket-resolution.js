@@ -226,32 +226,28 @@ export class TicketResolutionHandler {
     await channel.setArchived(true).catch(() => null);
 
     await this.ticketService.cooldownService.applyCooldown(creatorId).catch(() => null);
-    await this.ticketService.resolveTicket(channel.id, interaction.user.id, creatorId).catch(() => null);
-    await this.sendResolvedLog(channel, creatorId, interaction.user.id, messages);
+    const ticketRow = await this.ticketService.resolveTicket(channel.id, interaction.user.id, creatorId).catch(() => null);
+    await this.sendResolvedLog(channel, creatorId, interaction.user.id, messages, ticketRow);
 
     await interaction.editReply(buildSuccessPayload('Ticket has been closed.'));
   }
 
-  async sendResolvedLog(thread, creatorId, resolverId, messages) {
+  async sendResolvedLog(thread, creatorId, resolverId, messages, ticketRow) {
     const logChannel = await this.discordClient.channels.fetch(TICKET_LOG_CHANNEL_ID).catch(() => null);
     if (!logChannel) return;
     const webhook = await this.webhookService.getOrCreateLogWebhook(logChannel).catch(() => null);
     if (!webhook) return;
 
-    const ticketRow = await this.ticketService.getTicket(thread.id).catch(() => null);
     const createdAtUnix = ticketRow?.created_at
       ? Math.floor(new Date(ticketRow.created_at).getTime() / 1000)
       : thread.createdAt ? Math.floor(thread.createdAt.getTime() / 1000) : null;
 
     const now = Math.floor(Date.now() / 1000);
     const threadLink = `https://discord.com/channels/${thread.guildId}/${thread.id}`;
-    const tagFromThreadName = TICKET_TAGS.find(t =>
-      thread.name.startsWith(t.namePrefix + '-')
-    )?.label;
     const finalTagLabel =
       ticketRow?.tag_label ||
       TICKET_TAGS.find((t) => t.value === ticketRow?.tag)?.label ||
-      tagFromThreadName ||
+      TICKET_TAGS.find(t => thread.name.startsWith(t.namePrefix + '-'))?.label ||
       'Unknown';
     const transcriptFileName = 'transcript.html';
     const creator = await this.discordClient.users.fetch(creatorId).catch(() => null);
@@ -403,15 +399,6 @@ export class TicketResolutionHandler {
     color: #e1e4e8;
     letter-spacing: -0.3px;
   }
-  .header .meta {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 4px 20px;
-    margin-top: 10px;
-    font-size: 13px;
-    color: #6d7178;
-  }
   .header-detail-panel {
     max-width: 320px;
     margin: 16px auto 0;
@@ -420,6 +407,11 @@ export class TicketResolutionHandler {
     border: 1px solid #1f2228;
     border-radius: 10px;
     text-align: left;
+    animation: detailFadeIn .25s ease;
+  }
+  @keyframes detailFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
   }
   .detail-row {
     display: flex;
@@ -742,28 +734,12 @@ export class TicketResolutionHandler {
 
   .embed-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 4px; }
 
-  /* Footer */
-  .footer {
-    text-align: center;
-    color: #6d7178;
-    font-size: 12px;
-    margin-top: 48px;
-    padding: 20px 16px 4px;
-    border-top: 1px solid #1f2228;
-  }
-  .footer-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; margin-top: 6px; }
-  .footer-row:first-of-type { margin-top: 0; }
-  .footer-item { display: inline-flex; align-items: center; gap: 4px; }
-  .footer-item .lbl { color: #6d7178; }
-  .footer-item .val { color: #8b949e; font-weight: 500; }
-
   @media (max-width: 600px) {
     body { padding: 20px 12px; }
     .msg-group { gap: 10px; }
     .msg-avatar { width: 32px; height: 32px; }
-    .msg-continued { padding-left: 42px; }
     .e-field.e-inline { flex: 1 1 100%; }
-    .footer-row { gap: 2px 10px; font-size: 11px; }
+    .header-detail-panel { max-width: 100%; }
     .header { margin-bottom: 24px; }
   }
 </style>
@@ -805,27 +781,9 @@ export class TicketResolutionHandler {
           </div>
         </div>
       </details>
-    <div class="meta">
-      <span>${escapeHtml(tagLabel)}</span>
-      <span>·</span>
-      <span>${sorted.filter(m => !m.author.bot).length} messages</span>
-      <span>·</span>
-      <span>Created ${createdAtUnix ? new Date(createdAtUnix * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</span>
     </div>
   </div>
   ${body}
-  <div class="footer">
-    <div class="footer-row">
-      <div class="footer-item"><span class="lbl">Created by</span> <span class="val">${escapeHtml(creatorId)}</span></div>
-      <div class="footer-item"><span class="lbl">·</span></div>
-      <div class="footer-item"><span class="lbl">Closed by</span> <span class="val">${escapeHtml(resolverId)}</span></div>
-    </div>
-    <div class="footer-row">
-      <div class="footer-item"><span class="lbl">Closed</span> <span class="val">${new Date(now * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span></div>
-      <div class="footer-item"><span class="lbl">·</span></div>
-      <div class="footer-item"><span class="lbl">Tag</span> <span class="val">${escapeHtml(tagLabel)}</span></div>
-    </div>
-  </div>
 </div>
 </body>
 </html>`;
