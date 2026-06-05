@@ -520,11 +520,14 @@ export class TicketResolutionHandler {
     border-radius: 14px;
     overflow: hidden;
     margin: 8px 0;
+    width: fit-content;
+    max-width: 100%;
     box-shadow: 0 2px 8px rgba(0,0,0,.25);
   }
   .card-image {
     display: block;
-    width: 100%;
+    width: auto;
+    max-width: 100%;
     max-height: 420px;
     object-fit: contain;
     background: #0a0b0d;
@@ -534,14 +537,18 @@ export class TicketResolutionHandler {
   .card-image:hover { opacity: .92; }
   .card-video {
     display: block;
-    width: 100%;
+    width: auto;
+    max-width: 100%;
     max-height: 440px;
     background: #000;
+  }
+  .audio-card {
+    padding: 8px 12px;
   }
   .card-audio {
     display: block;
     width: 100%;
-    margin-top: 8px;
+    height: 36px;
   }
   .card-filename {
     font-size: 12px;
@@ -552,12 +559,18 @@ export class TicketResolutionHandler {
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .attachment-card .card-filename {
+  .image-card .card-filename {
     border-top: 1px solid #1f2228;
+  }
+  .video-card .card-filename {
+    border-top: none;
+    padding-bottom: 0;
   }
   .audio-card .card-filename {
     border-top: none;
-    padding-bottom: 0;
+    border-bottom: 1px solid #1f2228;
+    padding: 0 0 6px 0;
+    margin-bottom: 6px;
   }
   .card-meta {
     display: flex;
@@ -644,12 +657,6 @@ export class TicketResolutionHandler {
     display: block;
     box-shadow: 0 2px 8px rgba(0,0,0,.25);
   }
-  .embed::before {
-    content: '';
-    display: block;
-    height: 3px;
-    background: var(--accent, #30363d);
-  }
   .embed-link:hover { border-color: #30363d; }
   .e-author {
     font-size: 12px;
@@ -676,7 +683,7 @@ export class TicketResolutionHandler {
   .e-field.e-inline { flex: 1 1 calc(50% - 12px); min-width: 160px; }
   .e-fn { font-size: 12px; font-weight: 600; color: #d1d5da; margin-bottom: 1px; }
   .e-fv { font-size: 12px; color: #8b949e; line-height: 1.45; white-space: pre-wrap; }
-  .e-image { max-width: 100%; display: block; margin-top: 4px; border-radius: 4px; }
+  .e-image { width: auto; max-width: 100%; max-height: 420px; display: block; margin-top: 4px; border-radius: 4px; }
   .e-thumb {
     max-width: 72px;
     max-height: 72px;
