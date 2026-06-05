@@ -224,31 +224,70 @@ export class TicketResolutionHandler {
 
     const now = Math.floor(Date.now() / 1000);
     const threadLink = `https://discord.com/channels/${thread.guildId}/${thread.id}`;
-    const embed = {
-      title: 'Closed',
-      color: 0x2fa44f,
-      description: [
-        `${POINTER} Created By: <@${creatorId}>`,
-        `${POINTER} Created At: ${createdAtUnix ? `<t:${createdAtUnix}:F>` : '-'}`,
-        `${POINTER} Resolved At: <t:${now}:F>`,
-        `${POINTER} Resolved By: <@${resolverId}>`,
-        `${POINTER} Ticket Tag: ${tagLabelFromDb || tagLabel}`,
-        `${POINTER} Thread Link: ${threadLink}`
-      ].join('\n')
-    };
+    const finalTagLabel = tagLabelFromDb || tagLabel;
+    const tag = thread.name.split('-').slice(0, -1).join('-') || 'ticket';
+    const safeName = thread.name.replace(/[^a-zA-Z0-9_-]/g, '');
+    const transcriptFileName = `${safeName}-transcript.html`;
+
+    const components = [
+      {
+        type: 17,
+        accent_color: 0x004225,
+        components: [
+          {
+            type: 10,
+            content: `# 🎫 ${tag.toUpperCase()} — Closed`
+          },
+          {
+            type: 9,
+            components: [
+              {
+                type: 10,
+                content: [
+                  `${POINTER} **Created by:** <@${creatorId}>`,
+                  `${POINTER} **Closed by:** <@${resolverId}>`,
+                  `${POINTER} **Tag:** ${finalTagLabel}`
+                ].join('\n')
+              }
+            ],
+            accessory: {
+              type: 11,
+              media: { url: this.discordClient.user?.displayAvatarURL({ extension: 'png', size: 128 }) }
+            }
+          },
+          {
+            type: 14,
+            spacing: 1
+          },
+          {
+            type: 10,
+            content: [
+              `${POINTER} **Created:** ${createdAtUnix ? `<t:${createdAtUnix}:F>` : '-'}`,
+              `${POINTER} **Closed:** <t:${now}:F>`,
+              `${POINTER} **Thread:** ${threadLink}`,
+            ].join('\n')
+          }
+        ]
+      }
+    ];
 
     const payload = {
-      embeds: [embed],
+      flags: 1 << 15,
+      components,
       allowedMentions: { parse: [] },
       username: 'Ticket System',
       avatarURL: this.discordClient.user?.displayAvatarURL()
     };
 
-    const finalTagLabel = tagLabelFromDb || tagLabel;
-
     if (messages && messages.size > 0) {
       const file = this.buildTranscriptFile(thread, creatorId, resolverId, messages, createdAtUnix, now, finalTagLabel);
-      if (file) payload.files = [file];
+      if (file) {
+        payload.files = [file];
+        components[0].components.push({
+          type: 13,
+          file: { url: `attachment://${transcriptFileName}` }
+        });
+      }
     }
 
     await this.webhookService.sendWithRetry(webhook, payload).catch(() => null);
