@@ -1,4 +1,4 @@
-import { ChannelType } from 'discord.js';
+import { ChannelType, PermissionFlagsBits } from 'discord.js';
 import logger from '../services/logging-service.js';
 import { buildTicketWelcomePayload, buildSuccessPayload, buildErrorPayload } from '../components/payloads.js';
 import { generateThreadName, addStaffMembersToThread, buildTicketMentions, hasOpenTicketInChannel } from '../utils/thread-utils.js';
@@ -29,14 +29,17 @@ export class TicketCreationHandler {
         return;
       }
 
-      try {
-        await this.ticketService.cooldownService.checkCooldown(user.id);
-      } catch (error) {
-        if (error instanceof CooldownError) {
-          await this.replyError(interaction, error.message);
-          return;
+      const isAdminOrOwner = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) || interaction.guild?.ownerId === user.id;
+      if (!isAdminOrOwner) {
+        try {
+          await this.ticketService.cooldownService.checkCooldown(user.id);
+        } catch (error) {
+          if (error instanceof CooldownError) {
+            await this.replyError(interaction, error.message);
+            return;
+          }
+          throw error;
         }
-        throw error;
       }
 
       const activeTickets = await this.ticketService
