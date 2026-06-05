@@ -8,8 +8,7 @@ import {
   AUTO_ARCHIVE_24H,
   TICKET_LOG_CHANNEL_ID,
   TICKET_STAFF_ROLE_IDS,
-  ADD_STAFF_MEMBERS_TO_THREAD,
-  POINTER
+  ADD_STAFF_MEMBERS_TO_THREAD
 } from '../utils/constants.js';
 
 export class TicketCreationHandler {
@@ -119,19 +118,64 @@ export class TicketCreationHandler {
 
     const now = Math.floor(Date.now() / 1000);
     const threadLink = `https://discord.com/channels/${thread.guildId}/${thread.id}`;
-    const embed = {
-      title: 'Created',
-      color: 0x8b2b2b,
-      description: [
-        `${POINTER} Created By: <@${creatorId}>`,
-        `${POINTER} Created At: <t:${now}:F>`,
-        `${POINTER} Ticket Tag: ${tagLabel}`,
-        `${POINTER} Thread Link: ${threadLink}`
-      ].join('\n')
-    };
+    const tag = thread.name.split('-').slice(0, -1).join('-') || 'Ticket';
+    const creator = await this.discordClient.users.fetch(creatorId).catch(() => null);
+    const avatarUrl = creator?.displayAvatarURL({ extension: 'png', size: 128 }) || this.discordClient.user?.displayAvatarURL();
+
+    const pointerLine = (label, value) => `<:Pointer:1502993771317694655> **${label}:** ${value}`;
+
+    const components = [
+      {
+        type: 17,
+        accent_color: 0x004225,
+        components: [
+          {
+            type: 10,
+            content: `# 🎫 ${tag.toUpperCase()} — Created`
+          },
+          {
+            type: 9,
+            components: [
+              {
+                type: 10,
+                content: [
+                  pointerLine('Creator', `<@${creatorId}>`),
+                  pointerLine('Category', tagLabel),
+                  pointerLine('Created', `<t:${now}:F>`),
+                  pointerLine('Thread', threadLink)
+                ].join('\n')
+              }
+            ],
+            accessory: {
+              type: 11,
+              media: { url: avatarUrl }
+            }
+          }
+        ]
+      }
+    ];
 
     await this.webhookService.sendWithRetry(webhook, {
-      embeds: [embed],
+      flags: 1 << 15,
+      components,
+      allowedMentions: { parse: [] },
+      username: 'Ticket System',
+      avatarURL: this.discordClient.user?.displayAvatarURL()
+    }).catch(() => null);
+  }
+            ],
+            accessory: {
+              type: 11,
+              media: { url: avatarUrl }
+            }
+          }
+        ]
+      }
+    ];
+
+    await this.webhookService.sendWithRetry(webhook, {
+      flags: 1 << 15,
+      components,
       allowedMentions: { parse: [] },
       username: 'Ticket System',
       avatarURL: this.discordClient.user?.displayAvatarURL()

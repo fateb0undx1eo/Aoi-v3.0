@@ -2,7 +2,7 @@ import logger from '../services/logging-service.js';
 import { buildErrorPayload, buildSuccessPayload } from '../components/payloads.js';
 import { isTicketStaffFromInteraction } from '../utils/permissions.js';
 import { isThreadNameClosed, markThreadNameClosed, extractTagLabelFromMessage, findWelcomeMessageInThread } from '../utils/thread-utils.js';
-import { AUTO_ARCHIVE_1H, ERROR_MESSAGES, POINTER, TICKET_LOG_CHANNEL_ID, TICKET_TAGS, TICKET_STAFF_ROLE_IDS } from '../utils/constants.js';
+import { AUTO_ARCHIVE_1H, ERROR_MESSAGES, TICKET_LOG_CHANNEL_ID, TICKET_TAGS, TICKET_STAFF_ROLE_IDS } from '../utils/constants.js';
 
 function escapeHtml(text) {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -228,6 +228,10 @@ export class TicketResolutionHandler {
     const tag = thread.name.split('-').slice(0, -1).join('-') || 'ticket';
     const safeName = thread.name.replace(/[^a-zA-Z0-9_-]/g, '');
     const transcriptFileName = `${safeName}-transcript.html`;
+    const creator = await this.discordClient.users.fetch(creatorId).catch(() => null);
+    const avatarUrl = creator?.displayAvatarURL({ extension: 'png', size: 128 }) || this.discordClient.user?.displayAvatarURL();
+
+    const pointerLine = (label, value) => `<:Pointer:1502993771317694655> **${label}:** ${value}`;
 
     const components = [
       {
@@ -244,28 +248,17 @@ export class TicketResolutionHandler {
               {
                 type: 10,
                 content: [
-                  `${POINTER} **Created by:** <@${creatorId}>`,
-                  `${POINTER} **Closed by:** <@${resolverId}>`,
-                  `${POINTER} **Tag:** ${finalTagLabel}`
+                  pointerLine('Creator', `<@${creatorId}>`),
+                  pointerLine('Closed By', `<@${resolverId}>`),
+                  pointerLine('Closed At', `<t:${now}:F>`),
+                  pointerLine('Thread', threadLink)
                 ].join('\n')
               }
             ],
             accessory: {
               type: 11,
-              media: { url: this.discordClient.user?.displayAvatarURL({ extension: 'png', size: 128 }) }
+              media: { url: avatarUrl }
             }
-          },
-          {
-            type: 14,
-            spacing: 1
-          },
-          {
-            type: 10,
-            content: [
-              `${POINTER} **Created:** ${createdAtUnix ? `<t:${createdAtUnix}:F>` : '-'}`,
-              `${POINTER} **Closed:** <t:${now}:F>`,
-              `${POINTER} **Thread:** ${threadLink}`,
-            ].join('\n')
           }
         ]
       }
