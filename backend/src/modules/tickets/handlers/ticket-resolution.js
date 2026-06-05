@@ -1,7 +1,7 @@
 import logger from '../services/logging-service.js';
 import { buildErrorPayload, buildSuccessPayload } from '../components/payloads.js';
 import { isTicketStaffFromInteraction } from '../utils/permissions.js';
-import { isThreadNameClosed, markThreadNameClosed, extractTagLabelFromMessage, findWelcomeMessageInThread } from '../utils/thread-utils.js';
+import { isThreadNameClosed, markThreadNameClosed } from '../utils/thread-utils.js';
 import { AUTO_ARCHIVE_1H, ERROR_MESSAGES, TICKET_LOG_CHANNEL_ID, TICKET_TAGS, TICKET_STAFF_ROLE_IDS, getTicketColor } from '../utils/constants.js';
 
 function escapeHtml(text) {
@@ -186,8 +186,6 @@ export class TicketResolutionHandler {
       return;
     }
 
-    const tagLabel = await this.resolveTagLabel(channel);
-
     const messages = await channel.messages.fetch({ limit: 100 }).catch(() => null);
 
     await channel.setName(markThreadNameClosed(channel.name)).catch(() => null);
@@ -198,17 +196,12 @@ export class TicketResolutionHandler {
 
     await this.ticketService.cooldownService.applyCooldown(creatorId).catch(() => null);
     await this.ticketService.resolveTicket(channel.id, interaction.user.id, creatorId).catch(() => null);
-    await this.sendResolvedLog(channel, creatorId, interaction.user.id, tagLabel, messages);
+    await this.sendResolvedLog(channel, creatorId, interaction.user.id, messages);
 
     await interaction.editReply(buildSuccessPayload('Ticket has been closed.'));
   }
 
-  async resolveTagLabel(thread) {
-    const message = await findWelcomeMessageInThread(thread).catch(() => null);
-    return extractTagLabelFromMessage(message) || 'Unknown';
-  }
-
-  async sendResolvedLog(thread, creatorId, resolverId, tagLabel, messages) {
+  async sendResolvedLog(thread, creatorId, resolverId, messages) {
     const logChannel = await this.discordClient.channels.fetch(TICKET_LOG_CHANNEL_ID).catch(() => null);
     if (!logChannel) return;
     const webhook = await this.webhookService.getOrCreateLogWebhook(logChannel).catch(() => null);
@@ -218,13 +211,13 @@ export class TicketResolutionHandler {
     const createdAtUnix = ticketRow?.created_at
       ? Math.floor(new Date(ticketRow.created_at).getTime() / 1000)
       : thread.createdAt ? Math.floor(thread.createdAt.getTime() / 1000) : null;
-    const tagLabelFromDb =
-      ticketRow?.tag_label ||
-      TICKET_TAGS.find((t) => t.value === ticketRow?.tag)?.label;
 
     const now = Math.floor(Date.now() / 1000);
     const threadLink = `https://discord.com/channels/${thread.guildId}/${thread.id}`;
-    const finalTagLabel = tagLabelFromDb || tagLabel;
+    const finalTagLabel =
+      ticketRow?.tag_label ||
+      TICKET_TAGS.find((t) => t.value === ticketRow?.tag)?.label ||
+      'Unknown';
     const transcriptFileName = 'transcript.html';
     const creator = await this.discordClient.users.fetch(creatorId).catch(() => null);
     const avatarUrl = creator?.displayAvatarURL({ extension: 'png', size: 4096 }) || this.discordClient.user?.displayAvatarURL();
