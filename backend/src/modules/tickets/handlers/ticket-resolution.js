@@ -2,7 +2,7 @@ import logger from '../services/logging-service.js';
 import { buildErrorPayload, buildSuccessPayload } from '../components/payloads.js';
 import { isTicketStaffFromInteraction } from '../utils/permissions.js';
 import { isThreadNameClosed, markThreadNameClosed, extractTagLabelFromMessage, findWelcomeMessageInThread } from '../utils/thread-utils.js';
-import { AUTO_ARCHIVE_1H, ERROR_MESSAGES, TICKET_LOG_CHANNEL_ID, TICKET_TAGS, TICKET_STAFF_ROLE_IDS } from '../utils/constants.js';
+import { AUTO_ARCHIVE_1H, ERROR_MESSAGES, TICKET_LOG_CHANNEL_ID, TICKET_TAGS, TICKET_STAFF_ROLE_IDS, getTicketColor } from '../utils/constants.js';
 
 function escapeHtml(text) {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -227,14 +227,14 @@ export class TicketResolutionHandler {
     const finalTagLabel = tagLabelFromDb || tagLabel;
     const transcriptFileName = 'transcript.html';
     const creator = await this.discordClient.users.fetch(creatorId).catch(() => null);
-    const avatarUrl = creator?.displayAvatarURL({ extension: 'png', size: 128 }) || this.discordClient.user?.displayAvatarURL();
+    const avatarUrl = creator?.displayAvatarURL({ extension: 'png', size: 4096 }) || this.discordClient.user?.displayAvatarURL();
 
     const pointerLine = (label, value) => `<:Pointer:1502993771317694655> **${label}:** ${value}`;
 
     const components = [
       {
         type: 17,
-        accent_color: 0x8b2b2b,
+        accent_color: getTicketColor(thread.id),
         components: [
           {
             type: 10,

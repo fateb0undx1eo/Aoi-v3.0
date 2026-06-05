@@ -86,6 +86,33 @@ export const LOG_COLORS = {
   USER_REMOVED: 0xed4245 // Red
 };
 
+// Generate a deterministic accent color from a thread ID
+// Same thread ID always produces the same color, different threads get different hues
+export function getTicketColor(threadId) {
+  let hash = 0;
+  const str = String(threadId);
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const hue = ((hash % 360) + 360) % 360;
+  return hslToInt(hue, 70, 35);
+}
+
+function hslToInt(h, s, l) {
+  s /= 100;
+  l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+  };
+  const r = Math.round(f(0) * 255);
+  const g = Math.round(f(8) * 255);
+  const b = Math.round(f(4) * 255);
+  return (r << 16) | (g << 8) | b;
+}
+
 // Error messages
 export const ERROR_MESSAGES = {
   NO_PANEL_CHANNEL: 'Tickets can only be created from a text channel panel.',
@@ -121,5 +148,6 @@ export default {
   TICKET_TAGS,
   TICKET_COMMAND_NAMES,
   LOG_COLORS,
+  getTicketColor,
   ERROR_MESSAGES
 };

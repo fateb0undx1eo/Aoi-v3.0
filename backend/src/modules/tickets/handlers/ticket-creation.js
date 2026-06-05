@@ -8,7 +8,8 @@ import {
   AUTO_ARCHIVE_24H,
   TICKET_LOG_CHANNEL_ID,
   TICKET_STAFF_ROLE_IDS,
-  ADD_STAFF_MEMBERS_TO_THREAD
+  ADD_STAFF_MEMBERS_TO_THREAD,
+  getTicketColor
 } from '../utils/constants.js';
 
 export class TicketCreationHandler {
@@ -119,14 +120,14 @@ export class TicketCreationHandler {
     const now = Math.floor(Date.now() / 1000);
     const threadLink = `https://discord.com/channels/${thread.guildId}/${thread.id}`;
     const creator = await this.discordClient.users.fetch(creatorId).catch(() => null);
-    const avatarUrl = creator?.displayAvatarURL({ extension: 'png', size: 128 }) || this.discordClient.user?.displayAvatarURL();
+    const avatarUrl = creator?.displayAvatarURL({ extension: 'png', size: 4096 }) || this.discordClient.user?.displayAvatarURL();
 
     const pointerLine = (label, value) => `<:Pointer:1502993771317694655> **${label}:** ${value}`;
 
     const components = [
       {
         type: 17,
-        accent_color: 0x8b2b2b,
+        accent_color: getTicketColor(thread.id),
         components: [
           {
             type: 10,
