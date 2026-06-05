@@ -107,9 +107,9 @@ function renderContent(content, attachments, embeds, stickers, userMap) {
           </div>
         </div>`;
       } else if (a.contentType?.startsWith('audio/')) {
-        html += `<div class="attachment-card audio-card">
-          <div class="card-filename">${escapeHtml(a.name)}</div>
-          <audio class="card-audio" src="${escapeHtml(a.url)}" controls preload="metadata"></audio>
+        html += `<div class="audio-wrapper">
+          <div class="audio-name">${escapeHtml(a.name)}</div>
+          <audio class="audio-player" src="${escapeHtml(a.url)}" controls preload="metadata"></audio>
         </div>`;
       } else {
         html += `<a class="file-card" href="${escapeHtml(a.url)}" target="_blank" rel="noopener">
@@ -245,9 +245,13 @@ export class TicketResolutionHandler {
 
     const now = Math.floor(Date.now() / 1000);
     const threadLink = `https://discord.com/channels/${thread.guildId}/${thread.id}`;
+    const tagFromThreadName = TICKET_TAGS.find(t =>
+      thread.name.startsWith(t.namePrefix + '-')
+    )?.label;
     const finalTagLabel =
       ticketRow?.tag_label ||
       TICKET_TAGS.find((t) => t.value === ticketRow?.tag)?.label ||
+      tagFromThreadName ||
       'Unknown';
     const transcriptFileName = 'transcript.html';
     const creator = await this.discordClient.users.fetch(creatorId).catch(() => null);
@@ -370,10 +374,19 @@ export class TicketResolutionHandler {
 
   /* Header */
   .header {
-    text-align: center;
     margin-bottom: 40px;
     padding-bottom: 24px;
     border-bottom: 1px solid #1f2228;
+  }
+  .header-details {
+    text-align: center;
+  }
+  .header-details summary {
+    list-style: none;
+    cursor: pointer;
+  }
+  .header-details summary::-webkit-details-marker {
+    display: none;
   }
   .header-title {
     display: flex;
@@ -398,6 +411,32 @@ export class TicketResolutionHandler {
     margin-top: 10px;
     font-size: 13px;
     color: #6d7178;
+  }
+  .header-detail-panel {
+    max-width: 320px;
+    margin: 16px auto 0;
+    padding: 14px 18px;
+    background: #111318;
+    border: 1px solid #1f2228;
+    border-radius: 10px;
+    text-align: left;
+  }
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 13px;
+  }
+  .detail-row + .detail-row {
+    border-top: 1px solid #1f2228;
+  }
+  .detail-lbl {
+    color: #6d7178;
+  }
+  .detail-val {
+    color: #d1d5da;
+    font-weight: 500;
   }
 
   /* Message groups */
@@ -542,10 +581,15 @@ export class TicketResolutionHandler {
     max-height: 440px;
     background: #000;
   }
-  .audio-card {
-    padding: 8px 12px;
+  .audio-wrapper {
+    margin: 6px 0;
   }
-  .card-audio {
+  .audio-name {
+    font-size: 12px;
+    color: #8b949e;
+    margin-bottom: 4px;
+  }
+  .audio-player {
     display: block;
     width: 100%;
     height: 36px;
@@ -565,12 +609,6 @@ export class TicketResolutionHandler {
   .video-card .card-filename {
     border-top: none;
     padding-bottom: 0;
-  }
-  .audio-card .card-filename {
-    border-top: none;
-    border-bottom: 1px solid #1f2228;
-    padding: 0 0 6px 0;
-    margin-bottom: 6px;
   }
   .card-meta {
     display: flex;
@@ -733,12 +771,40 @@ export class TicketResolutionHandler {
 <body>
 <div class="container">
     <div class="header">
-      <div class="header-title">
-        <svg class="header-icon" width="22" height="22" viewBox="0 0 1536 1536" fill="#8b949e" xmlns="http://www.w3.org/2000/svg">
-          <path d="M 775.0 1238.5 L 680.0 1234.5 L 594.0 1222.5 L 503.0 1197.5 L 445.0 1172.5 L 380.0 1132.5 L 329.5 1086.0 L 308.5 1060.0 L 287.5 1027.0 L 264.5 976.0 L 247.5 910.0 L 243.5 880.0 L 242.5 824.0 L 250.5 739.0 L 266.5 647.0 L 304.5 512.0 L 352.5 392.0 L 390.5 326.0 L 401.0 313.5 L 418.0 300.5 L 427.0 297.5 L 448.0 300.5 L 472.0 314.5 L 502.0 339.5 L 546.5 388.0 L 618.0 483.5 L 626.0 484.5 L 701.0 471.5 L 752.0 470.5 L 825.0 471.5 L 916.0 483.5 L 977.5 401.0 L 1033.0 340.5 L 1083.0 302.5 L 1095.0 297.5 L 1116.0 300.5 L 1133.0 311.5 L 1153.0 338.5 L 1184.5 397.0 L 1233.5 522.0 L 1269.5 655.0 L 1285.5 748.0 L 1293.5 825.0 L 1292.5 881.0 L 1288.5 910.0 L 1270.5 980.0 L 1247.5 1029.0 L 1226.5 1062.0 L 1205.5 1088.0 L 1155.0 1134.5 L 1090.0 1174.5 L 1032.0 1199.5 L 941.0 1224.5 L 855.0 1236.5 L 776.0 1239.5 Z"/>
-        </svg>
-        <h1>AOI TICKET TRANSCRIPT</h1>
-      </div>
+      <details class="header-details">
+        <summary class="header-title">
+          <svg class="header-icon" width="22" height="22" viewBox="0 0 1536 1536" fill="#ffffff" xmlns="http://www.w3.org/2000/svg">
+            <path d="M 775.0 1238.5 L 680.0 1234.5 L 594.0 1222.5 L 503.0 1197.5 L 445.0 1172.5 L 380.0 1132.5 L 329.5 1086.0 L 308.5 1060.0 L 287.5 1027.0 L 264.5 976.0 L 247.5 910.0 L 243.5 880.0 L 242.5 824.0 L 250.5 739.0 L 266.5 647.0 L 304.5 512.0 L 352.5 392.0 L 390.5 326.0 L 401.0 313.5 L 418.0 300.5 L 427.0 297.5 L 448.0 300.5 L 472.0 314.5 L 502.0 339.5 L 546.5 388.0 L 618.0 483.5 L 626.0 484.5 L 701.0 471.5 L 752.0 470.5 L 825.0 471.5 L 916.0 483.5 L 977.5 401.0 L 1033.0 340.5 L 1083.0 302.5 L 1095.0 297.5 L 1116.0 300.5 L 1133.0 311.5 L 1153.0 338.5 L 1184.5 397.0 L 1233.5 522.0 L 1269.5 655.0 L 1285.5 748.0 L 1293.5 825.0 L 1292.5 881.0 L 1288.5 910.0 L 1270.5 980.0 L 1247.5 1029.0 L 1226.5 1062.0 L 1205.5 1088.0 L 1155.0 1134.5 L 1090.0 1174.5 L 1032.0 1199.5 L 941.0 1224.5 L 855.0 1236.5 L 776.0 1239.5 Z"/>
+          </svg>
+          <h1>AOI TICKET TRANSCRIPT</h1>
+        </summary>
+        <div class="header-detail-panel">
+          <div class="detail-row">
+            <span class="detail-lbl">Created by</span>
+            <span class="detail-val">${escapeHtml(creatorId)}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-lbl">Closed by</span>
+            <span class="detail-val">${escapeHtml(resolverId)}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-lbl">Created</span>
+            <span class="detail-val">${createdAtUnix ? new Date(createdAtUnix * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-lbl">Closed</span>
+            <span class="detail-val">${new Date(now * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-lbl">Messages</span>
+            <span class="detail-val">${sorted.filter(m => !m.author.bot).length}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-lbl">Tag</span>
+            <span class="detail-val">${escapeHtml(tagLabel)}</span>
+          </div>
+        </div>
+      </details>
     <div class="meta">
       <span>${escapeHtml(tagLabel)}</span>
       <span>·</span>
