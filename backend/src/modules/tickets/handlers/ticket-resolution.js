@@ -82,6 +82,10 @@ function renderContent(content, attachments, embeds, stickers) {
     for (const a of attachments) {
       if (a.contentType?.startsWith('image/')) {
         html += `<img class="media" src="${escapeHtml(a.url)}" alt="${escapeHtml(a.name)}" loading="lazy">`;
+      } else if (a.contentType?.startsWith('video/')) {
+        html += `<video class="media-video" src="${escapeHtml(a.url)}" controls preload="metadata" playsinline></video>`;
+      } else if (a.contentType?.startsWith('audio/')) {
+        html += `<audio class="media-audio" src="${escapeHtml(a.url)}" controls preload="metadata"></audio>`;
       } else {
         html += `<a class="file-link" href="${escapeHtml(a.url)}" target="_blank">📎 ${escapeHtml(a.name)}</a>`;
       }
@@ -139,9 +143,7 @@ function renderContent(content, attachments, embeds, stickers) {
       const img = e.image?.url ? `<img class="e-image" src="${escapeHtml(e.image.url)}" alt="" loading="lazy">` : '';
 
       html += `<div class="embed" style="--accent:${accent};--accent-border:${accentBorder}">
-        <div class="embed-accent"></div>
-        <div class="embed-body">${inner}${footerHtml}</div>
-        ${img}
+        <div class="embed-body">${inner}${footerHtml}${img}</div>
       </div>`;
     }
   }
@@ -291,25 +293,6 @@ export class TicketResolutionHandler {
   }
   .messages { max-width: 800px; margin: 0 auto; }
 
-  .header-card {
-    background: linear-gradient(135deg, #111114 0%, #141418 100%);
-    border: 1px solid #222;
-    border-radius: 14px;
-    padding: 16px 20px 14px;
-    margin-bottom: 28px;
-    position: relative;
-    overflow: hidden;
-    text-align: center;
-  }
-  .header-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, #004225, #7D1B36, transparent);
-  }
-  .header-card h1 { display: none; }
-  .header-card .meta { display: none; }
   .header-emojis {
     display: flex;
     justify-content: center;
@@ -317,6 +300,7 @@ export class TicketResolutionHandler {
     gap: 2px;
     flex-wrap: wrap;
     line-height: 1;
+    margin-bottom: 20px;
   }
   .header-emojis .h-emoji {
     width: 36px;
@@ -328,8 +312,9 @@ export class TicketResolutionHandler {
     color: #b5bac1;
     font-size: 28px;
     font-weight: 700;
-    margin-right: 4px;
+    margin-right: 2px;
   }
+  .header-emojis .tight { margin: 0 -3px; }
 
   .message {
     display: flex;
@@ -461,6 +446,21 @@ export class TicketResolutionHandler {
     transition: opacity .2s;
   }
   .media:hover { opacity: .92; }
+  .media-video {
+    max-width: 100%;
+    max-height: 440px;
+    border-radius: 12px;
+    margin: 6px 0;
+    display: block;
+    border: 1px solid #1e1e24;
+    width: 100%;
+    background: #000;
+  }
+  .media-audio {
+    width: 100%;
+    margin: 6px 0;
+    border-radius: 8px;
+  }
   .file-link {
     color: #00AFFA;
     text-decoration: none;
@@ -485,26 +485,17 @@ export class TicketResolutionHandler {
   .embed {
     background: #0e0e12;
     border: 1px solid #1e1e24;
-    border-radius: 10px;
+    border-left: 4px solid var(--accent-border, #2b2d31);
+    border-radius: 8px;
     margin: 8px 0;
     overflow: hidden;
-    box-shadow: 0 2px 12px rgba(0,0,0,.25);
-    position: relative;
     width: fit-content;
     max-width: 100%;
   }
-  .embed-accent {
-    position: absolute;
-    top: 0; left: 0; bottom: 0;
-    width: 4px;
-    background: var(--accent-border, #2b2d31);
-    border-radius: 10px 0 0 10px;
-  }
-  .embed-body { padding: 14px 18px 14px 20px; display: flex; flex-direction: column; gap: 6px; }
+  .embed-body { padding: 12px 16px 12px 14px; display: flex; flex-direction: column; gap: 5px; }
   .e-author {
     font-size: 13px; color: #b5bac1;
     display: flex; align-items: center; gap: 6px;
-    margin-bottom: -2px;
   }
   .e-author a { color: #b5bac1; text-decoration: none; }
   .e-author a:hover { text-decoration: underline; }
@@ -513,19 +504,17 @@ export class TicketResolutionHandler {
   .e-title a { color: #00AFFA; text-decoration: none; }
   .e-title a:hover { text-decoration: underline; }
   .e-desc { font-size: 14px; color: #b5bac1; line-height: 1.45; }
-  .e-fields { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 2px; }
+  .e-fields { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 2px; }
   .e-field { flex: 1 1 100%; }
-  .e-field.e-inline { flex: 1 1 calc(50% - 12px); min-width: 180px; }
+  .e-field.e-inline { flex: 1 1 calc(50% - 10px); min-width: 170px; }
   .e-fn { font-size: 13px; font-weight: 700; color: #dbdee1; margin-bottom: 1px; }
   .e-fv { font-size: 13px; color: #b5bac1; line-height: 1.4; white-space: pre-wrap; }
-  .e-image { max-width: 100%; max-height: 300px; display: block; border-top: 1px solid #1e1e24; }
-  .e-media-wrap { position: relative; }
+  .e-image { max-width: 100%; max-height: 400px; display: block; margin-top: 4px; border-radius: 4px; }
   .e-thumb {
-    max-width: 90px; max-height: 90px;
-    border-radius: 8px;
+    max-width: 80px; max-height: 80px;
+    border-radius: 6px;
     float: right;
     margin: 0 0 4px 10px;
-    border: 1px solid #1e1e24;
   }
   .e-footer {
     font-size: 12px; color: #6d6f78;
@@ -540,18 +529,11 @@ export class TicketResolutionHandler {
     color: #6d6f78;
     font-size: 12px;
     margin-top: 40px;
-    padding: 20px 16px 8px;
+    padding: 16px 16px 4px;
     border-top: 1px solid #1a1a1e;
-    letter-spacing: .3px;
   }
-  .footer-grid {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 6px 24px;
-    margin-top: 8px;
-  }
-  .footer-item { display: flex; align-items: center; gap: 4px; }
+  .footer-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; margin-top: 8px; }
+  .footer-item { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
   .footer-item .label { color: #6d6f78; }
   .footer-item .value { color: #b5bac1; font-weight: 500; }
 
@@ -566,17 +548,15 @@ export class TicketResolutionHandler {
 </head>
 <body>
 <div class="messages">
-  <div class="header-card">
-    <div class="header-emojis">
-      <span class="h-hash">#</span>
-      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=4096" alt=":Empty:" loading="lazy">
-      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=4096" alt=":Empty:" loading="lazy">
-      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=4096" alt=":Empty:" loading="lazy">
-      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503090874417152020.gif?size=4096" alt=":Sparkle2:" loading="lazy">
-      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503003731887788072.png?size=4096" alt=":Ticket1:" loading="lazy">
-      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503003714213118104.png?size=4096" alt=":Ticket2:" loading="lazy">
-      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503090874417152020.gif?size=4096" alt=":Sparkle2:" loading="lazy">
-    </div>
+  <div class="header-emojis">
+    <span class="h-hash">#</span>
+    <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=4096" alt=":Empty:" loading="lazy">
+    <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=4096" alt=":Empty:" loading="lazy">
+    <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=4096" alt=":Empty:" loading="lazy">
+    <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503090874417152020.gif?size=4096" alt=":Sparkle2:" loading="lazy">
+    <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503003731887788072.png?size=4096" alt=":Ticket1:" loading="lazy">
+    <img class="h-emoji tight" src="https://cdn.discordapp.com/emojis/1503003714213118104.png?size=4096" alt=":Ticket2:" loading="lazy">
+    <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503090874417152020.gif?size=4096" alt=":Sparkle2:" loading="lazy">
   </div>
   ${body}
   <div class="footer">
