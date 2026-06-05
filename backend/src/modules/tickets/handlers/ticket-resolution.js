@@ -63,13 +63,20 @@ function convertMarkdown(text) {
   return text;
 }
 
+function formatFileSize(bytes) {
+  if (!bytes || bytes === 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function renderContent(content, attachments, embeds, stickers, userMap) {
   let html = '';
 
   if (content) {
     let processed = escapeHtml(content);
     processed = processed.replace(/&lt;(a?):(\w+):(\d+)&gt;/g, (_, a, name, id) =>
-      `<img class="emoji" src="https://cdn.discordapp.com/emojis/${id}.${a ? 'gif' : 'png'}?size=4096" alt=":${name}:" loading="lazy">`
+      `<img class="emoji" src="https://cdn.discordapp.com/emojis/${id}.${a ? 'gif' : 'png'}?size=32" alt=":${name}:" loading="lazy">`
     );
     processed = processed.replace(/&lt;@!?(\d+)&gt;/g, (_, id) => {
       const display = userMap?.[id] || id;
@@ -87,13 +94,38 @@ function renderContent(content, attachments, embeds, stickers, userMap) {
   if (attachments?.length > 0) {
     for (const a of attachments) {
       if (a.contentType?.startsWith('image/')) {
-        html += `<img class="media" src="${escapeHtml(a.url)}" alt="${escapeHtml(a.name)}" loading="lazy">`;
+        html += `<div class="attachment-card image-card">
+          <img class="card-image" src="${escapeHtml(a.url)}" alt="${escapeHtml(a.name)}" loading="lazy">
+          <div class="card-filename">${escapeHtml(a.name)}</div>
+        </div>`;
       } else if (a.contentType?.startsWith('video/')) {
-        html += `<video class="media-video" src="${escapeHtml(a.url)}" controls preload="metadata" playsinline></video>`;
+        html += `<div class="attachment-card video-card">
+          <video class="card-video" src="${escapeHtml(a.url)}" controls preload="metadata" playsinline></video>
+          <div class="card-meta">
+            <span class="card-filename">${escapeHtml(a.name)}</span>
+            <span class="card-size">${formatFileSize(a.size)}</span>
+          </div>
+        </div>`;
       } else if (a.contentType?.startsWith('audio/')) {
-        html += `<audio class="media-audio" src="${escapeHtml(a.url)}" controls preload="metadata"></audio>`;
+        html += `<div class="attachment-card audio-card">
+          <div class="card-filename">${escapeHtml(a.name)}</div>
+          <audio class="card-audio" src="${escapeHtml(a.url)}" controls preload="metadata"></audio>
+        </div>`;
       } else {
-        html += `<a class="file-link" href="${escapeHtml(a.url)}" target="_blank">📎 ${escapeHtml(a.name)}</a>`;
+        html += `<a class="file-card" href="${escapeHtml(a.url)}" target="_blank" rel="noopener">
+          <div class="file-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8b949e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+          </div>
+          <div class="file-info">
+            <span class="card-filename">${escapeHtml(a.name)}</span>
+            <span class="card-size">${formatFileSize(a.size)}</span>
+          </div>
+        </a>`;
       }
     }
   }
@@ -107,7 +139,6 @@ function renderContent(content, attachments, embeds, stickers, userMap) {
   if (embeds?.length > 0) {
     for (const e of embeds) {
       const accent = e.hexColor || '#2b2d31';
-      const accentBorder = e.hexColor || 'transparent';
 
       let inner = '';
       if (e.author?.name) {
@@ -150,9 +181,9 @@ function renderContent(content, attachments, embeds, stickers, userMap) {
 
       const body = `<div class="embed-body">${inner}${footerHtml}${img}</div>`;
       if (e.url) {
-        html += `<a class="embed embed-link" href="${escapeHtml(e.url)}" target="_blank" rel="noopener" style="--accent:${accent};--accent-border:${accentBorder}">${body}</a>`;
+        html += `<a class="embed embed-link" href="${escapeHtml(e.url)}" target="_blank" rel="noopener" style="--accent:${accent}">${body}</a>`;
       } else {
-        html += `<div class="embed" style="--accent:${accent};--accent-border:${accentBorder}">${body}</div>`;
+        html += `<div class="embed" style="--accent:${accent}">${body}</div>`;
       }
     }
   }
@@ -279,7 +310,6 @@ export class TicketResolutionHandler {
 
   buildTranscriptFile(thread, creatorId, resolverId, messages, createdAtUnix, now, tagLabel) {
     const sorted = [...messages.values()].reverse();
-    const tag = thread.name.split('-').slice(0, -1).join('-') || 'ticket';
     const staffRoleIds = new Set(TICKET_STAFF_ROLE_IDS);
 
     const userMap = {};
@@ -294,11 +324,21 @@ export class TicketResolutionHandler {
     }
 
     let body = '';
+    let lastAuthorId = null;
+    let groupOpen = false;
+
+    function closeGroup() {
+      if (groupOpen) {
+        body += '</div>';
+        groupOpen = false;
+      }
+    }
+
     for (const msg of sorted) {
       if (msg.author.bot) continue;
 
+      const isNewAuthor = msg.author.id !== lastAuthorId;
       const unix = Math.floor(msg.createdAt.getTime() / 1000);
-      const time = `<span class="time" data-timestamp="${unix}"><t:${unix}:f></span>`;
       const name = msg.author.username;
       const avatar = msg.author.displayAvatarURL({ extension: 'png', size: 128 });
       const isCreator = msg.author.id === creatorId;
@@ -307,14 +347,24 @@ export class TicketResolutionHandler {
       const badge = isCreator ? 'OP' : isStaff ? 'STAFF' : '';
       const content = renderContent(msg.content, [...msg.attachments.values()], msg.embeds, [...msg.stickers.values()], userMap);
 
-      body += `<div class="message">
-        <img class="avatar" src="${avatar}" alt="" loading="lazy">
-        <div class="content">
-          <div class="header"><span class="name" style="color:${color}">${escapeHtml(name)}</span>${badge ? ` <span class="badge">${badge}</span>` : ''} ${time}</div>
-          <div class="text">${content}</div>
-        </div>
-      </div>`;
+      if (isNewAuthor) {
+        closeGroup();
+        body += `<div class="msg-group">
+          <img class="msg-avatar" src="${avatar}" alt="" loading="lazy">
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-name" style="color:${color}">${escapeHtml(name)}</span>
+              ${badge ? `<span class="msg-badge">${badge}</span>` : ''}
+              <span class="msg-time">${new Date(unix * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+            </div>
+            <div class="msg-content">${content}</div>`;
+        groupOpen = true;
+      } else {
+        body += `<div class="msg-content msg-continued">${content}</div>`;
+      }
+      lastAuthorId = msg.author.id;
     }
+    closeGroup();
 
     if (!body) return null;
 
@@ -328,284 +378,374 @@ export class TicketResolutionHandler {
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-    background: #0a0a0c;
-    color: #e3e5e8;
-    padding: 32px 20px;
+    background: #0d0e10;
+    color: #e1e4e8;
+    padding: 40px 24px;
     -webkit-font-smoothing: antialiased;
   }
-  .messages { max-width: 800px; margin: 0 auto; }
+  .container { max-width: 760px; margin: 0 auto; }
 
-  .header-emojis {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 2px;
-    flex-wrap: wrap;
-    line-height: 1;
-    margin-bottom: 20px;
+  /* Header */
+  .header {
     text-align: center;
+    margin-bottom: 40px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #1f2228;
   }
-  .header-emojis .h-emoji {
+  .header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #e1e4e8;
+    letter-spacing: -0.3px;
+  }
+  .header .meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 20px;
+    margin-top: 10px;
+    font-size: 13px;
+    color: #6d7178;
+  }
+
+  /* Message groups */
+  .msg-group {
+    display: flex;
+    gap: 12px;
+    padding: 6px 0;
+  }
+  .msg-avatar {
     width: 36px;
     height: 36px;
-    vertical-align: middle;
-    object-fit: contain;
-  }
-  .header-emojis .h-ticket { display: inline-flex; gap: 0; }
-
-  .message {
-    display: flex;
-    gap: 14px;
-    padding: 8px 16px;
-    border-radius: 10px;
-    transition: background .15s;
-  }
-  .message:hover { background: rgba(255,255,255,.03); }
-  .avatar {
-    width: 40px; height: 40px;
     border-radius: 50%;
     flex-shrink: 0;
     margin-top: 2px;
-    box-shadow: 0 0 0 1px rgba(255,255,255,.06);
+    background: #1f2228;
   }
-  .content { flex: 1; min-width: 0; }
-  .header {
+  .msg-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .msg-header {
     display: flex;
     align-items: baseline;
-    gap: 6px;
-    flex-wrap: wrap;
-    line-height: 1.3;
+    gap: 8px;
+    margin-bottom: 2px;
   }
-  .name { font-weight: 700; font-size: 15px; }
-  .badge {
+  .msg-name {
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .msg-badge {
     font-size: 10px;
-    font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 6px;
-    text-transform: uppercase;
-    letter-spacing: .6px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
     background: rgba(255,255,255,.06);
-    color: #b5bac1;
+    color: #8b949e;
+    letter-spacing: .4px;
+    text-transform: uppercase;
   }
-  .time {
+  .msg-time {
     font-size: 11px;
-    color: #6d6f78;
+    color: #6d7178;
     font-weight: 400;
   }
-
-  .text {
-    font-size: 15px;
+  .msg-content {
+    font-size: 14px;
     line-height: 1.55;
+    color: #d1d5da;
     word-wrap: break-word;
-    color: #dbdee1;
-    margin-top: 2px;
+    margin-top: 1px;
   }
-  .text strong { font-weight: 700; color: #fff; }
-  .text em { font-style: italic; }
-  .text u { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1.5px; }
-  .text s { text-decoration: line-through; }
-  .text a { color: #00AFFA; text-decoration: none; font-weight: 500; }
-  .text a:hover { text-decoration: underline; }
-  .text h1, .text h2, .text h3 { color: #fff; font-weight: 700; margin: 10px 0 4px; line-height: 1.3; }
-  .text h1 { font-size: 22px; }
-  .text h2 { font-size: 18px; }
-  .text h3 { font-size: 16px; }
-  .text .subtext { color: #6d6f78; font-size: 13px; margin: 4px 0; }
-  .text ul, .text ol { margin: 4px 0 4px 20px; color: #dbdee1; }
-  .text li { margin: 2px 0; }
-  .text code {
-    background: #1e1e22;
+  .msg-continued {
+    margin-top: 4px;
+    padding-left: 48px;
+  }
+  .msg-content strong { font-weight: 600; color: #e1e4e8; }
+  .msg-content em { font-style: italic; }
+  .msg-content u { text-decoration: underline; text-underline-offset: 2px; }
+  .msg-content s { text-decoration: line-through; }
+  .msg-content a { color: #58a6ff; text-decoration: none; }
+  .msg-content a:hover { text-decoration: underline; }
+  .msg-content h1, .msg-content h2, .msg-content h3 { color: #e1e4e8; font-weight: 600; margin: 12px 0 4px; line-height: 1.3; }
+  .msg-content h1 { font-size: 18px; }
+  .msg-content h2 { font-size: 16px; }
+  .msg-content h3 { font-size: 15px; }
+  .msg-content .subtext { color: #6d7178; font-size: 12px; margin: 4px 0; }
+  .msg-content ul, .msg-content ol { margin: 4px 0 4px 20px; }
+  .msg-content li { margin: 2px 0; }
+  .msg-content code {
+    background: #16181d;
     padding: 2px 6px;
-    border-radius: 5px;
+    border-radius: 4px;
     font-size: 85%;
     font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
     color: #c9d1d9;
-    border: 1px solid #2a2a30;
+    border: 1px solid #21242b;
   }
-  .text pre {
-    background: #0e0e12;
+  .msg-content pre {
+    background: #0d0e10;
     padding: 14px 16px;
-    border-radius: 10px;
+    border-radius: 8px;
     overflow-x: auto;
     margin: 8px 0;
-    border: 1px solid #1e1e24;
+    border: 1px solid #1f2228;
   }
-  .text pre code {
+  .msg-content pre code {
     background: none; padding: 0; border-radius: 0;
-    font-size: 13px; border: none; color: #c9d1d9;
+    font-size: 12px; border: none; color: #c9d1d9;
   }
-  .text blockquote {
-    border-left: 4px solid #5865F2;
-    padding: 6px 0 6px 14px;
+  .msg-content blockquote {
+    border-left: 3px solid #30363d;
+    padding: 4px 0 4px 12px;
     margin: 6px 0;
-    color: #b5bac1;
-    background: rgba(88,101,242,.04);
-    border-radius: 0 8px 8px 0;
+    color: #8b949e;
   }
-  .text blockquote.bq-multi {
-    border-left: 4px solid #5865F2;
-    padding: 10px 14px;
-    margin: 6px 0;
-    color: #b5bac1;
-    background: rgba(88,101,242,.04);
-    border-radius: 8px;
-  }
-  .text .spoiler {
-    background: #2a2a30;
+  .msg-content .spoiler {
+    background: #21242b;
     color: transparent;
-    border-radius: 4px;
+    border-radius: 3px;
     padding: 0 4px;
-    cursor: pointer;
-    transition: color .2s, background .2s;
+    cursor: default;
   }
-  .text .spoiler:hover { color: #dbdee1; background: #3a3a44; }
-  .text .mention {
-    background: rgba(88,101,242,.15);
-    color: #dee0fc;
+  .msg-content .spoiler:hover { color: #d1d5da; background: #30363d; }
+  .msg-content .mention {
+    background: rgba(56,139,253,.15);
+    color: #58a6ff;
     padding: 1px 5px;
-    border-radius: 5px;
+    border-radius: 4px;
     font-weight: 500;
-    font-size: 14px;
+    font-size: 13px;
   }
-  .text .emoji {
-    width: 32px; height: 32px;
+  .msg-content .emoji {
+    width: 22px;
+    height: 22px;
     vertical-align: middle;
     object-fit: contain;
   }
 
-  .media {
-    max-width: 100%;
-    max-height: 340px;
-    border-radius: 12px;
-    margin: 6px 0;
+  /* Attachment cards */
+  .attachment-card {
+    background: #111318;
+    border: 1px solid #1f2228;
+    border-radius: 14px;
+    overflow: hidden;
+    margin: 8px 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  }
+  .card-image {
     display: block;
-    border: 1px solid #1e1e24;
+    width: 100%;
+    max-height: 420px;
+    object-fit: contain;
+    background: #0a0b0d;
+    cursor: pointer;
     transition: opacity .2s;
   }
-  .media:hover { opacity: .92; }
-  .media-video {
-    max-width: 100%;
+  .card-image:hover { opacity: .92; }
+  .card-video {
+    display: block;
+    width: 100%;
     max-height: 440px;
-    border-radius: 12px;
+    background: #000;
+  }
+  .card-audio {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+  }
+  .card-filename {
+    font-size: 12px;
+    color: #8b949e;
+    padding: 8px 12px;
+    border-top: 1px solid #1f2228;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .attachment-card .card-filename {
+    border-top: 1px solid #1f2228;
+  }
+  .audio-card .card-filename {
+    border-top: none;
+    padding-bottom: 0;
+  }
+  .card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-top: 1px solid #1f2228;
+  }
+  .card-meta .card-filename {
+    border-top: none;
+    padding: 0;
+    flex: 1;
+    min-width: 0;
+  }
+  .card-size {
+    font-size: 11px;
+    color: #6d7178;
+    flex-shrink: 0;
+    margin-left: 8px;
+  }
+
+  /* File card */
+  .file-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #111318;
+    border: 1px solid #1f2228;
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin: 8px 0;
+    text-decoration: none;
+    transition: border-color .2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  }
+  .file-card:hover { border-color: #30363d; }
+  .file-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: #16181d;
+    border-radius: 8px;
+  }
+  .file-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .file-info .card-filename {
+    border-top: none;
+    padding: 0;
+    font-size: 13px;
+    color: #d1d5da;
+  }
+  .file-info .card-size {
+    font-size: 11px;
+    color: #6d7178;
+  }
+
+  /* Sticker */
+  .sticker {
+    max-width: 150px;
+    max-height: 150px;
+    border-radius: 8px;
     margin: 6px 0;
     display: block;
-    border: 1px solid #1e1e24;
-    width: 100%;
-    background: #000;
-    color-scheme: dark;
   }
 
-  .media-audio {
-    width: 100%;
-    margin: 6px 0;
-    border-radius: 8px;
-    background: #111;
-    color-scheme: dark;
-  }
-  .file-link {
-    color: #00AFFA;
-    text-decoration: none;
-    font-size: 14px;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    margin: 3px 0;
-    padding: 4px 10px;
-    background: rgba(0,175,250,.06);
-    border-radius: 8px;
-    transition: background .15s;
-  }
-  .file-link:hover { background: rgba(0,175,250,.12); text-decoration: none; }
-  .sticker {
-    max-width: 200px;
-    max-height: 200px;
-    border-radius: 10px;
-    margin: 6px 0; display: block;
-  }
-
+  /* Embeds */
   .embed {
-    background: #0e0e12;
-    border: 1px solid #1e1e24;
-    border-left: 4px solid var(--accent-border, #2b2d31);
-    border-radius: 8px;
-    margin: 8px 0;
+    background: #111318;
+    border: 1px solid #1f2228;
+    border-radius: 14px;
     overflow: hidden;
-    width: fit-content;
-    max-width: 100%;
+    margin: 8px 0;
+    max-width: 520px;
     text-decoration: none;
     color: inherit;
     display: block;
-    transition: border-color .15s;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
   }
-  .embed-link:hover { border-color: #3a3a44; }
-  .embed-body { padding: 12px 16px 12px 14px; display: flex; flex-direction: column; gap: 5px; }
+  .embed::before {
+    content: '';
+    display: block;
+    height: 3px;
+    background: var(--accent, #30363d);
+  }
+  .embed-link:hover { border-color: #30363d; }
   .e-author {
-    font-size: 13px; color: #b5bac1;
-    display: flex; align-items: center; gap: 6px;
+    font-size: 12px;
+    color: #8b949e;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
   }
-  .e-author a { color: #b5bac1; text-decoration: none; }
+  .e-author a { color: #8b949e; text-decoration: none; }
   .e-author a:hover { text-decoration: underline; }
-  .e-author-icon { width: 20px; height: 20px; border-radius: 50%; }
-  .e-title { font-size: 15px; font-weight: 700; color: #e3e5e8; line-height: 1.3; }
-  .e-title a { color: #00AFFA; text-decoration: none; }
+  .e-author-icon { width: 18px; height: 18px; border-radius: 50%; }
+  .e-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #e1e4e8;
+    line-height: 1.35;
+  }
+  .e-title a { color: #58a6ff; text-decoration: none; }
   .e-title a:hover { text-decoration: underline; }
-  .e-desc { font-size: 14px; color: #b5bac1; line-height: 1.45; }
-  .e-fields { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 2px; }
+  .e-desc { font-size: 13px; color: #8b949e; line-height: 1.5; margin-top: 2px; }
+  .e-fields { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; }
   .e-field { flex: 1 1 100%; }
-  .e-field.e-inline { flex: 1 1 calc(50% - 10px); min-width: 170px; }
-  .e-fn { font-size: 13px; font-weight: 700; color: #dbdee1; margin-bottom: 1px; }
-  .e-fv { font-size: 13px; color: #b5bac1; line-height: 1.4; white-space: pre-wrap; }
+  .e-field.e-inline { flex: 1 1 calc(50% - 12px); min-width: 160px; }
+  .e-fn { font-size: 12px; font-weight: 600; color: #d1d5da; margin-bottom: 1px; }
+  .e-fv { font-size: 12px; color: #8b949e; line-height: 1.45; white-space: pre-wrap; }
   .e-image { max-width: 100%; display: block; margin-top: 4px; border-radius: 4px; }
   .e-thumb {
-    max-width: 80px; max-height: 80px;
+    max-width: 72px;
+    max-height: 72px;
     border-radius: 6px;
     float: right;
     margin: 0 0 4px 10px;
   }
   .e-footer {
-    font-size: 12px; color: #6d6f78;
-    display: flex; align-items: center; gap: 6px;
-    margin-top: 2px;
+    font-size: 11px;
+    color: #6d7178;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
   }
-  .e-footer-icon { width: 16px; height: 16px; border-radius: 50%; }
-  .e-ts::before { content: '·'; margin-right: 6px; color: #6d6f78; }
+  .e-footer-icon { width: 14px; height: 14px; border-radius: 50%; }
+  .e-ts::before { content: '·'; margin-right: 6px; color: #6d7178; }
 
+  .embed-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 4px; }
+
+  /* Footer */
   .footer {
     text-align: center;
-    color: #6d6f78;
+    color: #6d7178;
     font-size: 12px;
-    margin-top: 40px;
-    padding: 16px 16px 4px;
-    border-top: 1px solid #1a1a1e;
+    margin-top: 48px;
+    padding: 20px 16px 4px;
+    border-top: 1px solid #1f2228;
   }
-  .footer-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px 16px; margin-top: 6px; }
+  .footer-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; margin-top: 6px; }
   .footer-row:first-of-type { margin-top: 0; }
-  .footer-item { display: inline-flex; align-items: center; gap: 3px; }
-  .footer-item .lbl { color: #6d6f78; }
-  .footer-item .val { color: #b5bac1; font-weight: 500; }
+  .footer-item { display: inline-flex; align-items: center; gap: 4px; }
+  .footer-item .lbl { color: #6d7178; }
+  .footer-item .val { color: #8b949e; font-weight: 500; }
 
   @media (max-width: 600px) {
-    body { padding: 16px 10px; }
-    .header-emojis { gap: 1px; }
-    .header-emojis .h-emoji { width: 28px; height: 28px; }
-    .message { padding: 6px 10px; }
+    body { padding: 20px 12px; }
+    .msg-group { gap: 10px; }
+    .msg-avatar { width: 32px; height: 32px; }
+    .msg-continued { padding-left: 42px; }
     .e-field.e-inline { flex: 1 1 100%; }
-    .footer-row { gap: 2px 8px; font-size: 11px; }
+    .footer-row { gap: 2px 10px; font-size: 11px; }
+    .header { margin-bottom: 24px; }
   }
 </style>
 </head>
 <body>
-<div class="messages">
-  <div class="header-emojis">
-    <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=4096" alt=":Empty:" loading="lazy">
-    <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=4096" alt=":Empty:" loading="lazy">
-    <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=4096" alt=":Empty:" loading="lazy">
-    <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503090874417152020.gif?size=4096" alt=":Sparkle2:" loading="lazy">
-    <span class="h-ticket">
-      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503003731887788072.png?size=4096" alt=":Ticket1:" loading="lazy">
-      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503003714213118104.png?size=4096" alt=":Ticket2:" loading="lazy">
-    </span>
-    <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503090874417152020.gif?size=4096" alt=":Sparkle2:" loading="lazy">
+<div class="container">
+  <div class="header">
+    <h1>Ticket Transcript</h1>
+    <div class="meta">
+      <span>${escapeHtml(tagLabel)}</span>
+      <span>·</span>
+      <span>${sorted.filter(m => !m.author.bot).length} messages</span>
+      <span>·</span>
+      <span>Created ${createdAtUnix ? new Date(createdAtUnix * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</span>
+    </div>
   </div>
   ${body}
   <div class="footer">
@@ -615,11 +755,7 @@ export class TicketResolutionHandler {
       <div class="footer-item"><span class="lbl">Closed by</span> <span class="val">${escapeHtml(resolverId)}</span></div>
     </div>
     <div class="footer-row">
-      <div class="footer-item"><span class="lbl">Created</span> <span class="val">${createdAtUnix ? new Date(createdAtUnix * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</span></div>
-      <div class="footer-item"><span class="lbl">·</span></div>
       <div class="footer-item"><span class="lbl">Closed</span> <span class="val">${new Date(now * 1000).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span></div>
-      <div class="footer-item"><span class="lbl">·</span></div>
-      <div class="footer-item"><span class="lbl">Messages</span> <span class="val">${sorted.filter(m => !m.author.bot).length}</span></div>
       <div class="footer-item"><span class="lbl">·</span></div>
       <div class="footer-item"><span class="lbl">Tag</span> <span class="val">${escapeHtml(tagLabel)}</span></div>
     </div>
@@ -629,7 +765,7 @@ export class TicketResolutionHandler {
 </html>`;
 
     const buffer = Buffer.from(html, 'utf-8');
-        return { attachment: buffer, name: 'transcript.html' };
+    return { attachment: buffer, name: 'transcript.html' };
   }
 
   async editError(interaction, message) {
