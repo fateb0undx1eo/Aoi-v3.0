@@ -69,7 +69,7 @@ function renderContent(content, attachments, embeds, stickers) {
   if (content) {
     let processed = escapeHtml(content);
     processed = processed.replace(/&lt;(a?):(\w+):(\d+)&gt;/g, (_, a, name, id) =>
-      `<img class="emoji" src="https://cdn.discordapp.com/emojis/${id}.${a ? 'gif' : 'png'}?size=48" alt=":${name}:" loading="lazy">`
+      `<img class="emoji" src="https://cdn.discordapp.com/emojis/${id}.${a ? 'gif' : 'png'}?size=80" alt=":${name}:" loading="lazy">`
     );
     processed = processed.replace(/&lt;@!?(\d+)&gt;/g, '<span class="mention">@$1</span>');
     processed = processed.replace(/&lt;#(\d+)&gt;/g, '<span class="mention">#$1</span>');
@@ -295,7 +295,7 @@ export class TicketResolutionHandler {
     background: linear-gradient(135deg, #111114 0%, #141418 100%);
     border: 1px solid #222;
     border-radius: 14px;
-    padding: 24px 28px 18px;
+    padding: 16px 20px 14px;
     margin-bottom: 28px;
     position: relative;
     overflow: hidden;
@@ -308,30 +308,27 @@ export class TicketResolutionHandler {
     height: 2px;
     background: linear-gradient(90deg, #004225, #7D1B36, transparent);
   }
-  .header-card h1 {
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: .5px;
-    color: #fff;
-    margin-bottom: 6px;
-  }
-  .header-card .meta {
-    font-size: 13px;
-    color: #6d6f78;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px 16px;
-    margin-top: 6px;
-  }
-  .header-card .meta span { color: #b5bac1; font-weight: 500; }
+  .header-card h1 { display: none; }
+  .header-card .meta { display: none; }
   .header-emojis {
-    font-size: 28px;
-    letter-spacing: 6px;
-    margin-top: 12px;
     display: flex;
     justify-content: center;
-    gap: 8px;
+    align-items: center;
+    gap: 2px;
+    flex-wrap: wrap;
+    line-height: 1;
+  }
+  .header-emojis .h-emoji {
+    width: 36px;
+    height: 36px;
+    vertical-align: middle;
+    object-fit: contain;
+  }
+  .header-emojis .h-hash {
+    color: #b5bac1;
+    font-size: 28px;
+    font-weight: 700;
+    margin-right: 4px;
   }
 
   .message {
@@ -479,8 +476,8 @@ export class TicketResolutionHandler {
   }
   .file-link:hover { background: rgba(0,175,250,.12); text-decoration: none; }
   .sticker {
-    max-width: 160px;
-    max-height: 160px;
+    max-width: 200px;
+    max-height: 200px;
     border-radius: 10px;
     margin: 6px 0; display: block;
   }
@@ -490,10 +487,11 @@ export class TicketResolutionHandler {
     border: 1px solid #1e1e24;
     border-radius: 10px;
     margin: 8px 0;
-    max-width: 540px;
     overflow: hidden;
     box-shadow: 0 2px 12px rgba(0,0,0,.25);
     position: relative;
+    width: fit-content;
+    max-width: 100%;
   }
   .embed-accent {
     position: absolute;
@@ -569,14 +567,16 @@ export class TicketResolutionHandler {
 <body>
 <div class="messages">
   <div class="header-card">
-    <h1>${escapeHtml(tag.toUpperCase())}</h1>
-    <div class="meta">
-      <span>Created by</span> ${escapeHtml(creatorId)} &middot;
-      <span>Closed by</span> ${escapeHtml(resolverId)} &middot;
-      <span>Messages</span> ${sorted.filter(m => !m.author.bot).length} &middot;
-      <span>Tag</span> ${escapeHtml(tagLabel)}
+    <div class="header-emojis">
+      <span class="h-hash">#</span>
+      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=44" alt=":Empty:" loading="lazy">
+      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=44" alt=":Empty:" loading="lazy">
+      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503044372487471328.png?size=44" alt=":Empty:" loading="lazy">
+      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503090874417152020.gif?size=44" alt=":Sparkle2:" loading="lazy">
+      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503003731887788072.png?size=44" alt=":Ticket1:" loading="lazy">
+      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503003714213118104.png?size=44" alt=":Ticket2:" loading="lazy">
+      <img class="h-emoji" src="https://cdn.discordapp.com/emojis/1503090874417152020.gif?size=44" alt=":Sparkle2:" loading="lazy">
     </div>
-    <div class="header-emojis">🎫 🔒 📝 ❓</div>
   </div>
   ${body}
   <div class="footer">
