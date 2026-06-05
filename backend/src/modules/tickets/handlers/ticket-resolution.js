@@ -85,6 +85,52 @@ export class TicketResolutionHandler {
       username: 'Ticket System',
       avatarURL: this.discordClient.user?.displayAvatarURL()
     }).catch(() => null);
+
+    await this.sendTranscript(thread, creatorId, resolverId, webhook);
+  }
+
+  async sendTranscript(thread, creatorId, resolverId, webhook) {
+    const messages = await thread.messages.fetch({ limit: 100 }).catch(() => null);
+    if (!messages || messages.size === 0) return;
+
+    const sorted = [...messages.values()].reverse();
+    const lines = [];
+    lines.push('═══════════════════════════════════════════');
+    lines.push('            TICKET TRANSCRIPT');
+    lines.push('═══════════════════════════════════════════');
+    lines.push('');
+    lines.push(`Thread: ${thread.name}`);
+    lines.push(`Created by: ${creatorId}`);
+    lines.push(`Closed by: ${resolverId}`);
+    lines.push(`Date: ${new Date().toUTCString()}`);
+    lines.push('');
+    lines.push('───────────────────────────────────────────');
+    lines.push('');
+
+    for (const msg of sorted) {
+      if (msg.author.bot && msg.components?.length > 0) continue;
+      const time = msg.createdAt.toUTCString();
+      const author = `${msg.author.username}${msg.author.discriminator !== '0' ? `#${msg.author.discriminator}` : ''}`;
+      const content = msg.content || '[embed]';
+      for (const line of content.split('\n')) {
+        lines.push(`[${time}] ${author}: ${line}`);
+      }
+    }
+
+    lines.push('');
+    lines.push('═══════════════════════════════════════════');
+    lines.push('           END OF TRANSCRIPT');
+    lines.push('═══════════════════════════════════════════');
+
+    const transcript = lines.join('\n');
+    const buffer = Buffer.from(transcript, 'utf-8');
+    const fileName = `transcript-${thread.name.replace(/[^a-zA-Z0-9_-]/g, '')}.txt`;
+
+    await this.webhookService.sendWithRetry(webhook, {
+      files: [{ attachment: buffer, name: fileName }],
+      username: 'Ticket System',
+      avatarURL: this.discordClient.user?.displayAvatarURL()
+    }).catch(() => null);
   }
 
   async editError(interaction, message) {
