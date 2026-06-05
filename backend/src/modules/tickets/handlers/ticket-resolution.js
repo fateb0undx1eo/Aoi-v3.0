@@ -224,56 +224,17 @@ export class TicketResolutionHandler {
 
     const now = Math.floor(Date.now() / 1000);
     const threadLink = `https://discord.com/channels/${thread.guildId}/${thread.id}`;
-    const ticketTitle = thread.name.split('-').slice(0, -1).join('-') || 'Ticket';
-
     const embed = {
-      color: 0x004225,
-      author: {
-        name: `${ticketTitle.toUpperCase()} — Closed`,
-        icon_url: this.discordClient.user?.displayAvatarURL()
-      },
-      fields: [
-        {
-          name: `${POINTER} Created By`,
-          value: `<@${creatorId}>`,
-          inline: true
-        },
-        {
-          name: `${POINTER} Closed By`,
-          value: `<@${resolverId}>`,
-          inline: true
-        },
-        {
-          name: `${POINTER} Created At`,
-          value: createdAtUnix ? `<t:${createdAtUnix}:F>` : '-',
-          inline: true
-        },
-        {
-          name: `${POINTER} Closed At`,
-          value: `<t:${now}:F>`,
-          inline: true
-        },
-        {
-          name: `${POINTER} Tag`,
-          value: tagLabelFromDb || tagLabel || '-',
-          inline: true
-        },
-        {
-          name: `${POINTER} Messages`,
-          value: `${messages?.filter(m => !m.author?.bot).size || 0}`,
-          inline: true
-        },
-        {
-          name: `${POINTER} Thread`,
-          value: threadLink,
-          inline: false
-        }
-      ],
-      footer: {
-        text: 'Ticket System',
-        icon_url: this.discordClient.user?.displayAvatarURL()
-      },
-      timestamp: new Date().toISOString()
+      title: 'Closed',
+      color: 0x2fa44f,
+      description: [
+        `${POINTER} Created By: <@${creatorId}>`,
+        `${POINTER} Created At: ${createdAtUnix ? `<t:${createdAtUnix}:F>` : '-'}`,
+        `${POINTER} Resolved At: <t:${now}:F>`,
+        `${POINTER} Resolved By: <@${resolverId}>`,
+        `${POINTER} Ticket Tag: ${tagLabelFromDb || tagLabel}`,
+        `${POINTER} Thread Link: ${threadLink}`
+      ].join('\n')
     };
 
     const payload = {
