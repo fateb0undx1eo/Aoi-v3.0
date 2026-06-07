@@ -50,6 +50,10 @@ export function registerInteractionRouter(client, registry, context) {
               logger.debug(
                 'Interaction already acknowledged (40060), continuing without deferring'
               );
+            } else if (deferError.code === 10062) {
+              logger.warn(
+                `Interaction expired before defer (10062): ${interaction.commandName}`
+              );
             } else {
               throw deferError;
             }
@@ -133,7 +137,7 @@ export function registerInteractionRouter(client, registry, context) {
           } else {
             await interaction.reply({
               content: 'An internal error occurred.',
-              ephemeral: true
+              flags: MessageFlags.Ephemeral
             });
           }
         } catch (replyError) {
