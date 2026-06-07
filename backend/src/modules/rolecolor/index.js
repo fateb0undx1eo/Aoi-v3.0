@@ -5,8 +5,7 @@ import {
   SectionBuilder,
   ThumbnailBuilder,
   ActionRowBuilder,
-  StringSelectMenuBuilder,
-  StringSelectMenuOptionBuilder,
+  RoleSelectMenuBuilder,
   ButtonBuilder,
   ButtonStyle,
   ModalBuilder,
@@ -107,28 +106,15 @@ function parseCid(customId) {
   return { action: parts[1], userId: parts[2] };
 }
 
-function buildRoleSelect(userId, guild) {
-  const roles = guild.roles.cache
-    .filter(r => r.id !== guild.id && r.editable)
-    .sort((a, b) => b.position - a.position)
-    .first(25);
-
-  return new StringSelectMenuBuilder()
+function buildRoleSelect(userId) {
+  return new RoleSelectMenuBuilder()
     .setCustomId(cid('role', userId))
     .setPlaceholder('Select a role...')
     .setMinValues(1)
-    .setMaxValues(1)
-    .addOptions(
-      ...roles.map(r =>
-        new StringSelectMenuOptionBuilder()
-          .setLabel(r.name)
-          .setValue(r.id)
-          .setDescription(`#${r.hexColor}`)
-      )
-    );
+    .setMaxValues(1);
 }
 
-function buildInitialContainer(userId, guild, confirmDisabled) {
+function buildInitialContainer(userId, confirmDisabled) {
   return new ContainerBuilder()
     .setAccentColor(0x2b2d31)
     .addTextDisplayComponents(td =>
@@ -140,7 +126,7 @@ function buildInitialContainer(userId, guild, confirmDisabled) {
       )
     )
     .addActionRowComponents(row =>
-      row.setComponents(buildRoleSelect(userId, guild))
+      row.setComponents(buildRoleSelect(userId))
     )
     .addActionRowComponents(row =>
       row.setComponents(
@@ -162,7 +148,7 @@ function buildInitialContainer(userId, guild, confirmDisabled) {
     );
 }
 
-function buildPreviewContainer(userId, guild, hex, roleName) {
+function buildPreviewContainer(userId, hex, roleName) {
   return new ContainerBuilder()
     .setAccentColor(parseInt(hex.replace('#', ''), 16) || 0x2b2d31)
     .addTextDisplayComponents(td =>
@@ -180,7 +166,7 @@ function buildPreviewContainer(userId, guild, hex, roleName) {
         )
     )
     .addActionRowComponents(row =>
-      row.setComponents(buildRoleSelect(userId, guild))
+      row.setComponents(buildRoleSelect(userId))
     )
     .addActionRowComponents(row =>
       row.setComponents(
@@ -243,7 +229,7 @@ export default {
         const userId = interaction.user.id;
         sessions.set(userId, { roleId: null, hex: null, active: true });
 
-        const container = buildInitialContainer(userId, guild, true);
+        const container = buildInitialContainer(userId, true);
 
         await interaction.editReply({
           components: [container],
@@ -284,7 +270,7 @@ export default {
 
           session.roleId = roleId;
 
-          const container = buildInitialContainer(interaction.user.id, interaction.guild, false);
+          const container = buildInitialContainer(interaction.user.id, false);
           await interaction.update({ components: [container] });
           return;
         }
@@ -343,7 +329,7 @@ export default {
           const role = interaction.guild.roles.cache.get(session.roleId);
           const roleName = role?.name || 'Unknown';
 
-          const container = buildPreviewContainer(interaction.user.id, interaction.guild, hex, roleName);
+          const container = buildPreviewContainer(interaction.user.id, hex, roleName);
 
           try {
             await interaction.message.edit({ components: [container], files: [file] });
