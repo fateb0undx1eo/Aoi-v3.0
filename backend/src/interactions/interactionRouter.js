@@ -141,7 +141,13 @@ export function registerInteractionRouter(client, registry, context) {
             });
           }
         } catch (replyError) {
-          logger.error('Failed to send error reply', replyError);
+          if (replyError.code === 40060 && !interaction.deferred && !interaction.replied) {
+            try {
+              await interaction.editReply('An internal error occurred.');
+            } catch {}
+          } else {
+            logger.error('Failed to send error reply', replyError);
+          }
         }
       }
     } catch (error) {

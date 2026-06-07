@@ -107,10 +107,11 @@ function parseCid(customId) {
   return { action: parts[1], userId: parts[2] };
 }
 
-function buildRoleSelect(userId, guild, activeRoleId) {
+function buildRoleSelect(userId, guild) {
   const roles = guild.roles.cache
     .filter(r => r.id !== guild.id && r.editable)
-    .sort((a, b) => b.position - a.position);
+    .sort((a, b) => b.position - a.position)
+    .first(25);
 
   return new StringSelectMenuBuilder()
     .setCustomId(cid('role', userId))
