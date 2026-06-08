@@ -28,6 +28,9 @@ const baseLogger = pino(
 );
 
 function emit(level, message, meta = null) {
+  if (typeof message === 'object' && message !== null && typeof meta === 'string') {
+    [message, meta] = [meta, message];
+  }
   const context = contextStorage.getStore() ?? {};
   const logFn = baseLogger[level].bind(baseLogger);
   if (meta) {

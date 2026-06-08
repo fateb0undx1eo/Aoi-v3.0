@@ -252,7 +252,9 @@ async function main() {
     };
 
     // Register event handlers for all loaded modules FIRST
+    // interactionCreate is handled exclusively by the router below
     for (const [eventName, handlers] of registry.events.entries()) {
+      if (eventName === 'interactionCreate') continue;
       if (handlers.length > 0) {
         logger.debug(
           `Registering ${handlers.length} handler(s) for event: ${eventName}`
@@ -273,7 +275,7 @@ async function main() {
       }
     }
 
-    // Register main interaction router LAST (only for commands)
+    // Register main interaction router — single source of truth
     registerInteractionRouter(discordClient, registry, context);
 
     logger.info('✓ Handlers registered');

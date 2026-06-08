@@ -570,6 +570,7 @@ export default {
     {
       name: 'interactionCreate',
       async execute(interaction, { services }) {
+        if (interaction.isCommand()) return;
         if (
           !interaction.isButton() ||
           !interaction.customId.startsWith(`${MEME_ACTION_PREFIX}:`)
@@ -580,35 +581,19 @@ export default {
         const [, , token, action] = interaction.customId.split(':');
         const pending = pendingMemeAutopostActions.get(token);
         if (!pending) {
-          await interaction.reply({
-            content: 'This meme autopost panel expired. Run the command again.',
-            ephemeral: true
-          });
-          return;
+          return { type: 'REPLY', message: 'This meme autopost panel expired. Run the command again.', ephemeral: true };
         }
 
         if (pending.issuerId !== interaction.user.id) {
-          await interaction.reply({
-            content: 'Only the original invoker can use this meme autopost panel.',
-            ephemeral: true
-          });
-          return;
+          return { type: 'REPLY', message: 'Only the original invoker can use this meme autopost panel.', ephemeral: true };
         }
 
         if (pending.guildId !== interaction.guildId) {
-          await interaction.reply({
-            content: 'This meme autopost panel belongs to a different server context.',
-            ephemeral: true
-          });
-          return;
+          return { type: 'REPLY', message: 'This meme autopost panel belongs to a different server context.', ephemeral: true };
         }
 
         if (action !== 'start' && action !== 'stop') {
-          await interaction.reply({
-            content: 'That meme autopost action is not recognized anymore.',
-            ephemeral: true
-          });
-          return;
+          return { type: 'REPLY', message: 'That meme autopost action is not recognized anymore.', ephemeral: true };
         }
 
         const nextEnabled = action === 'start';
@@ -617,15 +602,17 @@ export default {
         });
         const { stats } = await services.memeService.getAutopostStatus(interaction.guildId);
 
-        await interaction.update({
+        return {
+          type: 'UPDATE',
           embeds: [buildMemeAutopostControlEmbed(config, stats)],
           components: buildMemeAutopostButtons(token, config.enabled)
-        });
+        };
       }
     },
     {
       name: 'interactionCreate',
       async execute(interaction, context) {
+        if (interaction.isCommand()) return;
         if (!interaction.memberPermissions?.has('Administrator')) {
           return;
         }
@@ -633,87 +620,58 @@ export default {
         const { services } = context;
 
         try {
-          // AOI button — show font + effect selectors
           if (interaction.isButton() && interaction.customId === 'profile:aoi') {
-            await interaction.deferUpdate();
-
-            await interaction.editReply({
+            return {
+              type: 'UPDATE',
               flags: MessageFlags.IsComponentsV2,
               components: [{
                 type: 17,
                 components: [
-                  {
-                    type: 10,
-                    content: '-# SELECT FONT & EFFECT\nChoose a font and effect, then click Continue to set colors.'
-                  },
+                  { type: 10, content: '-# SELECT FONT & EFFECT\nChoose a font and effect, then click Continue to set colors.' },
                   {
                     type: 1,
                     components: [{
-                      type: 3,
-                      custom_id: 'profile:font',
-                      placeholder: 'Select a font',
-                      min_values: 1,
-                      max_values: 1,
+                      type: 3, custom_id: 'profile:font', placeholder: 'Select a font',
+                      min_values: 1, max_values: 1,
                       options: PROFILE_STYLE_FONT_CHOICES.map((f) => ({ label: f.name, value: String(f.value) }))
                     }]
                   },
                   {
                     type: 1,
                     components: [{
-                      type: 3,
-                      custom_id: 'profile:effect',
-                      placeholder: 'Select an effect',
-                      min_values: 1,
-                      max_values: 1,
+                      type: 3, custom_id: 'profile:effect', placeholder: 'Select an effect',
+                      min_values: 1, max_values: 1,
                       options: PROFILE_STYLE_EFFECT_CHOICES.map((e) => ({ label: e.name, value: String(e.value) }))
                     }]
                   },
-                  {
-                    type: 1,
-                    components: [{
-                      type: 2,
-                      label: 'Continue',
-                      custom_id: 'profile:continue',
-                      style: 2
-                    }]
-                  }
+                  { type: 1, components: [{ type: 2, label: 'Continue', custom_id: 'profile:continue', style: 2 }] }
                 ]
               }]
-            });
-            return;
+            };
           }
 
-          // Font select — store selection
           if (interaction.isStringSelectMenu() && interaction.customId === 'profile:font') {
-            await interaction.deferUpdate();
             const key = `${interaction.guildId}:${interaction.user.id}`;
             const data = pendingProfileStyleSelections.get(key) ?? {};
             data.font = Number(interaction.values[0]);
             pendingProfileStyleSelections.set(key, data);
-            return;
+            return { type: 'DEFER_UPDATE' };
           }
 
-          // Effect select — store selection
           if (interaction.isStringSelectMenu() && interaction.customId === 'profile:effect') {
-            await interaction.deferUpdate();
             const key = `${interaction.guildId}:${interaction.user.id}`;
             const data = pendingProfileStyleSelections.get(key) ?? {};
             data.effect = Number(interaction.values[0]);
             pendingProfileStyleSelections.set(key, data);
-            return;
+            return { type: 'DEFER_UPDATE' };
           }
 
-          // Continue — open color modal
           if (interaction.isButton() && interaction.customId === 'profile:continue') {
             const key = `${interaction.guildId}:${interaction.user.id}`;
             const data = pendingProfileStyleSelections.get(key) ?? {};
 
             if (!data.font || !data.effect) {
-              await interaction.reply({
-                content: 'Please select both a font and an effect first.',
-                ephemeral: true
-              });
-              return;
+              return { type: 'REPLY', message: 'Please select both a font and an effect first.', ephemeral: true };
             }
 
             const modal = new ModalBuilder()
@@ -722,29 +680,21 @@ export default {
               .addComponents(
                 new ActionRowBuilder().addComponents(
                   new TextInputBuilder()
-                    .setCustomId('profile:color1')
-                    .setLabel('Color 1 (hex)')
-                    .setPlaceholder('FF0000')
-                    .setStyle(TextInputStyle.Short)
-                    .setMaxLength(6)
-                    .setRequired(true)
+                    .setCustomId('profile:color1').setLabel('Color 1 (hex)')
+                    .setPlaceholder('FF0000').setStyle(TextInputStyle.Short)
+                    .setMaxLength(6).setRequired(true)
                 ),
                 new ActionRowBuilder().addComponents(
                   new TextInputBuilder()
-                    .setCustomId('profile:color2')
-                    .setLabel('Color 2 (hex, optional)')
-                    .setPlaceholder('00FFFF')
-                    .setStyle(TextInputStyle.Short)
-                    .setMaxLength(6)
-                    .setRequired(false)
+                    .setCustomId('profile:color2').setLabel('Color 2 (hex, optional)')
+                    .setPlaceholder('00FFFF').setStyle(TextInputStyle.Short)
+                    .setMaxLength(6).setRequired(false)
                 )
               );
 
-            await interaction.showModal(modal);
-            return;
+            return { type: 'MODAL', modal };
           }
 
-          // CLEAR button — open confirmation modal
           if (interaction.isButton() && interaction.customId === 'profile:clear') {
             const modal = new ModalBuilder()
               .setCustomId('profile_clear_modal')
@@ -752,19 +702,14 @@ export default {
               .addComponents(
                 new ActionRowBuilder().addComponents(
                   new TextInputBuilder()
-                    .setCustomId('profile:confirm')
-                    .setLabel('Type CONFIRM to clear')
-                    .setStyle(TextInputStyle.Short)
-                    .setPlaceholder('CONFIRM')
-                    .setRequired(true)
+                    .setCustomId('profile:confirm').setLabel('Type CONFIRM to clear')
+                    .setStyle(TextInputStyle.Short).setPlaceholder('CONFIRM').setRequired(true)
                 )
               );
 
-            await interaction.showModal(modal);
-            return;
+            return { type: 'MODAL', modal };
           }
 
-          // AOI modal submit — save profile
           if (interaction.isModalSubmit() && interaction.customId === 'profile_aoi_modal') {
             const key = `${interaction.guildId}:${interaction.user.id}`;
             const data = pendingProfileStyleSelections.get(key) ?? {};
@@ -774,59 +719,37 @@ export default {
             const parsedColor1 = services.profileStyleService.parseColorInput(color1);
             const parsedColor2 = color2 ? services.profileStyleService.parseColorInput(color2) : null;
 
-            if (parsedColor1 === null) {
-              await interaction.reply({ content: 'Invalid primary color.', ephemeral: true });
-              return;
-            }
-
-            if (color2 && parsedColor2 === null) {
-              await interaction.reply({ content: 'Invalid secondary color.', ephemeral: true });
-              return;
-            }
+            if (parsedColor1 === null) return { type: 'REPLY', message: 'Invalid primary color.', ephemeral: true };
+            if (color2 && parsedColor2 === null) return { type: 'REPLY', message: 'Invalid secondary color.', ephemeral: true };
 
             await services.profileStyleService.updateGuildConfig(interaction.guildId, {
-              enabled: true,
-              font_id: data.font ?? 11,
-              effect_id: data.effect ?? 1,
+              enabled: true, font_id: data.font ?? 11, effect_id: data.effect ?? 1,
               colors: [parsedColor1, parsedColor2].filter((v) => v !== null)
             });
 
             pendingProfileStyleSelections.delete(key);
 
-            await interaction.update({
+            return {
+              type: 'UPDATE',
               flags: MessageFlags.IsComponentsV2,
               components: [{
                 type: 17,
-                components: [{
-                  type: 10,
-                  content: '-# PROFILE STYLE UPDATED\nProfile style has been updated successfully!'
-                }]
+                components: [{ type: 10, content: '-# PROFILE STYLE UPDATED\nProfile style has been updated successfully!' }]
               }]
-            });
-            return;
+            };
           }
 
-          // CLEAR modal submit — check CONFIRM and clear
           if (interaction.isModalSubmit() && interaction.customId === 'profile_clear_modal') {
             const confirm = interaction.fields.getTextInputValue('profile:confirm');
-
             if (confirm !== 'CONFIRM') {
-              await interaction.reply({
-                content: 'Text does not match. Profile style was not cleared.',
-                ephemeral: true
-              });
-              return;
+              return { type: 'REPLY', message: 'Text does not match. Profile style was not cleared.', ephemeral: true };
             }
 
             await services.profileStyleService.clearGuildConfig(interaction.guildId);
-            await interaction.reply({ content: 'Profile style cleared!', ephemeral: true });
+            return { type: 'REPLY', message: 'Profile style cleared!', ephemeral: true };
           }
         } catch (error) {
-          if (interaction.deferred || interaction.replied) {
-            await interaction.editReply({ content: 'Error processing profile action.' }).catch(() => null);
-          } else {
-            await interaction.reply({ content: 'Error processing profile action.', ephemeral: true }).catch(() => null);
-          }
+          return { type: 'ERROR', message: 'Error processing profile action.' };
         }
       }
     }

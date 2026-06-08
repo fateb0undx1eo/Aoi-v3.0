@@ -1,5 +1,4 @@
 import logger from '../services/logging-service.js';
-import { buildErrorPayload, buildSuccessPayload } from '../components/payloads.js';
 import { isTicketStaffFromInteraction } from '../utils/permissions.js';
 import { isThreadNameClosed, markThreadNameClosed } from '../utils/thread-utils.js';
 import { AUTO_ARCHIVE_1H, ERROR_MESSAGES, TICKET_LOG_CHANNEL_ID, TICKET_TAGS, TICKET_STAFF_ROLE_IDS, getTicketColor } from '../utils/constants.js';
@@ -187,37 +186,35 @@ export class TicketResolutionHandler {
   }
 
   async handleResolvedButtonPress(interaction, creatorId) {
-    if (!interaction.deferred && !interaction.replied) {
-      await interaction.deferReply({ ephemeral: true }).catch(() => null);
-    }
+    return {
+      type: 'ASYNC_RESULT',
+      execute: async () => {
+        const channel = interaction.channel;
+        if (!interaction.inGuild() || !channel?.isThread?.()) {
+          return { type: 'EDIT_REPLY', content: '❌ ' + ERROR_MESSAGES.NOT_IN_THREAD };
+        }
+        if (!isTicketStaffFromInteraction(interaction)) {
+          return { type: 'EDIT_REPLY', content: '❌ ' + ERROR_MESSAGES.NOT_STAFF };
+        }
+        if (isThreadNameClosed(channel.name)) {
+          return { type: 'EDIT_REPLY', content: '❌ ' + ERROR_MESSAGES.ALREADY_CLOSED };
+        }
 
-    const channel = interaction.channel;
-    if (!interaction.inGuild() || !channel?.isThread?.()) {
-      await this.editError(interaction, ERROR_MESSAGES.NOT_IN_THREAD);
-      return;
-    }
-    if (!isTicketStaffFromInteraction(interaction)) {
-      await this.editError(interaction, ERROR_MESSAGES.NOT_STAFF);
-      return;
-    }
-    if (isThreadNameClosed(channel.name)) {
-      await this.editError(interaction, ERROR_MESSAGES.ALREADY_CLOSED);
-      return;
-    }
+        const messages = await channel.messages.fetch({ limit: 100 }).catch(() => null);
 
-    const messages = await channel.messages.fetch({ limit: 100 }).catch(() => null);
+        await channel.setName(markThreadNameClosed(channel.name)).catch(() => null);
+        await channel.members.remove(creatorId).catch(() => null);
+        await channel.setAutoArchiveDuration(AUTO_ARCHIVE_1H).catch(() => null);
+        await channel.setLocked(true).catch(() => null);
+        await channel.setArchived(true).catch(() => null);
 
-    await channel.setName(markThreadNameClosed(channel.name)).catch(() => null);
-    await channel.members.remove(creatorId).catch(() => null);
-    await channel.setAutoArchiveDuration(AUTO_ARCHIVE_1H).catch(() => null);
-    await channel.setLocked(true).catch(() => null);
-    await channel.setArchived(true).catch(() => null);
+        await this.ticketService.cooldownService.applyCooldown(creatorId).catch(() => null);
+        const ticketRow = await this.ticketService.resolveTicket(channel.id, interaction.user.id, creatorId).catch(() => null);
+        await this.sendResolvedLog(channel, creatorId, interaction.user.id, messages, ticketRow);
 
-    await this.ticketService.cooldownService.applyCooldown(creatorId).catch(() => null);
-    const ticketRow = await this.ticketService.resolveTicket(channel.id, interaction.user.id, creatorId).catch(() => null);
-    await this.sendResolvedLog(channel, creatorId, interaction.user.id, messages, ticketRow);
-
-    await interaction.editReply(buildSuccessPayload('Ticket has been closed.'));
+        return { type: 'EDIT_REPLY', content: '✅ Ticket has been closed.' };
+      }
+    };
   }
 
   async sendResolvedLog(thread, creatorId, resolverId, messages, ticketRow) {
@@ -248,27 +245,18 @@ export class TicketResolutionHandler {
         type: 17,
         accent_color: getTicketColor(thread.id),
         components: [
-          {
-            type: 10,
-            content: `# TICKET CLOSED`
-          },
+          { type: 10, content: `# TICKET CLOSED` },
           {
             type: 9,
             components: [
-              {
-                type: 10,
-                content: [
-                  pointerLine('Creator', `<@${creatorId}>`),
-                  pointerLine('Closed By', `<@${resolverId}>`),
-                  pointerLine('Closed At', `<t:${now}:f>`),
-                  pointerLine('Thread', threadLink)
-                ].join('\n')
-              }
+              { type: 10, content: [
+                pointerLine('Creator', `<@${creatorId}>`),
+                pointerLine('Closed By', `<@${resolverId}>`),
+                pointerLine('Closed At', `<t:${now}:f>`),
+                pointerLine('Thread', threadLink)
+              ].join('\n') }
             ],
-            accessory: {
-              type: 11,
-              media: { url: avatarUrl }
-            }
+            accessory: { type: 11, media: { url: avatarUrl } }
           }
         ]
       }
@@ -287,8 +275,11 @@ export class TicketResolutionHandler {
       if (file) {
         payload.files = [file];
         components[0].components.push({
-          type: 13,
-          file: { url: `attachment://transcript.html` }
+          type: 12, // Media Gallery
+          items: [{
+            media: { url: `attachment://transcript.html` },
+            description: 'Transcript'
+          }]
         });
       }
     }
@@ -356,7 +347,6 @@ export class TicketResolutionHandler {
   }
   .container { max-width: 760px; margin: 0 auto; }
 
-  /* Header */
   .header {
     margin-bottom: 40px;
     padding-bottom: 24px;
@@ -408,15 +398,9 @@ export class TicketResolutionHandler {
     padding: 4px 0;
     font-size: 13px;
   }
-  .detail-lbl {
-    color: #6d7178;
-  }
-  .detail-val {
-    color: #d1d5da;
-    font-weight: 500;
-  }
+  .detail-lbl { color: #6d7178; }
+  .detail-val { color: #d1d5da; font-weight: 500; }
 
-  /* Message groups */
   .msg-group {
     display: flex;
     gap: 12px;
@@ -430,41 +414,21 @@ export class TicketResolutionHandler {
     margin-top: 2px;
     background: #1f2228;
   }
-  .msg-body {
-    flex: 1;
-    min-width: 0;
-  }
+  .msg-body { flex: 1; min-width: 0; }
   .msg-header {
     display: flex;
     align-items: baseline;
     gap: 8px;
     margin-bottom: 2px;
   }
-  .msg-name {
-    font-weight: 600;
-    font-size: 14px;
-  }
+  .msg-name { font-weight: 600; font-size: 14px; }
   .msg-badge {
-    font-size: 10px;
-    font-weight: 600;
-    padding: 1px 6px;
-    border-radius: 4px;
-    background: rgba(255,255,255,.06);
-    color: #8b949e;
-    letter-spacing: .4px;
-    text-transform: uppercase;
+    font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px;
+    background: rgba(255,255,255,.06); color: #8b949e; letter-spacing: .4px; text-transform: uppercase;
   }
-  .msg-time {
-    font-size: 11px;
-    color: #6d7178;
-    font-weight: 400;
-  }
+  .msg-time { font-size: 11px; color: #6d7178; font-weight: 400; }
   .msg-content {
-    font-size: 14px;
-    line-height: 1.55;
-    color: #d1d5da;
-    word-wrap: break-word;
-    margin-top: 1px;
+    font-size: 14px; line-height: 1.55; color: #d1d5da; word-wrap: break-word; margin-top: 1px;
   }
   .msg-content strong { font-weight: 600; color: #e1e4e8; }
   .msg-content em { font-style: italic; }
@@ -480,195 +444,40 @@ export class TicketResolutionHandler {
   .msg-content ul, .msg-content ol { margin: 4px 0 4px 20px; }
   .msg-content li { margin: 2px 0; }
   .msg-content code {
-    background: #16181d;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 85%;
-    font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
-    color: #c9d1d9;
-    border: 1px solid #21242b;
+    background: #16181d; padding: 2px 6px; border-radius: 4px; font-size: 85%;
+    font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace; color: #c9d1d9; border: 1px solid #21242b;
   }
   .msg-content pre {
-    background: #0d0e10;
-    padding: 14px 16px;
-    border-radius: 8px;
-    overflow-x: auto;
-    margin: 8px 0;
-    border: 1px solid #1f2228;
+    background: #0d0e10; padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: 8px 0; border: 1px solid #1f2228;
   }
-  .msg-content pre code {
-    background: none; padding: 0; border-radius: 0;
-    font-size: 12px; border: none; color: #c9d1d9;
-  }
-  .msg-content blockquote {
-    border-left: 3px solid #30363d;
-    padding: 4px 0 4px 12px;
-    margin: 6px 0;
-    color: #8b949e;
-  }
-  .msg-content .spoiler {
-    background: #21242b;
-    color: transparent;
-    border-radius: 3px;
-    padding: 0 4px;
-    cursor: default;
-  }
+  .msg-content pre code { background: none; padding: 0; border-radius: 0; font-size: 12px; border: none; color: #c9d1d9; }
+  .msg-content blockquote { border-left: 3px solid #30363d; padding: 4px 0 4px 12px; margin: 6px 0; color: #8b949e; }
+  .msg-content .spoiler { background: #21242b; color: transparent; border-radius: 3px; padding: 0 4px; cursor: default; }
   .msg-content .spoiler:hover { color: #d1d5da; background: #30363d; }
-  .msg-content .mention {
-    background: rgba(56,139,253,.15);
-    color: #58a6ff;
-    padding: 1px 5px;
-    border-radius: 4px;
-    font-weight: 500;
-    font-size: 13px;
-  }
-  .msg-content .emoji {
-    width: 22px;
-    height: 22px;
-    vertical-align: middle;
-    object-fit: contain;
-  }
+  .msg-content .mention { background: rgba(56,139,253,.15); color: #58a6ff; padding: 1px 5px; border-radius: 4px; font-weight: 500; font-size: 13px; }
+  .msg-content .emoji { width: 22px; height: 22px; vertical-align: middle; object-fit: contain; }
 
-  /* Attachment cards */
-  .attachment-card {
-    background: #111318;
-    border: 1px solid #1f2228;
-    border-radius: 14px;
-    overflow: hidden;
-    margin: 8px 0;
-    width: fit-content;
-    max-width: 100%;
-    box-shadow: 0 2px 8px rgba(0,0,0,.25);
-  }
-  .card-image {
-    display: block;
-    width: auto;
-    max-width: 100%;
-    max-height: 420px;
-    object-fit: contain;
-    background: #0a0b0d;
-    cursor: pointer;
-    transition: opacity .2s;
-  }
+  .attachment-card { background: #111318; border: 1px solid #1f2228; border-radius: 14px; overflow: hidden; margin: 8px 0; width: fit-content; max-width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+  .card-image { display: block; width: auto; max-width: 100%; max-height: 420px; object-fit: contain; background: #0a0b0d; cursor: pointer; transition: opacity .2s; }
   .card-image:hover { opacity: .92; }
-  .card-video {
-    display: block;
-    width: auto;
-    max-width: 100%;
-    max-height: 440px;
-    background: #000;
-  }
-  .audio-wrapper {
-    margin: 6px 0;
-  }
-  .audio-name {
-    font-size: 12px;
-    color: #8b949e;
-    margin-bottom: 4px;
-  }
-  .audio-player {
-    display: block;
-    width: 100%;
-    height: 36px;
-  }
-  .card-filename {
-    font-size: 12px;
-    color: #8b949e;
-    padding: 8px 12px;
-    border-top: 1px solid #1f2228;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .card-size {
-    font-size: 11px;
-    color: #6d7178;
-    flex-shrink: 0;
-    margin-left: 8px;
-  }
+  .card-video { display: block; width: auto; max-width: 100%; max-height: 440px; background: #000; }
+  .audio-player { display: block; width: 100%; height: 36px; }
 
-  /* File card */
-  .file-card {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: #111318;
-    border: 1px solid #1f2228;
-    border-radius: 14px;
-    padding: 12px 14px;
-    margin: 8px 0;
-    text-decoration: none;
-    transition: border-color .2s;
-    box-shadow: 0 2px 8px rgba(0,0,0,.25);
-  }
+  .file-card { display: flex; align-items: center; gap: 12px; background: #111318; border: 1px solid #1f2228; border-radius: 14px; padding: 12px 14px; margin: 8px 0; text-decoration: none; transition: border-color .2s; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
   .file-card:hover { border-color: #30363d; }
-  .file-icon {
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    background: #16181d;
-    border-radius: 8px;
-  }
-  .file-info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-  .file-info .card-filename {
-    border-top: none;
-    padding: 0;
-    font-size: 13px;
-    color: #d1d5da;
-  }
-  .file-info .card-size {
-    font-size: 11px;
-    color: #6d7178;
-  }
+  .file-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #16181d; border-radius: 8px; }
+  .file-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .file-info .card-filename { border-top: none; padding: 0; font-size: 13px; color: #d1d5da; }
+  .file-info .card-size { font-size: 11px; color: #6d7178; }
 
-  /* Sticker */
-  .sticker {
-    max-width: 150px;
-    max-height: 150px;
-    border-radius: 8px;
-    margin: 6px 0;
-    display: block;
-  }
+  .sticker { max-width: 150px; max-height: 150px; border-radius: 8px; margin: 6px 0; display: block; }
 
-  /* Embeds */
-  .embed {
-    background: #111318;
-    border: 1px solid #1f2228;
-    border-radius: 14px;
-    overflow: hidden;
-    margin: 8px 0;
-    max-width: 520px;
-    text-decoration: none;
-    color: inherit;
-    display: block;
-    box-shadow: 0 2px 8px rgba(0,0,0,.25);
-  }
-  .e-author {
-    font-size: 12px;
-    color: #8b949e;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 2px;
-  }
+  .embed { background: #111318; border: 1px solid #1f2228; border-radius: 14px; overflow: hidden; margin: 8px 0; max-width: 520px; text-decoration: none; color: inherit; display: block; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+  .e-author { font-size: 12px; color: #8b949e; display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
   .e-author a { color: #8b949e; text-decoration: none; }
   .e-author a:hover { text-decoration: underline; }
   .e-author-icon { width: 18px; height: 18px; border-radius: 50%; }
-  .e-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: #e1e4e8;
-    line-height: 1.35;
-  }
+  .e-title { font-size: 15px; font-weight: 600; color: #e1e4e8; line-height: 1.35; }
   .e-title a { color: #58a6ff; text-decoration: none; }
   .e-title a:hover { text-decoration: underline; }
   .e-desc { font-size: 13px; color: #8b949e; line-height: 1.5; margin-top: 2px; }
@@ -678,24 +487,10 @@ export class TicketResolutionHandler {
   .e-fn { font-size: 12px; font-weight: 600; color: #d1d5da; margin-bottom: 1px; }
   .e-fv { font-size: 12px; color: #8b949e; line-height: 1.45; white-space: pre-wrap; }
   .e-image { width: auto; max-width: 100%; max-height: 420px; display: block; margin-top: 4px; border-radius: 4px; }
-  .e-thumb {
-    max-width: 72px;
-    max-height: 72px;
-    border-radius: 6px;
-    float: right;
-    margin: 0 0 4px 10px;
-  }
-  .e-footer {
-    font-size: 11px;
-    color: #6d7178;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 6px;
-  }
+  .e-thumb { max-width: 72px; max-height: 72px; border-radius: 6px; float: right; margin: 0 0 4px 10px; }
+  .e-footer { font-size: 11px; color: #6d7178; display: flex; align-items: center; gap: 6px; margin-top: 6px; }
   .e-footer-icon { width: 14px; height: 14px; border-radius: 50%; }
   .e-ts::before { content: '·'; margin-right: 6px; color: #6d7178; }
-
   .embed-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 4px; }
 
   @media (max-width: 600px) {
@@ -730,7 +525,9 @@ export class TicketResolutionHandler {
           <div class="detail-row">
             <span class="detail-lbl">Duration</span>
             <span class="detail-val">${(() => {
-              const diff = (now - (createdAtUnix ?? now)) * 1000;
+              if (createdAtUnix == null) return 'unknown';
+              const diff = (now - createdAtUnix) * 1000;
+              if (diff < 0) return 'unknown';
               const days = Math.floor(diff / 86400000);
               const hours = Math.floor((diff % 86400000) / 3600000);
               const minutes = Math.floor((diff % 3600000) / 60000);
@@ -760,15 +557,6 @@ export class TicketResolutionHandler {
 
     const buffer = Buffer.from(html, 'utf-8');
     return { attachment: buffer, name: 'transcript.html' };
-  }
-
-  async editError(interaction, message) {
-    const payload = buildErrorPayload(message);
-    if (interaction.deferred || interaction.replied) {
-      await interaction.editReply(payload).catch(() => null);
-    } else {
-      await interaction.reply(payload).catch(() => null);
-    }
   }
 }
 

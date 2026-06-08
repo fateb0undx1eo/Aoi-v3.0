@@ -49,13 +49,20 @@ export function isValidCustomId(customId) {
 }
 
 /**
- * Validates a user ID from interaction fields
+ * Validates a user ID from interaction components (modal submit)
+ * Select menu values inside modals must be read from interaction.components, not fields.
  */
-export function validateUserIdFromFields(fields, fieldKey) {
-  if (!fields) return null;
+export function validateUserIdFromModal(interaction, customId) {
+  if (!interaction?.components) return null;
   try {
-    const users = fields.getSelectedUsers?.(fieldKey);
-    return users?.first()?.id || null;
+    for (const row of interaction.components) {
+      for (const component of row.components || []) {
+        if (component.custom_id === customId || component.customId === customId) {
+          return component.values?.[0] || null;
+        }
+      }
+    }
+    return null;
   } catch {
     return null;
   }
@@ -68,5 +75,5 @@ export default {
   isValidChannelId,
   isValidThreadId,
   isValidCustomId,
-  validateUserIdFromFields
+  validateUserIdFromModal
 };

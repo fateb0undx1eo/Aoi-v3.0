@@ -484,16 +484,14 @@ async function handleCaseCommand(interaction) {
 async function applyModerationAction(interaction, context, actionType, reason, token, durationSeconds = null, timeoutLabel = null) {
   const isModal = interaction.isModalSubmit?.();
 
-  const respond = async (content) => {
+  const respond = (content) => {
     const v2Payload = {
       components: [{ type: 17, components: [{ type: 10, content }] }],
       allowedMentions: { parse: [] }
     };
 
     if (isModal) {
-      // Modals must always use reply(), never update()
-      await interaction.reply({ content, components: [], ephemeral: true, allowedMentions: { parse: [] } });
-      return;
+      return { type: 'REPLY', message: content, components: [], ephemeral: true, allowedMentions: { parse: [] } };
     }
 
     const shouldEditInPlace =
@@ -502,42 +500,27 @@ async function applyModerationAction(interaction, context, actionType, reason, t
       interaction.isFromMessage?.();
 
     if (shouldEditInPlace) {
-      try {
-        await interaction.update(v2Payload);
-        return;
-      } catch {}
+      return { type: 'UPDATE', content: null, components: v2Payload.components, allowedMentions: { parse: [] } };
     }
 
-    await interaction.reply({ content, components: [], ephemeral: true, allowedMentions: { parse: [] } });
+    return { type: 'REPLY', message: content, components: [], ephemeral: true, allowedMentions: { parse: [] } };
   };
 
   const report = await buildReportFromToken(interaction, token);
-  if (!report) {
-    await respond('The source message is unavailable for this case.');
-    return;
-  }
+  if (!report) return respond('The source message is unavailable for this case.');
 
   const member = await interaction.guild.members.fetch(report.targetUserId).catch(() => null);
-  if (!member || member.id === interaction.user.id) {
-    await respond('The reported user is not available for this action.');
-    return;
-  }
+  if (!member || member.id === interaction.user.id) return respond('The reported user is not available for this action.');
 
-  if (actionType === 'KICK' && !canKick(interaction.member, interaction.guild)) {
-    await respond('Only administrators and the server owner can use Kick.');
-    return;
-  }
+  if (actionType === 'KICK' && !canKick(interaction.member, interaction.guild)) return respond('Only administrators and the server owner can use Kick.');
 
   const moderationService = getModerationService(context);
-  if (!moderationService) {
-    await respond('Moderation service unavailable.');
-    return;
-  }
+  if (!moderationService) return respond('Moderation service unavailable.');
 
   const moderatorName = interaction.user.tag ?? interaction.user.username;
 
   try {
-    const caseData = await moderationService.createCase({
+    await moderationService.createCase({
       guildId: interaction.guildId,
       targetUserId: report.targetUserId,
       targetUsername: report.targetUsername,
@@ -550,8 +533,7 @@ async function applyModerationAction(interaction, context, actionType, reason, t
 
     await performGuildAction({ member, actionType, reason, durationSeconds });
   } catch (error) {
-    await respond(`Failed to apply action: ${error.message}`);
-    return;
+    return respond(`Failed to apply action: ${error.message}`);
   }
 
   const resolvedLabel = actionType === 'TIMEOUT'
@@ -567,7 +549,7 @@ async function applyModerationAction(interaction, context, actionType, reason, t
     report.targetUserId
   );
 
-  await respond(didLog ? `Done. ${resolvedLabel}` : `Done. ${resolvedLabel} (action applied, log failed)`);
+  return respond(didLog ? `Done. ${resolvedLabel}` : `Done. ${resolvedLabel} (action applied, log failed)`);
 }
 
 async function handleCaseAction(interaction) {
@@ -585,19 +567,11 @@ async function handleCaseAction(interaction) {
     modal.addComponents(
       textInputRow(
         new TextInputBuilder()
-          .setCustomId('custom_reason')
-          .setLabel('Reason')
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(true)
-          .setMaxLength(500)
+          .setCustomId('custom_reason').setLabel('Reason')
+          .setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500)
       )
     );
-    try {
-      await interaction.showModal(modal);
-    } catch (error) {
-      await interaction.reply({ content: `Failed to open warn form: ${error?.message ?? 'unknown error'}`, ephemeral: true });
-    }
-    return;
+    return { type: 'MODAL', modal };
   }
 
   if (actionKey === 'timeout') {
@@ -605,29 +579,10 @@ async function handleCaseAction(interaction) {
       .setCustomId(`${CASE_TIMEOUT_MODAL_PREFIX}:${token}`)
       .setTitle('Timeout User');
     modal.addComponents(
-      textInputRow(
-        new TextInputBuilder()
-          .setCustomId('reason')
-          .setLabel('Reason for timeout')
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(true)
-          .setMaxLength(500)
-      ),
-      textInputRow(
-        new TextInputBuilder()
-          .setCustomId('custom_duration')
-          .setLabel('Duration in minutes')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true)
-          .setPlaceholder('e.g. 30 (1-10080)')
-      )
+      textInputRow(new TextInputBuilder().setCustomId('reason').setLabel('Reason for timeout').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500)),
+      textInputRow(new TextInputBuilder().setCustomId('custom_duration').setLabel('Duration in minutes').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('e.g. 30 (1-10080)'))
     );
-    try {
-      await interaction.showModal(modal);
-    } catch (error) {
-      await interaction.reply({ content: `Failed to open timeout form: ${error?.message ?? 'unknown error'}`, ephemeral: true });
-    }
-    return;
+    return { type: 'MODAL', modal };
   }
 
   if (actionKey === 'kick') {
@@ -637,26 +592,18 @@ async function handleCaseAction(interaction) {
     modal.addComponents(
       textInputRow(
         new TextInputBuilder()
-          .setCustomId('reason')
-          .setLabel('Reason for kick')
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(true)
-          .setMaxLength(500)
+          .setCustomId('reason').setLabel('Reason for kick')
+          .setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500)
       )
     );
-    try {
-      await interaction.showModal(modal);
-    } catch (error) {
-      await interaction.reply({ content: `Failed to open kick form: ${error?.message ?? 'unknown error'}`, ephemeral: true });
-    }
-    return;
+    return { type: 'MODAL', modal };
   }
 }
 
 async function handleCaseWarnModal(interaction, context) {
   const reason = truncate(interaction.fields.getTextInputValue('custom_reason'), 500);
   const token = interaction.customId.slice(`${CASE_WARN_MODAL_PREFIX}:`.length);
-  await applyModerationAction(interaction, context, 'WARN', reason, token);
+  return await applyModerationAction(interaction, context, 'WARN', reason, token);
 }
 
 async function handleCaseTimeoutModal(interaction, context) {
@@ -664,27 +611,25 @@ async function handleCaseTimeoutModal(interaction, context) {
   const token = interaction.customId.slice(`${CASE_TIMEOUT_MODAL_PREFIX}:`.length);
 
   if (!token) {
-    await interaction.reply({ content: 'Invalid timeout payload.', ephemeral: true });
-    return;
+    return { type: 'REPLY', message: 'Invalid timeout payload.', ephemeral: true };
   }
 
   const customMinutesText = interaction.fields.getTextInputValue('custom_duration');
   const durationMinutes = Number.parseInt(customMinutesText, 10);
 
   if (!durationMinutes || durationMinutes < 1 || durationMinutes > 10080) {
-    await interaction.reply({ content: 'Duration must be between 1 and 10080 minutes.', ephemeral: true });
-    return;
+    return { type: 'REPLY', message: 'Duration must be between 1 and 10080 minutes.', ephemeral: true };
   }
 
   const label = `${durationMinutes} minute(s)`;
 
-  await applyModerationAction(interaction, context, 'TIMEOUT', reason, token, durationMinutes * 60, label);
+  return await applyModerationAction(interaction, context, 'TIMEOUT', reason, token, durationMinutes * 60, label);
 }
 
 async function handleCaseKickModal(interaction, context) {
   const reason = truncate(interaction.fields.getTextInputValue('reason'), 500);
   const token = interaction.customId.slice(`${CASE_KICK_MODAL_PREFIX}:`.length);
-  await applyModerationAction(interaction, context, 'KICK', reason, token);
+  return await applyModerationAction(interaction, context, 'KICK', reason, token);
 }
 
 export default {
@@ -855,28 +800,22 @@ export default {
     {
       name: 'interactionCreate',
       async execute(interaction, context) {
+        if (interaction.isCommand()) return;
         try {
           if (interaction.isButton() && interaction.customId?.startsWith(`${CASE_ACTION_PREFIX}:`)) {
-            await handleCaseAction(interaction);
-            return;
+            return await handleCaseAction(interaction);
           }
           if (interaction.isModalSubmit() && interaction.customId?.startsWith(`${CASE_WARN_MODAL_PREFIX}:`)) {
-            await handleCaseWarnModal(interaction, context);
-            return;
+            return await handleCaseWarnModal(interaction, context);
           }
           if (interaction.isModalSubmit() && interaction.customId?.startsWith(`${CASE_TIMEOUT_MODAL_PREFIX}:`)) {
-            await handleCaseTimeoutModal(interaction, context);
-            return;
+            return await handleCaseTimeoutModal(interaction, context);
           }
           if (interaction.isModalSubmit() && interaction.customId?.startsWith(`${CASE_KICK_MODAL_PREFIX}:`)) {
-            await handleCaseKickModal(interaction, context);
+            return await handleCaseKickModal(interaction, context);
           }
         } catch (error) {
-          if (!interaction.deferred && !interaction.replied) {
-            await interaction.reply({ content: `Case action failed: ${error?.message ?? 'unknown error'}`, ephemeral: true }).catch(() => null);
-            return;
-          }
-          await interaction.followUp({ content: `Case action failed: ${error?.message ?? 'unknown error'}`, ephemeral: true }).catch(() => null);
+          return { type: 'ERROR', message: `Case action failed: ${error?.message ?? 'unknown error'}` };
         }
       }
     },

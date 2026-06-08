@@ -62,10 +62,10 @@ export function buildAddUserModalWithSelect(threadId) {
     title: 'Add User',
     components: [
       {
-        type: 18, // Label
-        label: 'Add User',
-        description: 'Pick a user to add to this ticket',
-        component: buildUserSelect(CUSTOM_IDS.addUserSelect, 'Select user to add')
+        type: 1, // Action Row
+        components: [
+          buildUserSelect(CUSTOM_IDS.addUserSelect, 'Select user to add')
+        ]
       }
     ]
   };
@@ -80,10 +80,10 @@ export function buildRemoveUserModalWithSelect(threadId) {
     title: 'Remove User',
     components: [
       {
-        type: 18, // Label
-        label: 'Remove User',
-        description: 'Pick a user to remove from this ticket',
-        component: buildUserSelect(CUSTOM_IDS.removeUserSelect, 'Select user to remove')
+        type: 1, // Action Row
+        components: [
+          buildUserSelect(CUSTOM_IDS.removeUserSelect, 'Select user to remove')
+        ]
       }
     ]
   };

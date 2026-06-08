@@ -385,7 +385,7 @@ export async function initializeLeaderboardModule(options) {
   if (discordClient.isReady()) {
     start();
   } else {
-    discordClient.once('ready', start);
+    discordClient.once('clientReady', start);
   }
 
   logger.info('Leaderboard module initialized');

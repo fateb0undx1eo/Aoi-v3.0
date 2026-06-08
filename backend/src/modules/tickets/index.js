@@ -169,30 +169,20 @@ export async function initializeTicketsModule(options) {
       {
         name: 'interactionCreate',
         async execute(interaction) {
-          try {
-            // Only route button/select/modal interactions here
-            // Chat input commands are handled by the global router via command.execute()
-            if (
-              !interaction.isButton() &&
-              !interaction.isStringSelectMenu() &&
-              !interaction.isModalSubmit()
-            ) {
-              return;
-            }
+          if (interaction.isCommand()) return;
+          if (
+            !interaction.isButton() &&
+            !interaction.isStringSelectMenu() &&
+            !interaction.isModalSubmit()
+          ) {
+            return;
+          }
 
-            // Route ticket-related interactions
-            await interactionRouter.routeInteraction(interaction);
+          try {
+            return await interactionRouter.routeInteraction(interaction);
           } catch (error) {
             logger.error('Ticket interaction handler failed', { error: error.message, stack: error.stack });
-            try {
-              if (interaction.deferred || interaction.replied) {
-                await interaction.editReply({ content: `Error: ${error.message}` });
-              } else {
-                await interaction.reply({ content: `Error: ${error.message}`, ephemeral: true });
-              }
-            } catch (replyError) {
-              logger.error('Failed to send error reply', { error: replyError.message });
-            }
+            return { type: 'ERROR', message: 'An unexpected error occurred.' };
           }
         }
       }

@@ -173,6 +173,7 @@ export default {
     {
       name: 'interactionCreate',
       async execute(interaction) {
+        if (interaction.isCommand()) return;
         if (!interaction.isButton() || !interaction.customId.startsWith('roles_')) {
           return;
         }
@@ -181,11 +182,7 @@ export default {
 
         const member = interaction.guild?.members.cache.get(userId);
         if (!member) {
-          await interaction.reply({
-            content: 'User not found in this server.',
-            ephemeral: true
-          });
-          return;
+          return { type: 'REPLY', message: 'User not found in this server.', ephemeral: true };
         }
 
         const roles = member.roles.cache
@@ -193,20 +190,12 @@ export default {
           .sort((a, b) => b.position - a.position);
 
         if (roles.size === 0) {
-          await interaction.reply({
-            content: 'This user has no roles.',
-            ephemeral: true
-          });
-          return;
+          return { type: 'REPLY', message: 'This user has no roles.', ephemeral: true };
         }
 
         const rolesText = roles.map(r => r.toString()).join(' ');
 
-        await interaction.reply({
-          content: rolesText,
-          ephemeral: true,
-          allowedMentions: { parse: [] }
-        });
+        return { type: 'REPLY', message: rolesText, ephemeral: true, allowedMentions: { parse: [] } };
       }
     }
   ]

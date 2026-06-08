@@ -430,42 +430,27 @@ export default {
     {
       name: 'interactionCreate',
       async execute(interaction, { services, placeholderEngine }) {
+        if (interaction.isCommand()) return;
         if (!interaction.isButton() || !interaction.customId.startsWith(`${FUN_ACTION_PREFIX}:`)) {
           return;
         }
 
         const [, , token, action] = interaction.customId.split(':');
         if (!token || (action !== 'smash' && action !== 'pass')) {
-          await interaction.reply({
-            content: 'That drop action is no longer valid.',
-            ephemeral: true
-          }).catch(() => null);
-          return;
+          return { type: 'REPLY', message: 'That drop action is no longer valid.', ephemeral: true };
         }
 
         const pending = pendingDrops.get(token);
         if (!pending) {
-          await interaction.reply({
-            content: 'This drop expired. Use the slash command again.',
-            ephemeral: true
-          }).catch(() => null);
-          return;
+          return { type: 'REPLY', message: 'This drop expired. Use the slash command again.', ephemeral: true };
         }
 
         if (pending.guildId !== interaction.guildId) {
-          await interaction.reply({
-            content: 'This drop belongs to another server context.',
-            ephemeral: true
-          }).catch(() => null);
-          return;
+          return { type: 'REPLY', message: 'This drop belongs to another server context.', ephemeral: true };
         }
 
         if (pending.resolved) {
-          await interaction.reply({
-            content: 'This drop has already been resolved.',
-            ephemeral: true
-          }).catch(() => null);
-          return;
+          return { type: 'REPLY', message: 'This drop has already been resolved.', ephemeral: true };
         }
 
         pending.resolved = true;
@@ -503,18 +488,13 @@ export default {
 
           const dmDelivered = await interaction.user.send({
             flags: MessageFlags.IsComponentsV2,
-            components: buildContainer({
-              title: dmTitle,
-              body: dmBody,
-              asset: pending.asset
-            }),
+            components: buildContainer({ title: dmTitle, body: dmBody, asset: pending.asset }),
             allowedMentions: { parse: [] }
           }).then(() => true).catch(() => false);
 
           dmStatus = dmDelivered
             ? 'Check your DMs.'
             : 'I could not DM the claim details, so keep this message instead.';
-
         }
 
         const templateContext = buildTemplateContext({
@@ -545,30 +525,30 @@ export default {
             `<@${interaction.user.id}> claimed this ${pending.type}. ${dmStatus}`,
             templateContext
           );
-          const components = buildContainer({
-            title,
-            body,
-            asset: pending.asset
-          });
+          const components = buildContainer({ title, body, asset: pending.asset });
 
           if (pending.config.claim_result_visibility === 'public') {
-            await interaction.update({
-              flags: MessageFlags.IsComponentsV2,
-              components,
-              allowedMentions: { parse: [] }
-            }).catch(() => null);
             scheduleMessageDelete(interaction.message, pending.config.resolved_drop_delete_seconds);
-            return;
+            return {
+              type: 'UPDATE',
+              content: null,
+              components,
+              allowedMentions: { parse: [] },
+              flags: MessageFlags.IsComponentsV2
+            };
           }
 
-          await interaction.update({
-            flags: MessageFlags.IsComponentsV2,
-            components: buildGenericResolvedComponents(pending),
-            allowedMentions: { parse: [] }
-          }).catch(() => null);
           scheduleMessageDelete(interaction.message, pending.config.resolved_drop_delete_seconds);
-          await sendEphemeralResult(interaction, pending, components);
-          return;
+          return {
+            type: 'MULTI',
+            results: [
+              { type: 'UPDATE', content: null, components: buildGenericResolvedComponents(pending), allowedMentions: { parse: [] }, flags: MessageFlags.IsComponentsV2 },
+              {
+                type: 'FOLLOW_UP', components, ephemeral: true, allowedMentions: { parse: [] },
+                after: async (msg) => { if (msg?.id) scheduleFollowUpDelete(interaction, msg.id, pending.config.ephemeral_notice_delete_seconds); }
+              }
+            ]
+          };
         }
 
         const passTitle = renderTemplate(
@@ -583,29 +563,30 @@ export default {
           `<@${interaction.user.id}> passed on this ${pending.type}.`,
           templateContext
         );
-        const passComponents = buildContainer({
-          title: passTitle,
-          body: passBody,
-          asset: pending.asset
-        });
+        const passComponents = buildContainer({ title: passTitle, body: passBody, asset: pending.asset });
 
         if (pending.config.pass_result_visibility === 'public') {
-          await interaction.update({
-            flags: MessageFlags.IsComponentsV2,
-            components: passComponents,
-            allowedMentions: { parse: [] }
-          }).catch(() => null);
           scheduleMessageDelete(interaction.message, pending.config.resolved_drop_delete_seconds);
-          return;
+          return {
+            type: 'UPDATE',
+            content: null,
+            components: passComponents,
+            allowedMentions: { parse: [] },
+            flags: MessageFlags.IsComponentsV2
+          };
         }
 
-        await interaction.update({
-          flags: MessageFlags.IsComponentsV2,
-          components: buildGenericResolvedComponents(pending),
-          allowedMentions: { parse: [] }
-        }).catch(() => null);
         scheduleMessageDelete(interaction.message, pending.config.resolved_drop_delete_seconds);
-        await sendEphemeralResult(interaction, pending, passComponents);
+        return {
+          type: 'MULTI',
+          results: [
+            { type: 'UPDATE', content: null, components: buildGenericResolvedComponents(pending), allowedMentions: { parse: [] }, flags: MessageFlags.IsComponentsV2 },
+            {
+              type: 'FOLLOW_UP', components: passComponents, ephemeral: true, allowedMentions: { parse: [] },
+              after: async (msg) => { if (msg?.id) scheduleFollowUpDelete(interaction, msg.id, pending.config.ephemeral_notice_delete_seconds); }
+            }
+          ]
+        };
       }
     }
   ]

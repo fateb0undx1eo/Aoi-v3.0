@@ -1,6 +1,6 @@
 import { ChannelType, PermissionFlagsBits } from 'discord.js';
 import logger from '../services/logging-service.js';
-import { buildTicketWelcomePayload, buildSuccessPayload, buildErrorPayload } from '../components/payloads.js';
+import { buildTicketWelcomePayload } from '../components/payloads.js';
 import { generateThreadName, addStaffMembersToThread, buildTicketMentions, hasOpenTicketInChannel } from '../utils/thread-utils.js';
 import { CooldownError } from '../utils/error-handler.js';
 import {
@@ -11,6 +11,11 @@ import {
   ADD_STAFF_MEMBERS_TO_THREAD,
   getTicketColor
 } from '../utils/constants.js';
+
+// ── Result helper ─────────────────────────────────────────────────
+const R = {
+  editReply: (content, opts = {}) => ({ type: 'EDIT_REPLY', content, components: opts.components }),
+};
 
 export class TicketCreationHandler {
   constructor(ticketService, lockService, discordRestService, webhookService, discordClient) {
@@ -25,8 +30,7 @@ export class TicketCreationHandler {
     const { user, channel, client } = interaction;
     try {
       if (!channel?.threads?.create) {
-        await this.replyError(interaction, ERROR_MESSAGES.NO_PANEL_CHANNEL);
-        return;
+        return R.editReply(ERROR_MESSAGES.NO_PANEL_CHANNEL);
       }
 
       const isAdminOrOwner = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) || interaction.guild?.ownerId === user.id;
@@ -35,8 +39,7 @@ export class TicketCreationHandler {
           await this.ticketService.cooldownService.checkCooldown(user.id);
         } catch (error) {
           if (error instanceof CooldownError) {
-            await this.replyError(interaction, error.message);
-            return;
+            return R.editReply(error.message);
           }
           throw error;
         }
@@ -50,8 +53,7 @@ export class TicketCreationHandler {
         : false;
 
       if (activeTickets.length > 0 || hasLegacyOpenThread) {
-        await this.replyError(interaction, ERROR_MESSAGES.ALREADY_OPEN);
-        return;
+        return R.editReply(ERROR_MESSAGES.ALREADY_OPEN);
       }
 
       const thread = await channel.threads.create({
@@ -63,23 +65,22 @@ export class TicketCreationHandler {
       }).catch(() => null);
 
       if (!thread) {
-        await this.replyError(interaction, ERROR_MESSAGES.THREAD_CREATE_FAILED);
-        return;
+        return R.editReply(ERROR_MESSAGES.THREAD_CREATE_FAILED);
       }
 
       const added = await thread.members.add(user.id).then(() => true).catch(() => false);
       if (!added) {
-        await this.replyError(interaction, ERROR_MESSAGES.ADD_USER_FAILED);
-        return;
+        return R.editReply(ERROR_MESSAGES.ADD_USER_FAILED);
       }
 
-      await this.replySuccess(interaction, `Ticket created: <#${thread.id}>`);
       this.setupThreadAsync(thread, user.id, tag).catch((error) => {
         logger.error('Ticket thread setup failed', { threadId: thread.id, error: error.message });
       });
+
+      return R.editReply(`Ticket created: <#${thread.id}>`);
     } catch (error) {
       logger.error('Ticket creation failed', { error: error.message, stack: error.stack });
-      await this.replyError(interaction, 'An error occurred while creating your ticket.');
+      return R.editReply('An error occurred while creating your ticket.');
     }
   }
 
@@ -129,27 +130,18 @@ export class TicketCreationHandler {
         type: 17,
         accent_color: getTicketColor(thread.id),
         components: [
-          {
-            type: 10,
-            content: `# TICKET CREATED`
-          },
+          { type: 10, content: `# TICKET CREATED` },
           {
             type: 9,
             components: [
-              {
-                type: 10,
-                content: [
-                  pointerLine('Creator', `<@${creatorId}>`),
-                  pointerLine('Category', tagLabel),
-                  pointerLine('Created', `<t:${now}:f>`),
-                  pointerLine('Thread', threadLink)
-                ].join('\n')
-              }
+              { type: 10, content: [
+                pointerLine('Creator', `<@${creatorId}>`),
+                pointerLine('Category', tagLabel),
+                pointerLine('Created', `<t:${now}:f>`),
+                pointerLine('Thread', threadLink)
+              ].join('\n') }
             ],
-            accessory: {
-              type: 11,
-              media: { url: avatarUrl }
-            }
+            accessory: { type: 11, media: { url: avatarUrl } }
           }
         ]
       }
@@ -162,24 +154,6 @@ export class TicketCreationHandler {
       username: 'Ticket System',
       avatarURL: this.discordClient.user?.displayAvatarURL()
     }).catch(() => null);
-  }
-
-  async replyError(interaction, message) {
-    const payload = buildErrorPayload(message);
-    if (interaction.deferred || interaction.replied) {
-      await interaction.editReply(payload).catch(() => null);
-    } else {
-      await interaction.reply({ ...payload, ephemeral: true }).catch(() => null);
-    }
-  }
-
-  async replySuccess(interaction, message) {
-    const payload = buildSuccessPayload(message);
-    if (interaction.deferred || interaction.replied) {
-      await interaction.editReply(payload).catch(() => null);
-    } else {
-      await interaction.reply({ ...payload, ephemeral: true }).catch(() => null);
-    }
   }
 }
 

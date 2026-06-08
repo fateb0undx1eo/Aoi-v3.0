@@ -603,36 +603,42 @@ async function createTicketFromTag(interaction, tag) {
 
   await interaction.editReply({ content: `Ticket created: <#${thread.id}>` });
 
-  queueMicrotask(async () => {
-    const setupTasks = [];
+  queueMicrotask(() => {
+    (async () => {
+      try {
+        const setupTasks = [];
 
-    if (ADD_STAFF_MEMBERS_TO_THREAD) {
-      setupTasks.push(addStaffMembersToThread(thread));
-    }
+        if (ADD_STAFF_MEMBERS_TO_THREAD) {
+          setupTasks.push(addStaffMembersToThread(thread));
+        }
 
-    const messageSetup = (async () => {
-      await thread
-        .send({
-          content: buildTicketMentions(interaction.user.id),
-          allowedMentions: {
-            users: [interaction.user.id],
-            roles: TICKET_STAFF_ROLE_IDS
-          }
-        })
-        .catch(() => null);
+        const messageSetup = (async () => {
+          await thread
+            .send({
+              content: buildTicketMentions(interaction.user.id),
+              allowedMentions: {
+                users: [interaction.user.id],
+                roles: TICKET_STAFF_ROLE_IDS
+              }
+            })
+            .catch(() => null);
 
-      await thread
-        .send(buildTicketWelcomePayload(tag, interaction.user.id))
-        .catch(() => null);
+          await thread
+            .send(buildTicketWelcomePayload(tag, interaction.user.id))
+            .catch(() => null);
+        })();
+
+        const logSetup = sendCreatedLog(thread, {
+          creatorId: interaction.user.id,
+          tagLabel: tag.label
+        });
+
+        setupTasks.push(messageSetup, logSetup);
+        await Promise.allSettled(setupTasks);
+      } catch (error) {
+        console.error('Background ticket setup failed', error);
+      }
     })();
-
-    const logSetup = sendCreatedLog(thread, {
-      creatorId: interaction.user.id,
-      tagLabel: tag.label
-    });
-
-    setupTasks.push(messageSetup, logSetup);
-    await Promise.allSettled(setupTasks);
   });
 }
 
@@ -795,17 +801,16 @@ async function handleAddUsersButton(interaction, threadId) {
       title: 'Add User',
       components: [
         {
-          type: 18,
-          label: 'Add User',
-          description: 'Pick a user to add to this ticket',
-          component: {
-            type: 5,
-            custom_id: CUSTOM_IDS.addUserSelect,
-            placeholder: 'Select user to add',
-            min_values: 1,
-            max_values: 1,
-            required: true
-          }
+          type: 1,
+          components: [
+            {
+              type: 5,
+              custom_id: CUSTOM_IDS.addUserSelect,
+              placeholder: 'Select user to add',
+              min_values: 1,
+              max_values: 1
+            }
+          ]
         }
       ]
     })
@@ -840,17 +845,16 @@ async function handleRemoveUsersButton(interaction, threadId) {
       title: 'Remove User',
       components: [
         {
-          type: 18,
-          label: 'Remove User',
-          description: 'Pick a user to remove from this ticket',
-          component: {
-            type: 5,
-            custom_id: CUSTOM_IDS.removeUserSelect,
-            placeholder: 'Select user to remove',
-            min_values: 1,
-            max_values: 1,
-            required: true
-          }
+          type: 1,
+          components: [
+            {
+              type: 5,
+              custom_id: CUSTOM_IDS.removeUserSelect,
+              placeholder: 'Select user to remove',
+              min_values: 1,
+              max_values: 1
+            }
+          ]
         }
       ]
     })
@@ -874,8 +878,7 @@ async function handleAddUsersModalSubmit(interaction, threadId) {
     return;
   }
 
-  const addUsers = interaction.fields.getSelectedUsers(CUSTOM_IDS.addUserSelect);
-  const addUserId = addUsers.first()?.id ?? null;
+  const addUserId = interaction.components?.[0]?.components?.[0]?.values?.[0] ?? null;
 
   if (!addUserId) {
     await interaction.editReply({ content: 'Please select a user to add.' }).catch(() => null);
@@ -917,8 +920,7 @@ async function handleRemoveUsersModalSubmit(interaction, threadId) {
     return;
   }
 
-  const removeUsers = interaction.fields.getSelectedUsers(CUSTOM_IDS.removeUserSelect);
-  const removeUserId = removeUsers.first()?.id ?? null;
+  const removeUserId = interaction.components?.[0]?.components?.[0]?.values?.[0] ?? null;
 
   if (!removeUserId) {
     await interaction.editReply({ content: 'Please select a user to remove.' }).catch(() => null);
@@ -1138,11 +1140,10 @@ export default {
       name: 'interactionCreate',
 
       async execute(interaction) {
-        if (
-          interaction.isChatInputCommand() &&
-          TICKET_COMMAND_NAMES.has(interaction.commandName)
-        ) {
-          await executeTicketCommand(interaction);
+        if (interaction.isCommand()) {
+          if (TICKET_COMMAND_NAMES.has(interaction.commandName)) {
+            await executeTicketCommand(interaction);
+          }
           return;
         }
 

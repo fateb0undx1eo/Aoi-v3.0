@@ -2,26 +2,191 @@ import { MessageFlags } from 'discord.js';
 import { logger } from '../utils/logger.js';
 import { metrics } from '../observability/metrics.js';
 
-async function replyOrEdit(interaction, content, ephemeral = true) {
-  if (interaction.deferred || interaction.replied) {
-    await interaction.editReply(content);
-    return;
-  }
+const extraFields = (result) => {
+  const out = {};
+  if (result.allowedMentions !== undefined) out.allowedMentions = result.allowedMentions;
+  if (result.flags !== undefined) out.flags = result.flags;
+  if (result.embeds !== undefined) out.embeds = result.embeds;
+  return out;
+};
 
-  await interaction.reply({ content, ephemeral });
+async function processResult(interaction, result) {
+  if (!result || result.type === 'IGNORE') return;
+
+  switch (result.type) {
+    case 'ASYNC_RESULT': {
+      if (!interaction.deferred && !interaction.replied) {
+        if (interaction.isButton() || interaction.isStringSelectMenu() || interaction.isAnySelectMenu()) {
+          await interaction.deferUpdate();
+        } else {
+          await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        }
+      }
+      const final = await result.execute();
+      await processResult(interaction, final);
+      break;
+    }
+    case 'REPLY':
+    case 'ERROR': {
+      try {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply({
+            content: result.message,
+            ...(result.components ? { components: result.components } : {}),
+            ...(result.files ? { files: result.files } : {}),
+            ...extraFields(result)
+          });
+        } else {
+          await interaction.reply({
+            content: result.message,
+            flags: result.ephemeral !== false ? MessageFlags.Ephemeral : undefined,
+            ...(result.components ? { components: result.components } : {}),
+            ...(result.files ? { files: result.files } : {}),
+            ...extraFields(result)
+          });
+        }
+      } catch (err) {
+        logger.warn('Failed to send reply/error', {
+          type: result.type,
+          code: err.code,
+          message: err.message
+        });
+      }
+      break;
+    }
+    case 'EDIT_REPLY': {
+      try {
+        await interaction.editReply({
+          content: result.content,
+          ...(result.components ? { components: result.components } : {}),
+          ...(result.files ? { files: result.files } : {}),
+          ...extraFields(result)
+        });
+      } catch (editError) {
+        logger.warn('EDIT_REPLY failed — interaction likely dead', {
+          id: interaction.id,
+          code: editError.code,
+          message: editError.message
+        });
+      }
+      break;
+    }
+    case 'UPDATE': {
+      const updateOpts = {
+        ...(result.content ? { content: result.content } : {}),
+        ...(result.components ? { components: result.components } : {}),
+        ...(result.files ? { files: result.files } : {}),
+        ...extraFields(result)
+      };
+      try {
+        await interaction.update(updateOpts);
+      } catch (updateError) {
+        logger.warn('UPDATE failed', {
+          id: interaction.id,
+          type: interaction.type,
+          customId: interaction.customId,
+          code: updateError.code,
+          status: updateError.status,
+          message: updateError.message,
+          errors: updateError.errors
+        });
+      }
+      break;
+    }
+    case 'MODAL':
+      try {
+        await interaction.showModal(result.modal);
+      } catch (modalError) {
+        logger.warn('MODAL failed — interaction likely dead', {
+          id: interaction.id,
+          code: modalError.code,
+          message: modalError.message
+        });
+      }
+      break;
+    case 'FOLLOW_UP': {
+      try {
+        const followUpMsg = await interaction.followUp({
+          content: result.content,
+          components: result.components,
+          flags: result.ephemeral ? MessageFlags.Ephemeral : undefined,
+          ...extraFields(result)
+        });
+        if (result.after) {
+          try { await result.after(followUpMsg); } catch {}
+        }
+      } catch (followUpError) {
+        logger.warn('FOLLOW_UP failed — interaction likely dead', {
+          id: interaction.id,
+          code: followUpError.code,
+          message: followUpError.message
+        });
+      }
+      break;
+    }
+    case 'DEFER_UPDATE':
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferUpdate();
+      }
+      break;
+    case 'MULTI':
+      for (const sub of result.results) {
+        await processResult(interaction, sub);
+      }
+      break;
+    default:
+      logger.warn('Unknown result type', { type: result.type });
+  }
 }
 
 export function registerInteractionRouter(client, registry, context) {
+  const ackedInteractions = new Set();
+
   client.on('interactionCreate', async (interaction) => {
+    if (ackedInteractions.has(interaction.id)) {
+      console.warn('DOUBLE INTERACTION BLOCKED', { id: interaction.id });
+      return;
+    }
+    ackedInteractions.add(interaction.id);
+
     try {
-      // ONLY process slash/context commands here
+      // ── Non-command interactions → module handlers ──────────────
       if (
         !interaction.isChatInputCommand() &&
         !interaction.isMessageContextMenuCommand()
       ) {
-        return; // Let module handlers process component interactions
+        // Router defers modal submits upfront — handlers never control defer timing
+        if (interaction.isModalSubmit() && !interaction.deferred && !interaction.replied) {
+          try {
+            await interaction.deferReply();
+          } catch (deferErr) {
+            console.error('MODAL DEFER FAILED', { id: interaction.id, code: deferErr.code, message: deferErr.message });
+          }
+        }
+
+        const handlers = registry.getEventHandlers('interactionCreate');
+        for (const handler of handlers) {
+          let result;
+          try {
+            result = await handler.execute(interaction, context);
+          } catch (error) {
+            logger.error(`Event handler ${handler.moduleName}/interactionCreate failed:`, error);
+            await processResult(interaction, { type: 'ERROR', message: 'An internal error occurred.' });
+            return;
+          }
+          if (result && result.type !== 'IGNORE') {
+            try {
+              await processResult(interaction, result);
+            } catch (procError) {
+              logger.error('Failed to process handler result:', procError);
+            }
+            return;
+          }
+        }
+        return;
       }
 
+      // ── Command interactions only below ─────────────────────────
       const command = registry.getCommand(interaction.commandName);
 
       if (!command) {
@@ -29,88 +194,63 @@ export function registerInteractionRouter(client, registry, context) {
         return;
       }
 
-        logger.info(`Executing command: ${interaction.commandName}`);
+      logger.info(`Executing command: ${interaction.commandName}`);
 
+      if (interaction.deferred || interaction.replied) {
+        console.warn('CMD DOUBLE ACK BLOCKED', { id: interaction.id, command: interaction.commandName });
+        return;
+      }
+
+      const startedAt = Date.now();
+
+      if (command.defer !== false) {
         try {
-          const startedAt = Date.now();
-          // Only defer if not already deferred/replied
-        if (
-          command.defer !== false &&
-          !interaction.deferred &&
-          !interaction.replied
-        ) {
-          logger.debug(`Deferring interaction: ${interaction.commandName}`);
+          await interaction.deferReply({
+            flags: command.ephemeral !== false ? MessageFlags.Ephemeral : undefined
+          });
+        } catch (deferError) {
+          logger.error('CMD DEFER FAILED', {
+            code: deferError.code,
+            message: deferError.message,
+            command: interaction.commandName,
+            interactionId: interaction.id
+          });
+          return;
+        }
+      }
 
+      const cmdConfig = context.configCache.getCommandConfig(interaction.guildId, command.name);
+      if (cmdConfig && cmdConfig.enabled === false) {
+        await interaction.editReply('This command is disabled for this guild.');
+        return;
+      }
+
+      const permOverrides = {
+        ...(command.permissionOverrides ?? {}),
+        ...((cmdConfig?.overrides ?? {}).permissions ?? {})
+      };
+
+      if (!context.permissionService.isAllowed(interaction, permOverrides)) {
+        await interaction.editReply('You are not allowed to use this command.');
+        return;
+      }
+
+      const rateResult = context.rateLimiter.check(interaction, command.name);
+      if (!rateResult.allowed) {
+        await interaction.editReply(`Rate limit exceeded. Retry in ${rateResult.retryAfter}s.`);
+        return;
+      }
+
+      try {
+        const result = await command.execute(interaction, context);
+        if (result && result.type !== 'IGNORE') {
           try {
-            await interaction.deferReply({
-              flags: command.ephemeral !== false ? MessageFlags.Ephemeral : undefined
-            });
-          } catch (deferError) {
-            if (deferError.code === 40060) {
-              logger.debug(
-                'Interaction already acknowledged (40060), continuing without deferring'
-              );
-            } else if (deferError.code === 10062) {
-              logger.warn(
-                `Interaction expired before defer (10062): ${interaction.commandName}`
-              );
-            } else {
-              throw deferError;
-            }
+            await processResult(interaction, result);
+          } catch (procError) {
+            logger.error('Failed to process command result:', procError);
           }
-        } else if (interaction.deferred || interaction.replied) {
-          logger.debug(
-            `Interaction already ${
-              interaction.deferred ? 'deferred' : 'replied'
-            }`
-          );
         }
 
-        const commandConfig = context.configCache.getCommandConfig(
-          interaction.guildId,
-          command.name
-        );
-
-        if (commandConfig && commandConfig.enabled === false) {
-          await replyOrEdit(
-            interaction,
-            'This command is disabled for this guild.'
-          );
-          return;
-        }
-
-        const permissionOverrides = {
-          ...(command.permissionOverrides ?? {}),
-          ...((commandConfig?.overrides ?? {}).permissions ?? {})
-        };
-
-        const permissionResult = context.permissionService.isAllowed(
-          interaction,
-          permissionOverrides
-        );
-
-        if (!permissionResult) {
-          await replyOrEdit(
-            interaction,
-            'You are not allowed to use this command.'
-          );
-          return;
-        }
-
-        const rateResult = context.rateLimiter.check(
-          interaction,
-          command.name
-        );
-
-        if (!rateResult.allowed) {
-          await replyOrEdit(
-            interaction,
-            `Rate limit exceeded. Retry in ${rateResult.retryAfter}s.`
-          );
-          return;
-        }
-
-        await command.execute(interaction, context);
         metrics.observe('discord_interaction_latency_ms', Date.now() - startedAt, {
           command: interaction.commandName,
           guild: interaction.guildId ?? 'dm'
@@ -119,39 +259,23 @@ export function registerInteractionRouter(client, registry, context) {
           command: interaction.commandName,
           status: 'ok'
         });
-
         logger.info(`Command completed: ${interaction.commandName}`);
       } catch (error) {
         metrics.increment('discord_interactions_total', {
           command: interaction.commandName,
           status: 'error'
         });
-        logger.error(
-          `Command execution failed: ${interaction.commandName}`,
-          error
-        );
-
+        logger.error(`Command execution failed: ${interaction.commandName}`, error);
         try {
-          if (interaction.deferred || interaction.replied) {
-            await interaction.editReply('An internal error occurred.');
-          } else {
-            await interaction.reply({
-              content: 'An internal error occurred.',
-              flags: MessageFlags.Ephemeral
-            });
-          }
+          await interaction.editReply('An internal error occurred.');
         } catch (replyError) {
-          if (replyError.code === 40060 && !interaction.deferred && !interaction.replied) {
-            try {
-              await interaction.editReply('An internal error occurred.');
-            } catch {}
-          } else {
-            logger.error('Failed to send error reply', replyError);
-          }
+          logger.error('Failed to send error reply', replyError);
         }
       }
     } catch (error) {
       logger.error('Interaction router error:', error);
+    } finally {
+      ackedInteractions.delete(interaction.id);
     }
   });
 }
