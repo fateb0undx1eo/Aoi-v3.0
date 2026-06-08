@@ -214,7 +214,7 @@ function buildInitialContainer() {
   return new ContainerBuilder()
     .addTextDisplayComponents(
       new TextDisplayBuilder()
-        .setContent('# Role Color Editor')
+        .setContent('# Role Editor')
     );
 }
 
@@ -230,7 +230,7 @@ function buildPreviewContainer(userId, hex, roleId, roleName, colorOverride, hex
   }
   return new ContainerBuilder()
     .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent('# Role Color Editor')
+      new TextDisplayBuilder().setContent('# Role Editor')
     )
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(`**Role:** <@&${roleId}>\n${colorText}`)
@@ -245,7 +245,7 @@ function buildPreviewContainer(userId, hex, roleId, roleName, colorOverride, hex
 function buildResultContainer(message) {
   return new ContainerBuilder()
     .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent('# Role Color Editor')
+      new TextDisplayBuilder().setContent('# Role Editor')
     )
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(message)
@@ -267,11 +267,22 @@ export default {
   configSchema: ROLE_COLOR_SCHEMA,
   commands: [
     {
-      name: 'role-color',
+      name: 'role',
       defer: false,
-      description: "Edit a role's color with a live preview",
+      description: 'Role management commands',
       ephemeral: false,
+      options: [
+        {
+          name: 'editor',
+          type: 1,
+          description: "Edit a role's color with a live preview"
+        }
+      ],
       async execute(interaction, context) {
+        if (interaction.options.getSubcommand(true) !== 'editor') {
+          return R.error('Unknown subcommand.');
+        }
+
         const member = interaction.member;
         if (!member.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
           return R.error('You need the Manage Roles permission.');
