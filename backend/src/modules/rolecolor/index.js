@@ -346,18 +346,30 @@ export default {
 
               const primaryVal = role.colors?.primaryColor ?? role.color;
               const secondaryVal = role.colors?.secondaryColor ?? 0;
+              const tertiaryVal = role.colors?.tertiaryColor ?? 0;
               const hasColor = primaryVal !== 0;
               const previewHex = hasColor ? `#${primaryVal.toString(16).padStart(6, '0')}` : '#ffffff';
               const previewHex2 = secondaryVal ? `#${secondaryVal.toString(16).padStart(6, '0')}` : null;
+              const previewHex3 = tertiaryVal ? `#${tertiaryVal.toString(16).padStart(6, '0')}` : null;
+
               const previewBuffer = await generatePreview(
                 interaction.user.displayAvatarURL({ extension: 'png', size: 4096 }),
                 interaction.member.displayName || interaction.user.username,
                 previewHex,
                 previewHex2
               );
+
               const file = new AttachmentBuilder(previewBuffer, { name: 'preview.png' });
 
-              const container = buildPreviewContainer(interaction.user.id, previewHex, roleId, role.name, hasColor ? null : 'Default', previewHex2)
+              const container = buildPreviewContainer(
+                interaction.user.id,
+                previewHex,
+                roleId,
+                role.name,
+                hasColor ? null : 'Default',
+                previewHex2,
+                previewHex3
+              )
                 .addActionRowComponents(row =>
                   row.setComponents(buildRoleSelect(interaction.user.id))
                 )
@@ -377,7 +389,13 @@ export default {
                       .setLabel('CANCEL')
                   )
                 );
-              return R.editReply('', { components: [container], files: [file], allowedMentions: { roles: [] } });
+
+              return {
+                type: 'EDIT_REPLY',
+                components: [container],
+                files: [file],
+                allowedMentions: { roles: [] }
+              };
             }
           };
         }
