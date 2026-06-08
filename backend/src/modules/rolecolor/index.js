@@ -335,46 +335,51 @@ export default {
         }
 
         if (action === 'role' && interaction.isRoleSelectMenu()) {
-          const roleId = interaction.values[0];
-          const role = interaction.guild.roles.cache.get(roleId);
-          if (!role || !role.editable) {
-            return R.error('This role cannot be edited.');
-          }
+          return {
+            type: 'ASYNC_RESULT',
+            execute: async () => {
+              const roleId = interaction.values[0];
+              const role = interaction.guild.roles.cache.get(roleId);
+              if (!role || !role.editable) {
+                return { type: 'ERROR', message: 'This role cannot be edited.' };
+              }
 
-          const primaryVal = role.colors?.primaryColor ?? role.color;
-          const secondaryVal = role.colors?.secondaryColor ?? 0;
-          const hasColor = primaryVal !== 0;
-          const previewHex = hasColor ? `#${primaryVal.toString(16).padStart(6, '0')}` : '#ffffff';
-          const previewHex2 = secondaryVal ? `#${secondaryVal.toString(16).padStart(6, '0')}` : null;
-          const previewBuffer = await generatePreview(
-            interaction.user.displayAvatarURL({ extension: 'png', size: 4096 }),
-            interaction.member.displayName || interaction.user.username,
-            previewHex,
-            previewHex2
-          );
-          const file = new AttachmentBuilder(previewBuffer, { name: 'preview.png' });
+              const primaryVal = role.colors?.primaryColor ?? role.color;
+              const secondaryVal = role.colors?.secondaryColor ?? 0;
+              const hasColor = primaryVal !== 0;
+              const previewHex = hasColor ? `#${primaryVal.toString(16).padStart(6, '0')}` : '#ffffff';
+              const previewHex2 = secondaryVal ? `#${secondaryVal.toString(16).padStart(6, '0')}` : null;
+              const previewBuffer = await generatePreview(
+                interaction.user.displayAvatarURL({ extension: 'png', size: 4096 }),
+                interaction.member.displayName || interaction.user.username,
+                previewHex,
+                previewHex2
+              );
+              const file = new AttachmentBuilder(previewBuffer, { name: 'preview.png' });
 
-          const container = buildPreviewContainer(interaction.user.id, previewHex, roleId, role.name, hasColor ? null : 'Default', previewHex2)
-            .addActionRowComponents(row =>
-              row.setComponents(buildRoleSelect(interaction.user.id))
-            )
-            .addActionRowComponents(row =>
-              row.setComponents(buildActionSelect(interaction.user.id, roleId))
-            )
-            .addActionRowComponents(row =>
-              row.setComponents(
-                new ButtonBuilder()
-                  .setCustomId(cid('confirm', interaction.user.id, roleId))
-                  .setStyle(ButtonStyle.Secondary)
-                  .setLabel('CONFIRM')
-                  .setDisabled(true),
-                new ButtonBuilder()
-                  .setCustomId(cid('cancel', interaction.user.id))
-                  .setStyle(ButtonStyle.Secondary)
-                  .setLabel('CANCEL')
-              )
-            );
-          return R.update({ components: [container], files: [file], allowedMentions: { roles: [] } });
+              const container = buildPreviewContainer(interaction.user.id, previewHex, roleId, role.name, hasColor ? null : 'Default', previewHex2)
+                .addActionRowComponents(row =>
+                  row.setComponents(buildRoleSelect(interaction.user.id))
+                )
+                .addActionRowComponents(row =>
+                  row.setComponents(buildActionSelect(interaction.user.id, roleId))
+                )
+                .addActionRowComponents(row =>
+                  row.setComponents(
+                    new ButtonBuilder()
+                      .setCustomId(cid('confirm', interaction.user.id, roleId))
+                      .setStyle(ButtonStyle.Secondary)
+                      .setLabel('CONFIRM')
+                      .setDisabled(true),
+                    new ButtonBuilder()
+                      .setCustomId(cid('cancel', interaction.user.id))
+                      .setStyle(ButtonStyle.Secondary)
+                      .setLabel('CANCEL')
+                  )
+                );
+              return R.editReply('', { components: [container], files: [file], allowedMentions: { roles: [] } });
+            }
+          };
         }
 
         if (action === 'action' && interaction.isStringSelectMenu()) {
