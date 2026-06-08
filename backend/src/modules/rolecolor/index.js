@@ -6,6 +6,7 @@ import {
   MediaGalleryItemBuilder,
   ActionRowBuilder,
   RoleSelectMenuBuilder,
+  StringSelectMenuBuilder,
   ButtonBuilder,
   ButtonStyle,
   ModalBuilder,
@@ -196,6 +197,19 @@ function buildRoleSelect(userId) {
     .setMaxValues(1);
 }
 
+function buildActionSelect(userId, roleId) {
+  return new StringSelectMenuBuilder()
+    .setCustomId(cid('action', userId, roleId))
+    .setPlaceholder('Choose an action...')
+    .setMinValues(1)
+    .setMaxValues(1)
+    .addOptions([
+      { label: 'CHANGE COLOR', value: 'color' },
+      { label: 'CHANGE NAME', value: 'name' },
+      { label: 'CHANGE ICON', value: 'icon' }
+    ]);
+}
+
 function buildInitialContainer() {
   return new ContainerBuilder()
     .addTextDisplayComponents(
@@ -204,23 +218,16 @@ function buildInitialContainer() {
     );
 }
 
-function buildRoleSelectedContainer(roleName) {
-  return new ContainerBuilder()
-    .addTextDisplayComponents(
-      new TextDisplayBuilder()
-        .setContent('# Role Color Editor')
-    )
-    .addTextDisplayComponents(
-      new TextDisplayBuilder()
-        .setContent(`**Role:** @${roleName}`)
-    );
-}
-
-function buildPreviewContainer(userId, hex, roleId, roleName, colorOverride, hex2) {
+function buildPreviewContainer(userId, hex, roleId, roleName, colorOverride, hex2, hex3) {
   const colorName = colorOverride || hexToColorName(hex);
-  const colorText = hex2
-    ? `**Gradient:** ${hex.toUpperCase()} → ${hex2.toUpperCase()}`
-    : `**Color:** ${colorName}\n**Hex:** ${hex.toUpperCase()}`;
+  let colorText;
+  if (hex3) {
+    colorText = `**Style:** Holographic\n**Primary:** ${hex.toUpperCase()}\n**Secondary:** ${hex2.toUpperCase()}\n**Tertiary:** ${hex3.toUpperCase()}`;
+  } else if (hex2) {
+    colorText = `**Gradient:** ${hex.toUpperCase()} → ${hex2.toUpperCase()}`;
+  } else {
+    colorText = `**Color:** ${colorName}\n**Hex:** ${hex.toUpperCase()}`;
+  }
   return new ContainerBuilder()
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent('# Role Color Editor')
@@ -245,7 +252,6 @@ function buildResultContainer(message) {
     );
 }
 
-// ── Result helpers (mirror router helpers for local use) ─────────────
 const R = {
   ignore:      ()                             => ({ type: 'IGNORE' }),
   error:       (message)                      => ({ type: 'ERROR', message }),
@@ -288,12 +294,6 @@ export default {
           )
           .addActionRowComponents(row =>
             row.setComponents(
-              new ButtonBuilder()
-                .setCustomId(cid('color', userId))
-                .setStyle(ButtonStyle.Secondary)
-                .setLabel('COLOR')
-                
-                .setDisabled(true),
               new ButtonBuilder()
                 .setCustomId(cid('confirm', userId))
                 .setStyle(ButtonStyle.Secondary)
@@ -359,11 +359,10 @@ export default {
               row.setComponents(buildRoleSelect(interaction.user.id))
             )
             .addActionRowComponents(row =>
+              row.setComponents(buildActionSelect(interaction.user.id, roleId))
+            )
+            .addActionRowComponents(row =>
               row.setComponents(
-                new ButtonBuilder()
-                  .setCustomId(cid('color', interaction.user.id, roleId))
-                  .setStyle(ButtonStyle.Secondary)
-                  .setLabel('COLOR'),
                 new ButtonBuilder()
                   .setCustomId(cid('confirm', interaction.user.id, roleId))
                   .setStyle(ButtonStyle.Secondary)
@@ -378,7 +377,8 @@ export default {
           return R.update({ components: [container], files: [file], allowedMentions: { roles: [] } });
         }
 
-        if (action === 'color' && interaction.isButton()) {
+        if (action === 'action' && interaction.isStringSelectMenu()) {
+          const value = interaction.values[0];
           const roleId = data[0];
           if (!roleId) return R.error('Select a role first.');
 
@@ -387,60 +387,142 @@ export default {
             return R.error('This role cannot be edited.');
           }
 
-          const supportsGradient = interaction.guild.features.includes('ENHANCED_ROLE_COLORS');
+          if (value === 'color') {
+            const supportsGradient = interaction.guild.features.includes('ENHANCED_ROLE_COLORS');
 
-          const modalRows = [
-            new ActionRowBuilder()
-              .addComponents(
-                new TextInputBuilder()
-                  .setCustomId('hex1')
-                  .setLabel('Primary Color')
-                  .setStyle(TextInputStyle.Short)
-                  .setPlaceholder('ff5733')
-                  .setRequired(true)
-                  .setMinLength(6)
-                  .setMaxLength(6)
-              )
-          ];
-
-          if (supportsGradient) {
-            modalRows.push(
+            const modalRows = [
               new ActionRowBuilder()
                 .addComponents(
                   new TextInputBuilder()
-                    .setCustomId('hex2')
-                    .setLabel('Secondary Color (optional)')
+                    .setCustomId('hex1')
+                    .setLabel('Primary Color')
                     .setStyle(TextInputStyle.Short)
-                    .setPlaceholder('0000ff')
-                    .setRequired(false)
+                    .setPlaceholder('ff5733')
+                    .setRequired(true)
                     .setMinLength(6)
                     .setMaxLength(6)
                 )
-            );
+            ];
+
+            if (supportsGradient) {
+              modalRows.push(
+                new ActionRowBuilder()
+                  .addComponents(
+                    new TextInputBuilder()
+                      .setCustomId('hex2')
+                      .setLabel('Secondary Color (optional)')
+                      .setStyle(TextInputStyle.Short)
+                      .setPlaceholder('0000ff')
+                      .setRequired(false)
+                      .setMinLength(6)
+                      .setMaxLength(6)
+                  )
+              );
+              modalRows.push(
+                new ActionRowBuilder()
+                  .addComponents(
+                    new TextInputBuilder()
+                      .setCustomId('hex3')
+                      .setLabel('Tertiary Color (for holographic style)')
+                      .setStyle(TextInputStyle.Short)
+                      .setPlaceholder('optional')
+                      .setRequired(false)
+                      .setMinLength(6)
+                      .setMaxLength(6)
+                  )
+              );
+            }
+
+            const modal = new ModalBuilder()
+              .setTitle('Set Role Color')
+              .setCustomId(cid('colormodal', userId, roleId, interaction.message.id))
+              .addComponents(...modalRows);
+            return R.modal(modal);
           }
 
-          const modal = new ModalBuilder()
-            .setTitle('Set Role Color')
-            .setCustomId(cid('modal', userId, roleId, interaction.message.id))
-            .addComponents(...modalRows);
-          return R.modal(modal);
+          if (value === 'name') {
+            const modal = new ModalBuilder()
+              .setTitle('Change Role Name')
+              .setCustomId(cid('namemodal', userId, roleId, interaction.message.id))
+              .addComponents(
+                new ActionRowBuilder()
+                  .addComponents(
+                    new TextInputBuilder()
+                      .setCustomId('name')
+                      .setLabel('New Role Name')
+                      .setStyle(TextInputStyle.Short)
+                      .setPlaceholder('Enter new role name...')
+                      .setRequired(true)
+                      .setMinLength(1)
+                      .setMaxLength(100)
+                      .setValue(role.name)
+                  )
+              );
+            return R.modal(modal);
+          }
+
+          if (value === 'icon') {
+            const container = buildPreviewContainer(interaction.user.id, '#ffffff', roleId, role.name, 'Default', null)
+              .addActionRowComponents(row =>
+                row.setComponents(buildRoleSelect(interaction.user.id))
+              )
+              .addActionRowComponents(row =>
+                row.setComponents(buildActionSelect(interaction.user.id, roleId))
+              )
+              .addActionRowComponents(row =>
+                row.setComponents(
+                  new ButtonBuilder()
+                    .setCustomId(cid('iconurl', userId, roleId))
+                    .setStyle(ButtonStyle.Secondary)
+                    .setLabel('URL/EMOJI'),
+                  new ButtonBuilder()
+                    .setCustomId(cid('iconupload', userId, roleId))
+                    .setStyle(ButtonStyle.Secondary)
+                    .setLabel('UPLOAD IMAGE')
+                )
+              )
+              .addActionRowComponents(row =>
+                row.setComponents(
+                  new ButtonBuilder()
+                    .setCustomId(cid('confirm', interaction.user.id, roleId))
+                    .setStyle(ButtonStyle.Secondary)
+                    .setLabel('CONFIRM')
+                    .setDisabled(true),
+                  new ButtonBuilder()
+                    .setCustomId(cid('cancel', interaction.user.id))
+                    .setStyle(ButtonStyle.Secondary)
+                    .setLabel('CANCEL')
+                )
+              );
+            return R.update({ components: [container], allowedMentions: { roles: [] } });
+          }
         }
 
-        if (action === 'modal' && interaction.isModalSubmit()) {
+        if (action === 'colormodal' && interaction.isModalSubmit()) {
           const [roleId, messageId] = data;
           if (!roleId) return R.error('Select a role first.');
 
           const hex1Raw = interaction.fields.getTextInputValue('hex1').trim();
-          const hex2Raw = interaction.fields.getField('hex2')?.value?.trim() ?? '';
+          const hex2Field = interaction.fields.getField('hex2');
+          const hex3Field = interaction.fields.getField('hex3');
+          const hex2Raw = hex2Field?.value?.trim() ?? '';
+          const hex3Raw = hex3Field?.value?.trim() ?? '';
 
           const hex1 = hex1Raw.startsWith('#') ? hex1Raw : '#' + hex1Raw;
           const hex2 = hex2Raw ? (hex2Raw.startsWith('#') ? hex2Raw : '#' + hex2Raw) : null;
+          const hex3 = hex3Raw ? (hex3Raw.startsWith('#') ? hex3Raw : '#' + hex3Raw) : null;
 
           if (!/^#[0-9a-fA-F]{6}$/.test(hex1)) {
             return R.error('Invalid hex color. Use format like `#ff5733`.');
           }
           if (hex2 && !/^#[0-9a-fA-F]{6}$/.test(hex2)) {
             return R.error('Invalid secondary hex color. Use format like `#0000ff`.');
+          }
+          if (hex3 && !/^#[0-9a-fA-F]{6}$/.test(hex3)) {
+            return R.error('Invalid tertiary hex color. Use format like `#00ff00`.');
+          }
+          if (hex3 && !hex2) {
+            return R.error('Tertiary color requires a secondary color.');
           }
 
           const role = interaction.guild.roles.cache.get(roleId);
@@ -467,19 +549,21 @@ export default {
 
               const file = new AttachmentBuilder(previewBuffer, { name: 'preview.png' });
 
-                const container = buildPreviewContainer(interaction.user.id, hex1, roleId, roleName, null, hex2)
+              const colorParts = [roleId, hex1.replace('#', '')];
+              if (hex2) colorParts.push(hex2.replace('#', ''));
+              if (hex3) colorParts.push(hex3.replace('#', ''));
+
+              const container = buildPreviewContainer(interaction.user.id, hex1, roleId, roleName, null, hex2, hex3)
                 .addActionRowComponents(row =>
                   row.setComponents(buildRoleSelect(interaction.user.id))
                 )
                 .addActionRowComponents(row =>
+                  row.setComponents(buildActionSelect(interaction.user.id, roleId))
+                )
+                .addActionRowComponents(row =>
                   row.setComponents(
                     new ButtonBuilder()
-                      .setCustomId(cid('color', interaction.user.id, roleId))
-                      .setStyle(ButtonStyle.Secondary)
-                      .setLabel('COLOR')
-                      ,
-                    new ButtonBuilder()
-                      .setCustomId(cid('confirm', interaction.user.id, roleId, hex1.replace('#', ''), hex2 ? hex2.replace('#', '') : ''))
+                      .setCustomId(cid('confirm', interaction.user.id, ...colorParts))
                       .setStyle(ButtonStyle.Secondary)
                       .setLabel('CONFIRM'),
                     new ButtonBuilder()
@@ -504,8 +588,191 @@ export default {
           };
         }
 
+        if (action === 'namemodal' && interaction.isModalSubmit()) {
+          const [roleId, messageId] = data;
+          if (!roleId) return R.error('Select a role first.');
+
+          const name = interaction.fields.getTextInputValue('name').trim();
+          if (name.length < 1 || name.length > 100) {
+            return R.error('Role name must be between 1 and 100 characters.');
+          }
+
+          return {
+            type: 'ASYNC_RESULT',
+            execute: async () => {
+              const role = interaction.guild.roles.cache.get(roleId);
+              if (!role || !role.editable) {
+                return { type: 'ERROR', message: 'This role can no longer be edited.' };
+              }
+
+              try {
+                await role.setName(name, `Name changed by ${interaction.user.tag}`);
+              } catch {
+                return { type: 'ERROR', message: 'Failed to update role name.' };
+              }
+
+              const container = buildResultContainer(
+                `✅ <@&${roleId}> name changed to **${name}**`
+              );
+
+              try {
+                const msg = await interaction.channel.messages.fetch(messageId);
+                await msg.edit({ components: [container], allowedMentions: { roles: [] } });
+              } catch {
+                return { type: 'ERROR', message: 'Failed to update message.' };
+              }
+
+              await interaction.deleteReply().catch(() => {});
+              return { type: 'IGNORE' };
+            }
+          };
+        }
+
+        if (action === 'iconurl' && interaction.isButton()) {
+          const roleId = data[0];
+          if (!roleId) return R.error('Select a role first.');
+
+          const modal = new ModalBuilder()
+            .setTitle('Set Role Icon')
+            .setCustomId(cid('iconmodal', userId, roleId, interaction.message.id))
+            .addComponents(
+              new ActionRowBuilder()
+                .addComponents(
+                  new TextInputBuilder()
+                    .setCustomId('icon')
+                    .setLabel('Unicode Emoji, Image URL, or Custom Emoji')
+                    .setStyle(TextInputStyle.Short)
+                    .setPlaceholder('😊 or https://example.com/icon.png or <:name:id>')
+                    .setRequired(true)
+                )
+            );
+          return R.modal(modal);
+        }
+
+        if (action === 'iconmodal' && interaction.isModalSubmit()) {
+          const [roleId, messageId] = data;
+          if (!roleId) return R.error('Select a role first.');
+
+          const input = interaction.fields.getTextInputValue('icon').trim();
+          if (!input) return R.error('Please provide an icon input.');
+
+          return {
+            type: 'ASYNC_RESULT',
+            execute: async () => {
+              const role = interaction.guild.roles.cache.get(roleId);
+              if (!role || !role.editable) {
+                return { type: 'ERROR', message: 'This role can no longer be edited.' };
+              }
+
+              try {
+                if (/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)$/u.test(input)) {
+                  await role.setUnicodeEmoji(input, `Icon changed by ${interaction.user.tag}`);
+                } else if (input.startsWith('http')) {
+                  const res = await fetch(input);
+                  if (!res.ok) return { type: 'ERROR', message: 'Failed to fetch image from URL.' };
+                  const buf = Buffer.from(await res.arrayBuffer());
+                  const mime = res.headers.get('content-type') || 'image/png';
+                  const dataUri = `data:${mime};base64,${buf.toString('base64')}`;
+                  await role.setIcon(dataUri, `Icon changed by ${interaction.user.tag}`);
+                } else {
+                  const match = input.match(/^<a?:(\w+):(\d+)>$/);
+                  if (!match) {
+                    return { type: 'ERROR', message: 'Invalid input. Use a unicode emoji, image URL, or custom emoji like <:name:id>.' };
+                  }
+                  const emojiId = match[2];
+                  const emoji = interaction.guild.emojis.cache.get(emojiId);
+                  if (!emoji) {
+                    return { type: 'ERROR', message: 'Custom emoji not found in this server.' };
+                  }
+                  const emojiUrl = emoji.imageURL({ extension: 'png', size: 4096 });
+                  const res = await fetch(emojiUrl);
+                  const buf = Buffer.from(await res.arrayBuffer());
+                  const dataUri = `data:image/png;base64,${buf.toString('base64')}`;
+                  await role.setIcon(dataUri, `Icon changed by ${interaction.user.tag}`);
+                }
+              } catch {
+                return { type: 'ERROR', message: 'Failed to update role icon.' };
+              }
+
+              const container = buildResultContainer(
+                `✅ <@&${roleId}> icon updated.`
+              );
+
+              try {
+                const msg = await interaction.channel.messages.fetch(messageId);
+                await msg.edit({ components: [container], allowedMentions: { roles: [] } });
+              } catch {
+                return { type: 'ERROR', message: 'Failed to update message.' };
+              }
+
+              await interaction.deleteReply().catch(() => {});
+              return { type: 'IGNORE' };
+            }
+          };
+        }
+
+        if (action === 'iconupload' && interaction.isButton()) {
+          const roleId = data[0];
+          if (!roleId) return R.error('Select a role first.');
+
+          return {
+            type: 'ASYNC_RESULT',
+            execute: async () => {
+              await interaction.reply({
+                content: 'Please reply to this message with an image attachment.',
+                ephemeral: true
+              });
+
+              const filter = m => m.author.id === userId && m.attachments.size > 0;
+              try {
+                const collected = await interaction.channel.awaitMessages({
+                  filter,
+                  max: 1,
+                  time: 60000,
+                  errors: ['time']
+                });
+                const msg = collected.first();
+                const attachment = msg.attachments.first();
+
+                const role = interaction.guild.roles.cache.get(roleId);
+                if (!role || !role.editable) {
+                  return { type: 'ERROR', message: 'This role can no longer be edited.' };
+                }
+
+                const res = await fetch(attachment.url);
+                const buf = Buffer.from(await res.arrayBuffer());
+                const mime = attachment.contentType || 'image/png';
+                const dataUri = `data:${mime};base64,${buf.toString('base64')}`;
+
+                try {
+                  await role.setIcon(dataUri, `Icon changed by ${interaction.user.tag}`);
+                } catch {
+                  return { type: 'ERROR', message: 'Failed to update role icon.' };
+                }
+
+                const container = buildResultContainer(
+                  `✅ <@&${roleId}> icon updated.`
+                );
+
+                try {
+                  const originalMsg = await interaction.channel.messages.fetch(interaction.message.id);
+                  await originalMsg.edit({ components: [container], allowedMentions: { roles: [] } });
+                } catch {
+                  return { type: 'ERROR', message: 'Failed to update message.' };
+                }
+
+                return { type: 'IGNORE' };
+              } catch {
+                return { type: 'ERROR', message: 'No image received within 60 seconds.' };
+              }
+            }
+          };
+        }
+
         if (action === 'confirm' && interaction.isButton()) {
-          const [roleId, hex, hex2] = data;
+          if (data.length < 2) return R.error('Select a role and set a color first.');
+
+          const [roleId, hex, hex2, hex3] = data;
           if (!roleId || !hex) return R.error('Select a role and set a color first.');
 
           const role = interaction.guild.roles.cache.get(roleId);
@@ -517,6 +784,29 @@ export default {
           if (!botMember) return R.error('Bot not found in guild.');
           if (role.comparePositionTo(botMember.roles.highest) >= 0) {
             return R.error('This role is above my highest role.');
+          }
+
+          if (hex3) {
+            if (!interaction.guild.features.includes('ENHANCED_ROLE_COLORS')) {
+              return R.error('This server does not support gradient role colors.');
+            }
+            try {
+              await role.setColors({
+                primaryColor: `#${hex}`,
+                secondaryColor: `#${hex2}`,
+                tertiaryColor: `#${hex3}`
+              }, `Color changed by ${interaction.user.tag}`);
+            } catch {
+              return R.error('Failed to update role color.');
+            }
+            const container = buildResultContainer(
+              `✅ <@&${roleId}> holographic style set to **#${hex.toUpperCase()} → #${hex2.toUpperCase()} → #${hex3.toUpperCase()}**`
+            );
+            return {
+              type: 'UPDATE',
+              components: [container],
+              allowedMentions: { roles: [] }
+            };
           }
 
           if (hex2) {
@@ -542,7 +832,6 @@ export default {
           }
 
           const appliedHex = '#' + hex;
-
           try {
             await role.setColors({ primaryColor: appliedHex }, `Color changed by ${interaction.user.tag}`);
           } catch {
