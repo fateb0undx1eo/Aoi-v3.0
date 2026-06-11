@@ -59,6 +59,28 @@ export function DashboardLayout({
 }: DashboardLayoutProps) {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const ANIMATION_DURATION = 250;
+
+  function closeMobile() {
+    if (!mobileOpen) return;
+    setClosing(true);
+    setTimeout(() => {
+      setMobileOpen(false);
+      setClosing(false);
+    }, ANIMATION_DURATION);
+  }
+
+  function toggleMobile() {
+    if (closing) {
+      setClosing(false);
+      setMobileOpen(true);
+    } else if (mobileOpen) {
+      closeMobile();
+    } else {
+      setMobileOpen(true);
+    }
+  }
 
   const overviewHref = `/dashboard/guild/${guildId}`;
   const currentPath = useMemo(() => router.asPath.split("?")[0], [router.asPath]);
@@ -72,7 +94,7 @@ export function DashboardLayout({
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setMobileOpen(false);
+        closeMobile();
       }
     };
 
@@ -108,7 +130,7 @@ export function DashboardLayout({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setMobileOpen((value) => !value)}
+              onClick={toggleMobile}
               className="inline-flex items-center justify-center rounded-lg border border-border bg-card p-2 text-foreground/86 hover:border-primary/45 lg:hidden"
             >
               <Menu className="h-4 w-4" />
@@ -124,7 +146,7 @@ export function DashboardLayout({
           <div className="hidden items-center gap-3 md:flex">
             <button
               type="button"
-              onClick={() => setMobileOpen((value) => !value)}
+              onClick={toggleMobile}
               className="inline-flex items-center justify-center rounded-lg border border-border bg-card p-2 text-foreground/86 hover:border-primary/45"
               title="Modules"
             >
@@ -150,15 +172,15 @@ export function DashboardLayout({
       </header>
 
       <div className="relative mx-auto flex max-w-[96rem] gap-6 px-4 pb-8 pt-6 sm:px-6 lg:px-8">
-        {mobileOpen && (
+        {(mobileOpen || closing) && (
           <>
             <button
               type="button"
               className="fixed inset-0 z-30 bg-black/60"
-              onClick={() => setMobileOpen(false)}
+              onClick={closeMobile}
               aria-label="Close Menu"
             />
-            <aside className="fixed left-0 top-0 z-40 h-full w-64 animate-slide-in-left border-r border-border bg-card p-5 shadow-xl">
+            <aside className={`fixed left-0 top-0 z-40 h-full w-64 border-r border-border bg-card p-5 shadow-xl ${closing ? "animate-slide-out-left" : "animate-slide-in-left"}`}>
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
@@ -171,7 +193,7 @@ export function DashboardLayout({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setMobileOpen(false)}
+                  onClick={closeMobile}
                   className="p-1 text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-4 w-4" />
@@ -181,7 +203,7 @@ export function DashboardLayout({
               <nav className="space-y-1">
                 <Link
                   href={overviewHref}
-                  onClick={() => setMobileOpen(false)}
+                  onClick={closeMobile}
                   className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
                     currentPath === overviewHref
                       ? "bg-primary/10 font-medium text-primary"
@@ -198,7 +220,7 @@ export function DashboardLayout({
                       <Link
                         key={item.key}
                         href={item.href}
-                        onClick={() => setMobileOpen(false)}
+                        onClick={closeMobile}
                         className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
                           item.href === currentPath
                             ? "bg-primary/10 font-medium text-primary"
@@ -221,7 +243,7 @@ export function DashboardLayout({
               <div className="absolute bottom-5 left-5 right-5 border-t border-border pt-4">
                 <Link
                   href="/dashboard"
-                  onClick={() => setMobileOpen(false)}
+                  onClick={closeMobile}
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground/82 transition-colors hover:bg-background/72 hover:text-foreground"
                 >
                   <PanelLeftOpen className="h-4 w-4" />

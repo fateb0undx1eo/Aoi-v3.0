@@ -97,7 +97,7 @@ export default function ColorSwatch({ value, onChange }: { value: number | null;
       {open && createPortal(
         <div ref={portalRef}>
           <div className="fixed inset-0 z-[99]" onClick={() => setOpen(false)} />
-          <div className="fixed left-1/2 top-1/2 z-[100] w-56 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-zinc-700 bg-zinc-900 p-2 shadow-2xl">
+          <div className="fixed left-1/2 top-1/2 z-[100] w-56 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-zinc-700 bg-black p-2 shadow-2xl">
             <div className="mb-1.5">
               <div ref={hueRef} onMouseDown={handleHueDrag}
                 className="relative h-4 w-full cursor-crosshair rounded"
@@ -121,7 +121,11 @@ export default function ColorSwatch({ value, onChange }: { value: number | null;
               </div>
             </div>
             <div className="mb-2 flex items-center gap-2">
-              <div className="h-6 w-6 shrink-0 rounded border border-zinc-700" style={{ backgroundColor: selectedHex }} />
+              <button type="button" onClick={() => { onChange(null); setOpen(false); }}
+                className="h-6 w-6 shrink-0 rounded border border-zinc-700 bg-zinc-800 text-[9px] text-zinc-500 hover:border-zinc-500 hover:text-zinc-300"
+                title="No color">
+                &times;
+              </button>
               <span className="text-xs text-zinc-400">#</span>
               <input type="text" value={hexInput}
                 onChange={(e) => commitHex(e.target.value)}

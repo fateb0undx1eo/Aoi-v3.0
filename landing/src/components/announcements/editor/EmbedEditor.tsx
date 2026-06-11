@@ -6,7 +6,7 @@ function EmbedFieldEditor({ fields, onChange }: { fields: APIEmbedField[]; onCha
   return (
     <div className="space-y-2">
       {fields.map((f, i) => (
-        <div key={i} className="rounded-lg border border-zinc-800 bg-black/50 p-2">
+        <div key={i} className="rounded-lg border border-zinc-800 bg-black p-2">
           <div className="mb-1 flex items-center justify-between">
             <span className="text-xs text-zinc-500">Field {i + 1}</span>
             <label className="flex items-center gap-1 text-xs text-zinc-400">

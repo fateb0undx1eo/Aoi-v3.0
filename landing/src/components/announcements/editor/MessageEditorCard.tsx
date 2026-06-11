@@ -26,7 +26,7 @@ function JsonEditorEditorInline({ messageData, onChange }: { messageData: QueryD
   return (
     <div className="space-y-1">
       <textarea value={text} onChange={(e) => handleChange(e.target.value)}
-        className="h-32 w-full resize-none rounded border border-zinc-800 bg-black/60 px-2 py-1.5 font-mono text-[11px] text-zinc-200 outline-none" spellCheck={false} />
+        className="h-32 w-full resize-none rounded border border-zinc-800 bg-black px-2 py-1.5 font-mono text-[11px] text-zinc-200 outline-none" spellCheck={false} />
       {error && <p className="text-[9px] text-red-400">{error}</p>}
       {valid && (
         <button type="button" onClick={() => { try { onChange(JSON.parse(text)); } catch {} }}
@@ -73,7 +73,7 @@ export default function MessageEditorCard({ message, index, isSelected, isV2, on
 
   return (
     <div className={`rounded-lg border transition-colors ${
-      isSelected ? "border-primary/40 bg-primary/5" : "border-zinc-800 bg-zinc-900/20 hover:border-zinc-700"
+      isSelected ? "border-primary/40 bg-primary/5" : "border-zinc-800 bg-black hover:border-zinc-700"
     }`}>
       <div className="flex items-center gap-2 px-3 py-2">
         <div className="flex flex-col gap-0.5">
@@ -109,7 +109,7 @@ export default function MessageEditorCard({ message, index, isSelected, isV2, on
             </div>
           )}
 
-          <div className="flex gap-1 rounded-lg border border-zinc-800 bg-black/40 p-0.5">
+          <div className="flex gap-1 rounded-lg border border-zinc-800 bg-black p-0.5">
             {(["content", "embed", "files", "components", "json"] as const).map((tab) => {
               const labels: Record<string, string> = {
                 content: "Content", embed: `Embeds (${msg?.embeds?.length || 0})`,
@@ -129,7 +129,7 @@ export default function MessageEditorCard({ message, index, isSelected, isV2, on
           {activeTab === "content" && (
             <textarea value={msg?.content || ""} onChange={(e) => handleDataChange({ content: e.target.value || undefined })}
               placeholder="Message content..." rows={4} maxLength={2000}
-              className="w-full resize-none rounded-lg border border-zinc-800 bg-black/50 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none" />
+              className="w-full resize-none rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none" />
           )}
 
           {activeTab === "embed" && (
@@ -144,7 +144,7 @@ export default function MessageEditorCard({ message, index, isSelected, isV2, on
                 <Plus className="h-3 w-3" /> Add Embed ({(msg?.embeds?.length || 0)}/10)
               </button>
               {(msg?.embeds || []).map((embed, ei) => (
-                <div key={ei} className="rounded border border-zinc-800 bg-black/30 p-2 space-y-1.5">
+                <div key={ei} className="rounded border border-zinc-800 bg-black p-2 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-medium text-zinc-500">Embed {ei + 1}</span>
                     <button type="button" onClick={() => {
@@ -157,19 +157,19 @@ export default function MessageEditorCard({ message, index, isSelected, isV2, on
                     embeds[ei] = { ...embeds[ei], title: e.target.value || undefined };
                     handleDataChange({ embeds });
                   }} placeholder="Title" maxLength={256}
-                    className="w-full rounded border border-zinc-800 bg-black/50 px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
+                    className="w-full rounded border border-zinc-800 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
                   <textarea value={embed.description || ""} onChange={(e) => {
                     const embeds = [...(msg?.embeds || [])];
                     embeds[ei] = { ...embeds[ei], description: e.target.value || undefined };
                     handleDataChange({ embeds });
                   }} placeholder="Description" rows={2} maxLength={4000}
-                    className="w-full resize-none rounded border border-zinc-800 bg-black/50 px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
+                    className="w-full resize-none rounded border border-zinc-800 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
                   <input type="text" value={embed.url || ""} onChange={(e) => {
                     const embeds = [...(msg?.embeds || [])];
                     embeds[ei] = { ...embeds[ei], url: e.target.value || undefined };
                     handleDataChange({ embeds });
                   }} placeholder="URL"
-                    className="w-full rounded border border-zinc-800 bg-black/50 px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
+                    className="w-full rounded border border-zinc-800 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
                 </div>
               ))}
             </div>

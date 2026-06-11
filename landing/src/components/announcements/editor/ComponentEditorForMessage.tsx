@@ -79,7 +79,7 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
       </div>
       {components.map((row, ri) =>
         row.type === 1 ? (
-          <div key={ri} className="group relative rounded-lg border border-zinc-800 bg-black/50 p-2">
+          <div key={ri} className="group relative rounded-lg border border-zinc-800 bg-black p-2">
             <div className="absolute -left-3 top-1/2 flex -translate-y-1/2 flex-col gap-0 opacity-0 transition-opacity group-hover:opacity-100">
               <button type="button" onClick={() => moveComponent(ri, "up")} disabled={ri === 0}
                 className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"><ChevronUp className="h-2.5 w-2.5" /></button>

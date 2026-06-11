@@ -1,5 +1,7 @@
-import { ChevronDown, ChevronUp, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Minus, Plus, X } from "lucide-react";
 import type { APIContainerComponent, APIV2ChildComponent } from "../types";
+import { ACCENT } from "../constants";
+import { intToHex } from "../utils/color";
 import ColorSwatch from "../pickers/ColorSwatch";
 import V2ChildEditor from "./V2ChildEditor";
 
@@ -34,12 +36,27 @@ export default function V2ContainerEditor({ container, onContainerChange, onRemo
   };
 
   return (
-    <div className="rounded-lg border border-zinc-700 bg-zinc-900/50 p-2">
+    <div className="rounded-lg border border-zinc-700 bg-black p-2">
       <div className="mb-1 flex items-center justify-between">
         <span className="text-xs font-medium text-zinc-400">V2 Container ({container.components.length} items)</span>
-        <div className="flex items-center gap-1">
-          <div className="flex items-center gap-0.5">
-            <ColorSwatch value={container.accent_color ?? null} onChange={(v) => onContainerChange({ ...container, accent_color: v ?? undefined })} />
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 rounded border border-zinc-800 bg-black px-1.5 py-0.5">
+            <span className="text-[9px] text-zinc-500">Accent</span>
+            {container.accent_color != null ? (
+              <div className="flex items-center gap-0.5">
+                <div className="h-3 w-3 rounded-sm border border-zinc-600" style={{ backgroundColor: intToHex(container.accent_color) }} />
+                <ColorSwatch value={container.accent_color} onChange={(v) => onContainerChange({ ...container, accent_color: v ?? undefined })} />
+                <button type="button" onClick={() => onContainerChange({ ...container, accent_color: undefined })}
+                  className="text-zinc-600 hover:text-red-400" title="Remove accent">
+                  <Minus className="h-2.5 w-2.5" />
+                </button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => onContainerChange({ ...container, accent_color: 0x06b6d4 })}
+                className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300">
+                <Plus className="h-2.5 w-2.5" /> Add
+              </button>
+            )}
           </div>
           <button type="button" onClick={onRemove} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
         </div>

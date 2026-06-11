@@ -20,7 +20,7 @@ export default function CodeGenerator({ messageData, open, onClose }: { messageD
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl border-border/70 bg-zinc-950 text-zinc-100">
+      <DialogContent className="max-w-2xl border-border/70 bg-black text-zinc-100">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Code className="h-5 w-5" style={{ color: ACCENT }} />
@@ -29,7 +29,7 @@ export default function CodeGenerator({ messageData, open, onClose }: { messageD
           <DialogDescription className="text-zinc-400">discord.js or discord.py code snippet from current message.</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <div className="flex gap-1 rounded-lg border border-zinc-800 bg-black/40 p-1">
+          <div className="flex gap-1 rounded-lg border border-zinc-800 bg-black p-1">
             {(["js", "py"] as const).map((t) => (
               <button key={t} type="button" onClick={() => setTab(t)}
                 className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
@@ -40,11 +40,11 @@ export default function CodeGenerator({ messageData, open, onClose }: { messageD
             ))}
           </div>
           <div className="relative">
-            <pre className="max-h-80 overflow-auto rounded-lg border border-zinc-800 bg-black/60 p-4 text-[12px] leading-relaxed">
+            <pre className="max-h-80 overflow-auto rounded-lg border border-zinc-800 bg-black p-4 text-[12px] leading-relaxed">
               <code>{code}</code>
             </pre>
             <button type="button" onClick={handleCopy}
-              className="absolute right-2 top-2 rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-[10px] font-medium text-zinc-400 hover:text-zinc-200 transition-colors">
+              className="absolute right-2 top-2 rounded-md border border-zinc-800 bg-black px-2.5 py-1 text-[10px] font-medium text-zinc-400 hover:text-zinc-200 transition-colors">
               {copied ? <><Check className="mr-1 inline h-3 w-3 text-green-400" />Copied!</> : <><Copy className="mr-1 inline h-3 w-3" />Copy</>}
             </button>
           </div>

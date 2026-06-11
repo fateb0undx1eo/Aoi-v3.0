@@ -34,7 +34,7 @@ export default function FlowActionEditor({ actions, onChange, isButton, isSelect
         <p className="text-[10px] text-zinc-600">No actions configured. When this component is interacted with, nothing extra will happen.</p>
       )}
       {actions.map((action, i) => (
-        <div key={i} className="rounded-lg border border-zinc-800 bg-black/40 p-2">
+        <div key={i} className="rounded-lg border border-zinc-800 bg-black p-2">
           <div className="mb-1 flex items-center justify-between">
             <span className="flex items-center gap-1 text-[10px] font-medium text-zinc-400">
               <Zap className="h-2.5 w-2.5 text-amber-400" />

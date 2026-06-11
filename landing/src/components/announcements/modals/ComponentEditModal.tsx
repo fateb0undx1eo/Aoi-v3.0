@@ -33,7 +33,7 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <EmojiPickerPopover open={emojiPickerOpen} onClose={() => setEmojiPickerOpen(false)} serverEmojis={serverEmojis}
         onEmojiSelect={(emoji: APIEmoji) => update({ emoji } as any)} />
-      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-border/70 bg-zinc-950 text-zinc-100">
+      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-border/70 bg-black text-zinc-100">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5" style={{ color: ACCENT }} />
@@ -45,14 +45,14 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
         </DialogHeader>
 
         {isButton && (
-          <div className="rounded-lg border border-zinc-800 bg-black/30 px-3 py-2 text-xs text-zinc-400 space-y-1">
+          <div className="rounded-lg border border-zinc-800 bg-black px-3 py-2 text-xs text-zinc-400 space-y-1">
             <p className="font-medium text-zinc-300">How this button works</p>
             <p>Users see the <strong className="text-zinc-200">Label</strong> text with your chosen <strong className="text-zinc-200">Style</strong> color. Clicking it triggers your bot via the <strong className="text-zinc-200">Custom ID</strong> &mdash; this ID is what your code listens for.</p>
             <p className="text-zinc-500">Tip: Use a descriptive Custom ID like <code className="text-zinc-300">claim_reward_123</code> so your bot knows which button was pressed.</p>
           </div>
         )}
         {isSelect && (
-          <div className="rounded-lg border border-zinc-800 bg-black/30 px-3 py-2 text-xs text-zinc-400 space-y-1">
+          <div className="rounded-lg border border-zinc-800 bg-black px-3 py-2 text-xs text-zinc-400 space-y-1">
             <p className="font-medium text-zinc-300">How this select menu works</p>
             <p>Users pick from the <strong className="text-zinc-200">Options</strong> list. Your bot receives the chosen option&apos;s <strong className="text-zinc-200">Value</strong> through the <strong className="text-zinc-200">Custom ID</strong>.</p>
             <p className="text-zinc-500">Tip: Set <strong className="text-zinc-200">Min/Max Values</strong> to allow multiple selections.</p>
@@ -180,7 +180,7 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
                   </div>
                   <div className="space-y-2">
                     {(draft as APIStringSelectComponent).options.map((opt, oi) => (
-                      <div key={oi} className="rounded-lg border border-zinc-800 bg-black/50 p-2">
+                      <div key={oi} className="rounded-lg border border-zinc-800 bg-black p-2">
                         <div className="mb-1 flex items-center justify-between">
                           <span className="text-[10px] text-zinc-500">Option {oi + 1}</span>
                           <div className="flex items-center gap-1">
@@ -281,7 +281,7 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
           )}
         </div>
 
-        <div className="rounded-lg border border-zinc-800 bg-black/30 p-3">
+        <div className="rounded-lg border border-zinc-800 bg-black p-3">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-[10px] uppercase tracking-wider text-zinc-500">
               <Zap className="mr-1 inline h-3 w-3" /> Flow Actions
@@ -297,7 +297,7 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
           />
         </div>
 
-        <div className="rounded-lg border border-zinc-800 bg-black/30 p-3">
+        <div className="rounded-lg border border-zinc-800 bg-black p-3">
           <p className="mb-2 text-[10px] uppercase tracking-wider text-zinc-500">Preview</p>
           <div className="flex flex-wrap gap-2">
             {isButton && (

@@ -80,16 +80,16 @@ export default function JsonEditor({ messageData, onChange }: { messageData: Que
         </button>
       </div>
       <textarea value={text} onChange={(e) => handleChange(e.target.value)}
-        className="h-52 w-full resize-none rounded-lg border border-zinc-800 bg-black/60 px-3 py-2 font-mono text-[11px] leading-relaxed text-zinc-200 outline-none"
+        className="h-52 w-full resize-none rounded-lg border border-zinc-800 bg-black px-3 py-2 font-mono text-[11px] leading-relaxed text-zinc-200 outline-none"
         spellCheck={false} />
       {error && (
-        <div className="flex items-start gap-2 rounded-lg border border-red-900/50 bg-red-950/20 px-3 py-2 text-xs text-red-400">
+        <div className="flex items-start gap-2 rounded-lg border border-red-900/50 bg-red-950 px-3 py-2 text-xs text-red-400">
           <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
           <span>{error}</span>
         </div>
       )}
       {warnings.length > 0 && (
-        <div className="space-y-0.5 rounded-lg border border-amber-900/50 bg-amber-950/20 px-3 py-2">
+        <div className="space-y-0.5 rounded-lg border border-amber-900/50 bg-amber-950 px-3 py-2">
           <p className="text-[10px] font-medium text-amber-400">Validation warnings ({warnings.length}):</p>
           {warnings.map((w, i) => (
             <p key={i} className="text-[10px] leading-relaxed text-amber-300/70">{w}</p>
@@ -97,7 +97,7 @@ export default function JsonEditor({ messageData, onChange }: { messageData: Que
         </div>
       )}
       {preview && (
-        <div className="rounded-lg border border-zinc-800 bg-black/20 px-3 py-2">
+        <div className="rounded-lg border border-zinc-800 bg-black px-3 py-2">
           <p className="mb-1 text-[10px] font-medium text-zinc-500">Preview:</p>
           <p className="whitespace-pre-wrap text-xs text-zinc-400">
             {preview.content ? `content: "${preview.content.slice(0, 100)}${preview.content.length > 100 ? "..." : ""}"` : ""}

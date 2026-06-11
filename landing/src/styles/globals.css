@@ -1761,6 +1761,20 @@
   animation: slide-in-left 0.25s ease-out;
 }
 
+@keyframes slide-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-slide-out-left {
+  animation: slide-out-left 0.25s ease-in;
+  animation-fill-mode: forwards;
+}
+
 .font-discord {
   font-family: "gg sans", "Helvetica Neue", Helvetica, Arial, "Segoe UI", "Noto Sans", sans-serif;
 }

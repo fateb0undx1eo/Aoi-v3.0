@@ -13,7 +13,7 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
 
   if (child.type === 10) {
     return (
-      <div className="rounded border border-zinc-700 bg-black/30 p-2">
+      <div className="rounded border border-zinc-700 bg-black p-2">
         <div className="mb-1 flex items-center justify-between">
           <span className="text-[10px] text-zinc-500">Text Display</span>
           <button type="button" onClick={onRemove} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
@@ -28,7 +28,7 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
   if (child.type === 11 || child.type === 12) {
     const label = child.type === 11 ? "Thumbnail" : "Media Gallery";
     return (
-      <div className="rounded border border-zinc-700 bg-black/30 p-2">
+      <div className="rounded border border-zinc-700 bg-black p-2">
         <div className="mb-1 flex items-center justify-between">
           <span className="text-[10px] text-zinc-500">{label}</span>
           <button type="button" onClick={onRemove} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
@@ -42,7 +42,7 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
 
   if (child.type === 13) {
     return (
-      <div className="rounded border border-zinc-700 bg-black/30 p-2">
+      <div className="rounded border border-zinc-700 bg-black p-2">
         <div className="mb-1 flex items-center justify-between">
           <span className="text-[10px] text-zinc-500">File</span>
           <button type="button" onClick={onRemove} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
@@ -56,7 +56,7 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
 
   if (child.type === 14) {
     return (
-      <div className="flex items-center gap-2 rounded border border-zinc-700 bg-black/30 px-2 py-1">
+      <div className="flex items-center gap-2 rounded border border-zinc-700 bg-black px-2 py-1">
         <div className="h-px flex-1 bg-zinc-700" />
         <span className="text-[10px] text-zinc-500">Separator</span>
         <div className="h-px flex-1 bg-zinc-700" />
@@ -91,7 +91,7 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
       onChange({ ...child, components: updated } as any);
     };
     return (
-      <div className="rounded border border-zinc-700 bg-black/30 p-2">
+      <div className="rounded border border-zinc-700 bg-black p-2">
         <div className="mb-1 flex items-center justify-between">
           <span className="text-[10px] text-zinc-500">Section ({textChildren.length} text blocks)</span>
           <button type="button" onClick={onRemove} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
@@ -135,7 +135,7 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
               {child.accessory ? "Edit Acc" : "+Acc"}
             </button>
             {sectionAccessoryOpen && (
-              <div className="absolute bottom-full left-0 z-10 mb-1 w-44 rounded border border-zinc-700 bg-zinc-900 p-2 shadow-xl">
+              <div className="absolute bottom-full left-0 z-10 mb-1 w-44 rounded border border-zinc-700 bg-black p-2 shadow-xl">
                 {child.accessory?.type === 2 && (
                   <div className="space-y-1">
                     <p className="text-[9px] text-zinc-500">Button Accessory</p>

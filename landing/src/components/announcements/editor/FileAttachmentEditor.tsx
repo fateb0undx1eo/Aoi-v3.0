@@ -17,7 +17,7 @@ function FileEditModal({ open, onClose, file, onChange }: {
   const isImage = draft.content_type?.startsWith("image/") || /\.(png|jpg|jpeg|gif|webp)$/i.test(draft.name);
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-md border-border/70 bg-zinc-950 text-zinc-100">
+      <DialogContent className="max-w-md border-border/70 bg-black text-zinc-100">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" style={{ color: ACCENT }} />
@@ -47,7 +47,7 @@ function FileEditModal({ open, onClose, file, onChange }: {
             </label>
           </div>
           {draft.file && (
-            <div className="rounded border border-zinc-800 bg-black/30 p-2 text-xs text-zinc-500">
+            <div className="rounded border border-zinc-800 bg-black p-2 text-xs text-zinc-500">
               {(draft.file.size / 1024).toFixed(1)} KB &middot; {draft.content_type || "unknown type"}
             </div>
           )}
@@ -126,7 +126,7 @@ export default function FileAttachmentEditor({ files, onChange }: { files: Draft
       {files.length > 0 && (
         <div className="space-y-1.5 max-h-60 overflow-y-auto">
           {files.map((f) => (
-            <div key={f.id} className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-black/40 px-3 py-2">
+            <div key={f.id} className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-black px-3 py-2">
               {isImage(f) ? (
                 <Image className="h-4 w-4 shrink-0 text-zinc-400" />
               ) : f.content_type?.startsWith("video/") ? (

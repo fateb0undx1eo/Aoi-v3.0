@@ -29,7 +29,7 @@ export default function EmojiPickerPopover({ open, onClose, onEmojiSelect, serve
     : UNICODE_EMOJIS[category] || [];
 
   const content = (
-    <div ref={ref} className="fixed left-1/2 top-1/2 z-[100] w-[352px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+    <div ref={ref} className="fixed left-1/2 top-1/2 z-[100] w-[352px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-zinc-700 bg-black shadow-2xl">
       <div className="border-b border-zinc-800 p-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
@@ -95,7 +95,7 @@ export default function EmojiPickerPopover({ open, onClose, onEmojiSelect, serve
 
   return createPortal(
     <div>
-      <div className="fixed inset-0 z-[99] bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 z-[99] bg-black" onClick={onClose} />
       {content}
     </div>,
     document.body

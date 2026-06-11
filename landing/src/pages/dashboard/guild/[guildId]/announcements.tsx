@@ -362,28 +362,28 @@ export default function GuildAnnouncementsPage() {
 
             <div className="flex flex-wrap gap-x-2 gap-y-1">
               <button type="button" onClick={() => {}}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors">
+                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-black px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors">
                 <Share2 className="h-3.5 w-3.5" /> Share
               </button>
               <button type="button" onClick={() => setPresetsOpen(!presetsOpen)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors">
+                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-black px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors">
                 <Save className="h-3.5 w-3.5" /> Presets
               </button>
               <button type="button" onClick={() => setCodeGenOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors">
+                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-black px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors">
                 <Code className="h-3.5 w-3.5" /> Generate
               </button>
               <button type="button" onClick={() => {
                 setD({ version: data.version, messages: [{ data: getNewMessageData(1, false) }] });
               }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 transition-colors">
+                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-black px-3 py-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 transition-colors">
                 <RotateCcw className="h-3.5 w-3.5" /> Reset
               </button>
             </div>
 
             <div className="space-y-2">
               {Object.values(data.targets || []).map((t, ti) => (
-                <div key={ti} className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-2">
+                <div key={ti} className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-black px-3 py-2">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-800">
                     <Bot className="h-4 w-4 text-zinc-400" />
                   </div>
@@ -396,7 +396,7 @@ export default function GuildAnnouncementsPage() {
               <div className="flex gap-2">
                 <input type="text" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)}
                   placeholder="https://discord.com/api/webhooks/..."
-                  className="min-w-0 flex-1 rounded-lg border border-zinc-800 bg-black/50 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-600" />
+                  className="min-w-0 flex-1 rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-600" />
                 <button type="button" onClick={addTarget}
                   className="shrink-0 rounded-lg bg-primary/20 px-3 py-2 text-xs font-medium text-primary hover:bg-primary/30">
                   <Plus className="h-3.5 w-3.5" />
@@ -404,7 +404,7 @@ export default function GuildAnnouncementsPage() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/20 p-3">
+            <div className="rounded-lg border border-zinc-800 bg-black p-3">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-xs font-medium text-zinc-400"><Hash className="mr-1 inline h-3 w-3" />Channels ({selectedChannelIds.size})</span>
                 <div className="flex gap-2">
@@ -436,7 +436,7 @@ export default function GuildAnnouncementsPage() {
                 {status?.state === "sending" ? <><span className="animate-pulse">Sending...</span></> : <><Send className="h-4 w-4" /> Send</>}
               </button>
               <button type="button" onClick={() => {}}
-                className="flex items-center justify-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-xs font-medium text-zinc-400 hover:text-zinc-200">
+                className="flex items-center justify-center gap-1 rounded-lg border border-zinc-800 bg-black px-3 py-2.5 text-xs font-medium text-zinc-400 hover:text-zinc-200">
                 <MessageSquare className="h-3.5 w-3.5" /> {data.messages.length} msgs
               </button>
             </div>
@@ -480,7 +480,7 @@ export default function GuildAnnouncementsPage() {
                 <Plus className="h-4 w-4" /> Add Message
               </button>
               {addMsgOpen && (
-                <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-lg border border-zinc-800 bg-zinc-900 shadow-xl overflow-hidden">
+                <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-lg border border-zinc-800 bg-black shadow-xl overflow-hidden">
                   <button type="button" onClick={() => { addMessage(false); setAddMsgOpen(false); }}
                     className="flex w-full items-center gap-3 px-4 py-3 text-sm text-zinc-300 hover:bg-zinc-800">
                     <MessageSquare className="h-5 w-5 text-zinc-500" />
@@ -502,7 +502,7 @@ export default function GuildAnnouncementsPage() {
               )}
             </div>
 
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/20 p-3">
+            <div className="rounded-lg border border-zinc-800 bg-black p-3">
               <button type="button" onClick={() => setPresetsOpen(!presetsOpen)}
                 className="flex w-full items-center justify-between">
                 <span className="text-xs font-medium text-zinc-400"><Save className="mr-1 inline h-3.5 w-3.5" /> Presets ({presets.length})</span>
@@ -513,7 +513,7 @@ export default function GuildAnnouncementsPage() {
                   <div className="flex gap-2">
                     <input type="text" value={presetName} onChange={(e) => setPresetName(e.target.value)}
                       placeholder="Preset name..." maxLength={80}
-                      className="min-w-0 flex-1 rounded border border-zinc-800 bg-black/50 px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
+                      className="min-w-0 flex-1 rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
                     <button type="button" onClick={() => savePreset("draft")}
                       className="rounded px-2 py-1 text-[9px] font-medium bg-amber-500/10 text-amber-400 hover:bg-amber-500/20">Draft</button>
                     <button type="button" onClick={() => savePreset("template")}
@@ -522,7 +522,7 @@ export default function GuildAnnouncementsPage() {
                   {presets.length > 0 && (
                     <div className="max-h-28 space-y-1 overflow-y-auto">
                       {presets.map((p) => (
-                        <div key={p.id} className="flex items-center gap-2 rounded border border-zinc-800 bg-black/30 px-2.5 py-1.5 text-xs">
+                        <div key={p.id} className="flex items-center gap-2 rounded border border-zinc-800 bg-black px-2.5 py-1.5 text-xs">
                           <button type="button" onClick={() => loadPreset(p)}
                             className="min-w-0 flex-1 truncate text-left text-zinc-400 hover:text-zinc-200">{p.name}</button>
                           <span className={`shrink-0 text-[9px] uppercase ${p.kind === "template" ? "text-violet-400" : "text-amber-400"}`}>{p.kind === "template" ? "T" : "D"}</span>
