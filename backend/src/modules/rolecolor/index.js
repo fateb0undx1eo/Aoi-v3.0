@@ -17,6 +17,7 @@ import {
 } from 'discord.js';
 import { createCanvas, loadImage } from 'canvas';
 import chroma from 'chroma-js';
+import { logger } from '../../utils/logger.js';
 
 function formatTimestamp() {
   const now = new Date();
@@ -252,6 +253,10 @@ function buildResultContainer(message) {
     );
 }
 
+function errorEdit(message) {
+  return { type: 'EDIT_REPLY', components: [buildResultContainer(message)] };
+}
+
 const R = {
   ignore:      ()                             => ({ type: 'IGNORE' }),
   error:       (message)                      => ({ type: 'ERROR', message }),
@@ -352,9 +357,12 @@ export default {
               const roleId = interaction.values[0];
               const role = interaction.guild.roles.cache.get(roleId);
               if (!role || !role.editable) {
-                return { type: 'ERROR', message: 'This role cannot be edited.' };
+                return errorEdit('This role cannot be edited.');
               }
 
+              if (role.color && !role.colors?.primaryColor) {
+                logger.warn('role.color is deprecated, use role.colors.primaryColor instead', { roleId: role.id, guildId: interaction.guild.id });
+              }
               const primaryVal = role.colors?.primaryColor ?? role.color;
               const secondaryVal = role.colors?.secondaryColor ?? 0;
               const tertiaryVal = role.colors?.tertiaryColor ?? 0;
@@ -496,39 +504,24 @@ export default {
           }
 
           if (value === 'icon') {
-            const container = buildPreviewContainer(interaction.user.id, '#ffffff', roleId, role.name, 'Default', null)
-              .addActionRowComponents(row =>
-                row.setComponents(buildRoleSelect(interaction.user.id))
-              )
-              .addActionRowComponents(row =>
-                row.setComponents(buildActionSelect(interaction.user.id, roleId))
-              )
-              .addActionRowComponents(row =>
-                row.setComponents(
-                  new ButtonBuilder()
-                    .setCustomId(cid('iconurl', userId, roleId))
-                    .setStyle(ButtonStyle.Secondary)
-                    .setLabel('URL/EMOJI'),
-                  new ButtonBuilder()
-                    .setCustomId(cid('iconupload', userId, roleId))
-                    .setStyle(ButtonStyle.Secondary)
-                    .setLabel('UPLOAD IMAGE')
-                )
-              )
-              .addActionRowComponents(row =>
-                row.setComponents(
-                  new ButtonBuilder()
-                    .setCustomId(cid('confirm', interaction.user.id, roleId))
-                    .setStyle(ButtonStyle.Secondary)
-                    .setLabel('CONFIRM')
-                    .setDisabled(true),
-                  new ButtonBuilder()
-                    .setCustomId(cid('cancel', interaction.user.id))
-                    .setStyle(ButtonStyle.Secondary)
-                    .setLabel('CANCEL')
-                )
+            if (!interaction.member?.permissions.has(PermissionsBitField.Flags.ManageGuildExpressions)) {
+              return R.error('You need the Manage Guild Expressions permission to change role icons.');
+            }
+            const modal = new ModalBuilder()
+              .setTitle('Set Role Icon')
+              .setCustomId(cid('iconmodal', userId, roleId, interaction.message.id))
+              .addComponents(
+                new ActionRowBuilder()
+                  .addComponents(
+                    new TextInputBuilder()
+                      .setCustomId('icon')
+                      .setLabel('Image URL')
+                      .setStyle(TextInputStyle.Short)
+                      .setPlaceholder('https://example.com/icon.png')
+                      .setRequired(true)
+                  )
               );
-            return R.update({ components: [container], allowedMentions: { roles: [] } });
+            return R.modal(modal);
           }
         }
 
@@ -662,27 +655,6 @@ export default {
           };
         }
 
-        if (action === 'iconurl' && interaction.isButton()) {
-          const roleId = data[0];
-          if (!roleId) return R.error('Select a role first.');
-
-          const modal = new ModalBuilder()
-            .setTitle('Set Role Icon')
-            .setCustomId(cid('iconmodal', userId, roleId, interaction.message.id))
-            .addComponents(
-              new ActionRowBuilder()
-                .addComponents(
-                  new TextInputBuilder()
-                    .setCustomId('icon')
-                    .setLabel('Unicode Emoji, Image URL, or Custom Emoji')
-                    .setStyle(TextInputStyle.Short)
-                    .setPlaceholder('😊 or https://example.com/icon.png or <:name:id>')
-                    .setRequired(true)
-                )
-            );
-          return R.modal(modal);
-        }
-
         if (action === 'iconmodal' && interaction.isModalSubmit()) {
           const [roleId, messageId] = data;
           if (!roleId) return R.error('Select a role first.');
@@ -699,31 +671,18 @@ export default {
               }
 
               try {
-                if (/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)$/u.test(input)) {
-                  await role.setUnicodeEmoji(input, `Icon changed by ${interaction.user.tag}`);
-                } else if (input.startsWith('http')) {
-                  const res = await fetch(input);
-                  if (!res.ok) return { type: 'ERROR', message: 'Failed to fetch image from URL.' };
-                  const buf = Buffer.from(await res.arrayBuffer());
-                  const mime = res.headers.get('content-type') || 'image/png';
-                  const dataUri = `data:${mime};base64,${buf.toString('base64')}`;
-                  await role.setIcon(dataUri, `Icon changed by ${interaction.user.tag}`);
-                } else {
-                  const match = input.match(/^<a?:(\w+):(\d+)>$/);
-                  if (!match) {
-                    return { type: 'ERROR', message: 'Invalid input. Use a unicode emoji, image URL, or custom emoji like <:name:id>.' };
-                  }
-                  const emojiId = match[2];
-                  const emoji = interaction.guild.emojis.cache.get(emojiId);
-                  if (!emoji) {
-                    return { type: 'ERROR', message: 'Custom emoji not found in this server.' };
-                  }
-                  const emojiUrl = emoji.imageURL({ extension: 'png', size: 4096 });
-                  const res = await fetch(emojiUrl);
-                  const buf = Buffer.from(await res.arrayBuffer());
-                  const dataUri = `data:image/png;base64,${buf.toString('base64')}`;
-                  await role.setIcon(dataUri, `Icon changed by ${interaction.user.tag}`);
+                if (!input.startsWith('http')) {
+                  return { type: 'ERROR', message: 'Invalid input. Provide an image URL starting with http.' };
                 }
+                const res = await fetch(input);
+                if (!res.ok) return { type: 'ERROR', message: 'Failed to fetch image from URL.' };
+                const mime = res.headers.get('content-type') || 'image/png';
+                if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(mime)) {
+                  return { type: 'ERROR', message: 'Unsupported image format. Use PNG, JPEG, GIF, or WebP.' };
+                }
+                const buf = Buffer.from(await res.arrayBuffer());
+                const dataUri = `data:${mime};base64,${buf.toString('base64')}`;
+                await role.setIcon(dataUri, `Icon changed by ${interaction.user.tag}`);
               } catch {
                 return { type: 'ERROR', message: 'Failed to update role icon.' };
               }
@@ -741,64 +700,6 @@ export default {
 
               await interaction.deleteReply().catch(() => {});
               return { type: 'IGNORE' };
-            }
-          };
-        }
-
-        if (action === 'iconupload' && interaction.isButton()) {
-          const roleId = data[0];
-          if (!roleId) return R.error('Select a role first.');
-
-          return {
-            type: 'ASYNC_RESULT',
-            execute: async () => {
-              await interaction.reply({
-                content: 'Please reply to this message with an image attachment.',
-                ephemeral: true
-              });
-
-              const filter = m => m.author.id === userId && m.attachments.size > 0;
-              try {
-                const collected = await interaction.channel.awaitMessages({
-                  filter,
-                  max: 1,
-                  time: 60000,
-                  errors: ['time']
-                });
-                const msg = collected.first();
-                const attachment = msg.attachments.first();
-
-                const role = interaction.guild.roles.cache.get(roleId);
-                if (!role || !role.editable) {
-                  return { type: 'ERROR', message: 'This role can no longer be edited.' };
-                }
-
-                const res = await fetch(attachment.url);
-                const buf = Buffer.from(await res.arrayBuffer());
-                const mime = attachment.contentType || 'image/png';
-                const dataUri = `data:${mime};base64,${buf.toString('base64')}`;
-
-                try {
-                  await role.setIcon(dataUri, `Icon changed by ${interaction.user.tag}`);
-                } catch {
-                  return { type: 'ERROR', message: 'Failed to update role icon.' };
-                }
-
-                const container = buildResultContainer(
-                  `✅ <@&${roleId}> icon updated.`
-                );
-
-                try {
-                  const originalMsg = await interaction.channel.messages.fetch(interaction.message.id);
-                  await originalMsg.edit({ components: [container], allowedMentions: { roles: [] } });
-                } catch {
-                  return { type: 'ERROR', message: 'Failed to update message.' };
-                }
-
-                return { type: 'IGNORE' };
-              } catch {
-                return { type: 'ERROR', message: 'No image received within 60 seconds.' };
-              }
             }
           };
         }
@@ -826,9 +727,9 @@ export default {
             }
             try {
               await role.setColors({
-                primaryColor: `#${hex}`,
-                secondaryColor: `#${hex2}`,
-                tertiaryColor: `#${hex3}`
+                primaryColor: 11127295,
+                secondaryColor: 16759788,
+                tertiaryColor: 16761760
               }, `Color changed by ${interaction.user.tag}`);
             } catch {
               return R.error('Failed to update role color.');

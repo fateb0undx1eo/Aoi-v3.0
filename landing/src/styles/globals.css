@@ -1760,3 +1760,7 @@
 .animate-slide-in-left {
   animation: slide-in-left 0.25s ease-out;
 }
+
+.font-discord {
+  font-family: "gg sans", "Helvetica Neue", Helvetica, Arial, "Segoe UI", "Noto Sans", sans-serif;
+}

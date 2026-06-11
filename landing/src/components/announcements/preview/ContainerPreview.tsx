@@ -7,7 +7,7 @@ import { renderDiscordText } from "../utils/markdown";
 export default function ContainerPreview({ container, hasTopMargin, onEditComponent }: { container: APIContainerComponent; hasTopMargin: boolean; onEditComponent?: (comp: APIComponentInActionRow, ri?: number, ci?: number) => void }) {
   const accentColor = container.accent_color != null ? intToHex(container.accent_color) : null;
   return (
-    <div className={`${hasTopMargin ? "mt-2" : ""} rounded-lg border border-zinc-700/50 bg-[#2b2d31] ${container.spoiler ? "blur-sm hover:blur-none transition-all cursor-pointer" : ""}`}>
+    <div className={`${hasTopMargin ? "mt-2" : ""} rounded-lg border border-zinc-700/50 bg-[#2b2d31] font-discord ${container.spoiler ? "blur-sm hover:blur-none transition-all cursor-pointer" : ""}`}>
       <div className="flex">
         {accentColor && (
           <div className="w-1 shrink-0 rounded-l-lg" style={{ backgroundColor: accentColor }} />
@@ -15,7 +15,7 @@ export default function ContainerPreview({ container, hasTopMargin, onEditCompon
         <div className="min-w-0 flex-1 space-y-1.5 px-3 py-2">
           {container.components.map((item, ci) => {
             if (item.type === 10) {
-              return <div key={ci} className="whitespace-pre-wrap text-[15px] leading-relaxed" style={{ color: TEXT_COLOR }}>{item.content}</div>;
+              return <div key={ci} className="whitespace-pre-wrap text-[15px] leading-relaxed" style={{ color: TEXT_COLOR }}>{renderDiscordText(item.content)}</div>;
             }
             if (item.type === 11) {
               const url = item.items?.[0]?.media?.url;
@@ -54,7 +54,7 @@ export default function ContainerPreview({ container, hasTopMargin, onEditCompon
               return (
                 <div key={ci} className="flex items-start gap-3 rounded-lg bg-black/30 px-3 py-2.5">
                   <div className="min-w-0 flex-1 space-y-1">
-                    {textChild && <div className="whitespace-pre-wrap text-sm leading-relaxed" style={{ color: TEXT_COLOR }}>{textChild.content}</div>}
+                    {textChild && <div className="whitespace-pre-wrap text-sm leading-relaxed" style={{ color: TEXT_COLOR }}>{renderDiscordText(textChild.content)}</div>}
                     {thumbChild && (() => {
                       const url = thumbChild.items?.[0]?.media?.url;
                       return url ? <img src={url} alt="" className="mt-1 max-h-40 w-full rounded-lg object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /> : null;

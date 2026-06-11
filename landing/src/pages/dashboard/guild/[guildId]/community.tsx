@@ -1760,10 +1760,13 @@ export default function CommunityPage() {
   }
 
   function removeAnnouncementEntry(entryId: string) {
-    setAnnouncementForm((current) => ({
-      ...current,
-      entries: current.entries.filter((entry) => entry.id !== entryId),
-    }));
+    setAnnouncementForm((current) => {
+      const next = current.entries.filter((entry) => entry.id !== entryId);
+      if (next.length === 0) {
+        return { ...current, entries: [createAnnouncementEntry("normal")] };
+      }
+      return { ...current, entries: next };
+    });
     setAnnouncementEmojiTarget((current) => current && current.entryId === entryId ? null : current);
   }
 

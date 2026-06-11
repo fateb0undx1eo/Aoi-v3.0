@@ -26,7 +26,7 @@ export default function DiscordPreview({ message, isV2, targets, onEditComponent
   }
 
   return (
-    <div className={`rounded-lg px-4 py-3 text-sm leading-relaxed ${noBg ? "" : ""}`} style={{ backgroundColor: noBg ? "transparent" : EMBED_BG }}>
+    <div className={`rounded-lg px-4 py-3 text-sm leading-relaxed font-discord ${noBg ? "" : ""}`} style={{ backgroundColor: noBg ? "transparent" : EMBED_BG }}>
       <div className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-500 text-sm font-bold text-white">
           {webhookName ? "W" : "A"}
@@ -139,7 +139,12 @@ export default function DiscordPreview({ message, isV2, targets, onEditComponent
                     <a key={ci} href={comp.url || "#"} target="_blank" rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm font-medium transition-colors hover:brightness-110"
                       style={{ color: s.color, backgroundColor: s.bg, border: `1px solid ${s.border}` }}>
-                      {comp.emoji?.name && <span>{comp.emoji.name}</span>}{comp.label || "Link"}<ExternalLink className="h-3 w-3" />
+                      {comp.emoji?.id ? (
+                        <img src={`https://cdn.discordapp.com/emojis/${comp.emoji.id}.${comp.emoji.animated ? "gif" : "png"}?size=32`}
+                          alt="" className="h-5 w-5 object-contain" />
+                      ) : comp.emoji?.name ? (
+                        <span>{comp.emoji.name}</span>
+                      ) : null}{comp.label || "Link"}<ExternalLink className="h-3 w-3" />
                     </a>
                   );
                 }
@@ -148,7 +153,12 @@ export default function DiscordPreview({ message, isV2, targets, onEditComponent
                     onClick={() => onEditComponent?.(comp, ri, ci)}
                     className="inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm font-medium transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                     style={{ color: s.color, backgroundColor: s.bg, border: `1px solid ${s.border}` }}>
-                    {comp.emoji?.name && <span>{comp.emoji.name}</span>}{comp.label || "Button"}
+                    {comp.emoji?.id ? (
+                      <img src={`https://cdn.discordapp.com/emojis/${comp.emoji.id}.${comp.emoji.animated ? "gif" : "png"}?size=32`}
+                        alt="" className="h-5 w-5 object-contain" />
+                    ) : comp.emoji?.name ? (
+                      <span>{comp.emoji.name}</span>
+                    ) : null}{comp.label || "Button"}
                   </button>
                 );
               }

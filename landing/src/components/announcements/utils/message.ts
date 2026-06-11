@@ -71,13 +71,13 @@ export function formatTimestamp(iso: string): string {
   } catch { return iso; }
 }
 
-export function getMessageDisplayName(t: string | undefined, i: number, msg: QueryDataMessage): string {
+export function getMessageDisplayName(_label: string | undefined, i: number, msg: QueryDataMessage): string {
   if (msg.name) return msg.name;
   const c = msg.data.content;
   if (c) return c.length > 40 ? c.slice(0, 40) + "…" : c;
   if (msg.data.embeds && msg.data.embeds.length > 0) {
-    const t = msg.data.embeds[0].title;
-    if (t) return t.length > 40 ? t.slice(0, 40) + "…" : t;
+    const title = msg.data.embeds[0].title;
+    if (title) return title.length > 40 ? title.slice(0, 40) + "…" : title;
   }
   return `Message ${i + 1}`;
 }

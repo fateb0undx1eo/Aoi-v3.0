@@ -124,7 +124,7 @@ export function DashboardLayout({
           <div className="hidden items-center gap-3 md:flex">
             <button
               type="button"
-              onClick={() => setMobileOpen(true)}
+              onClick={() => setMobileOpen((value) => !value)}
               className="inline-flex items-center justify-center rounded-lg border border-border bg-card p-2 text-foreground/86 hover:border-primary/45"
               title="Modules"
             >

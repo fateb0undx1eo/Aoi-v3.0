@@ -94,6 +94,8 @@ const EMPTY_EMBED: AnnouncementEmbed = {
   timestamp: "",
 };
 
+const DISCORD_MESSAGE_LINK_RE = /^https:\/\/(?:canary\.|ptb\.)?discord(?:app)?\.com\/channels\/\d+\/\d+\/\d+$/;
+
 const DEFAULT_COMPONENTS: AnnouncementComponent[][] = [];
 
 function createAnnouncementEntry(): AnnouncementEntry {
@@ -192,7 +194,7 @@ function DiscordMessagePreview({ entry, channelName }: { entry: AnnouncementEntr
 
   if (!hasContent && !hasEmbed && !hasComponents) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg px-6 py-12 text-center" style={{ backgroundColor: EMBED_BG }}>
+      <div className="flex flex-col items-center justify-center rounded-lg px-6 py-12 text-center font-discord" style={{ backgroundColor: EMBED_BG }}>
         <Eye className="mb-3 h-10 w-10 text-zinc-600" />
         <p className="text-sm text-zinc-500">Your message preview will appear here</p>
         <p className="mt-1 text-xs text-zinc-600">Add content, embed, or components to get started</p>
@@ -201,7 +203,7 @@ function DiscordMessagePreview({ entry, channelName }: { entry: AnnouncementEntr
   }
 
   return (
-    <div className="rounded-lg px-4 py-3 text-sm leading-relaxed" style={{ backgroundColor: EMBED_BG }}>
+    <div className="rounded-lg px-4 py-3 text-sm leading-relaxed font-discord" style={{ backgroundColor: EMBED_BG }}>
       <div className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-500 text-sm font-bold text-white">
           A
@@ -848,10 +850,19 @@ export default function AnnouncementsPage() {
                       Edit existing message (provide message link below)
                     </label>
                     {activeEntry.edit_existing && (
-                      <input type="text" value={activeEntry.message_link}
-                        onChange={(e) => updateEntry(activeEntry.id, { message_link: e.target.value })}
-                        placeholder="https://discord.com/channels/..."
-                        className="w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-zinc-600 focus:outline-none" />
+                      <div>
+                        <input type="text" value={activeEntry.message_link}
+                          onChange={(e) => updateEntry(activeEntry.id, { message_link: e.target.value })}
+                          placeholder="https://discord.com/channels/..."
+                          className={`w-full rounded-lg border bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none ${
+                            activeEntry.message_link && !DISCORD_MESSAGE_LINK_RE.test(activeEntry.message_link)
+                              ? "border-red-600 focus:border-red-500"
+                              : "border-zinc-800 focus:border-zinc-600"
+                          }`} />
+                        {activeEntry.message_link && !DISCORD_MESSAGE_LINK_RE.test(activeEntry.message_link) && (
+                          <p className="mt-1 text-xs text-red-400">Invalid Discord message link format</p>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}

@@ -89,6 +89,8 @@ export function createGuildRoutes({ guildService, accessControlService, client, 
         return res.status(404).json({ error: 'Guild not found' });
       }
 
+      await guild.emojis.fetch().catch(() => {});
+
       const emojis = guild.emojis.cache
         .map((emoji) => ({
           id: emoji.id,

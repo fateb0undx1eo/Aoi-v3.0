@@ -3,9 +3,10 @@ import { Check, ChevronDown, ChevronUp, Copy, ExternalLink, Plus, Smile, X, Zap 
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ACCENT, BUTTON_STYLES } from "../constants";
-import type { APIButtonComponent, APIComponentInActionRow, APIStringSelectComponent, ButtonStyle, GuildEmoji, FlowAction } from "../types";
+import type { APIButtonComponent, APIComponentInActionRow, APIStringSelectComponent, ButtonStyle, GuildEmoji, FlowAction, APIEmoji } from "../types";
 import { randomId } from "../utils/message";
 import FlowActionEditor from "../FlowActionEditor";
+import EmojiPickerPopover from "../pickers/EmojiPickerPopover";
 
 export default function ComponentEditModal({ open, onClose, component, onChange, serverEmojis }: {
   open: boolean; onClose: () => void;
@@ -30,6 +31,8 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <EmojiPickerPopover open={emojiPickerOpen} onClose={() => setEmojiPickerOpen(false)} serverEmojis={serverEmojis}
+        onEmojiSelect={(emoji: APIEmoji) => update({ emoji } as any)} />
       <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-border/70 bg-zinc-950 text-zinc-100">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -300,7 +303,12 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
             {isButton && (
               <div className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm font-medium ${draft.style === 5 ? "bg-transparent" : ""}`}
                 style={draft.style === 5 ? { color: "#00a8fc", border: "1px solid #00a8fc" } : { color: BUTTON_STYLES[draft.style]?.color || "#fff", backgroundColor: BUTTON_STYLES[draft.style]?.bg || "#5865f2", border: `1px solid ${BUTTON_STYLES[draft.style]?.border || "#5865f2"}` }}>
-                {draft.emoji?.name && <span>{draft.emoji.name}</span>}
+                {draft.emoji?.id ? (
+                  <img src={`https://cdn.discordapp.com/emojis/${draft.emoji.id}.${draft.emoji.animated ? "gif" : "png"}?size=32`}
+                    alt="" className="h-5 w-5 object-contain" />
+                ) : draft.emoji?.name ? (
+                  <span>{draft.emoji.name}</span>
+                ) : null}
                 {draft.label || "Button"}
                 {draft.style === 5 && <ExternalLink className="h-3 w-3" />}
               </div>

@@ -18,6 +18,7 @@ import type {
 } from "@/components/announcements/types";
 import { ACCENT } from "@/components/announcements/constants";
 import { TargetType } from "@/components/announcements/types";
+import { getBackendApiUrl } from "@/lib/backend";
 import {
   randomId, createMessage, getNewMessageData, cloneQueryData,
   isComponentsV2, getMessageDisplayName, formatTimestamp,
@@ -310,7 +311,7 @@ export default function GuildAnnouncementsPage() {
             if (f.file) fd.append(`file_${m._id || "unknown"}`, f.file, f.name);
           });
         });
-        res = await fetch(`/api/guilds/${guildId}/announcements`, { method: "POST", body: fd });
+        res = await fetch(`${getBackendApiUrl()}/api/guilds/${guildId}/announcements`, { method: "POST", body: fd, credentials: "include" });
       } else {
         res = await fetch(`/api/guilds/${guildId}/announcements`, {
           method: "POST", headers: { "Content-Type": "application/json" },
