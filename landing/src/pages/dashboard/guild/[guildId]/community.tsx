@@ -526,6 +526,9 @@ export default function CommunityPage() {
   const channels = channelsData?.channels ?? [];
   const emojis = emojisData?.emojis ?? [];
 
+  const [dmAllOpen, setDmAllOpen] = useState(false);
+  const [dmBroadcastForm, setDmBroadcastForm] = useState<DmBroadcastForm>(DEFAULT_DM_BROADCAST_FORM);
+
   const [debouncedMemberQuery, setDebouncedMemberQuery] = useState("");
   const { data: memberData, error: memberError } = useGuildMembers(
     guildId as string,
@@ -537,7 +540,6 @@ export default function CommunityPage() {
   const [memeOpen, setMemeOpen] = useState(false);
   const [roleColorOpen, setRoleColorOpen] = useState(false);
   const [dmWelcomerOpen, setDmWelcomerOpen] = useState(false);
-  const [dmAllOpen, setDmAllOpen] = useState(false);
   const [premiumFeatureOpen, setPremiumFeatureOpen] = useState(false);
 
   const [roleQuery, setRoleQuery] = useState("");
@@ -581,7 +583,6 @@ export default function CommunityPage() {
   const [dmBroadcastSending, setDmBroadcastSending] = useState(false);
   const [dmBroadcastMessage, setDmBroadcastMessage] = useState("");
   const [dmBroadcastState, setDmBroadcastState] = useState<SaveState>("idle");
-  const [dmBroadcastForm, setDmBroadcastForm] = useState<DmBroadcastForm>(DEFAULT_DM_BROADCAST_FORM);
   const [dmBroadcastJobId, setDmBroadcastJobId] = useState("");
   const [announcementSending, setAnnouncementSending] = useState(false);
   const [announcementMessage, setAnnouncementMessage] = useState("");
