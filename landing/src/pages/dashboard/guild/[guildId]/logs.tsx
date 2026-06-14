@@ -122,9 +122,7 @@ function AutoScroller({ sentinelRef }: { sentinelRef: React.RefObject<HTMLDivEle
       >
         Bottom
       </button>
-      <span className="ml-auto text-[11px] text-zinc-600">
-        Ring buffer: 5000
-      </span>
+
     </div>
   );
 }
@@ -136,7 +134,16 @@ export default function GuildLogsPage() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
+  const [modules, setModules] = useState<Record<string, any>[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    if (!guildId || typeof guildId !== "string") return;
+    fetch(`/api/dashboard/guild/${guildId}/overview`)
+      .then((r) => r.json())
+      .then((data) => setModules(data?.modules || []))
+      .catch(() => {});
+  }, [guildId]);
 
   useEffect(() => {
     if (!guildId || typeof guildId !== "string") return;
@@ -201,21 +208,20 @@ export default function GuildLogsPage() {
   }, [guildId]);
 
   return (
-    <DashboardLayout guildId={String(guildId || "")} heading="Logs">
+    <DashboardLayout guildId={String(guildId || "")} heading="Logs" modules={modules}>
       <div className="flex flex-col overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-950 shadow-2xl" style={{ height: "calc(100vh - 130px)" }}>
         <div className="flex items-center gap-3 border-b border-zinc-800 bg-zinc-900/90 px-4 py-2.5">
           <div className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.5)]" />
-            <span className="h-3 w-3 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.5)]" />
-            <span className="h-3 w-3 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
+            <span className="h-3 w-3 rounded-full bg-red-500" />
+            <span className="h-3 w-3 rounded-full bg-amber-500" />
+            <span className="h-3 w-3 rounded-full bg-emerald-500" />
           </div>
           <span className="absolute left-1/2 -translate-x-1/2 select-none text-[12px] font-medium tracking-wide text-zinc-500">
-            aoi@runtime:~$ — AOI Log Stream
+            AOI00.dat
           </span>
           <div className="ml-auto flex items-center gap-2.5">
-            <span className={`inline-block h-2 w-2 rounded-full ${connected ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" : "bg-red-500"}`} />
+            <span className={`inline-block h-2 w-2 rounded-full ${connected ? "bg-emerald-400" : "bg-red-500"}`} />
             <span className="text-[11px] text-zinc-600">{connected ? "LIVE" : "DISCONNECTED"}</span>
-            <span className="text-[11px] text-zinc-700">{logs.length} entries</span>
           </div>
         </div>
 
