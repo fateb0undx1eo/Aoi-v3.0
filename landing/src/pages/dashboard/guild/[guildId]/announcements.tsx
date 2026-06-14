@@ -130,7 +130,7 @@ export default function GuildAnnouncementsPage() {
     const t = dir === "up" ? idx - 1 : idx + 1;
     if (t < 0 || t >= data.messages.length) return;
     const next = [...data.messages];
-    [next[idx], next[t]] = [next[t], next[idx]];
+    [next[idx]!, next[t]!] = [next[t]!, next[idx]!];
     setD({ ...data, messages: next });
     setSelectedMessageIndex(t);
   }, [data, setD]);
@@ -188,8 +188,8 @@ export default function GuildAnnouncementsPage() {
     if (!name) { setStatus({ state: "error", text: "Enter a name before saving." }); return; }
     const existingIdx = presets.findIndex((p) => p.kind === kind && p.name.toLowerCase() === name.toLowerCase());
     const next = [...presets];
-    const preset = { id: existingIdx >= 0 ? next[existingIdx].id : `preset-${Date.now()}-${randomId()}`, name, kind, data: cloneQueryData(data) };
-    if (existingIdx >= 0) next[existingIdx] = preset;
+    const preset = { id: existingIdx >= 0 ? next[existingIdx]!.id : `preset-${Date.now()}-${randomId()}`, name, kind, data: cloneQueryData(data) };
+    if (existingIdx >= 0) next[existingIdx]! = preset;
     else next.unshift(preset);
     setPresets(next);
     try {
@@ -460,7 +460,7 @@ export default function GuildAnnouncementsPage() {
                   onRemove={() => removeMessage(i)}
                   updateMessageData={(upd) => {
                     const next = [...data.messages];
-                    next[i] = { ...next[i], data: { ...next[i].data, ...upd } };
+                    next[i] = { ...next[i]!, data: { ...next[i]!.data, ...upd } };
                     setD({ ...data, messages: next });
                   }}
                   files={files}
@@ -468,7 +468,7 @@ export default function GuildAnnouncementsPage() {
                   editTab={isSelected ? editTab : "content"}
                   setEditTab={isSelected ? setEditTab : undefined}
                   serverEmojis={serverEmojis}
-                  onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri, ci }); setComponentModalOpen(true); }}
+                  onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri: ri!, ci: ci! }); setComponentModalOpen(true); }}
                 />
               );
             })}
@@ -555,7 +555,7 @@ export default function GuildAnnouncementsPage() {
                   message={m.data}
                   isV2={isComponentsV2(m.data.flags)}
                   targets={data.targets}
-                  onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri, ci }); setComponentModalOpen(true); }}
+                  onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri: ri!, ci: ci! }); setComponentModalOpen(true); }}
                   files={messageFiles[mid]} />
               );
             })}

@@ -62,7 +62,7 @@ export default function ContainerPreview({ container, hasTopMargin, onEditCompon
                   </div>
                   {accessory?.type === 2 && (() => {
                     const btn = accessory as APIButtonComponent;
-                    const s = BUTTON_STYLES[btn.style] || BUTTON_STYLES[1];
+                    const s = BUTTON_STYLES[btn.style] ?? BUTTON_STYLES[1]!;
                     if (btn.style === 5) {
                       return (
                         <a key="acc" href={btn.url || "#"} target="_blank" rel="noopener noreferrer"

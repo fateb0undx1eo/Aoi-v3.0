@@ -19,7 +19,7 @@ function JsonEditorEditorInline({ messageData, onChange }: { messageData: QueryD
       const parsed = JSON.parse(value);
       const result = messageDataSchema.safeParse(parsed);
       if (result.success) { setValid(true); }
-      else { const issues = result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`); setError(issues[0]); }
+      else { const issues = result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`); setError(issues[0] ?? null); }
     } catch (e: any) { setError(e.message); }
   };
 

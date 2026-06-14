@@ -1,22 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/router";
 import { Settings2 } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
-
-type ModuleRow = {
-  name: string;
-  display_name?: string;
-  description?: string;
-  category?: string;
-  enabled?: boolean;
-  is_premium?: boolean;
-};
-
-type OverviewPayload = {
-  guild: Record<string, any>;
-  modules: ModuleRow[];
-};
+import { useGuildOverview, type ParsedModuleRow } from "@/lib/api";
 
 function slugify(name = "") {
   return String(name).trim().toLowerCase().replace(/\s+/g, "-");
@@ -25,39 +12,12 @@ function slugify(name = "") {
 export default function GuildModulePage() {
   const router = useRouter();
   const { guildId, module: moduleSlug } = router.query;
+  const gid = typeof guildId === "string" ? guildId : undefined;
 
-  const [payload, setPayload] = useState<OverviewPayload | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data, isLoading, error } = useGuildOverview(gid);
 
-  const loadOverview = useCallback(async () => {
-    if (!guildId || typeof guildId !== "string") return;
-
-    try {
-      const response = await fetch(`/api/dashboard/guild/${guildId}/overview`);
-      if (response.status === 401) {
-        router.replace("/api/auth/discord");
-        return;
-      }
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.error || "Failed to load module");
-      }
-      setPayload(data);
-      setError("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load module");
-    } finally {
-      setLoading(false);
-    }
-  }, [guildId]);
-
-  useEffect(() => {
-    loadOverview();
-  }, [loadOverview]);
-
-  const modules = payload?.modules || [];
-  const guild = payload?.guild || null;
+  const modules = (data?.modules ?? []) as ParsedModuleRow[];
+  const guild = data?.guild ?? null;
 
   const currentModule = useMemo(
     () =>
@@ -70,22 +30,23 @@ export default function GuildModulePage() {
   );
 
   const heading = currentModule?.display_name || currentModule?.name || "Module";
+  const layoutModules = modules as Array<{ name: string; display_name?: string; enabled?: boolean }>;
 
   return (
-    <DashboardLayout guildId={String(guildId || "")} guildName={guild?.name || "Guild"} heading={heading} modules={modules}>
-      {loading && <BoneyardCard lines={3} />}
+    <DashboardLayout guildId={gid ?? ""} guildName={guild?.name || "Guild"} heading={heading} modules={layoutModules}>
+      {isLoading && <BoneyardCard lines={3} />}
 
-      {!loading && error && (
-        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">{error}</div>
+      {!isLoading && error && (
+        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">{(error as Error).message}</div>
       )}
 
-      {!loading && !error && !currentModule && (
+      {!isLoading && !error && !currentModule && (
         <div className="rounded-2xl border border-yellow-500/40 bg-yellow-500/10 p-6 text-sm text-yellow-200">
           Module not found for this guild.
         </div>
       )}
 
-      {!loading && !error && currentModule && (
+      {!isLoading && !error && currentModule && (
         <section className="rounded-3xl border border-border/70 bg-card/70 p-6 shadow-[0_20px_46px_-32px_hsl(var(--foreground)/0.45)]">
           <div className="mb-3 inline-flex rounded-xl border border-border/70 bg-background/60 p-2">
             <Settings2 className="h-4 w-4" />

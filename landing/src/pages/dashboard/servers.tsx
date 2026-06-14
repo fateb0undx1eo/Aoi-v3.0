@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/router";
 import { ChevronRight, RefreshCcw, ShieldAlert } from "lucide-react";
 import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
+import { useGuilds } from "@/lib/api";
 
 type GuildItem = {
   id: string;
@@ -21,40 +22,12 @@ function guildIconUrl(guild: GuildItem) {
 
 export default function DashboardServerPicker() {
   const router = useRouter();
-  const [guilds, setGuilds] = useState<GuildItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data, isLoading, error, refetch, isRefetching } = useGuilds();
+
+  const guilds = data?.guilds ?? [];
 
   const installed = useMemo(() => guilds.filter((guild) => guild.installed), [guilds]);
   const unavailable = useMemo(() => guilds.filter((guild) => !guild.installed), [guilds]);
-
-  async function loadGuilds() {
-    setLoading(true);
-    setError("");
-    try {
-      const response = await fetch("/api/discord/guilds");
-      if (response.status === 401) {
-        router.replace("/api/auth/discord");
-        return;
-      }
-
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload?.error || "Failed to load guilds");
-      }
-
-      setGuilds(Array.isArray(payload.guilds) ? payload.guilds : []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load guilds");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadGuilds();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <div className="dashboard-canvas min-h-screen px-4 py-10 text-foreground sm:px-6 lg:px-8">
@@ -69,15 +42,16 @@ export default function DashboardServerPicker() {
           </div>
           <button
             type="button"
-            onClick={loadGuilds}
+            onClick={() => refetch()}
+            disabled={isRefetching}
             className="dashboard-chip theme-animate inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm"
           >
-            <RefreshCcw className="h-4 w-4" />
+            <RefreshCcw className={`h-4 w-4 ${isRefetching ? "animate-spin" : ""}`} />
             Refresh
           </button>
         </div>
 
-        {!loading && !error && (
+        {!isLoading && !error && (
           <div className="mb-8 grid gap-4 md:grid-cols-3">
             <div className="dashboard-panel-soft rounded-[26px] p-5">
               <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Installed</div>
@@ -97,7 +71,7 @@ export default function DashboardServerPicker() {
           </div>
         )}
 
-        {loading && (
+        {isLoading && (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, index) => (
               <BoneyardCard key={index} lines={3} />
@@ -105,11 +79,11 @@ export default function DashboardServerPicker() {
           </div>
         )}
 
-        {!loading && error && (
-          <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">{error}</div>
+        {!isLoading && error && (
+          <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">{(error as Error).message}</div>
         )}
 
-        {!loading && !error && (
+        {!isLoading && !error && (
           <div className="space-y-8">
             <section>
               <h2 className="card-heading mb-4 text-xl">Available Servers</h2>
@@ -123,7 +97,7 @@ export default function DashboardServerPicker() {
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
                         {guildIconUrl(guild) ? (
-                          <img src={guildIconUrl(guild) || ""} alt={guild.name} className="h-12 w-12 rounded-xl border border-border/70" />
+                          <img src={guildIconUrl(guild) ?? ""} alt={guild.name} className="h-12 w-12 rounded-xl border border-border/70" />
                         ) : (
                           <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border/70 bg-background/70 text-lg font-semibold">
                             {guild.name.slice(0, 1).toUpperCase()}
@@ -157,7 +131,7 @@ export default function DashboardServerPicker() {
                     <article key={guild.id} className="dashboard-panel-soft rounded-[28px] p-5">
                       <div className="flex items-center gap-3">
                         {guildIconUrl(guild) ? (
-                          <img src={guildIconUrl(guild) || ""} alt={guild.name} className="h-12 w-12 rounded-xl border border-border/70" />
+                          <img src={guildIconUrl(guild) ?? ""} alt={guild.name} className="h-12 w-12 rounded-xl border border-border/70" />
                         ) : (
                           <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border/70 bg-background/70 text-lg font-semibold">
                             {guild.name.slice(0, 1).toUpperCase()}

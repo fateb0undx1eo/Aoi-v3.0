@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Shield, Ban, AlertTriangle, Clock, UserX, Search, CheckCircle, XCircle } from "lucide-react";
@@ -13,20 +13,21 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-type Case = {
-  id: number;
-  case_number: number;
-  target_user_id: string;
-  target_username?: string;
-  moderator_user_id: string;
-  moderator_username?: string;
-  type: CaseType;
-  reason: string;
-  duration_seconds?: number;
-  active: boolean;
-  created_at: string;
-};
+import {
+  useGuildOverview,
+  useModCases,
+  useActivePunishments,
+  useModConfig,
+  useModModule,
+  useGuildChannels,
+  useGuildRoles,
+  useCreateModCase,
+  useRevokePunishment,
+  useSaveModConfig,
+  useSaveModule,
+  type ParsedModuleRow,
+  type GuildRole,
+} from "@/lib/api";
 
 type CaseType = "WARN" | "KICK" | "BAN" | "TEMPBAN" | "MUTE" | "TIMEOUT" | "UNBAN" | "UNMUTE" | "NOTE";
 
@@ -39,37 +40,6 @@ type ModConfig = {
   warn_duration_1: number;
   dm_on_punish: boolean;
   show_mod_in_dm: boolean;
-};
-
-type ModuleRow = {
-  name: string;
-  display_name?: string;
-  description?: string;
-  category?: string;
-  enabled?: boolean;
-};
-
-type ModerationModuleConfig = {
-  enabled?: boolean;
-  config?: {
-    case_command?: {
-      channel_id?: string | null;
-      allowed_role_ids?: string[];
-      default_timeout_minutes?: number;
-    };
-  };
-};
-
-type GuildChannel = {
-  id: string;
-  name: string;
-};
-
-type GuildRole = {
-  id: string;
-  name: string;
-  color?: number;
-  managed?: boolean;
 };
 
 const DEFAULT_MOD_CONFIG: ModConfig = {
@@ -87,11 +57,11 @@ const DEFAULT_CASE_COMMAND_CONFIG = {
   default_timeout_minutes: 10,
 };
 
-function normalizeCaseCommandConfig(rawConfig?: ModerationModuleConfig["config"]) {
-  const caseCommand = rawConfig?.case_command;
+function normalizeCaseCommandConfig(rawConfig?: Record<string, unknown>) {
+  const caseCommand = rawConfig?.case_command as Record<string, unknown> | undefined;
   return {
     channel_id: String(caseCommand?.channel_id || ""),
-    allowed_role_ids: Array.isArray(caseCommand?.allowed_role_ids) ? caseCommand.allowed_role_ids.filter(Boolean) : [],
+    allowed_role_ids: Array.isArray(caseCommand?.allowed_role_ids) ? (caseCommand.allowed_role_ids as string[]).filter(Boolean) : [],
     default_timeout_minutes: Math.max(1, Number(caseCommand?.default_timeout_minutes) || 10),
   };
 }
@@ -99,16 +69,22 @@ function normalizeCaseCommandConfig(rawConfig?: ModerationModuleConfig["config"]
 export default function ModerationPage() {
   const router = useRouter();
   const { guildId } = router.query;
+  const gid = typeof guildId === "string" ? guildId : undefined;
 
-  const [cases, setCases] = useState<Case[]>([]);
-  const [activePunishments, setActivePunishments] = useState<Case[]>([]);
+  const { data: overviewData } = useGuildOverview(gid);
+  const { data: casesData } = useModCases(gid);
+  const { data: activeData } = useActivePunishments(gid);
+  const { data: configData } = useModConfig(gid);
+  const { data: moduleData } = useModModule(gid);
+  const { data: channelsData } = useGuildChannels(gid);
+  const { data: rolesData } = useGuildRoles(gid);
+  const createCase = useCreateModCase(gid);
+  const revokePunishment = useRevokePunishment(gid);
+  const saveModConfig = useSaveModConfig(gid);
+  const saveModule = useSaveModule(gid);
+
   const [config, setConfig] = useState<ModConfig | null>(null);
-  const [moderationModule, setModerationModule] = useState<ModerationModuleConfig | null>(null);
   const [caseCommandConfig, setCaseCommandConfig] = useState(DEFAULT_CASE_COMMAND_CONFIG);
-  const [channels, setChannels] = useState<GuildChannel[]>([]);
-  const [roles, setRoles] = useState<GuildRole[]>([]);
-  const [modules, setModules] = useState<ModuleRow[]>([]);
-  const [guildName, setGuildName] = useState("Guild");
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [actionOpen, setActionOpen] = useState(false);
@@ -118,254 +94,19 @@ export default function ModerationPage() {
   const [duration, setDuration] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const loadData = useCallback(async () => {
-    if (!guildId || typeof guildId !== "string") return;
-
-    try {
-      const overviewRes = await fetch(`/api/dashboard/guild/${guildId}/overview`);
-
-      if (overviewRes.status === 401) {
-        router.replace("/api/auth/discord");
-        return;
-      }
-
-      const overviewData = await overviewRes.json();
-      setModules(overviewData.modules || []);
-      setGuildName(overviewData.guild?.name || "Guild");
-
-      const [casesResult, activeResult, configResult, moduleResult, channelsResult, rolesResult] = await Promise.allSettled([
-        fetch(`/api/moderation/${guildId}/cases?limit=50`).then(async (response) => {
-          const payload = await response.json().catch(() => ({ cases: [] }));
-          if (!response.ok) {
-            throw new Error(payload?.error || "Failed to load moderation cases");
-          }
-          return payload;
-        }),
-        fetch(`/api/moderation/${guildId}/active`).then(async (response) => {
-          const payload = await response.json().catch(() => ({ active: [] }));
-          if (!response.ok) {
-            throw new Error(payload?.error || "Failed to load active punishments");
-          }
-          return payload;
-        }),
-        fetch(`/api/moderation/${guildId}/config`).then(async (response) => {
-          const payload = await response.json().catch(() => ({ config: null }));
-          if (!response.ok) {
-            throw new Error(payload?.error || "Failed to load moderation config");
-          }
-          return payload;
-        }),
-        fetch(`/api/modules/${guildId}/moderation`).then(async (response) => {
-          const payload = await response.json().catch(() => ({ module: null }));
-          if (!response.ok) {
-            throw new Error(payload?.error || "Failed to load moderation module config");
-          }
-          return payload;
-        }),
-        fetch(`/api/guilds/${guildId}/channels`).then(async (response) => {
-          const payload = await response.json().catch(() => ({ channels: [] }));
-          if (!response.ok) {
-            throw new Error(payload?.error || "Failed to load channels");
-          }
-          return payload;
-        }),
-        fetch(`/api/guilds/${guildId}/roles`).then(async (response) => {
-          const payload = await response.json().catch(() => ({ roles: [] }));
-          if (!response.ok) {
-            throw new Error(payload?.error || "Failed to load roles");
-          }
-          return payload;
-        }),
-      ]);
-
-      setCases(casesResult.status === "fulfilled" ? casesResult.value.cases || [] : []);
-      setActivePunishments(activeResult.status === "fulfilled" ? activeResult.value.active || [] : []);
-      setConfig(configResult.status === "fulfilled" ? configResult.value.config || DEFAULT_MOD_CONFIG : DEFAULT_MOD_CONFIG);
-      const moderationModulePayload = moduleResult.status === "fulfilled" ? moduleResult.value.module || { enabled: true, config: {} } : { enabled: true, config: {} };
-      setModerationModule(moderationModulePayload);
-      setCaseCommandConfig(normalizeCaseCommandConfig(moderationModulePayload.config));
-      setChannels(channelsResult.status === "fulfilled" ? channelsResult.value.channels || [] : []);
-      setRoles(rolesResult.status === "fulfilled" ? rolesResult.value.roles || [] : []);
-
-      if (casesResult.status === "rejected") {
-        log.error("Failed to load moderation cases:", casesResult.reason);
-      }
-      if (activeResult.status === "rejected") {
-        log.error("Failed to load active punishments:", activeResult.reason);
-      }
-      if (configResult.status === "rejected") {
-        log.error("Failed to load moderation config:", configResult.reason);
-      }
-      if (moduleResult.status === "rejected") {
-        log.error("Failed to load moderation module config:", moduleResult.reason);
-      }
-      if (channelsResult.status === "rejected") {
-        log.error("Failed to load channels:", channelsResult.reason);
-      }
-      if (rolesResult.status === "rejected") {
-        log.error("Failed to load roles:", rolesResult.reason);
-      }
-    } catch (err) {
-      log.error("Failed to load moderation data:", err);
-      setGuildName("Guild");
-      setModules([]);
-      setCases([]);
-      setActivePunishments([]);
-      setConfig(DEFAULT_MOD_CONFIG);
-      setModerationModule({ enabled: true, config: {} });
-      setCaseCommandConfig(DEFAULT_CASE_COMMAND_CONFIG);
-      setChannels([]);
-      setRoles([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [guildId, router]);
-
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!configData || !moduleData) return;
+    setConfig(configData.config || DEFAULT_MOD_CONFIG);
+    setCaseCommandConfig(normalizeCaseCommandConfig(moduleData.module?.config as Record<string, unknown> | undefined));
+    setLoading(false);
+  }, [configData, moduleData]);
 
-  const handleAction = async () => {
-    if (!targetUserId || !reason) return;
-
-    setSubmitting(true);
-    try {
-      const response = await fetch(`/api/moderation/${guildId}/cases`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          targetUserId,
-          type: actionType,
-          reason,
-          durationSeconds: duration ? parseInt(duration) * 60 : undefined,
-        }),
-      });
-
-      if (response.ok) {
-        setActionOpen(false);
-        setTargetUserId("");
-        setReason("");
-        setDuration("");
-        loadData();
-      } else {
-        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
-        alert(`Failed to create case: ${errorData.error || response.statusText}`);
-      }
-    } catch (err) {
-      log.error("Failed to create case:", err);
-      alert("Network error - check console");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleRevoke = async (caseId: number) => {
-    try {
-      const response = await fetch(`/api/moderation/${guildId}/revoke`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caseId, reason: "Revoked from dashboard" }),
-      });
-
-      if (response.ok) {
-        loadData();
-      }
-    } catch (err) {
-      log.error("Failed to revoke punishment:", err);
-    }
-  };
-
-  const handleConfigUpdate = async (updates: Partial<ModConfig>) => {
-    try {
-      const response = await fetch(`/api/moderation/${guildId}/config`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...config, ...updates }),
-      });
-
-      if (response.ok) {
-        setConfig({ ...config, ...updates });
-      }
-    } catch (err) {
-      log.error("Failed to update config:", err);
-    }
-  };
-
-  const handleCaseCommandUpdate = async (updates: Partial<typeof DEFAULT_CASE_COMMAND_CONFIG>) => {
-    if (!guildId || typeof guildId !== "string") return;
-
-    const nextConfig = {
-      ...caseCommandConfig,
-      ...updates,
-    };
-
-    setCaseCommandConfig(nextConfig);
-
-    try {
-      const response = await fetch(`/api/modules/${guildId}/moderation`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enabled: moderationModule?.enabled ?? true,
-          config: {
-            ...(moderationModule?.config ?? {}),
-            case_command: {
-              channel_id: nextConfig.channel_id.trim(),
-              allowed_role_ids: nextConfig.allowed_role_ids,
-              default_timeout_minutes: nextConfig.default_timeout_minutes,
-            },
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update case command config");
-      }
-
-      setModerationModule((current) => ({
-        enabled: current?.enabled ?? true,
-        config: {
-          ...(current?.config ?? {}),
-          case_command: {
-            channel_id: nextConfig.channel_id.trim(),
-            allowed_role_ids: nextConfig.allowed_role_ids,
-            default_timeout_minutes: nextConfig.default_timeout_minutes,
-          },
-        },
-      }));
-    } catch (err) {
-      log.error("Failed to update case command config:", err);
-      loadData();
-    }
-  };
-
-  const getCaseBadgeColor = (type: CaseType) => {
-    switch (type) {
-      case "BAN":
-      case "TEMPBAN":
-        return "bg-red-500/10 text-red-500 border-red-500/20";
-      case "KICK":
-        return "bg-orange-500/10 text-orange-500 border-orange-500/20";
-      case "WARN":
-        return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
-      case "MUTE":
-      case "TIMEOUT":
-        return "bg-purple-500/10 text-purple-500 border-purple-500/20";
-      case "UNBAN":
-      case "UNMUTE":
-        return "bg-green-500/10 text-green-500 border-green-500/20";
-      default:
-        return "bg-muted text-muted-foreground";
-    }
-  };
-
-  const getTypeEmoji = (type: CaseType) => {
-    const emojis: Record<string, string> = {
-      WARN: "⚠️", KICK: "👢", BAN: "🔨", TEMPBAN: "⏱️",
-      MUTE: "🔇", TIMEOUT: "⏰", UNBAN: "🔓", UNMUTE: "🔊", NOTE: "📝"
-    };
-    return emojis[type] || "📌";
-  };
+  const modules = (overviewData?.modules ?? []) as ParsedModuleRow[];
+  const guildName = overviewData?.guild?.name || "Guild";
+  const cases = casesData?.cases ?? [];
+  const activePunishments = activeData?.active ?? [];
+  const channels = channelsData?.channels ?? [];
+  const roles = rolesData?.roles ?? [];
 
   const filteredCases = cases.filter(
     (c) =>
@@ -383,9 +124,94 @@ export default function ModerationPage() {
     }).length;
   };
 
+  const handleAction = async () => {
+    if (!targetUserId || !reason) return;
+    setSubmitting(true);
+    try {
+      await createCase.mutateAsync({
+        targetUserId,
+        type: actionType,
+        reason,
+        durationSeconds: duration ? parseInt(duration) * 60 : undefined,
+      });
+      setActionOpen(false);
+      setTargetUserId("");
+      setReason("");
+      setDuration("");
+    } catch (err) {
+      log.error("Failed to create case:", err);
+      alert("Failed to create case - check console");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRevoke = async (caseId: number) => {
+    try {
+      await revokePunishment.mutateAsync({ caseId, reason: "Revoked from dashboard" });
+    } catch (err) {
+      log.error("Failed to revoke punishment:", err);
+    }
+  };
+
+  const handleConfigUpdate = async (updates: Partial<ModConfig>) => {
+    if (!config) return;
+    try {
+      await saveModConfig.mutateAsync({ ...config, ...updates });
+      setConfig({ ...config, ...updates });
+    } catch (err) {
+      log.error("Failed to update config:", err);
+    }
+  };
+
+  const handleCaseCommandUpdate = async (updates: Partial<typeof DEFAULT_CASE_COMMAND_CONFIG>) => {
+    if (!gid) return;
+    const nextConfig = { ...caseCommandConfig, ...updates };
+    setCaseCommandConfig(nextConfig);
+    try {
+      await saveModule.mutateAsync({
+        moduleName: "moderation",
+        body: {
+          enabled: moduleData?.module?.enabled ?? true,
+          config: {
+            ...((moduleData?.module?.config ?? {}) as Record<string, unknown>),
+            case_command: {
+              channel_id: nextConfig.channel_id.trim(),
+              allowed_role_ids: nextConfig.allowed_role_ids,
+              default_timeout_minutes: nextConfig.default_timeout_minutes,
+            },
+          },
+        },
+      });
+    } catch (err) {
+      log.error("Failed to update case command config:", err);
+    }
+  };
+
+  const getCaseBadgeColor = (type: string) => {
+    switch (type) {
+      case "BAN": case "TEMPBAN": return "bg-red-500/10 text-red-500 border-red-500/20";
+      case "KICK": return "bg-orange-500/10 text-orange-500 border-orange-500/20";
+      case "WARN": return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
+      case "MUTE": case "TIMEOUT": return "bg-purple-500/10 text-purple-500 border-purple-500/20";
+      case "UNBAN": case "UNMUTE": return "bg-green-500/10 text-green-500 border-green-500/20";
+      default: return "bg-muted text-muted-foreground";
+    }
+  };
+
+  const getTypeEmoji = (type: string) => {
+    const emojis: Record<string, string> = {
+      WARN: "⚠️", KICK: "👢", BAN: "🔨", TEMPBAN: "⏱️",
+      MUTE: "🔇", TIMEOUT: "⏰", UNBAN: "🔓", UNMUTE: "🔊", NOTE: "📝"
+    };
+    return emojis[type] || "📌";
+  };
+
+  const layoutModules = modules as Array<{ name: string; display_name?: string; enabled?: boolean }>;
+
   if (loading) {
     return (
-      <DashboardLayout guildId={String(guildId || "")} guildName={guildName} heading="Moderation" modules={modules}>
+      <DashboardLayout guildId={gid ?? ""} guildName={guildName} heading="Moderation" modules={layoutModules}>
         <div className="flex h-96 items-center justify-center">
           <div className="text-muted-foreground">Loading moderation data...</div>
         </div>
@@ -394,9 +220,8 @@ export default function ModerationPage() {
   }
 
   return (
-    <DashboardLayout guildId={String(guildId || "")} guildName={guildName} heading="Moderation" modules={modules}>
+    <DashboardLayout guildId={gid ?? ""} guildName={guildName} heading="Moderation" modules={layoutModules}>
       <div className="space-y-6">
-        {/* Header with Actions */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-2">
             <Dialog open={actionOpen} onOpenChange={setActionOpen}>
@@ -428,43 +253,21 @@ export default function ModerationPage() {
                       </SelectContent>
                     </Select>
                   </div>
-
                   <div className="space-y-2">
                     <Label>User ID</Label>
-                    <Input
-                      placeholder="Enter Discord User ID"
-                      value={targetUserId}
-                      onChange={(e) => setTargetUserId(e.target.value)}
-                    />
+                    <Input placeholder="Enter Discord User ID" value={targetUserId} onChange={(e) => setTargetUserId(e.target.value)} />
                   </div>
-
                   {(actionType === "MUTE" || actionType === "TIMEOUT" || actionType === "TEMPBAN") && (
                     <div className="space-y-2">
                       <Label>Duration (minutes)</Label>
-                      <Input
-                        type="number"
-                        placeholder="e.g., 60"
-                        value={duration}
-                        onChange={(e) => setDuration(e.target.value)}
-                      />
+                      <Input type="number" placeholder="e.g., 60" value={duration} onChange={(e) => setDuration(e.target.value)} />
                     </div>
                   )}
-
                   <div className="space-y-2">
                     <Label>Reason</Label>
-                    <Textarea
-                      placeholder="Enter reason for this action..."
-                      value={reason}
-                      onChange={(e) => setReason(e.target.value)}
-                      rows={3}
-                    />
+                    <Textarea placeholder="Enter reason for this action..." value={reason} onChange={(e) => setReason(e.target.value)} rows={3} />
                   </div>
-
-                  <Button
-                    onClick={handleAction}
-                    disabled={!targetUserId || !reason || submitting}
-                    className="w-full"
-                  >
+                  <Button onClick={handleAction} disabled={!targetUserId || !reason || submitting} className="w-full">
                     {submitting ? "Processing..." : "Submit Action"}
                   </Button>
                 </div>
@@ -473,7 +276,6 @@ export default function ModerationPage() {
           </div>
         </div>
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
@@ -521,7 +323,6 @@ export default function ModerationPage() {
           </Card>
         </div>
 
-        {/* Main Content Tabs */}
         <Tabs defaultValue="cases" className="w-full">
           <TabsList className="grid w-full grid-cols-3 lg:w-auto">
             <TabsTrigger value="cases">Mod Cases</TabsTrigger>
@@ -532,14 +333,8 @@ export default function ModerationPage() {
           <TabsContent value="cases" className="mt-6 space-y-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search by user ID, username, or reason..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+              <Input placeholder="Search by user ID, username, or reason..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
             </div>
-
             <div className="rounded-xl border bg-card">
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -568,9 +363,7 @@ export default function ModerationPage() {
                         </td>
                         <td className="px-4 py-3 text-sm max-w-xs truncate">{c.reason}</td>
                         <td className="px-4 py-3 text-sm">{c.moderator_username || "Unknown"}</td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground">
-                          {new Date(c.created_at).toLocaleDateString()}
-                        </td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">{new Date(c.created_at).toLocaleDateString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -602,11 +395,7 @@ export default function ModerationPage() {
                           <div className="text-sm text-muted-foreground">Case #{c.case_number} • {c.reason}</div>
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRevoke(c.id)}
-                      >
+                      <Button variant="outline" size="sm" onClick={() => handleRevoke(c.id)}>
                         <XCircle className="h-4 w-4 mr-1" />
                         Revoke
                       </Button>
@@ -626,54 +415,30 @@ export default function ModerationPage() {
               <CardContent className="space-y-6">
                 {config && (
                   <>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>DM on Punish</Label>
-                        <p className="text-sm text-muted-foreground">Send DM to users when they are punished</p>
+                    {[
+                      { label: "DM on Punish", desc: "Send DM to users when they are punished", key: "dm_on_punish" as const },
+                      { label: "Show Moderator in DM", desc: "Reveal which moderator took the action", key: "show_mod_in_dm" as const },
+                      { label: "Auto-punish on Warnings", desc: "Automatically punish users after reaching warning thresholds", key: "warn_auto_punish_enabled" as const },
+                    ].map(({ label, desc, key }) => (
+                      <div key={key} className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>{label}</Label>
+                          <p className="text-sm text-muted-foreground">{desc}</p>
+                        </div>
+                        <Switch checked={config[key]} onCheckedChange={(v) => handleConfigUpdate({ [key]: v })} />
                       </div>
-                      <Switch
-                        checked={config.dm_on_punish}
-                        onCheckedChange={(v) => handleConfigUpdate({ dm_on_punish: v })}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Show Moderator in DM</Label>
-                        <p className="text-sm text-muted-foreground">Reveal which moderator took the action</p>
-                      </div>
-                      <Switch
-                        checked={config.show_mod_in_dm}
-                        onCheckedChange={(v) => handleConfigUpdate({ show_mod_in_dm: v })}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Auto-punish on Warnings</Label>
-                        <p className="text-sm text-muted-foreground">Automatically punish users after reaching warning thresholds</p>
-                      </div>
-                      <Switch
-                        checked={config.warn_auto_punish_enabled}
-                        onCheckedChange={(v) => handleConfigUpdate({ warn_auto_punish_enabled: v })}
-                      />
-                    </div>
+                    ))}
 
                     <div className="space-y-2">
                       <Label>Modlog Channel</Label>
-                      <Select
-                        value={config.modlog_channel_id || "__none"}
-                        onValueChange={(value) => handleConfigUpdate({ modlog_channel_id: value === "__none" ? "" : value })}
-                      >
+                      <Select value={config.modlog_channel_id || "__none"} onValueChange={(value) => handleConfigUpdate({ modlog_channel_id: value === "__none" ? "" : value })}>
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select modlog channel" />
                         </SelectTrigger>
                         <SelectContent position="popper" className="z-50 w-[var(--radix-select-trigger-width)] bg-background border shadow-md">
                           <SelectItem value="__none">Not configured</SelectItem>
                           {channels.map((channel) => (
-                            <SelectItem key={channel.id} value={channel.id}>
-                              #{channel.name}
-                            </SelectItem>
+                            <SelectItem key={channel.id} value={channel.id}>#{channel.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -682,22 +447,15 @@ export default function ModerationPage() {
                     <div className="grid gap-4 rounded-xl border border-border/60 p-4 lg:grid-cols-2">
                       <div className="space-y-0.5">
                         <Label>Case Command Channel</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Message reports from the Discord message command are sent here.
-                        </p>
-                        <Select
-                          value={caseCommandConfig.channel_id || "__none"}
-                          onValueChange={(value) => handleCaseCommandUpdate({ channel_id: value === "__none" ? "" : value })}
-                        >
+                        <p className="text-sm text-muted-foreground">Message reports from the Discord message command are sent here.</p>
+                        <Select value={caseCommandConfig.channel_id || "__none"} onValueChange={(value) => handleCaseCommandUpdate({ channel_id: value === "__none" ? "" : value })}>
                           <SelectTrigger className="mt-2 w-full">
                             <SelectValue placeholder="Select case channel" />
                           </SelectTrigger>
                           <SelectContent position="popper" className="z-50 w-[var(--radix-select-trigger-width)] bg-background border shadow-md">
                             <SelectItem value="__none">Not configured</SelectItem>
                             {channels.map((channel) => (
-                              <SelectItem key={channel.id} value={channel.id}>
-                                #{channel.name}
-                              </SelectItem>
+                              <SelectItem key={channel.id} value={channel.id}>#{channel.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -705,22 +463,15 @@ export default function ModerationPage() {
 
                       <div className="space-y-0.5">
                         <Label>Case Command Role</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Only this role can open cases or press case action buttons.
-                        </p>
-                        <Select
-                          value={caseCommandConfig.allowed_role_ids[0] || "__none"}
-                          onValueChange={(value) => handleCaseCommandUpdate({ allowed_role_ids: value === "__none" ? [] : [value] })}
-                        >
+                        <p className="text-sm text-muted-foreground">Only this role can open cases or press case action buttons.</p>
+                        <Select value={caseCommandConfig.allowed_role_ids[0] || "__none"} onValueChange={(value) => handleCaseCommandUpdate({ allowed_role_ids: value === "__none" ? [] : [value] })}>
                           <SelectTrigger className="mt-2 w-full">
                             <SelectValue placeholder="Select case role" />
                           </SelectTrigger>
                           <SelectContent position="popper" className="z-50 w-[var(--radix-select-trigger-width)] bg-background border shadow-md">
                             <SelectItem value="__none">Not configured</SelectItem>
                             {roles.filter((role) => !role.managed).map((role) => (
-                              <SelectItem key={role.id} value={role.id}>
-                                {role.name}
-                              </SelectItem>
+                              <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -729,19 +480,14 @@ export default function ModerationPage() {
 
                     <div className="space-y-2">
                       <Label>Mute Role</Label>
-                      <Select
-                        value={config.mute_role_id || "__none"}
-                        onValueChange={(value) => handleConfigUpdate({ mute_role_id: value === "__none" ? "" : value })}
-                      >
+                      <Select value={config.mute_role_id || "__none"} onValueChange={(value) => handleConfigUpdate({ mute_role_id: value === "__none" ? "" : value })}>
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select mute role" />
                         </SelectTrigger>
                         <SelectContent position="popper" className="z-50 w-[var(--radix-select-trigger-width)] bg-background border shadow-md">
                           <SelectItem value="__none">Not configured</SelectItem>
                           {roles.filter((role) => !role.managed).map((role) => (
-                            <SelectItem key={role.id} value={role.id}>
-                              {role.name}
-                            </SelectItem>
+                            <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

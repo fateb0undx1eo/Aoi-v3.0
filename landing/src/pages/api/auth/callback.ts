@@ -62,7 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const sessionCookie = sessionResponse.headers.get("set-cookie");
     res.setHeader(
       "Set-Cookie",
-      [sessionCookie, clearStateCookie].filter(Boolean)
+      [sessionCookie, clearStateCookie].filter((s): s is string => s != null)
     );
 
     res.redirect("/dashboard");

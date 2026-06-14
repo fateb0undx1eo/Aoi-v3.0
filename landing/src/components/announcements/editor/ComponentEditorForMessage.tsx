@@ -49,7 +49,7 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
     const next = [...components];
     const swap = dir === "up" ? ri - 1 : ri + 1;
     if (swap < 0 || swap >= next.length) return;
-    [next[ri], next[swap]] = [next[swap], next[ri]];
+    [next[ri]!, next[swap]!] = [next[swap]!, next[ri]!];
     onChange(next);
   };
 

@@ -10,34 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Settings, Command, Shield, Save } from "lucide-react";
-
-type ModuleRow = {
-  name: string;
-  display_name?: string;
-  description?: string;
-  category?: string;
-  enabled?: boolean;
-};
-
-type GuildPayload = {
-  guild: Record<string, any>;
-  modules: ModuleRow[];
-};
-
-type GuildChannel = {
-  id: string;
-  name: string;
-  type: number;
-};
-
-type SettingsPayload = {
-  prefix?: string;
-  logs?: Array<{
-    event_name: string;
-    channel_id?: string | null;
-    enabled?: boolean;
-  }>;
-};
+import {
+  useGuildOverview,
+  useGuildSettings,
+  useGuildChannels,
+  useSaveSetting,
+  type ParsedModuleRow,
+} from "@/lib/api";
 
 type SaveState = "idle" | "success" | "error";
 
@@ -50,10 +29,13 @@ function statusClass(state: SaveState) {
 export default function SettingsPage() {
   const router = useRouter();
   const { guildId } = router.query;
+  const gid = typeof guildId === "string" ? guildId : undefined;
 
-  const [payload, setPayload] = useState<GuildPayload | null>(null);
-  const [channels, setChannels] = useState<GuildChannel[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: overviewData, isLoading: overviewLoading } = useGuildOverview(gid);
+  const { data: settingsData, isLoading: settingsLoading } = useGuildSettings(gid);
+  const { data: channelsData } = useGuildChannels(gid);
+  const saveSetting = useSaveSetting(gid);
+
   const [prefix, setPrefix] = useState("!");
   const [errorLogsEnabled, setErrorLogsEnabled] = useState(false);
   const [errorLogChannelId, setErrorLogChannelId] = useState("");
@@ -64,60 +46,27 @@ export default function SettingsPage() {
   const [prefixMessage, setPrefixMessage] = useState("Prefix updates are saved directly through the backend settings route.");
   const [errorLogsMessage, setErrorLogsMessage] = useState("Choose a channel and save to update error log routing.");
 
-  const loadGuildData = useCallback(async () => {
-    if (!guildId || typeof guildId !== "string") return;
-
-    try {
-      const [overviewResponse, settingsResponse, channelsResponse] = await Promise.all([
-        fetch(`/api/dashboard/guild/${guildId}/overview`),
-        fetch(`/api/settings/${guildId}`),
-        fetch(`/api/guilds/${guildId}/channels`),
-      ]);
-
-      if (overviewResponse.status === 401 || settingsResponse.status === 401 || channelsResponse.status === 401) {
-        router.replace("/api/auth/discord");
-        return;
-      }
-
-      const overviewData = await overviewResponse.json();
-      const settingsData = await settingsResponse.json().catch(() => ({ settings: {} }));
-      const channelsData = await channelsResponse.json().catch(() => ({ channels: [] }));
-
-      if (!overviewResponse.ok) {
-        throw new Error(overviewData?.error || "Failed to load guild data");
-      }
-      if (!settingsResponse.ok) {
-        throw new Error(settingsData?.error || "Failed to load settings");
-      }
-
-      const settings = (settingsData?.settings || {}) as SettingsPayload;
-      const errorLogConfig = (settings.logs || []).find((row) => row.event_name === "error");
-
-      setPayload(overviewData);
-      setChannels(Array.isArray(channelsData.channels) ? channelsData.channels : []);
-      setPrefix(String(settings.prefix || "!"));
-      setErrorLogsEnabled(Boolean(errorLogConfig?.enabled));
-      setErrorLogChannelId(String(errorLogConfig?.channel_id || ""));
-    } catch (err) {
-      log.error("Failed to load guild data:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [guildId, router]);
+  const loading = overviewLoading || settingsLoading;
 
   useEffect(() => {
-    loadGuildData();
-  }, [loadGuildData]);
+    if (!settingsData) return;
+    const s = settingsData.settings;
+    setPrefix(String(s?.prefix || "!"));
+    const errorLogConfig = (s?.logs ?? []).find((row) => row.event_name === "error");
+    setErrorLogsEnabled(Boolean(errorLogConfig?.enabled));
+    setErrorLogChannelId(String(errorLogConfig?.channel_id || ""));
+  }, [settingsData]);
 
-  const guild = payload?.guild || null;
-  const modules = payload?.modules || [];
+  const guild = overviewData?.guild ?? null;
+  const modules = (overviewData?.modules ?? []) as ParsedModuleRow[];
+  const channels = channelsData?.channels ?? [];
 
   const textChannels = useMemo(() => {
     return channels.filter((channel) => channel.type === 0 || channel.type === 5 || channel.type === 15);
   }, [channels]);
 
   async function savePrefix() {
-    if (!guildId || typeof guildId !== "string") return;
+    if (!gid) return;
     const nextPrefix = prefix.trim();
     if (!nextPrefix || nextPrefix.length > 8) {
       setPrefixSaveState("error");
@@ -128,13 +77,7 @@ export default function SettingsPage() {
     setPrefixSaving(true);
     setPrefixSaveState("idle");
     try {
-      const response = await fetch(`/api/settings/${guildId}/prefix`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prefix: nextPrefix }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.error || "Failed to save prefix");
+      await saveSetting.mutateAsync({ path: "prefix", body: { prefix: nextPrefix } });
       setPrefix(nextPrefix);
       setPrefixSaveState("success");
       setPrefixMessage("Prefix saved successfully.");
@@ -147,7 +90,7 @@ export default function SettingsPage() {
   }
 
   async function saveErrorLogs() {
-    if (!guildId || typeof guildId !== "string") return;
+    if (!gid) return;
     if (errorLogsEnabled && !errorLogChannelId) {
       setErrorLogsSaveState("error");
       setErrorLogsMessage("Choose an error log channel before enabling error logs.");
@@ -157,13 +100,7 @@ export default function SettingsPage() {
     setErrorLogsSaving(true);
     setErrorLogsSaveState("idle");
     try {
-      const response = await fetch(`/api/settings/${guildId}/error-logs`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: errorLogsEnabled, channelId: errorLogChannelId }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.error || "Failed to save error log routing");
+      await saveSetting.mutateAsync({ path: "error-logs", body: { enabled: errorLogsEnabled, channelId: errorLogChannelId } });
       setErrorLogsSaveState("success");
       setErrorLogsMessage("Error log routing saved successfully.");
     } catch (error) {
@@ -174,8 +111,10 @@ export default function SettingsPage() {
     }
   }
 
+  const layoutModules = modules as Array<{ name: string; display_name?: string; enabled?: boolean }>;
+
   return (
-    <DashboardLayout guildId={String(guildId || "")} guildName={guild?.name || "Guild"} heading="Settings" modules={modules}>
+    <DashboardLayout guildId={gid ?? ""} guildName={guild?.name || "Guild"} heading="Settings" modules={layoutModules}>
       {loading ? (
         <div className="space-y-4">
           <BoneyardCard lines={2} />

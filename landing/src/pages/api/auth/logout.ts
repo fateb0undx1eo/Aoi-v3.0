@@ -11,7 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     const logoutCookie = response.headers.get("set-cookie");
-    res.setHeader("Set-Cookie", [logoutCookie, "discord_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"].filter(Boolean));
+    res.setHeader("Set-Cookie", [logoutCookie, "discord_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"].filter((s): s is string => s != null));
   } catch {
     res.setHeader("Set-Cookie", "discord_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0");
   }

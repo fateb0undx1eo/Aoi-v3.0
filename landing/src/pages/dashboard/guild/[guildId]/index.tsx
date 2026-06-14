@@ -22,6 +22,7 @@ import {
 import type { ReactNode } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { BoneyardCard, BoneyardHeroCard } from "@/components/ui/boneyard-skeleton";
+import { useGuildOverview, type OverviewPayload } from "@/lib/api";
 
 type AnalyticsRow = {
   date: string;
@@ -47,19 +48,6 @@ type GuildData = {
   member_count?: number;
   premium_tier?: number;
   premium_subscription_count?: number;
-};
-
-type OverviewPayload = {
-  guild: GuildData;
-  stats?: {
-    roles_count?: number;
-    channels_count?: number;
-    emojis_count?: number;
-    stickers_count?: number;
-  };
-  analytics: AnalyticsRow[];
-  modules: ModuleRow[];
-  refreshed_at: string;
 };
 
 type RealtimeState = "idle" | "connecting" | "live" | "offline";
@@ -93,17 +81,12 @@ const moduleMeta: Record<string, { icon: ReactNode; href: string; description: s
   fun: { icon: <Heart className="h-5 w-5" />, href: "fun", description: "Waifu and husbando drops with claim buttons" },
   settings: { icon: <Zap className="h-5 w-5" />, href: "settings", description: "Bot configuration" },
   tools: { icon: <MessageSquare className="h-5 w-5" />, href: "tools", description: "Utility commands and helpers" },
-
 };
 
 function buildChartPath(points: number[], width: number, height: number) {
-  if (points.length === 0) {
-    return "";
-  }
-
+  if (points.length === 0) return "";
   const maxValue = Math.max(...points, 1);
   const stepX = points.length === 1 ? width : width / (points.length - 1);
-
   return points
     .map((value, index) => {
       const x = index * stepX;
@@ -124,109 +107,69 @@ function getBoostTier(guild: GuildData | null): number {
 export default function GuildOverviewPage() {
   const router = useRouter();
   const { guildId } = router.query;
+  const gid = typeof guildId === "string" ? guildId : undefined;
+
+  const { data: initialPayload, isLoading, error, refetch, isRefetching } = useGuildOverview(gid);
 
   const [payload, setPayload] = useState<OverviewPayload | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [timeRange, setTimeRange] = useState<"1w" | "1m" | "all">("1w");
   const [realtimeState, setRealtimeState] = useState<RealtimeState>("idle");
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  const cancelledRef = useRef(false);
 
-  const applyPayload = useCallback((nextPayload: OverviewPayload) => {
-    startTransition(() => {
-      setPayload(nextPayload);
-      setLoading(false);
-      setError("");
-    });
+  useEffect(() => {
+    cancelledRef.current = false;
+    return () => { cancelledRef.current = true; };
   }, []);
 
-  const loadOverview = useCallback(
-    async ({ background = false }: { background?: boolean } = {}) => {
-      if (!guildId || typeof guildId !== "string") return;
+  useEffect(() => {
+    if (initialPayload) {
+      startTransition(() => setPayload(initialPayload));
+    }
+  }, [initialPayload]);
 
-      if (!background) {
-        setLoading(true);
-      } else {
-        setIsRefreshing(true);
-      }
-
-      try {
-        const response = await fetch(`/api/dashboard/guild/${guildId}/overview`);
-
-        if (response.status === 401) {
-          router.replace("/api/auth/discord");
-          return;
-        }
-
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data?.error || "Failed to load dashboard data");
-        }
-
-        applyPayload(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load dashboard data");
-      } finally {
-        setLoading(false);
-        setIsRefreshing(false);
-      }
-    },
-    [applyPayload, guildId, router]
-  );
+  const applyPayload = useCallback((nextPayload: OverviewPayload) => {
+    startTransition(() => setPayload(nextPayload));
+  }, []);
 
   useEffect(() => {
-    loadOverview();
-  }, [loadOverview]);
-
-  useEffect(() => {
-    if (!guildId || typeof guildId !== "string") return;
-
-    let cancelled = false;
+    if (!gid) return;
 
     const cleanupSocket = () => {
       if (socketRef.current) {
         socketRef.current.close();
         socketRef.current = null;
       }
-      if (reconnectTimerRef.current) {
+      if (reconnectTimerRef.current != null) {
         clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
       }
     };
 
     const scheduleReconnect = () => {
-      if (cancelled) return;
-
+      if (cancelledRef.current) return;
       const attempt = Math.min(reconnectAttemptsRef.current + 1, 5);
       reconnectAttemptsRef.current = attempt;
       const delay = Math.min(2500 * attempt, 15000);
-
-      reconnectTimerRef.current = setTimeout(() => {
-        connect();
-      }, delay);
+      reconnectTimerRef.current = setTimeout(connect, delay);
     };
 
-    const connect = async () => {
+    async function connect() {
       cleanupSocket();
       setRealtimeState("connecting");
 
       try {
-        const response = await fetch(`/api/dashboard/guild/${guildId}/socket-ticket`, {
+        const response = await fetch(`/api/dashboard/guild/${gid}/socket-ticket`, {
           method: "POST",
         });
 
-        if (!response.ok) {
-          throw new Error("Failed to create realtime connection");
-        }
+        if (!response.ok) throw new Error("Failed to create realtime connection");
 
         const data = await response.json();
-        if (!data?.ticket || !data?.wsUrl) {
-          throw new Error("Invalid realtime connection payload");
-        }
+        if (!data?.ticket || !data?.wsUrl) throw new Error("Invalid realtime connection payload");
 
         const socket = new WebSocket(`${data.wsUrl}?ticket=${encodeURIComponent(data.ticket)}`);
         socketRef.current = socket;
@@ -242,15 +185,10 @@ export default function GuildOverviewPage() {
             if (message?.type === "overview:update" && message.payload) {
               applyPayload(message.payload);
             }
-          } catch {
-            // Ignore malformed realtime frames and keep the last good snapshot.
-          }
+          } catch { }
         };
 
-        socket.onerror = () => {
-          setRealtimeState("offline");
-        };
-
+        socket.onerror = () => setRealtimeState("offline");
         socket.onclose = () => {
           setRealtimeState("offline");
           scheduleReconnect();
@@ -259,25 +197,20 @@ export default function GuildOverviewPage() {
         setRealtimeState("offline");
         scheduleReconnect();
       }
-    };
+    }
 
     connect();
 
-    return () => {
-      cancelled = true;
-      cleanupSocket();
-    };
-  }, [applyPayload, guildId]);
+    return cleanupSocket;
+  }, [gid, applyPayload]);
 
   useEffect(() => {
-    if (!guildId || typeof guildId !== "string") return;
-
+    if (!gid) return;
     const timer = setInterval(() => {
-      loadOverview({ background: true });
+      refetch();
     }, realtimeState === "live" ? 5 * 60 * 1000 : 90 * 1000);
-
     return () => clearInterval(timer);
-  }, [guildId, loadOverview, realtimeState]);
+  }, [gid, refetch, realtimeState]);
 
   const guild = payload?.guild ?? null;
   const modules = payload?.modules ?? [];
@@ -306,7 +239,6 @@ export default function GuildOverviewPage() {
 
   const filteredAnalytics = useMemo(() => {
     if (!analytics.length) return [];
-
     const now = new Date();
     const days = timeRange === "1w" ? 7 : timeRange === "1m" ? 30 : 365;
     const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
@@ -314,12 +246,7 @@ export default function GuildOverviewPage() {
   }, [analytics, timeRange]);
 
   const deferredAnalytics = useDeferredValue(filteredAnalytics);
-
-  const memberSeries = useMemo(
-    () => deferredAnalytics.map((item) => item.member_count || 0),
-    [deferredAnalytics]
-  );
-
+  const memberSeries = useMemo(() => deferredAnalytics.map((item) => item.member_count || 0), [deferredAnalytics]);
   const chartPath = useMemo(() => buildChartPath(memberSeries, 520, 180), [memberSeries]);
   const totalMembers = latest?.member_count ?? guild?.member_count ?? 0;
   const humanMembers = latest?.human_count ?? Math.max(totalMembers - (latest?.bot_count ?? 0), 0);
@@ -330,31 +257,33 @@ export default function GuildOverviewPage() {
       label: "Members",
       value: totalMembers,
       helper: `${humanMembers} humans / ${botMembers} bots`,
-      href: `/dashboard/guild/${guildId}/community`,
+      href: `/dashboard/guild/${gid}/community`,
     },
     {
       label: "Boosts",
       value: boostCount,
       helper: boostCount > 0 ? `Tier ${boostTier}` : "No boosts yet",
-      href: `/dashboard/guild/${guildId}/settings`,
+      href: `/dashboard/guild/${gid}/settings`,
     },
     {
       label: "Live Modules",
       value: enabledModules.length,
       helper: `${modules.length} total configured`,
-      href: `/dashboard/guild/${guildId}`,
+      href: `/dashboard/guild/${gid}`,
     },
     {
       label: "Channels",
       value: stats?.channels_count ?? 0,
       helper: `${stats?.roles_count ?? 0} roles, ${stats?.emojis_count ?? 0} emojis`,
-      href: `/dashboard/guild/${guildId}/community`,
+      href: `/dashboard/guild/${gid}/community`,
     },
   ];
 
+  const layoutModules = modules as Array<{ name: string; display_name?: string; enabled?: boolean }>;
+
   return (
-    <DashboardLayout guildId={String(guildId || "")} guildName={guild?.name || "Guild"} heading="Overview" modules={modules}>
-      {loading && (
+    <DashboardLayout guildId={gid ?? ""} guildName={guild?.name || "Guild"} heading="Overview" modules={layoutModules}>
+      {isLoading && (
         <div className="space-y-6">
           <BoneyardHeroCard />
           <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
@@ -369,13 +298,13 @@ export default function GuildOverviewPage() {
         </div>
       )}
 
-      {!loading && error && (
+      {!isLoading && error && (
         <div className="rounded-[24px] border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">
-          {error}
+          {(error as Error).message}
         </div>
       )}
 
-      {!loading && !error && guild && (
+      {!isLoading && !error && guild && (
         <div className="space-y-6">
           <section className="overflow-hidden rounded-[30px] border border-border/70 bg-card/80">
             <div className="border-b border-border/60 px-6 py-6">
@@ -383,7 +312,7 @@ export default function GuildOverviewPage() {
                 <div className="flex items-center gap-4">
                   {guildIconUrl(guild) ? (
                     <img
-                      src={guildIconUrl(guild) || ""}
+                      src={guildIconUrl(guild) ?? ""}
                       alt={guild.name}
                       className="h-16 w-16 rounded-2xl border border-border/70 object-cover"
                     />
@@ -415,8 +344,8 @@ export default function GuildOverviewPage() {
                   </div>
                   <div className="rounded-2xl border border-border/70 bg-background/60 px-4 py-3 text-right">
                     <div className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">Refreshed</div>
-                    <div className="mt-1 text-sm font-medium text-foreground">{formatRelativeTime(payload.refreshed_at)}</div>
-                    {isRefreshing && <div className="mt-1 text-[11px] text-primary">Refreshing snapshot...</div>}
+                    <div className="mt-1 text-sm font-medium text-foreground">{formatRelativeTime(payload?.refreshed_at ?? "")}</div>
+                    {isRefetching && <div className="mt-1 text-[11px] text-primary">Refreshing snapshot...</div>}
                   </div>
                 </div>
               </div>
@@ -537,7 +466,7 @@ export default function GuildOverviewPage() {
                     {enabledModules.map((module) => (
                       <Link
                         key={module.name}
-                        href={`/dashboard/guild/${guildId}/${module.meta.href}`}
+                        href={`/dashboard/guild/${gid}/${module.meta.href}`}
                         className="group rounded-[22px] border border-border/60 bg-background/50 px-4 py-4 transition-all hover:border-primary/40 hover:bg-primary/5"
                       >
                         <div className="flex items-start gap-3">

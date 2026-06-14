@@ -76,7 +76,7 @@ export function getMessageDisplayName(_label: string | undefined, i: number, msg
   const c = msg.data.content;
   if (c) return c.length > 40 ? c.slice(0, 40) + "…" : c;
   if (msg.data.embeds && msg.data.embeds.length > 0) {
-    const title = msg.data.embeds[0].title;
+    const title = msg.data.embeds[0]?.title;
     if (title) return title.length > 40 ? title.slice(0, 40) + "…" : title;
   }
   return `Message ${i + 1}`;

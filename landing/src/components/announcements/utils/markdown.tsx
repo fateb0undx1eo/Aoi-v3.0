@@ -54,50 +54,50 @@ function tokenize(text: string): Token[] {
 
     const animEmoji = text.slice(i).match(/^<a:([a-zA-Z0-9_]+):(\d+)>/);
     if (animEmoji) {
-      tokens.push({ type: "emoji", name: animEmoji[1], id: animEmoji[2], animated: true });
-      i += animEmoji[0].length;
+      tokens.push({ type: "emoji", name: animEmoji[1]!, id: animEmoji[2]!, animated: true });
+      i += animEmoji[0]!.length;
       continue;
     }
 
     const staticEmoji = text.slice(i).match(/^<:([a-zA-Z0-9_]+):(\d+)>/);
     if (staticEmoji) {
-      tokens.push({ type: "emoji", name: staticEmoji[1], id: staticEmoji[2], animated: false });
-      i += staticEmoji[0].length;
+      tokens.push({ type: "emoji", name: staticEmoji[1]!, id: staticEmoji[2]!, animated: false });
+      i += staticEmoji[0]!.length;
       continue;
     }
 
     const userMention = text.slice(i).match(/^<@!?(\d+)>/);
     if (userMention) {
-      tokens.push({ type: "mention", id: userMention[1] });
-      i += userMention[0].length;
+      tokens.push({ type: "mention", id: userMention[1]! });
+      i += userMention[0]!.length;
       continue;
     }
 
     const nickMention = text.slice(i).match(/^<@!(\d+)>/);
     if (nickMention) {
-      tokens.push({ type: "nickMention", id: nickMention[1] });
-      i += nickMention[0].length;
+      tokens.push({ type: "nickMention", id: nickMention[1]! });
+      i += nickMention[0]!.length;
       continue;
     }
 
     const roleMention = text.slice(i).match(/^<@&(\d+)>/);
     if (roleMention) {
-      tokens.push({ type: "roleMention", id: roleMention[1] });
-      i += roleMention[0].length;
+      tokens.push({ type: "roleMention", id: roleMention[1]! });
+      i += roleMention[0]!.length;
       continue;
     }
 
     const channelMention = text.slice(i).match(/^<#(\d+)>/);
     if (channelMention) {
-      tokens.push({ type: "channelMention", id: channelMention[1] });
-      i += channelMention[0].length;
+      tokens.push({ type: "channelMention", id: channelMention[1]! });
+      i += channelMention[0]!.length;
       continue;
     }
 
     const ts = text.slice(i).match(/^<t:(-?\d+):([tTdDfFR])>/);
     if (ts) {
-      tokens.push({ type: "timestamp", ts: ts[1], style: ts[2] });
-      i += ts[0].length;
+      tokens.push({ type: "timestamp", ts: ts[1]!, style: ts[2]! });
+      i += ts[0]!.length;
       continue;
     }
 
@@ -115,8 +115,8 @@ function tokenize(text: string): Token[] {
 
     const maskedLink = text.slice(i).match(/^\[([^\]]+)\]\(([^)]+)\)/);
     if (maskedLink) {
-      tokens.push({ type: "maskedLink", text: maskedLink[1], url: maskedLink[2] });
-      i += maskedLink[0].length;
+      tokens.push({ type: "maskedLink", text: maskedLink[1]!, url: maskedLink[2]! });
+      i += maskedLink[0]!.length;
       continue;
     }
 

@@ -9,7 +9,7 @@ import ContainerPreview from "./ContainerPreview";
 
 export default function DiscordPreview({ message, isV2, targets, onEditComponent, noBg, files }: { message: QueryDataMessageData; isV2?: boolean; targets?: QueryDataTarget[]; onEditComponent?: (comp: APIComponentInActionRow, ri?: number, ci?: number) => void; noBg?: boolean; files?: DraftFile[] }) {
   const hasContent = !!message.content;
-  const hasEmbeds = message.embeds && message.embeds.length > 0;
+  const hasEmbeds = !!(message.embeds && message.embeds.length > 0);
   const hasFiles = files && files.length > 0;
   const hasComponents = message.components && message.components.length > 0 && message.components.some((r) => (r.type === 1 && r.components.length > 0) || r.type === 17);
 
@@ -133,7 +133,7 @@ export default function DiscordPreview({ message, isV2, targets, onEditComponent
           <div key={ri} className={`flex flex-wrap gap-2 ${hasContent || hasEmbeds ? "mt-2" : ""}`}>
             {row.components.map((comp, ci) => {
               if (comp.type === 2) {
-                const s = BUTTON_STYLES[comp.style] || BUTTON_STYLES[1];
+                const s = BUTTON_STYLES[comp.style] ?? BUTTON_STYLES[1]!;
                 if (comp.style === 5) {
                   return (
                     <a key={ci} href={comp.url || "#"} target="_blank" rel="noopener noreferrer"

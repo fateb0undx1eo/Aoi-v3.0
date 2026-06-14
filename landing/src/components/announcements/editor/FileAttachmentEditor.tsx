@@ -82,11 +82,12 @@ export default function FileAttachmentEditor({ files, onChange }: { files: Draft
   const removeFile = (id: string) => onChange(files.filter((f) => f.id !== id));
 
   const handlePaste = useCallback((e: ClipboardEvent) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
+    const dtItems = e.clipboardData?.items;
+    if (!dtItems) return;
     const fileItems: File[] = [];
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
+    for (let i = 0; i < dtItems.length; i++) {
+      const item = dtItems[i];
+      if (!item) continue;
       if (item.kind === "file") {
         const f = item.getAsFile();
         if (f) fileItems.push(f);

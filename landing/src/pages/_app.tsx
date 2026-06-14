@@ -2,6 +2,7 @@ import Head from "next/head";
 import type { AppProps } from "next/app";
 import { ThemeProvider } from "@/components/theme-provider";
 import { KeepAlive } from "@/components/keep-alive";
+import { QueryProvider } from "@/lib/query-provider";
 import { appThemes } from "@/lib/themes";
 import "../styles/globals.css";
 
@@ -13,9 +14,11 @@ export default function App({ Component, pageProps }: AppProps) {
         <title>AOI</title>
       </Head>
       <KeepAlive />
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem themes={[...appThemes]}>
-        <Component {...pageProps} />
-      </ThemeProvider>
+      <QueryProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem themes={[...appThemes]}>
+          <Component {...pageProps} />
+        </ThemeProvider>
+      </QueryProvider>
     </>
   );
 }

@@ -54,11 +54,11 @@ export default function EmbedEditor({ embed, onChange }: { embed: APIEmbed; onCh
       <div className="border-t border-zinc-800 pt-3">
         <h3 className="mb-2 text-xs font-medium text-zinc-400">Author</h3>
         <div className="grid grid-cols-2 gap-2">
-          <input type="text" value={embed.author?.name || ""} onChange={(e) => update({ author: { ...embed.author, name: e.target.value } })}
+          <input type="text" value={embed.author?.name || ""} onChange={(e) => update({ author: { name: e.target.value || embed.author?.name || "", icon_url: embed.author?.icon_url, url: embed.author?.url } })}
             placeholder="Author name" className="rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
-          <input type="text" value={embed.author?.icon_url || ""} onChange={(e) => update({ author: { ...embed.author, icon_url: e.target.value || undefined } })}
+          <input type="text" value={embed.author?.icon_url || ""} onChange={(e) => update({ author: { name: embed.author?.name || "", icon_url: e.target.value || undefined, url: embed.author?.url } })}
             placeholder="Icon URL" className="rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
-          <input type="text" value={embed.author?.url || ""} onChange={(e) => update({ author: { ...embed.author, url: e.target.value || undefined } })}
+          <input type="text" value={embed.author?.url || ""} onChange={(e) => update({ author: { name: embed.author?.name || "", icon_url: embed.author?.icon_url, url: e.target.value || undefined } })}
             placeholder="Author URL" className="rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
         </div>
       </div>
@@ -88,9 +88,9 @@ export default function EmbedEditor({ embed, onChange }: { embed: APIEmbed; onCh
         <h3 className="mb-2 text-xs font-medium text-zinc-400">Footer &amp; Timestamp</h3>
         <div className="space-y-2">
           <div className="grid grid-cols-2 gap-2">
-            <input type="text" value={embed.footer?.text || ""} onChange={(e) => update({ footer: { ...embed.footer, text: e.target.value } })}
+            <input type="text" value={embed.footer?.text || ""} onChange={(e) => update({ footer: { text: e.target.value || embed.footer?.text || "", icon_url: embed.footer?.icon_url } })}
               placeholder="Footer text" className="rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
-            <input type="text" value={embed.footer?.icon_url || ""} onChange={(e) => update({ footer: { ...embed.footer, icon_url: e.target.value || undefined } })}
+            <input type="text" value={embed.footer?.icon_url || ""} onChange={(e) => update({ footer: { text: embed.footer?.text || "", icon_url: e.target.value || undefined } })}
               placeholder="Icon URL" className="rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
           </div>
           <input type="datetime-local" value={embed.timestamp?.slice(0, 16) || ""} onChange={(e) => update({ timestamp: e.target.value ? new Date(e.target.value).toISOString() : undefined })}

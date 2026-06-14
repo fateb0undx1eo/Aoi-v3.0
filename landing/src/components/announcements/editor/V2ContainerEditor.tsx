@@ -31,7 +31,7 @@ export default function V2ContainerEditor({ container, onContainerChange, onRemo
     const next = [...container.components];
     const swap = dir === "up" ? ci - 1 : ci + 1;
     if (swap < 0 || swap >= next.length) return;
-    [next[ci], next[swap]] = [next[swap], next[ci]];
+    [next[ci]!, next[swap]!] = [next[swap]!, next[ci]!];
     onContainerChange({ ...container, components: next });
   };
 

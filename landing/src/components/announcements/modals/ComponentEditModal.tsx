@@ -187,14 +187,14 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
                             <button type="button" disabled={oi === 0}
                               onClick={() => {
                                 const opts = [...(draft as APIStringSelectComponent).options];
-                                [opts[oi - 1], opts[oi]] = [opts[oi], opts[oi - 1]];
+                                [opts[oi - 1]!, opts[oi]!] = [opts[oi]!, opts[oi - 1]!];
                                 update({ options: opts } as Partial<APIStringSelectComponent>);
                               }}
                               className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"><ChevronUp className="h-3 w-3" /></button>
                             <button type="button" disabled={oi === (draft as APIStringSelectComponent).options.length - 1}
                               onClick={() => {
                                 const opts = [...(draft as APIStringSelectComponent).options];
-                                [opts[oi], opts[oi + 1]] = [opts[oi + 1], opts[oi]];
+                                [opts[oi]!, opts[oi + 1]!] = [opts[oi + 1]!, opts[oi]!];
                                 update({ options: opts } as Partial<APIStringSelectComponent>);
                               }}
                               className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"><ChevronDown className="h-3 w-3" /></button>
@@ -218,7 +218,7 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
                         <div className="mb-1 flex items-center gap-2">
                           <input type="text" value={opt.label} onChange={(e) => {
                             const opts = [...(draft as APIStringSelectComponent).options];
-                            opts[oi] = { ...opts[oi], label: e.target.value };
+                            opts[oi] = { ...opts[oi]!, label: e.target.value };
                             update({ options: opts } as Partial<APIStringSelectComponent>);
                           }} placeholder="Label" maxLength={100}
                             className="min-w-0 flex-1 rounded border border-zinc-800 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
@@ -226,7 +226,7 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
                             <input type="checkbox" checked={opt.default || false}
                               onChange={(e) => {
                                 const opts = [...(draft as APIStringSelectComponent).options];
-                                opts[oi] = { ...opts[oi], default: e.target.checked };
+                                opts[oi] = { ...opts[oi]!, default: e.target.checked };
                                 update({ options: opts } as Partial<APIStringSelectComponent>);
                               }}
                               className="h-3 w-3 rounded border-zinc-700 bg-zinc-800" />
@@ -235,13 +235,13 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
                         </div>
                         <input type="text" value={opt.description || ""} onChange={(e) => {
                           const opts = [...(draft as APIStringSelectComponent).options];
-                          opts[oi] = { ...opts[oi], description: e.target.value || undefined };
+                          opts[oi] = { ...opts[oi]!, description: e.target.value || undefined };
                           update({ options: opts } as Partial<APIStringSelectComponent>);
                         }} placeholder="Description (optional)" maxLength={100}
                           className="mb-1 w-full rounded border border-zinc-800 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
                         <input type="text" value={opt.value} onChange={(e) => {
                           const opts = [...(draft as APIStringSelectComponent).options];
-                          opts[oi] = { ...opts[oi], value: e.target.value };
+                          opts[oi] = { ...opts[oi]!, value: e.target.value };
                           update({ options: opts } as Partial<APIStringSelectComponent>);
                         }} placeholder="Value" maxLength={100}
                           className="w-full rounded border border-zinc-800 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none font-mono" />

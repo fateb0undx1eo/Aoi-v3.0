@@ -9,17 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-
-type ModuleRow = {
-  name: string;
-  enabled?: boolean;
-  config?: Record<string, unknown>;
-};
-
-type OverviewPayload = {
-  guild: { name: string };
-  modules: ModuleRow[];
-};
+import { useGuildOverview, useSaveModule, type ParsedModuleRow } from "@/lib/api";
 
 type FunConfig = {
   shared_cooldown_across_types: boolean;
@@ -133,9 +123,11 @@ function formatDuration(totalSeconds: number) {
 export default function FunPage() {
   const router = useRouter();
   const { guildId } = router.query;
-  const [payload, setPayload] = useState<OverviewPayload | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const gid = typeof guildId === "string" ? guildId : undefined;
+
+  const { data, isLoading, error, refetch } = useGuildOverview(gid);
+  const saveModule = useSaveModule(gid);
+
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("Save once and `/waifu` + `/husbando` will use these settings.");
   const [enabled, setEnabled] = useState(true);
@@ -143,43 +135,26 @@ export default function FunPage() {
   const [previewMode, setPreviewMode] = useState<PreviewMode>("summon");
   const [previewType, setPreviewType] = useState<PreviewType>("waifu");
 
-  const load = useCallback(async () => {
-    if (!guildId || typeof guildId !== "string") return;
-    try {
-      const response = await fetch(`/api/dashboard/guild/${guildId}/overview`);
-      if (response.status === 401) {
-        router.replace("/api/auth/discord");
-        return;
-      }
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || "Failed to load fun module");
-      setPayload(data);
-      const module = (data.modules || []).find((entry: ModuleRow) => entry.name.toLowerCase() === "fun");
-      setEnabled(module?.enabled !== false);
-      setForm(normalizeConfig((module?.config ?? {}) as Record<string, unknown>));
-      setError("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load fun module");
-    } finally {
-      setLoading(false);
-    }
-  }, [guildId, router]);
-
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!data) return;
+    const module = (data.modules ?? []).find((entry) => entry.name.toLowerCase() === "fun");
+    setEnabled(module?.enabled !== false);
+    setForm(normalizeConfig((module?.config ?? {}) as Record<string, unknown>));
+  }, [data]);
 
   const previewContext = useMemo(() => ({
     type: previewType,
     type_title: getTypeTitle(previewType),
     claimer_mention: "@claimer",
     actor_mention: "@member",
-    server_name: payload?.guild.name || "AOI Lounge",
+    server_name: data?.guild.name || "AOI Lounge",
     claimed_at: "April 15, 2026 at 10:32:14 PM",
     command_name: previewType,
     retry_after: "22m 55s",
     max_uses: String(form.max_uses_per_member),
     window_text: formatDuration(form.cooldown_window_seconds),
     dm_status: "Check your DMs.",
-  }), [form.cooldown_window_seconds, form.max_uses_per_member, payload?.guild.name, previewType]);
+  }), [form.cooldown_window_seconds, form.max_uses_per_member, data?.guild.name, previewType]);
 
   const preview = useMemo(() => {
     const mapping: Record<PreviewMode, [string, string, string]> = {
@@ -195,19 +170,13 @@ export default function FunPage() {
   }, [form, previewContext, previewMode]);
 
   const save = async () => {
-    if (!guildId || typeof guildId !== "string") return;
+    if (!gid) return;
     setSaving(true);
     setMessage("Saving fun module settings...");
     try {
-      const response = await fetch(`/api/modules/${guildId}/fun`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled, config: form }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.error || "Failed to save fun module");
+      await saveModule.mutateAsync({ moduleName: "fun", body: { enabled, config: form } });
       setMessage("Fun module settings saved.");
-      await load();
+      refetch();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Failed to save fun module");
     } finally {
@@ -215,11 +184,15 @@ export default function FunPage() {
     }
   };
 
+  const guildName = data?.guild.name || "Guild";
+  const modules = (data?.modules ?? []) as ParsedModuleRow[];
+  const layoutModules = modules as Array<{ name: string; display_name?: string; enabled?: boolean }>;
+
   return (
-    <DashboardLayout guildId={String(guildId || "")} guildName={payload?.guild.name || "Guild"} heading="Fun" modules={payload?.modules || []}>
-      {loading && <BoneyardCard lines={6} />}
-      {!loading && error && <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">{error}</div>}
-      {!loading && !error && (
+    <DashboardLayout guildId={gid ?? ""} guildName={guildName} heading="Fun" modules={layoutModules}>
+      {isLoading && <BoneyardCard lines={6} />}
+      {!isLoading && error && <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">{(error as Error).message}</div>}
+      {!isLoading && !error && (
         <div className="space-y-6">
           <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">
             <CardHeader>
@@ -295,7 +268,7 @@ export default function FunPage() {
                 <CardHeader><CardTitle>Save</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div className={`rounded-2xl border p-4 text-sm ${message.toLowerCase().includes("saved") ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200" : "border-zinc-800 bg-zinc-900/70 text-zinc-300"}`}>{message}</div>
-                  <div className="flex gap-3"><Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={load}>Reload</Button><Button type="button" className="bg-pink-600 text-white hover:bg-pink-500" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save Fun Module"}</Button></div>
+                  <div className="flex gap-3"><Button type="button" variant="outline" className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900" onClick={() => refetch()}>Reload</Button><Button type="button" className="bg-pink-600 text-white hover:bg-pink-500" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save Fun Module"}</Button></div>
                 </CardContent>
               </Card>
             </div>

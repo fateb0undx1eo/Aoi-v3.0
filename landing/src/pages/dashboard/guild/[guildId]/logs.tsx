@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
+import { useGuildOverview } from "@/lib/api";
 
 type ModuleItem = {
   name: string;
@@ -14,8 +15,8 @@ type LogEntry = {
   level: LogLevel;
   message: string;
   timestamp: string;
-  meta?: Record<string, any>;
-  context?: Record<string, any>;
+  meta?: Record<string, unknown>;
+  context?: Record<string, unknown>;
 };
 
 type LogMessage =
@@ -41,7 +42,7 @@ function formatTime(ts: string) {
   return d.toLocaleTimeString("en-US", { hour12: false });
 }
 
-function formatContext(ctx?: Record<string, any>): string {
+function formatContext(ctx?: Record<string, unknown>): string {
   if (!ctx || Object.keys(ctx).length === 0) return "";
   const pairs = Object.entries(ctx)
     .filter(([_, v]) => typeof v === "string" || typeof v === "number")
@@ -50,7 +51,7 @@ function formatContext(ctx?: Record<string, any>): string {
   return pairs ? ` [${pairs}]` : "";
 }
 
-function formatMeta(meta?: Record<string, any>): string {
+function formatMeta(meta?: Record<string, unknown>): string {
   if (!meta) return "";
   const keys = Object.keys(meta);
   if (keys.length === 0) return "";
@@ -128,7 +129,6 @@ function AutoScroller({ sentinelRef }: { sentinelRef: React.RefObject<HTMLDivEle
       >
         Bottom
       </button>
-
     </div>
   );
 }
@@ -136,6 +136,7 @@ function AutoScroller({ sentinelRef }: { sentinelRef: React.RefObject<HTMLDivEle
 export default function GuildLogsPage() {
   const router = useRouter();
   const { guildId } = router.query;
+  const gid = typeof guildId === "string" ? guildId : undefined;
 
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [connected, setConnected] = useState(false);
@@ -143,22 +144,22 @@ export default function GuildLogsPage() {
   const [modules, setModules] = useState<ModuleItem[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
 
-  useEffect(() => {
-    if (!guildId || typeof guildId !== "string") return;
-    fetch(`/api/dashboard/guild/${guildId}/overview`)
-      .then((r) => r.json())
-      .then((data) => setModules(data?.modules || []))
-      .catch(() => {});
-  }, [guildId]);
+  const { data: overviewData } = useGuildOverview(gid);
 
   useEffect(() => {
-    if (!guildId || typeof guildId !== "string") return;
+    if (overviewData?.modules) {
+      setModules(overviewData.modules as ModuleItem[]);
+    }
+  }, [overviewData]);
+
+  useEffect(() => {
+    if (!gid) return;
 
     let cancelled = false;
 
     const connect = async () => {
       try {
-        const ticketRes = await fetch(`/api/dashboard/guild/${guildId}/logs-socket-ticket`, {
+        const ticketRes = await fetch(`/api/dashboard/guild/${gid}/logs-socket-ticket`, {
           method: "POST",
         });
 
@@ -187,9 +188,7 @@ export default function GuildLogsPage() {
             } else if (msg.type === "log") {
               setLogs((prev) => [...prev, msg.entry]);
             }
-          } catch {
-            // ignore malformed messages
-          }
+          } catch { }
         };
 
         ws.onerror = () => {
@@ -211,10 +210,10 @@ export default function GuildLogsPage() {
       wsRef.current?.close();
       wsRef.current = null;
     };
-  }, [guildId]);
+  }, [gid]);
 
   return (
-    <DashboardLayout guildId={String(guildId || "")} heading="Logs" modules={modules}>
+    <DashboardLayout guildId={gid ?? ""} heading="Logs" modules={modules}>
       <div className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-700/60 dark:bg-zinc-950" style={{ height: "calc(100vh - 130px)" }}>
         <div className="relative flex items-center gap-3 border-b border-zinc-200 bg-zinc-50/90 px-4 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/90">
           <div className="flex items-center gap-2">

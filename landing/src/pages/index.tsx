@@ -150,7 +150,7 @@ function ModulesCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [pressedButton, setPressedButton] = useState<'prev' | 'next' | null>(null);
   const [cardsPerView, setCardsPerView] = useState(3);
-  const timeoutRef = useRef<NodeJS.Timeout>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const update = () => {
@@ -166,7 +166,7 @@ function ModulesCarousel() {
   useEffect(() => { setCurrentIndex(0); }, [cardsPerView]);
 
   useEffect(() => {
-    return () => clearTimeout(timeoutRef.current);
+    return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
   }, []);
 
   const totalCards = moduleCards.length;
@@ -174,14 +174,14 @@ function ModulesCarousel() {
   const handleNext = () => {
     setPressedButton('next');
     setCurrentIndex((prev) => (prev + cardsPerView) % totalCards);
-    clearTimeout(timeoutRef.current);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => setPressedButton(null), 150);
   };
 
   const handlePrev = () => {
     setPressedButton('prev');
     setCurrentIndex((prev) => (prev - cardsPerView + totalCards) % totalCards);
-    clearTimeout(timeoutRef.current);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => setPressedButton(null), 150);
   };
 
@@ -214,7 +214,7 @@ function ModulesCarousel() {
             >
               {Array.from(
                 { length: cardsPerView },
-                (_, i) => moduleCards[(currentIndex + i) % moduleCards.length]
+                (_, i) => moduleCards[(currentIndex + i) % moduleCards.length]!
               ).map((module, idx) => {
                 const Icon = module.icon;
                 const titleColor = TITLE_COLORS[idx % TITLE_COLORS.length];
@@ -265,7 +265,7 @@ function MergedReviewCard({ reviews }: { reviews: typeof trustedReviews }) {
     return () => clearInterval(interval);
   }, [reviews.length]);
 
-  const review = reviews[current];
+  const review = reviews[current]!;
   return (
     <div
       className="relative overflow-hidden w-full max-w-[280px] sm:max-w-[360px] aspect-square rounded-xl mx-auto"

@@ -130,7 +130,7 @@ const BUTTON_STYLES: Record<number, { label: string; color: string; bg: string; 
 function rgbToInt(hex: string): number {
   const h = hex.replace("#", "");
   if (h.length === 3) {
-    return Number.parseInt(h[0] + h[0] + h[1] + h[1] + h[2] + h[2], 16);
+    return Number.parseInt((h[0] ?? "") + (h[0] ?? "") + (h[1] ?? "") + (h[1] ?? "") + (h[2] ?? "") + (h[2] ?? ""), 16);
   }
   return Number.parseInt(h, 16) || 0;
 }
@@ -307,7 +307,7 @@ function DiscordMessagePreview({ entry, channelName }: { entry: AnnouncementEntr
           {entry.components.map((row, ri) => (
             <div key={ri} className="flex flex-wrap gap-2">
               {row.map((comp, ci) => {
-                const style = BUTTON_STYLES[comp.style] || BUTTON_STYLES[1];
+                const style = BUTTON_STYLES[comp.style] ?? BUTTON_STYLES[1]!;
                 if (comp.type === "button") {
                   if (comp.style === 5) {
                     return (
@@ -483,8 +483,8 @@ function ComponentEditor({ rows, onChange }: { rows: AnnouncementComponent[][]; 
   };
   const moveComponent = (fromRi: number, fromCi: number, toRi: number, toCi: number) => {
     const newRows = rows.map((r) => [...r]);
-    const [moved] = newRows[fromRi].splice(fromCi, 1);
-    newRows[toRi].splice(toCi, 0, moved);
+    const [moved] = newRows[fromRi]!.splice(fromCi, 1);
+    newRows[toRi]!.splice(toCi, 0, moved!);
     onChange(newRows);
   };
 
@@ -658,7 +658,7 @@ export default function AnnouncementsPage() {
         return { ...current, entries: [fresh] };
       }
       if (previewEntryId === entryId) {
-        setPreviewEntryId(next[0].id);
+        setPreviewEntryId(next[0]!.id);
       }
       return { ...current, entries: next };
     });
@@ -671,7 +671,7 @@ export default function AnnouncementsPage() {
       const targetIdx = direction === "up" ? idx - 1 : idx + 1;
       if (targetIdx < 0 || targetIdx >= current.entries.length) return current;
       const next = [...current.entries];
-      [next[idx], next[targetIdx]] = [next[targetIdx], next[idx]];
+      [next[idx]!, next[targetIdx]!] = [next[targetIdx]!, next[idx]!];
       return { ...current, entries: next };
     });
   }, []);
@@ -694,12 +694,12 @@ export default function AnnouncementsPage() {
     const existingIdx = presets.findIndex((p) => p.kind === kind && p.name.toLowerCase() === name.toLowerCase());
     const nextPresets = [...presets];
     const payload: AnnouncementPreset = {
-      id: existingIdx >= 0 ? nextPresets[existingIdx].id : `preset-${Date.now()}`,
+      id: existingIdx >= 0 ? nextPresets[existingIdx]!.id : `preset-${Date.now()}`,
       name,
       kind,
       form: JSON.parse(JSON.stringify(form)),
     };
-    if (existingIdx >= 0) nextPresets[existingIdx] = payload;
+    if (existingIdx >= 0) nextPresets[existingIdx]! = payload;
     else nextPresets.unshift(payload);
     setPresets(nextPresets);
     setStatus({ state: "success", text: `${kind === "template" ? "Template" : "Draft"} saved.` });

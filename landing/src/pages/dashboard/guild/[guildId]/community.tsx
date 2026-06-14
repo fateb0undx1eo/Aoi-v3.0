@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/router";
+import { useQueryClient } from "@tanstack/react-query";
+import { useGuildOverview, useGuildRoles, useGuildChannels, useGuildEmojis, useGuildMembers, useSaveModule, type OverviewPayload } from "@/lib/api";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
 import log from "@/lib/logger";
@@ -14,49 +16,6 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Palette, Users, LogIn, LogOut, Zap, Lock, Star, Shield, Save, RefreshCcw, X, ChevronDown, ImageIcon, Bot, Eye, Megaphone, Plus, Copy, GripVertical } from "lucide-react";
-
-type ModuleRow = {
-  name: string;
-  display_name?: string;
-  description?: string;
-  category?: string;
-  enabled?: boolean;
-  config?: Record<string, any>;
-};
-
-type GuildPayload = {
-  guild: Record<string, any>;
-  modules: ModuleRow[];
-};
-
-type GuildRole = {
-  id: string;
-  name: string;
-  color: number;
-  managed: boolean;
-  editable: boolean;
-  position: number;
-};
-
-type GuildChannel = {
-  id: string;
-  name: string;
-  type: number;
-};
-
-type GuildMember = {
-  id: string;
-  username: string;
-  display_name: string;
-};
-
-type GuildEmoji = {
-  id: string;
-  name: string;
-  animated: boolean;
-  mention: string;
-  url: string;
-};
 
 type RoleColorConfig = {
   enabled: boolean;
@@ -555,11 +514,24 @@ export default function CommunityPage() {
   const router = useRouter();
   const { guildId } = router.query;
 
-  const [payload, setPayload] = useState<GuildPayload | null>(null);
-  const [roles, setRoles] = useState<GuildRole[]>([]);
-  const [channels, setChannels] = useState<GuildChannel[]>([]);
-  const [emojis, setEmojis] = useState<GuildEmoji[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const saveModule = useSaveModule(guildId as string);
+
+  const { data: overviewData, isLoading: overviewLoading } = useGuildOverview(guildId as string);
+  const { data: rolesData, error: rolesError } = useGuildRoles(guildId as string);
+  const { data: channelsData, error: channelsError } = useGuildChannels(guildId as string);
+  const { data: emojisData, error: emojisError } = useGuildEmojis(guildId as string);
+
+  const roles = rolesData?.roles ?? [];
+  const channels = channelsData?.channels ?? [];
+  const emojis = emojisData?.emojis ?? [];
+
+  const [debouncedMemberQuery, setDebouncedMemberQuery] = useState("");
+  const { data: memberData, error: memberError } = useGuildMembers(
+    guildId as string,
+    dmAllOpen && dmBroadcastForm.target_mode === "member" ? debouncedMemberQuery : ""
+  );
+  const members = memberData?.members ?? [];
 
   const [botProfileOpen, setBotProfileOpen] = useState(false);
   const [memeOpen, setMemeOpen] = useState(false);
@@ -572,11 +544,6 @@ export default function CommunityPage() {
   const [rolePickerOpen, setRolePickerOpen] = useState(false);
   const [premiumRoleQuery, setPremiumRoleQuery] = useState("");
   const [premiumRolePickerOpen, setPremiumRolePickerOpen] = useState(false);
-
-  const [roleLoadMessage, setRoleLoadMessage] = useState("");
-  const [channelLoadMessage, setChannelLoadMessage] = useState("");
-  const [memberLoadMessage, setMemberLoadMessage] = useState("");
-  const [emojiLoadMessage, setEmojiLoadMessage] = useState("");
 
   const [roleColorSaving, setRoleColorSaving] = useState(false);
   const [roleColorReloading, setRoleColorReloading] = useState(false);
@@ -610,7 +577,6 @@ export default function CommunityPage() {
   const [dmWelcomerSaveState, setDmWelcomerSaveState] = useState<SaveState>("idle");
   const [dmWelcomerForm, setDmWelcomerForm] = useState<DmWelcomerConfig>(DEFAULT_DM_WELCOMER_CONFIG);
   const [memberQuery, setMemberQuery] = useState("");
-  const [members, setMembers] = useState<GuildMember[]>([]);
   const [memberPickerOpen, setMemberPickerOpen] = useState(false);
   const [dmBroadcastSending, setDmBroadcastSending] = useState(false);
   const [dmBroadcastMessage, setDmBroadcastMessage] = useState("");
@@ -637,103 +603,44 @@ export default function CommunityPage() {
   const [premiumTriggerRolePickerId, setPremiumTriggerRolePickerId] = useState("");
   const [premiumTriggerRoleQuery, setPremiumTriggerRoleQuery] = useState("");
 
-  const loadGuildData = useCallback(async () => {
-    if (!guildId || typeof guildId !== "string") return;
-
-    try {
-      const [overviewResponse, rolesResponse, channelsResponse, emojisResponse] = await Promise.all([
-        fetch(`/api/dashboard/guild/${guildId}/overview`),
-        fetch(`/api/guilds/${guildId}/roles`),
-        fetch(`/api/guilds/${guildId}/channels`),
-        fetch(`/api/guilds/${guildId}/emojis`),
-      ]);
-
-      if (overviewResponse.status === 401 || rolesResponse.status === 401 || channelsResponse.status === 401 || emojisResponse.status === 401) {
-        router.replace("/api/auth/discord");
-        return;
-      }
-
-      const overviewData = await overviewResponse.json();
-      const rolesData = await rolesResponse.json().catch(() => ({ roles: [] }));
-      const channelsData = await channelsResponse.json().catch(() => ({ channels: [] }));
-      const emojisData = await emojisResponse.json().catch(() => ({ emojis: [] }));
-
-      if (!overviewResponse.ok) {
-        throw new Error(overviewData?.error || "Failed to load guild data");
-      }
-
-      setPayload(overviewData);
-      setRoles(Array.isArray(rolesData.roles) ? rolesData.roles : []);
-      setChannels(Array.isArray(channelsData.channels) ? channelsData.channels : []);
-      setEmojis(Array.isArray(emojisData.emojis) ? emojisData.emojis : []);
-      setRoleLoadMessage(rolesResponse.ok ? "" : rolesData?.error || "Failed to load roles from the backend.");
-      setChannelLoadMessage(channelsResponse.ok ? "" : channelsData?.error || "Failed to load channels from the backend.");
-      setEmojiLoadMessage(emojisResponse.ok ? "" : emojisData?.error || "Failed to load server emojis from the backend.");
-
-      const communityModule = (overviewData.modules || []).find((module: ModuleRow) => module.name === "community");
-      const nextRoleColor = normalizeRoleColorConfig(communityModule?.config?.role_color_rotation);
-      const nextMemeAutopost = normalizeMemeAutopostConfig(communityModule?.config?.meme_autopost);
-      const nextBotLooks = normalizeBotLooksConfig(communityModule?.config?.bot_looks);
-      const nextProfileStyle = normalizeProfileStyleConfig(communityModule?.config?.profile_style);
-      const nextDmWelcomer = normalizeDmWelcomerConfig(communityModule?.config?.dm_welcomer);
-      const nextAnnouncementPresets = normalizeAnnouncementPresets(communityModule?.config?.announcements_studio);
-      const nextPremiumFeature = normalizePremiumFeatureConfig(communityModule?.config?.premium_feature_1);
-
-      setRoleColorForm(nextRoleColor);
-      setMemeForm(nextMemeAutopost);
-      setBotLooksForm(nextBotLooks);
-      setProfileStyleForm(nextProfileStyle);
-      setDmWelcomerForm(nextDmWelcomer);
-      setAnnouncementPresets(nextAnnouncementPresets);
-      setPremiumFeatureForm(nextPremiumFeature);
-      setActivePremiumPreviewId(nextPremiumFeature.triggers[0]?.id || "");
-      setExpandedPremiumTriggerIds(nextPremiumFeature.triggers.map((trigger) => trigger.id));
-      setPremiumTriggerRolePickerId("");
-      setPremiumTriggerRoleQuery("");
-      setSubredditDraft(nextMemeAutopost.subreddits.join(", "));
-    } catch (error) {
-      log.error("Failed to load guild data:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [guildId, router]);
+  const formsInitialized = useRef(false);
 
   useEffect(() => {
-    loadGuildData();
-  }, [loadGuildData]);
+    if (!overviewData) return;
+    const communityModule = overviewData.modules?.find((m) => m.name === "community");
+    if (!communityModule) return;
+    if (formsInitialized.current) return;
+    formsInitialized.current = true;
 
-  const loadMembers = useCallback(async () => {
-    if (!guildId || typeof guildId !== "string" || !dmAllOpen || dmBroadcastForm.target_mode !== "member") return;
+    const nextRoleColor = normalizeRoleColorConfig(communityModule.config?.role_color_rotation);
+    const nextMemeAutopost = normalizeMemeAutopostConfig(communityModule.config?.meme_autopost);
+    const nextBotLooks = normalizeBotLooksConfig(communityModule.config?.bot_looks);
+    const nextProfileStyle = normalizeProfileStyleConfig(communityModule.config?.profile_style);
+    const nextDmWelcomer = normalizeDmWelcomerConfig(communityModule.config?.dm_welcomer);
+    const nextAnnouncementPresets = normalizeAnnouncementPresets(communityModule.config?.announcements_studio);
+    const nextPremiumFeature = normalizePremiumFeatureConfig(communityModule.config?.premium_feature_1);
 
-    try {
-      const response = await fetch(`/api/guilds/${guildId}/members?q=${encodeURIComponent(memberQuery)}&limit=25`);
-      if (response.status === 401) {
-        router.replace("/api/auth/discord");
-        return;
-      }
-
-      const data = await response.json().catch(() => ({ members: [] }));
-      if (!response.ok) {
-        throw new Error(data?.error || "Failed to load members");
-      }
-
-      setMembers(Array.isArray(data.members) ? data.members : []);
-      setMemberLoadMessage("");
-    } catch (error) {
-      setMemberLoadMessage(error instanceof Error ? error.message : "Failed to load members");
-    }
-  }, [guildId, dmAllOpen, dmBroadcastForm.target_mode, memberQuery, router]);
+    setRoleColorForm(nextRoleColor);
+    setMemeForm(nextMemeAutopost);
+    setBotLooksForm(nextBotLooks);
+    setProfileStyleForm(nextProfileStyle);
+    setDmWelcomerForm(nextDmWelcomer);
+    setAnnouncementPresets(nextAnnouncementPresets);
+    setPremiumFeatureForm(nextPremiumFeature);
+    setActivePremiumPreviewId(nextPremiumFeature.triggers[0]?.id || "");
+    setExpandedPremiumTriggerIds(nextPremiumFeature.triggers.map((trigger) => trigger.id));
+    setSubredditDraft(nextMemeAutopost.subreddits.join(", "));
+  }, [overviewData]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      loadMembers();
+      setDebouncedMemberQuery(memberQuery);
     }, 200);
-
     return () => clearTimeout(timer);
-  }, [loadMembers]);
+  }, [memberQuery]);
 
-  const guild = payload?.guild || null;
-  const modules = payload?.modules || [];
+  const guild = overviewData?.guild ?? null;
+  const modules = overviewData?.modules ?? [];
   const communityModule = useMemo(
     () => modules.find((module) => module.name === "community"),
     [modules]
@@ -803,7 +710,7 @@ export default function CommunityPage() {
     }
 
     if (!premiumFeatureForm.triggers.some((trigger) => trigger.id === activePremiumPreviewId)) {
-      setActivePremiumPreviewId(premiumFeatureForm.triggers[0].id);
+      setActivePremiumPreviewId(premiumFeatureForm.triggers[0]!.id);
     }
   }, [activePremiumPreviewId, premiumFeatureForm.triggers]);
 
@@ -1018,29 +925,20 @@ export default function CommunityPage() {
     }
   }
 
-  async function persistCommunityConfig(nextConfig: Record<string, any>) {
-    if (!guildId || typeof guildId !== "string") return { ok: false, error: "Invalid guild id" };
-
-    const response = await fetch(`/api/modules/${guildId}/community`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+  async function saveCommunityConfig(config: Record<string, unknown>) {
+    return saveModule.mutateAsync({
+      moduleName: "community",
+      body: {
         enabled: communityModule?.enabled ?? true,
-        config: nextConfig,
-      }),
+        config,
+      },
     });
+  }
 
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      if (data?.error === "config_store_unreachable") {
-        throw new Error("The config store is temporarily unreachable. Wait a few seconds and try saving again.");
-      }
-      throw new Error(data?.error || "Failed to save community configuration");
-    }
-
-    return { ok: true };
+  async function reloadForms() {
+    if (!guildId || typeof guildId !== "string") return;
+    formsInitialized.current = false;
+    await queryClient.invalidateQueries({ queryKey: ["guild-overview", guildId] });
   }
 
   async function handleRoleColorSave() {
@@ -1051,15 +949,14 @@ export default function CommunityPage() {
     setRoleColorSaveMessage("");
 
     try {
-      await persistCommunityConfig({
+      await saveCommunityConfig({
         ...(communityModule?.config ?? {}),
         role_color_rotation: {
           ...roleColorForm,
           interval_value: clampRoleIntervalValue(roleColorForm.interval_value, roleColorForm.interval_unit),
         },
       });
-
-      await loadGuildData();
+      await reloadForms();
       setRoleColorSaveState("success");
       setRoleColorSaveMessage("Role color rotation updated successfully.");
     } catch (error) {
@@ -1077,7 +974,7 @@ export default function CommunityPage() {
     setRoleColorSaveMessage("");
 
     try {
-      await loadGuildData();
+      await reloadForms();
       setRoleColorSaveState("info");
       setRoleColorSaveMessage("Reloaded the latest role color rotation config.");
     } finally {
@@ -1093,7 +990,7 @@ export default function CommunityPage() {
     setMemeSaveMessage("");
 
     try {
-      await persistCommunityConfig({
+      await saveCommunityConfig({
         ...(communityModule?.config ?? {}),
         meme_autopost: {
           ...memeForm,
@@ -1101,8 +998,7 @@ export default function CommunityPage() {
           subreddits: sanitizeSubreddits(subredditDraft),
         },
       });
-
-      await loadGuildData();
+      await reloadForms();
       setMemeSaveState("success");
       setMemeSaveMessage("Meme autopost updated successfully.");
     } catch (error) {
@@ -1120,7 +1016,7 @@ export default function CommunityPage() {
     setMemeSaveMessage("");
 
     try {
-      await loadGuildData();
+      await reloadForms();
       setMemeSaveState("info");
       setMemeSaveMessage("Reloaded the latest meme autopost config.");
     } finally {
@@ -1136,7 +1032,7 @@ export default function CommunityPage() {
     setBotLooksSaveMessage("");
 
     try {
-      await persistCommunityConfig({
+      await saveCommunityConfig({
         ...(communityModule?.config ?? {}),
         bot_looks: {
           ...nextForm,
@@ -1145,8 +1041,7 @@ export default function CommunityPage() {
           streaming_url: nextForm.streaming_url.trim(),
         },
       });
-
-      await loadGuildData();
+      await reloadForms();
       setBotLooksSaveState("success");
       setBotLooksSaveMessage("Bot Looks saved and applied successfully.");
     } catch (error) {
@@ -1164,7 +1059,7 @@ export default function CommunityPage() {
     setBotLooksSaveMessage("");
 
     try {
-      await loadGuildData();
+      await reloadForms();
       setBotLooksSaveState("info");
       setBotLooksSaveMessage("Reloaded the latest Bot Looks config.");
     } finally {
@@ -1199,15 +1094,14 @@ export default function CommunityPage() {
         .filter((value) => Number.isFinite(value) && value >= 0 && value <= 0xffffff)
         .slice(0, 2);
 
-      await persistCommunityConfig({
+      await saveCommunityConfig({
         ...(communityModule?.config ?? {}),
         profile_style: {
           ...nextForm,
           colors,
         },
       });
-
-      await loadGuildData();
+      await reloadForms();
       setProfileStyleSaveState("success");
       setProfileStyleSaveMessage("Profile style saved and applied successfully.");
     } catch (error) {
@@ -1225,7 +1119,7 @@ export default function CommunityPage() {
     setProfileStyleSaveMessage("");
 
     try {
-      await loadGuildData();
+      await reloadForms();
       setProfileStyleSaveState("info");
       setProfileStyleSaveMessage("Reloaded the latest profile style config.");
     } finally {
@@ -1260,7 +1154,7 @@ export default function CommunityPage() {
         .filter((value) => Number.isFinite(value) && value >= 0 && value <= 0xffffff)
         .slice(0, 2);
 
-      await persistCommunityConfig({
+      await saveCommunityConfig({
         ...(communityModule?.config ?? {}),
         bot_looks: {
           ...botLooksForm,
@@ -1273,8 +1167,7 @@ export default function CommunityPage() {
           colors,
         },
       });
-
-      await loadGuildData();
+      await reloadForms();
       setBotLooksSaveState("success");
       setBotLooksSaveMessage("Bot profile saved and applied successfully.");
     } catch (error) {
@@ -1296,12 +1189,12 @@ export default function CommunityPage() {
       setBotLooksForm(DEFAULT_BOT_LOOKS_CONFIG);
       setProfileStyleForm(DEFAULT_PROFILE_STYLE_CONFIG);
       const colors: number[] = [];
-      await persistCommunityConfig({
+      await saveCommunityConfig({
         ...(communityModule?.config ?? {}),
         bot_looks: { ...DEFAULT_BOT_LOOKS_CONFIG, activity_text: "", custom_status: "", streaming_url: "" },
         profile_style: { ...DEFAULT_PROFILE_STYLE_CONFIG, colors },
       });
-      await loadGuildData();
+      await reloadForms();
       setBotLooksSaveState("success");
       setBotLooksSaveMessage("Bot profile reset to Discord defaults.");
     } finally {
@@ -1316,7 +1209,7 @@ export default function CommunityPage() {
     setBotLooksSaveMessage("");
 
     try {
-      await loadGuildData();
+      await reloadForms();
       setBotLooksSaveState("info");
       setBotLooksSaveMessage("Reloaded the latest bot profile config.");
     } finally {
@@ -1332,7 +1225,7 @@ export default function CommunityPage() {
     setDmWelcomerSaveMessage("");
 
     try {
-      await persistCommunityConfig({
+      await saveCommunityConfig({
         ...(communityModule?.config ?? {}),
         dm_welcomer: {
           ...nextForm,
@@ -1341,8 +1234,7 @@ export default function CommunityPage() {
           image_url: nextForm.image_url.trim(),
         },
       });
-
-      await loadGuildData();
+      await reloadForms();
       setDmWelcomerSaveState("success");
       setDmWelcomerSaveMessage("DM welcomer saved successfully.");
     } catch (error) {
@@ -1360,7 +1252,7 @@ export default function CommunityPage() {
     setDmWelcomerSaveMessage("");
 
     try {
-      await loadGuildData();
+      await reloadForms();
       setDmWelcomerSaveState("info");
       setDmWelcomerSaveMessage("Reloaded the latest DM welcomer config.");
     } finally {
@@ -1376,7 +1268,7 @@ export default function CommunityPage() {
     setPremiumFeatureSaveMessage("");
 
     try {
-      await persistCommunityConfig({
+      await saveCommunityConfig({
         ...(communityModule?.config ?? {}),
         premium_feature_1: {
           ...premiumFeatureForm,
@@ -1397,8 +1289,7 @@ export default function CommunityPage() {
             .filter((trigger) => trigger.trigger && trigger.response_links.length > 0),
         },
       });
-
-      await loadGuildData();
+      await reloadForms();
       setPremiumFeatureSaveState("success");
       setPremiumFeatureSaveMessage("Premium Feature #1 updated successfully.");
     } catch (error) {
@@ -1416,7 +1307,7 @@ export default function CommunityPage() {
     setPremiumFeatureSaveMessage("");
 
     try {
-      await loadGuildData();
+      await reloadForms();
       setPremiumFeatureSaveState("info");
       setPremiumFeatureSaveMessage("Reloaded the latest Premium Feature #1 config.");
     } finally {
@@ -1605,7 +1496,7 @@ export default function CommunityPage() {
   }
 
   async function persistAnnouncementPresets(nextPresets: AnnouncementPreset[]) {
-    await persistCommunityConfig({
+    await saveCommunityConfig({
       ...(communityModule?.config ?? {}),
       announcements_studio: {
         presets: nextPresets.map((preset) => ({
@@ -1616,6 +1507,7 @@ export default function CommunityPage() {
         })),
       },
     });
+    await reloadForms();
   }
 
   async function saveAnnouncementPreset(kind: AnnouncementPreset["kind"]) {
@@ -1636,8 +1528,8 @@ export default function CommunityPage() {
 
     const nextPresets = [...announcementPresets];
     if (existingIndex >= 0) {
-      nextPresets[existingIndex] = {
-        ...nextPresets[existingIndex],
+      nextPresets[existingIndex]! = {
+        ...nextPresets[existingIndex]!,
         name,
         form: normalizedForm,
       };
@@ -1719,7 +1611,7 @@ export default function CommunityPage() {
         return current;
       }
 
-      const sourceEntry = current.entries[sourceIndex];
+      const sourceEntry = current.entries[sourceIndex]!;
       const duplicate = {
         ...sourceEntry,
         id: `announcement-entry-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1750,7 +1642,7 @@ export default function CommunityPage() {
 
       const nextEntries = [...current.entries];
       const [moved] = nextEntries.splice(fromIndex, 1);
-      nextEntries.splice(toIndex, 0, moved);
+      nextEntries.splice(toIndex, 0, moved!);
 
       return {
         ...current,
@@ -1918,6 +1810,7 @@ export default function CommunityPage() {
 
     while ((match = pattern.exec(value)) !== null) {
       const [raw, name, id] = match;
+      if (!id) continue;
       if (match.index > lastIndex) {
         parts.push(value.slice(lastIndex, match.index));
       }
@@ -2044,7 +1937,7 @@ export default function CommunityPage() {
     );
   }
 
-  if (loading) {
+  if (overviewLoading) {
     return (
       <div className="space-y-4">
         <BoneyardCard lines={2} />
@@ -2245,8 +2138,8 @@ export default function CommunityPage() {
                               onChange={(event) => setMemberQuery(event.target.value)}
                               onFocus={() => setMemberPickerOpen(true)}
                             />
-                            {memberLoadMessage && (
-                              <p className="mt-2 text-xs text-red-400">{memberLoadMessage}</p>
+                            {memberError && (
+                              <p className="mt-2 text-xs text-red-400">{memberError instanceof Error ? memberError.message : "Failed to load members"}</p>
                             )}
                           </div>
                           <div className="max-h-72 overflow-y-auto p-2">
@@ -2634,8 +2527,8 @@ export default function CommunityPage() {
                             onChange={(event) => setPremiumRoleQuery(event.target.value)}
                             onFocus={() => setPremiumRolePickerOpen(true)}
                           />
-                          {roleLoadMessage && (
-                            <p className="mt-2 text-xs text-red-400">{roleLoadMessage}</p>
+                          {rolesError && (
+                            <p className="mt-2 text-xs text-red-400">{rolesError instanceof Error ? rolesError.message : "Failed to load roles"}</p>
                           )}
                         </div>
                         <div className="max-h-72 overflow-y-auto p-2">
@@ -3494,8 +3387,8 @@ export default function CommunityPage() {
                         <p className="mt-2 text-xs text-zinc-500">
                           {availableRoleCount} server roles available. Roles above the bot or managed by integrations will show as unavailable.
                         </p>
-                        {roleLoadMessage && (
-                          <p className="mt-2 text-xs text-red-400">{roleLoadMessage}</p>
+                        {rolesError && (
+                          <p className="mt-2 text-xs text-red-400">{rolesError instanceof Error ? rolesError.message : "Failed to load roles"}</p>
                         )}
                       </div>
                       <div className="max-h-72 overflow-y-auto p-2">
@@ -3685,8 +3578,8 @@ export default function CommunityPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  {channelLoadMessage && (
-                    <p className="text-xs text-red-400">{channelLoadMessage}</p>
+                  {channelsError && (
+                    <p className="text-xs text-red-400">{channelsError instanceof Error ? channelsError.message : "Failed to load channels"}</p>
                   )}
                 </div>
                 <div className="space-y-2">
