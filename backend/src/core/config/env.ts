@@ -1,7 +1,4 @@
-import dotenv from 'dotenv';
 import type { EnvConfig } from '../../types/env.js';
-
-dotenv.config();
 
 const oauthClientId = process.env.DISCORD_OAUTH_CLIENT_ID ?? process.env.DISCORD_CLIENT_ID ?? '';
 const oauthClientSecret = process.env.DISCORD_OAUTH_CLIENT_SECRET ?? process.env.DISCORD_CLIENT_SECRET ?? '';
