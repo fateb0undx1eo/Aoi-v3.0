@@ -39,9 +39,8 @@ aoi-v3/
     │   │   ├── fun/                # /waifu, /husbando
     │   │   ├── moderation/         # /case (context menu)
     │   │   ├── tickets/            # Thread-based tickets
-    │   │   ├── tools/              # /channel broadcast
-    │   │   ├── settings/           # Schema only (dashboard)
-    │   │   └── userinfo/           # /user info
+    │   │   ├── tools/              # /channel, /user info, /role editor, /point at
+    │   │   └── settings/           # Schema only (dashboard)
     │   │
     │   ├── services/               # Business logic classes
     │   ├── interactions/

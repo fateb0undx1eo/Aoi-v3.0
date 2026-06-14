@@ -26,9 +26,8 @@ src/
 │   ├── fun/                    # /waifu, /husbando
 │   ├── moderation/             # /case context menu
 │   ├── tickets/                # Thread-based ticket system
-│   ├── tools/                  # /channel broadcast + auto-responder
-│   ├── settings/               # Dashboard config schema only
-│   └── userinfo/               # /user info
+│   ├── tools/                  # /channel, /user info, /role editor, /point at, auto-responder
+│   └── settings/               # Dashboard config schema only
 ├── services/                   # Backend service classes
 ├── interactions/
 │   └── interactionRouter.js    # Slash command dispatch
