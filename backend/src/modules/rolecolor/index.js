@@ -390,9 +390,6 @@ export default {
                 previewHex3
               )
                 .addActionRowComponents(row =>
-                  row.setComponents(buildRoleSelect(interaction.user.id))
-                )
-                .addActionRowComponents(row =>
                   row.setComponents(buildActionSelect(interaction.user.id, roleId))
                 )
                 .addActionRowComponents(row =>
@@ -530,10 +527,12 @@ export default {
           if (!roleId) return R.error('Select a role first.');
 
           const hex1Raw = interaction.fields.getTextInputValue('hex1').trim();
-          const hex2Field = interaction.fields.getField('hex2');
-          const hex3Field = interaction.fields.getField('hex3');
-          const hex2Raw = hex2Field?.value?.trim() ?? '';
-          const hex3Raw = hex3Field?.value?.trim() ?? '';
+          const hex2Raw = interaction.fields.fields.has('hex2')
+            ? (interaction.fields.getTextInputValue('hex2').trim())
+            : '';
+          const hex3Raw = interaction.fields.fields.has('hex3')
+            ? (interaction.fields.getTextInputValue('hex3').trim())
+            : '';
 
           const hex1 = hex1Raw.startsWith('#') ? hex1Raw : '#' + hex1Raw;
           const hex2 = hex2Raw ? (hex2Raw.startsWith('#') ? hex2Raw : '#' + hex2Raw) : null;
@@ -581,9 +580,6 @@ export default {
               if (hex3) colorParts.push(hex3.replace('#', ''));
 
               const container = buildPreviewContainer(interaction.user.id, hex1, roleId, roleName, null, hex2, hex3)
-                .addActionRowComponents(row =>
-                  row.setComponents(buildRoleSelect(interaction.user.id))
-                )
                 .addActionRowComponents(row =>
                   row.setComponents(buildActionSelect(interaction.user.id, roleId))
                 )

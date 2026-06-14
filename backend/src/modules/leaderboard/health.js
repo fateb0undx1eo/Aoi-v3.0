@@ -88,7 +88,7 @@ export async function getLeaderboardHealth(redis) {
     if (result.last_sync) {
       const t = new Date(result.last_sync).getTime();
       if (!isNaN(t)) {
-        result.sync_staleness_ms = Date.now() - t;
+        result.last_sync_age_ms = Date.now() - t;
       }
     }
   } catch (err) {

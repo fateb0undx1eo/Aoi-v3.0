@@ -8,6 +8,10 @@ import { getLeaderboardHealth } from './health.js';
 const LEADERBOARD_CHANNEL_ID = process.env.LEADERBOARD_CHANNEL_ID?.trim() || '';
 const UPDATE_INTERVAL_MS = (Number(process.env.LEADERBOARD_UPDATE_INTERVAL_MINUTES) || 60) * 60 * 1000;
 const SYNC_INTERVAL_MS = (Number(process.env.LEADERBOARD_SYNC_INTERVAL_MINUTES) || 10) * 60 * 1000;
+const EXCLUDED_CATEGORY_IDS = (process.env.LEADERBOARD_EXCLUDED_CATEGORIES || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 const LUA_SYNC_BUCKET = `
   if redis.call('EXISTS', KEYS[2]) == 1 then
@@ -192,23 +196,29 @@ async function doResetBucket(redis, bucket) {
 function onMessage(redis, message) {
   if (message.author?.bot) return;
   if (!message.guild) return;
-  if (message.channel?.parentId === '1457403602313412706') return;
+  if (message.channel?.parentId && EXCLUDED_CATEGORY_IDS.includes(message.channel.parentId)) return;
 
   const trimmed = message.content.trim();
-  if (trimmed.length < 3) return;
-  if (/^(.)\1{4,}$/.test(trimmed)) return;
-  if (new Set(trimmed).size / trimmed.length < 0.2) return;
+  if (trimmed.length < 2) return;
+  if (/^(.)\1{9,}$/.test(trimmed)) return;
+  if (new Set(trimmed).size / trimmed.length < 0.1) return;
 
   const rawClient = redis.getClient();
-  if (!rawClient) return;
+  if (!rawClient) {
+    logger.debug('Redis client not available, message not counted');
+    return;
+  }
 
   const userId = message.author.id;
   const dedupKey = `leaderboard:dedup:${userId}`;
 
   rawClient.get(dedupKey)
     .then((lastContent) => {
-      if (lastContent === trimmed) return;
-      return rawClient.setex(dedupKey, 60, trimmed)
+      if (lastContent === trimmed) {
+        logger.debug({ userId, content: trimmed.slice(0, 50) }, 'Duplicate message skipped');
+        return;
+      }
+      return rawClient.set(dedupKey, trimmed, { EX: 60 })
         .then(() => {
           rawClient.multi()
             .incr(messagesKey('daily', userId))
@@ -218,6 +228,9 @@ function onMessage(redis, message) {
             .sAdd(activeUsersKey('weekly'), userId)
             .sAdd(activeUsersKey('monthly'), userId)
             .exec()
+            .then(() => {
+              logger.debug({ userId, content: trimmed.slice(0, 50) }, 'Message counted');
+            })
             .catch((err) => logger.warn({ err }, 'Leaderboard count pipeline failed'));
         });
     })
@@ -307,25 +320,19 @@ async function bootstrap(redis, discordClient, supabase) {
     return;
   }
 
-  let allValid = true;
   for (const key of ['leaderboard:msg:header', ...BUCKETS.map((b) => `leaderboard:msg:${b}`)]) {
     const msgId = await redis.get(key);
     if (msgId) {
       try {
         await channel.messages.fetch(msgId);
       } catch {
-        logger.warn({ key, msgId }, 'Stored message deleted, will recreate on next update');
+        logger.warn({ key, msgId }, 'Stored message deleted, will recreate on update');
         await redis.del(key).catch((err) => logger.debug({ err, key }, 'Cleanup of stale leaderboard msg key failed'));
-        allValid = false;
       }
-    } else {
-      allValid = false;
     }
   }
 
-  if (allValid) {
-    updateLeaderboard(redis, discordClient, supabase).catch((err) => logger.warn({ err }, 'Startup leaderboard update failed'));
-  }
+  updateLeaderboard(redis, discordClient, supabase).catch((err) => logger.warn({ err }, 'Startup leaderboard update failed'));
 
   const h = await redis.get('leaderboard:msg:header') || 'none';
   const d = await redis.get(leaderboardMsgKey('daily')) || 'none';
@@ -376,6 +383,11 @@ export async function initializeLeaderboardModule(options) {
 
     cronTasks.push(cron.schedule('1 0 * * *', async () => {
       const now = new Date();
+      try {
+        await withTimeout(performSync(redis, supabase), 'Pre-reset sync', 120000);
+      } catch (err) {
+        logger.error({ err }, 'Pre-reset sync failed, resetting anyway');
+      }
       await resetBucket(redis, 'daily');
       if (now.getUTCDay() === 1) await resetBucket(redis, 'weekly');
       if (now.getUTCDate() === 1) await resetBucket(redis, 'monthly');

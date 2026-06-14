@@ -133,8 +133,14 @@ async function doUpdate(redis, discordClient, supabase) {
     let rows = [];
     try {
       const { data, error } = await supabase.rpc(`get_leaderboard_${bucket}`, { p_limit: 10, p_offset: 0 });
-      if (!error && data) rows = data;
-    } catch {}
+      if (error) {
+        logger.error({ bucket, err: error }, 'Failed to fetch leaderboard data from Supabase');
+      } else if (data) {
+        rows = data;
+      }
+    } catch (err) {
+      logger.error({ bucket, err }, 'Leaderboard Supabase fetch threw');
+    }
     bucketsData[bucket] = rows;
     for (const r of rows) allIds.add(r.user_id);
   }

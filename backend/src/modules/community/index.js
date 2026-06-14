@@ -143,22 +143,7 @@ function decimalToHex(value) {
   return `#${Number(value ?? 0).toString(16).padStart(6, '0').toUpperCase()}`;
 }
 
-function findModalComponentValue(components, customId) {
-  for (const comp of components) {
-    if (comp.type === 18 && comp.component) {
-      if (comp.component.custom_id === customId) return comp.component.value;
-    }
-    if (comp.type === 1 && Array.isArray(comp.components)) {
-      for (const inner of comp.components) {
-        if (inner.custom_id === customId || inner.customId === customId) return inner.value;
-      }
-    }
-    if ((comp.custom_id === customId || comp.customId === customId) && comp.value !== undefined) {
-      return comp.value;
-    }
-  }
-  return null;
-}
+
 
 function buildProfileModal(config) {
   const fontId = String(config.font_id ?? 11);
@@ -173,10 +158,10 @@ function buildProfileModal(config) {
       {
         type: 18,
         label: 'Choose a font',
-        description: 'Select the font style for the bot\'s display name',
         component: {
-          type: 21,
+          type: 3,
           custom_id: 'profile:font',
+          placeholder: PROFILE_STYLE_FONT_CHOICES.find((f) => String(f.value) === fontId)?.name ?? 'Select a font',
           options: PROFILE_STYLE_FONT_CHOICES.map((f) => ({
             value: String(f.value),
             label: f.name,
@@ -187,7 +172,6 @@ function buildProfileModal(config) {
       {
         type: 18,
         label: 'Choose an effect',
-        description: 'Select the text effect for the bot\'s display name',
         component: {
           type: 21,
           custom_id: 'profile:effect',
@@ -204,11 +188,11 @@ function buildProfileModal(config) {
           {
             type: 4,
             custom_id: 'profile:color1',
-            label: 'Color 1 (hex)',
+            label: 'Primary Color',
             placeholder: 'FF0000',
             style: 1,
             max_length: 6,
-            required: true,
+            required: false,
             value: color1
           }
         ]
@@ -219,7 +203,7 @@ function buildProfileModal(config) {
           {
             type: 4,
             custom_id: 'profile:color2',
-            label: 'Color 2 (hex, optional)',
+            label: 'Secondary Color (for gradient only)',
             placeholder: '00FFFF',
             style: 1,
             max_length: 6,
@@ -230,12 +214,11 @@ function buildProfileModal(config) {
       },
       {
         type: 18,
-        label: 'Reset to default',
-        description: 'Check this to clear all profile style settings',
+        label: 'RESET',
         component: {
-          type: 22,
+          type: 23,
           custom_id: 'profile:reset',
-          required: false
+          default: false
         }
       }
     ]
@@ -448,7 +431,7 @@ export default {
     {
       name: 'profile',
       description: 'Manage the bot profile style for this server',
-      ephemeral: true,
+      defer: false,
       permissionOverrides: {
         discordPermissions: ['Administrator']
       },
@@ -687,13 +670,14 @@ export default {
         const { services } = context;
 
         try {
-          const components = interaction.fields?.components ?? interaction.data?.components ?? [];
+          const { fields } = interaction;
 
-          const fontValue = findModalComponentValue(components, 'profile:font');
-          const effectValue = findModalComponentValue(components, 'profile:effect');
-          const color1Raw = findModalComponentValue(components, 'profile:color1');
-          const color2Raw = findModalComponentValue(components, 'profile:color2');
-          const resetValue = findModalComponentValue(components, 'profile:reset');
+          const fontValues = fields.getStringSelectValues('profile:font');
+          const fontValue = fontValues?.[0] ?? null;
+          const effectValue = fields.getRadioGroup('profile:effect');
+          const color1Raw = fields.getTextInputValue('profile:color1');
+          const color2Raw = fields.getTextInputValue('profile:color2');
+          const resetValue = fields.getCheckbox('profile:reset');
 
           if (resetValue === true || resetValue === 'true') {
             await services.profileStyleService.clearGuildConfig(interaction.guildId);
@@ -705,12 +689,10 @@ export default {
           const parsedColor1 = color1Raw ? services.profileStyleService.parseColorInput(color1Raw) : null;
           const parsedColor2 = color2Raw ? services.profileStyleService.parseColorInput(color2Raw) : null;
 
-          if (parsedColor1 === null) return { type: 'REPLY', message: 'Invalid primary color.', ephemeral: true };
+          if (parsedColor1 === null && parsedColor2 === null) return { type: 'REPLY', message: 'Please provide at least one color.', ephemeral: true };
           if (color2Raw && parsedColor2 === null) return { type: 'REPLY', message: 'Invalid secondary color.', ephemeral: true };
 
-          const colors = effectId === 2
-            ? [parsedColor1, parsedColor2].filter((v) => v !== null)
-            : [parsedColor1];
+          const colors = [parsedColor1, parsedColor2].filter((v) => v !== null).slice(0, 2);
 
           await services.profileStyleService.updateGuildConfig(interaction.guildId, {
             enabled: true,
