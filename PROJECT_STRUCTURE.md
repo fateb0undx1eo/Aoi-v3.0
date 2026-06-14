@@ -37,7 +37,6 @@ aoi-v3/
     │   ├── modules/                # Auto-loaded — each is self-contained
     │   │   ├── community/          # 6 commands, passive features
     │   │   ├── fun/                # /waifu, /husbando
-    │   │   ├── leveling/           # /rank (canvas)
     │   │   ├── moderation/         # /case (context menu)
     │   │   ├── tickets/            # Thread-based tickets
     │   │   ├── tools/              # /channel broadcast

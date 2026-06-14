@@ -9,7 +9,6 @@ Multi-purpose Discord bot with an Express API dashboard. 14 slash/context comman
 | Command | Module | Description |
 |---|---|---|
 | `/user info` | User Info | User info panel (banner, avatar, roles, decoration, timestamps) |
-| `/rank` | Leveling | Canvas-generated rank card with XP, streak, daily/lifetime stats |
 | `/waifu` | Fun | Interactive waifu drop — Smash (claim) or Pass |
 | `/husbando` | Fun | Same as `/waifu` but for husbandos |
 | `/profile` | Community | Interactive bot profile style config (font, effect, colors) — admin only |

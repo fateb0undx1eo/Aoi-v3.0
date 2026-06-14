@@ -2,7 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'aoi-bot',
-      script: 'backend/src/main.js',
+      script: 'backend/src/main.ts',
+      interpreter: 'bun',
       autorestart: true,
       max_restarts: 10,
       restart_delay: 5000,
@@ -12,7 +13,8 @@ module.exports = {
     },
     {
       name: 'leaderboard-sync',
-      script: 'backend/src/modules/leaderboard/sync-worker.js',
+      script: 'backend/src/modules/leaderboard/sync-worker.ts',
+      interpreter: 'bun',
       autorestart: true,
       max_restarts: 10,
       restart_delay: 5000,
@@ -22,7 +24,8 @@ module.exports = {
     },
     {
       name: 'leaderboard-reset',
-      script: 'backend/src/modules/leaderboard/reset-worker.js',
+      script: 'backend/src/modules/leaderboard/reset-worker.ts',
+      interpreter: 'bun',
       autorestart: true,
       max_restarts: 10,
       restart_delay: 5000,

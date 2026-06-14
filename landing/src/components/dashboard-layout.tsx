@@ -4,11 +4,11 @@ import {
   Gamepad2,
   LayoutDashboard,
   LogOut,
-  Medal,
   Menu,
   PanelLeftOpen,
   Settings2,
   Shield,
+  Terminal,
   Users,
   Wrench,
   X,
@@ -44,7 +44,6 @@ function getModuleVisual(name = "") {
     moderation: { icon: Shield, accent: "text-orange-400", summary: "Cases, punishments, and moderation controls." },
     settings: { icon: Settings2, accent: "text-cyan-400", summary: "Guild-wide configuration and core preferences." },
     tools: { icon: Wrench, accent: "text-amber-400", summary: "Utility actions, broadcasts, and operator shortcuts." },
-    leveling: { icon: Medal, accent: "text-emerald-400", summary: "Rank cards, XP visuals, and progression styling." },
   };
 
   return visuals[key] || { icon: LayoutDashboard, accent: "text-zinc-300", summary: "Manage this module." };
@@ -211,6 +210,19 @@ export function DashboardLayout({
                   }`}
                 >
                   Overview
+                </Link>
+
+                <Link
+                  href={`/dashboard/guild/${guildId}/logs`}
+                  onClick={closeMobile}
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                    currentPath === `/dashboard/guild/${guildId}/logs`
+                      ? "bg-primary/10 font-medium text-primary"
+                      : "text-foreground/82 hover:bg-background/72 hover:text-foreground"
+                  }`}
+                >
+                  <Terminal className="h-4 w-4" />
+                  Logs
                 </Link>
 
                 {hasModules && (

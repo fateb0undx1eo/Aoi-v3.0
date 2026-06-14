@@ -24,7 +24,6 @@ src/
 ├── modules/
 │   ├── community/              # 6 commands + passive features
 │   ├── fun/                    # /waifu, /husbando
-│   ├── leveling/               # /rank with canvas card
 │   ├── moderation/             # /case context menu
 │   ├── tickets/                # Thread-based ticket system
 │   ├── tools/                  # /channel broadcast + auto-responder
