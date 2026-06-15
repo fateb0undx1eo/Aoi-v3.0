@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import type { Client } from 'discord.js';
 import { requireGuildAccess } from '../middleware/requireGuildAccess.js';
+import { rateLimiter } from '../middleware/rateLimiter.js';
 import { logger } from '../../utils/logger.js';
 import type { BotContext } from '../../types/index.js';
 import type { AccessControlService } from '../../services/accessControlService.js';
@@ -19,6 +20,9 @@ export function createModerationRoutes({ moderationService, accessControlService
   });
 
   router.use('/:guildId/*', requireGuildAccess(accessControlService));
+
+  router.use('/:guildId/cases', rateLimiter({ windowMs: 60_000, maxRequests: 20, keyPrefix: 'mod_cases' }));
+  router.use('/:guildId/revoke', rateLimiter({ windowMs: 60_000, maxRequests: 10, keyPrefix: 'mod_revoke' }));
 
   router.get('/:guildId/config', async (req: Request, res: Response, next: NextFunction) => {
     try {

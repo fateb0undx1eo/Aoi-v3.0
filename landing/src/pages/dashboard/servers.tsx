@@ -1,8 +1,8 @@
 import Link from "next/link";
+import Image from "next/image";
 import { useMemo } from "react";
 import { useRouter } from "next/router";
 import { ChevronRight, RefreshCcw, ShieldAlert } from "lucide-react";
-import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
 import { useGuilds } from "@/lib/api";
 
 type GuildItem = {
@@ -71,13 +71,7 @@ export default function DashboardServerPicker() {
           </div>
         )}
 
-        {isLoading && (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <BoneyardCard key={index} lines={3} />
-            ))}
-          </div>
-        )}
+
 
         {!isLoading && error && (
           <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">{(error as Error).message}</div>
@@ -97,7 +91,7 @@ export default function DashboardServerPicker() {
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
                         {guildIconUrl(guild) ? (
-                          <img src={guildIconUrl(guild) ?? ""} alt={guild.name} className="h-12 w-12 rounded-xl border border-border/70" />
+                          <Image src={guildIconUrl(guild) ?? ""} alt={guild.name} width={48} height={48} className="rounded-xl border border-border/70" />
                         ) : (
                           <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border/70 bg-background/70 text-lg font-semibold">
                             {guild.name.slice(0, 1).toUpperCase()}
@@ -131,7 +125,7 @@ export default function DashboardServerPicker() {
                     <article key={guild.id} className="dashboard-panel-soft rounded-[28px] p-5">
                       <div className="flex items-center gap-3">
                         {guildIconUrl(guild) ? (
-                          <img src={guildIconUrl(guild) ?? ""} alt={guild.name} className="h-12 w-12 rounded-xl border border-border/70" />
+                          <Image src={guildIconUrl(guild) ?? ""} alt={guild.name} width={48} height={48} className="rounded-xl border border-border/70" />
                         ) : (
                           <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border/70 bg-background/70 text-lg font-semibold">
                             {guild.name.slice(0, 1).toUpperCase()}

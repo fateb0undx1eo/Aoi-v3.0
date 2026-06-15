@@ -109,6 +109,31 @@ export function buildWarningPayload(message: string) {
   };
 }
 
+export function buildBlacklistListPayload(entries: any[], guildName: string) {
+  const lines = entries.map((e: any, i: number) =>
+    `${i + 1}. <@${e.user_id}> — added by <@${e.added_by}> · <t:${Math.floor(new Date(e.created_at).getTime() / 1000)}:R>`
+  );
+
+  const content = lines.join('\n').slice(0, 3800);
+
+  return {
+    components: [
+      {
+        type: 17,
+        components: [
+          { type: 10, content: `# Ticket Blacklist — ${escapeFormatting(guildName)}` },
+          { type: 10, content: `**${entries.length} user(s)** are blocked from opening tickets.` },
+          { type: 10, content }
+        ]
+      }
+    ]
+  };
+}
+
+function escapeFormatting(text: string): string {
+  return text.replace(/\\(?!\s)/g, '\\\\').replace(/[_~*|]/g, '\\$&');
+}
+
 export default {
   buildTicketPanelPayload,
   buildTicketWelcomePayload,

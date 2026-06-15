@@ -19,12 +19,10 @@ type ReconciliationResult = ReconciliationSuccess | ReconciliationFailure;
 export class ReconciliationService {
   private redis: RedisClient;
   private repo: TicketRepository;
-  private client: any;
 
-  constructor(redis: RedisClient, ticketRepository: TicketRepository, discordClient: any) {
+  constructor(redis: RedisClient, ticketRepository: TicketRepository) {
     this.redis = redis;
     this.repo = ticketRepository;
-    this.client = discordClient;
   }
 
   async runReconciliation(): Promise<ReconciliationResult> {

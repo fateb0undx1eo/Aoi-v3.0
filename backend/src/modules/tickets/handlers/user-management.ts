@@ -7,14 +7,17 @@ import { isTicketStaffLike } from '../utils/permissions.js';
 import { CUSTOM_IDS, ERROR_MESSAGES } from '../utils/constants.js';
 import type TicketRepository from '../repositories/ticket-repository.js';
 import type DiscordRestService from '../services/discord-rest-service.js';
+import type GuildConfigService from '../services/guild-config-service.js';
 
 export class UserManagementHandler {
   private ticketRepo: TicketRepository;
   private discordRest: DiscordRestService;
+  private guildConfig: GuildConfigService;
 
-  constructor(ticketRepository: TicketRepository, discordRestService: DiscordRestService) {
+  constructor(ticketRepository: TicketRepository, discordRestService: DiscordRestService, guildConfig: GuildConfigService) {
     this.ticketRepo = ticketRepository;
     this.discordRest = discordRestService;
+    this.guildConfig = guildConfig;
   }
 
   async handleAddUserButton(interaction: any, threadId: string): Promise<InteractionResult> {
@@ -26,7 +29,8 @@ export class UserManagementHandler {
       return { type: 'REPLY', message: '❌ ' + ERROR_MESSAGES.NOT_IN_THREAD, ephemeral: true };
     }
 
-    if (!isTicketStaffFromInteraction(interaction)) {
+    const config = await this.guildConfig.getConfig(interaction.guildId);
+    if (!isTicketStaffFromInteraction(interaction, config.staffRoleIds)) {
       return { type: 'REPLY', message: '❌ ' + ERROR_MESSAGES.NOT_STAFF, ephemeral: true };
     }
 
@@ -52,7 +56,8 @@ export class UserManagementHandler {
       return { type: 'REPLY', message: '❌ ' + ERROR_MESSAGES.NOT_IN_THREAD, ephemeral: true };
     }
 
-    if (!isTicketStaffFromInteraction(interaction)) {
+    const config = await this.guildConfig.getConfig(interaction.guildId);
+    if (!isTicketStaffFromInteraction(interaction, config.staffRoleIds)) {
       return { type: 'REPLY', message: '❌ ' + ERROR_MESSAGES.NOT_STAFF, ephemeral: true };
     }
 
@@ -86,7 +91,8 @@ export class UserManagementHandler {
             return { type: 'EDIT_REPLY', content: '❌ ' + ERROR_MESSAGES.INVALID_STATE };
           }
 
-          if (!isTicketStaffFromInteraction(interaction)) {
+          const config = await this.guildConfig.getConfig(interaction.guildId);
+          if (!isTicketStaffFromInteraction(interaction, config.staffRoleIds)) {
             return { type: 'EDIT_REPLY', content: '❌ ' + ERROR_MESSAGES.NOT_STAFF };
           }
 
@@ -140,7 +146,8 @@ export class UserManagementHandler {
             return { type: 'EDIT_REPLY', content: '❌ ' + ERROR_MESSAGES.INVALID_STATE };
           }
 
-          if (!isTicketStaffFromInteraction(interaction)) {
+          const config = await this.guildConfig.getConfig(interaction.guildId);
+          if (!isTicketStaffFromInteraction(interaction, config.staffRoleIds)) {
             return { type: 'EDIT_REPLY', content: '❌ ' + ERROR_MESSAGES.NOT_STAFF };
           }
 
@@ -150,7 +157,7 @@ export class UserManagementHandler {
           }
 
           const member = await guild.members.fetch(removeUserId).catch(() => null);
-          if (member && isTicketStaffLike(member, guild, removeUserId)) {
+          if (member && isTicketStaffLike(member, guild, removeUserId, config.staffRoleIds)) {
             return { type: 'EDIT_REPLY', content: '❌ ' + ERROR_MESSAGES.CANNOT_REMOVE_STAFF(removeUserId) };
           }
 

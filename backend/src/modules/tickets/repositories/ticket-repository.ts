@@ -191,6 +191,36 @@ export class TicketRepository {
     }
   }
 
+  async isBlacklisted(guildId: string, userId: string): Promise<boolean> {
+    try {
+      const rows = await this.db.fetchMany('ticket_blacklist', (table: any) =>
+        table.select('id').eq('guild_id', guildId).eq('user_id', userId).limit(1)
+      );
+      return rows && rows.length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  async addToBlacklist(guildId: string, userId: string, addedBy: string): Promise<void> {
+    await this.db.fetchMany('ticket_blacklist', (table: any) =>
+      table.insert({ guild_id: guildId, user_id: userId, added_by: addedBy }).select().limit(1)
+    );
+  }
+
+  async removeFromBlacklist(guildId: string, userId: string): Promise<void> {
+    await this.db.fetchMany('ticket_blacklist', (table: any) =>
+      table.delete().eq('guild_id', guildId).eq('user_id', userId)
+    );
+  }
+
+  async getBlacklist(guildId: string): Promise<string[]> {
+    const rows = await this.db.fetchMany('ticket_blacklist', (table: any) =>
+      table.select('user_id, added_by, created_at').eq('guild_id', guildId).order('created_at', { ascending: false })
+    );
+    return rows || [];
+  }
+
   async deleteResolvedOlderThan(daysOld: number = 90): Promise<number> {
     try {
       const cutoff = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000).toISOString();

@@ -11,7 +11,8 @@ export const REDIS_KEYS = {
   lock: (resourceName: string) => `${PREFIX}:lock:${resourceName}`,
   metrics: (type: string, period: string) => `${PREFIX}:metrics:${type}:${period}`,
   reconciliationLastRun: () => `${PREFIX}:reconciliation:last_run`,
-  blacklist: (userId: string) => `${PREFIX}:blacklist:${userId}`
+  blacklist: (guildId: string, userId: string) => `${PREFIX}:blacklist:${guildId}:${userId}`,
+  blacklistSet: (guildId: string) => `${PREFIX}:blacklist:${guildId}`
 } as const;
 
 export const KEY_TTLS = {

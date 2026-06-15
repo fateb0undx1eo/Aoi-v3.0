@@ -418,13 +418,16 @@ export class DmBroadcastService {
       throw new Error('Guild not found for queued DM broadcast.');
     }
 
-    const members: GuildMember[] = [];
-    for (const memberId of memberIds ?? []) {
-      const member = guild.members.cache.get(memberId) ?? await guild.members.fetch(memberId).catch(() => null);
-      if (member && !member.user?.bot) {
-        members.push(member);
-      }
-    }
+    const results = await Promise.allSettled(
+      (memberIds ?? []).map(async (memberId) => {
+        const member = guild.members.cache.get(memberId) ?? await guild.members.fetch(memberId).catch(() => null);
+        return member && !member.user?.bot ? member : null;
+      })
+    );
+    const members: GuildMember[] = results
+      .filter((r): r is PromiseFulfilledResult<GuildMember | null> => r.status === 'fulfilled')
+      .map((r) => r.value)
+      .filter((m): m is GuildMember => m !== null);
 
     await this.runJob(jobId, members, payload);
   }

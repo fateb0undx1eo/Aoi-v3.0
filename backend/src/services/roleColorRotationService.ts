@@ -258,13 +258,13 @@ export class RoleColorRotationService {
 
     const nextColors = generateDistinctColors(roles.length);
 
-    for (let index = 0; index < roles.length; index += 1) {
-      const role = roles[index]!;
-      const color = nextColors[index]!;
-      await role.setColor(color, 'Randomized role color rotation').catch((error) => {
-        logger.warn(`Failed to update color for role ${role.id} in guild ${guildId}`, error);
-      });
-    }
+    await Promise.allSettled(
+      roles.map((role, index) =>
+        role.setColor(nextColors[index]!, 'Randomized role color rotation').catch((error) => {
+          logger.warn(`Failed to update color for role ${role.id} in guild ${guildId}`, error);
+        })
+      )
+    );
 
     return { changed: roles.length, skipped: false };
   }

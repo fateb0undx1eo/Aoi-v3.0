@@ -1,16 +1,16 @@
 import { PermissionFlagsBits } from 'discord.js';
 import { TICKET_STAFF_ROLE_IDS } from './constants.js';
 
-export function isTicketStaffLike(member: any, guild: any, userId: string): boolean {
+export function isTicketStaffLike(member: any, guild: any, userId: string, staffRoleIds: string[]): boolean {
   if (!member || !guild || !userId) return false;
   if (guild.ownerId === userId) return true;
   if (member.permissions?.has(PermissionFlagsBits.Administrator)) return true;
-  return TICKET_STAFF_ROLE_IDS.some((roleId) => member.roles?.cache?.has(roleId));
+  return staffRoleIds.some((roleId) => member.roles?.cache?.has(roleId));
 }
 
-export function isTicketStaffFromInteraction(interaction: any): boolean {
+export function isTicketStaffFromInteraction(interaction: any, staffRoleIds?: string[]): boolean {
   if (!interaction.inGuild()) return false;
-  return isTicketStaffLike(interaction.member, interaction.guild, interaction.user?.id);
+  return isTicketStaffLike(interaction.member, interaction.guild, interaction.user?.id, staffRoleIds || TICKET_STAFF_ROLE_IDS);
 }
 
 export function isAdminOrOwnerFromInteraction(interaction: any): boolean {
@@ -19,8 +19,9 @@ export function isAdminOrOwnerFromInteraction(interaction: any): boolean {
   return interaction.memberPermissions?.has?.(PermissionFlagsBits.Administrator);
 }
 
-export async function requireTicketStaff(interaction: any): Promise<boolean> {
-  if (isTicketStaffFromInteraction(interaction)) return true;
+export async function requireTicketStaff(interaction: any, staffRoleIds?: string[]): Promise<boolean> {
+  const roles = staffRoleIds || TICKET_STAFF_ROLE_IDS;
+  if (isTicketStaffLike(interaction.member, interaction.guild, interaction.user?.id, roles)) return true;
 
   const payload = { content: 'You are not allowed to use ticket commands.' };
   if (interaction.deferred || interaction.replied) {

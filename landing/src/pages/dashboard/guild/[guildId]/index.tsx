@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import {
@@ -21,7 +22,6 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
-import { BoneyardCard, BoneyardHeroCard } from "@/components/ui/boneyard-skeleton";
 import { useGuildOverview, type OverviewPayload } from "@/lib/api";
 
 type AnalyticsRow = {
@@ -283,22 +283,7 @@ export default function GuildOverviewPage() {
 
   return (
     <DashboardLayout guildId={gid ?? ""} guildName={guild?.name || "Guild"} heading="Overview" modules={layoutModules}>
-      {isLoading && (
-        <div className="space-y-6">
-          <BoneyardHeroCard />
-          <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <BoneyardCard key={index} lines={2} />
-            ))}
-          </section>
-          <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-            <BoneyardCard lines={6} />
-            <BoneyardCard lines={5} />
-          </section>
-        </div>
-      )}
-
-      {!isLoading && error && (
+      {error && (
         <div className="rounded-[24px] border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">
           {(error as Error).message}
         </div>
@@ -311,10 +296,12 @@ export default function GuildOverviewPage() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex items-center gap-4">
                   {guildIconUrl(guild) ? (
-                    <img
+                    <Image
                       src={guildIconUrl(guild) ?? ""}
                       alt={guild.name}
-                      className="h-16 w-16 rounded-2xl border border-border/70 object-cover"
+                      width={64}
+                      height={64}
+                      className="rounded-2xl border border-border/70 object-cover"
                     />
                   ) : (
                     <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border/70 bg-primary/12 text-2xl font-bold text-primary">

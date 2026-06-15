@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
-import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
 import {
   Megaphone, Plus, Copy, Trash2, ChevronDown, ChevronUp,
   Send, Save, X, Palette, Eye, ExternalLink, Check, Bot, Globe, Webhook,
@@ -69,9 +68,9 @@ export default function GuildAnnouncementsPage() {
     (async () => {
       try {
         const [ovRes, chRes, emRes] = await Promise.all([
-          fetch(`/api/dashboard/guild/${guildId}/overview`),
-          fetch(`/api/guilds/${guildId}/channels`),
-          fetch(`/api/guilds/${guildId}/emojis`),
+          fetch(`/api/backend/dashboard/guild/${guildId}/overview`),
+          fetch(`/api/backend/guilds/${guildId}/channels`),
+          fetch(`/api/backend/guilds/${guildId}/emojis`),
         ]);
         if ([ovRes.status, chRes.status, emRes.status].some((s) => s === 401)) { router.replace("/api/auth/discord"); return; }
         const ov = await ovRes.json();
@@ -194,7 +193,7 @@ export default function GuildAnnouncementsPage() {
     setPresets(next);
     try {
       const communityModule = modules.find((m) => m.name === "community");
-      await fetch(`/api/modules/${guildId}/community`, {
+      await fetch(`/api/backend/modules/${guildId}/community`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           enabled: communityModule?.enabled ?? true,
@@ -217,7 +216,7 @@ export default function GuildAnnouncementsPage() {
     setPresets(next);
     try {
       const communityModule = modules.find((m) => m.name === "community");
-      await fetch(`/api/modules/${guildId}/community`, {
+      await fetch(`/api/backend/modules/${guildId}/community`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           enabled: communityModule?.enabled ?? true,
@@ -313,7 +312,7 @@ export default function GuildAnnouncementsPage() {
         });
         res = await fetch(`${getBackendApiUrl()}/api/guilds/${guildId}/announcements`, { method: "POST", body: fd, credentials: "include" });
       } else {
-        res = await fetch(`/api/guilds/${guildId}/announcements`, {
+        res = await fetch(`/api/backend/guilds/${guildId}/announcements`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
@@ -325,14 +324,6 @@ export default function GuildAnnouncementsPage() {
       setStatus({ state: "error", text: err instanceof Error ? err.message : "Failed to send" });
     }
   }, [guildId, data, selectedChannelIds]);
-
-  if (loading) {
-    return (
-      <DashboardLayout guildId={String(guildId || "")} guildName="Guild" heading="Announcements" modules={[]}>
-        <BoneyardCard lines={6} />
-      </DashboardLayout>
-    );
-  }
 
   const msg = message?.data;
 

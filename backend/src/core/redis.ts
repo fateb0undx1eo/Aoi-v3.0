@@ -88,7 +88,7 @@ class RedisClientImpl implements RedisClient {
         lazyConnect: true,
         ...(isRenderRedis && {
           tls: {},
-          rejectUnauthorized: false
+          rejectUnauthorized: true
         })
       });
 
@@ -618,29 +618,5 @@ class RedisClientImpl implements RedisClient {
 }
 
 export const redisClient = new RedisClientImpl();
-
-let initialized = false;
-
-async function initializeRedis(): Promise<void> {
-  if (initialized) {
-    logger.info('Redis already initialized, skipping...');
-    return;
-  }
-
-  initialized = true;
-
-  try {
-    const connected = await redisClient.connect();
-    if (connected) {
-      logger.info('Redis initialized successfully');
-    } else if (redisClient.connectionFailed) {
-      logger.info('Redis unavailable - running without cache features');
-    } else {
-      logger.info('Redis connection pending...');
-    }
-  } catch (error) {
-    logger.error('Redis initialization error:', (error as Error).message);
-  }
-}
 
 export default redisClient;

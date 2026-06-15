@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS ticket_user_actions (
   performed_by TEXT NOT NULL,
   performed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-  CONSTRAINT ticket_user_actions_target_user_id_valid CHECK (target_user_id ~ '^\d{16,20}$'),
-  CONSTRAINT ticket_user_actions_performed_by_valid CHECK (performed_by ~ '^\d{16,20}$')
+  CONSTRAINT ticket_user_actions_target_user_id_valid CHECK (target_user_id ~ '^\d{17,19}$'),
+  CONSTRAINT ticket_user_actions_performed_by_valid CHECK (performed_by ~ '^\d{17,19}$')
 );
 
 CREATE INDEX IF NOT EXISTS idx_ticket_user_actions_thread_id

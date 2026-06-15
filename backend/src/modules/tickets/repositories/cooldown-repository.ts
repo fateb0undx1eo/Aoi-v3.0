@@ -102,7 +102,13 @@ export class CooldownRepository {
   async getAllActiveCooldowns(): Promise<Array<{ userId: string; closedAt: number }>> {
     try {
       const pattern = REDIS_KEYS.cooldown('*');
-      const keys = await this.redis.keys(pattern);
+      const keys: string[] = [];
+      let cursor = '0';
+      do {
+        const result = await (this.redis as any).scan(cursor, { match: pattern, count: 100 });
+        cursor = result[0];
+        keys.push(...result[1]);
+      } while (cursor !== '0');
 
       if (keys.length === 0) {
         return [];
@@ -126,7 +132,13 @@ export class CooldownRepository {
   async clearAllCooldowns(): Promise<number> {
     try {
       const pattern = REDIS_KEYS.cooldown('*');
-      const keys = await this.redis.keys(pattern);
+      const keys: string[] = [];
+      let cursor = '0';
+      do {
+        const result = await (this.redis as any).scan(cursor, { match: pattern, count: 100 });
+        cursor = result[0];
+        keys.push(...result[1]);
+      } while (cursor !== '0');
 
       if (keys.length === 0) {
         return 0;

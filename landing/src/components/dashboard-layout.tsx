@@ -16,6 +16,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { AnimatedThemeToggle } from "@/components/ui/animated-theme-toggle";
+import { useDashboardStore } from "@/lib/dashboard-store";
 
 type ModuleItem = {
   name: string;
@@ -57,15 +58,16 @@ export function DashboardLayout({
   modules = [],
 }: DashboardLayoutProps) {
   const router = useRouter();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const sidebarOpen = useDashboardStore((state) => state.sidebarOpen);
+  const setSidebarOpen = useDashboardStore((state) => state.setSidebarOpen);
   const [closing, setClosing] = useState(false);
   const ANIMATION_DURATION = 250;
 
   function closeMobile() {
-    if (!mobileOpen) return;
+    if (!sidebarOpen) return;
     setClosing(true);
     setTimeout(() => {
-      setMobileOpen(false);
+      setSidebarOpen(false);
       setClosing(false);
     }, ANIMATION_DURATION);
   }
@@ -73,11 +75,11 @@ export function DashboardLayout({
   function toggleMobile() {
     if (closing) {
       setClosing(false);
-      setMobileOpen(true);
-    } else if (mobileOpen) {
+      setSidebarOpen(true);
+    } else if (sidebarOpen) {
       closeMobile();
     } else {
-      setMobileOpen(true);
+      setSidebarOpen(true);
     }
   }
 
@@ -85,11 +87,11 @@ export function DashboardLayout({
   const currentPath = useMemo(() => router.asPath.split("?")[0], [router.asPath]);
 
   useEffect(() => {
-    setMobileOpen(false);
+    setSidebarOpen(false);
   }, [currentPath]);
 
   useEffect(() => {
-    if (!mobileOpen) return;
+    if (!sidebarOpen) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -99,7 +101,7 @@ export function DashboardLayout({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [mobileOpen]);
+  }, [sidebarOpen]);
 
   const moduleLinks = useMemo(
     () =>
@@ -171,7 +173,7 @@ export function DashboardLayout({
       </header>
 
       <div className="relative mx-auto flex max-w-[96rem] gap-6 px-4 pb-8 pt-6 sm:px-6 lg:px-8">
-        {(mobileOpen || closing) && (
+        {(sidebarOpen || closing) && (
           <>
             <button
               type="button"
@@ -266,7 +268,7 @@ export function DashboardLayout({
           </>
         )}
 
-        <main className="min-w-0 flex-1">
+        <main className="flex min-w-0 flex-1 flex-col">
           <div className="mb-6">
             <h1 className="text-2xl font-semibold text-foreground">{heading}</h1>
           </div>

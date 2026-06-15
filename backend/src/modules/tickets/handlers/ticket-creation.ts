@@ -6,16 +6,13 @@ import { generateThreadName, addStaffMembersToThread, buildTicketMentions, hasOp
 import { CooldownError } from '../utils/error-handler.js';
 import {
   ERROR_MESSAGES,
-  AUTO_ARCHIVE_24H,
-  TICKET_LOG_CHANNEL_ID,
-  TICKET_STAFF_ROLE_IDS,
-  ADD_STAFF_MEMBERS_TO_THREAD,
   getTicketColor
 } from '../utils/constants.js';
 import type TicketService from '../services/ticket-service.js';
-import type LockService from '../services/lock-service.js';
 import type DiscordRestService from '../services/discord-rest-service.js';
 import type WebhookService from '../services/webhook-service.js';
+import type GuildConfigService from '../services/guild-config-service.js';
+import type BlacklistService from '../services/blacklist-service.js';
 import type { TicketTag } from '../utils/constants.js';
 
 const R = {
@@ -24,23 +21,26 @@ const R = {
 
 export class TicketCreationHandler {
   private ticketService: TicketService;
-  private lockService: LockService;
   private discordRest: DiscordRestService;
   private webhookService: WebhookService;
   private discordClient: any;
+  private guildConfig: GuildConfigService;
+  private blacklistService: BlacklistService;
 
   constructor(
     ticketService: TicketService,
-    lockService: LockService,
     discordRestService: DiscordRestService,
     webhookService: WebhookService,
-    discordClient: any
+    discordClient: any,
+    guildConfig: GuildConfigService,
+    blacklistService: BlacklistService
   ) {
     this.ticketService = ticketService;
-    this.lockService = lockService;
     this.discordRest = discordRestService;
     this.webhookService = webhookService;
     this.discordClient = discordClient;
+    this.guildConfig = guildConfig;
+    this.blacklistService = blacklistService;
   }
 
   async handleTicketCreation(interaction: any, tag: TicketTag): Promise<InteractionResult> {
@@ -50,10 +50,17 @@ export class TicketCreationHandler {
         return R.editReply(ERROR_MESSAGES.NO_PANEL_CHANNEL);
       }
 
+      const config = await this.guildConfig.getConfig(interaction.guildId);
+
+      const isBlacklisted = await this.blacklistService.isBlacklisted(interaction.guildId, user.id);
+      if (isBlacklisted) {
+        return R.editReply(ERROR_MESSAGES.BLACKLISTED);
+      }
+
       const isAdminOrOwner = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) || interaction.guild?.ownerId === user.id;
       if (!isAdminOrOwner) {
         try {
-          await (this.ticketService as any).cooldownService.checkCooldown(user.id);
+          await this.ticketService.checkCooldown(user.id);
         } catch (error) {
           if (error instanceof CooldownError) {
             return R.editReply(error.message);
@@ -76,7 +83,7 @@ export class TicketCreationHandler {
       const thread = await channel.threads.create({
         name: generateThreadName(tag.namePrefix),
         type: ChannelType.PrivateThread,
-        autoArchiveDuration: AUTO_ARCHIVE_24H,
+        autoArchiveDuration: config.autoArchive24h,
         invitable: false,
         reason: `Ticket created by ${user.id} (${tag.value})`
       }).catch(() => null);
@@ -90,9 +97,7 @@ export class TicketCreationHandler {
         return R.editReply(ERROR_MESSAGES.ADD_USER_FAILED);
       }
 
-      this.setupThreadAsync(thread, user.id, tag).catch((error) => {
-        logger.error('Ticket thread setup failed', { threadId: thread.id, error: (error as Error).message });
-      });
+      await this.setupThreadAsync(thread, user.id, tag, config);
 
       return R.editReply(`Ticket created: <#${thread.id}>`);
     } catch (error) {
@@ -101,16 +106,16 @@ export class TicketCreationHandler {
     }
   }
 
-  async setupThreadAsync(thread: any, creatorId: string, tag: TicketTag): Promise<void> {
-    if (ADD_STAFF_MEMBERS_TO_THREAD) {
-      await addStaffMembersToThread(thread).catch((error) => {
+  async setupThreadAsync(thread: any, creatorId: string, tag: TicketTag, config: any): Promise<void> {
+    if (config.addStaffToThread) {
+      await addStaffMembersToThread(thread, config.staffRoleIds).catch((error: any) => {
         logger.warn('Failed adding staff members', { error: (error as Error).message, threadId: thread.id });
       });
     }
 
     await thread.send({
-      content: buildTicketMentions(creatorId),
-      allowedMentions: { users: [creatorId], roles: TICKET_STAFF_ROLE_IDS }
+      content: buildTicketMentions(creatorId, config.staffRoleIds),
+      allowedMentions: { users: [creatorId], roles: config.staffRoleIds }
     }).catch(() => null);
 
     await thread.send(buildTicketWelcomePayload(tag, creatorId)).catch(() => null);
@@ -125,11 +130,11 @@ export class TicketCreationHandler {
       createdAt: new Date()
     }).catch(() => null);
 
-    await this.sendCreatedLog(thread, creatorId, tag.label);
+    await this.sendCreatedLog(thread, creatorId, tag.label, config);
   }
 
-  async sendCreatedLog(thread: any, creatorId: string, tagLabel: string): Promise<void> {
-    const logChannel = await this.discordClient.channels.fetch(TICKET_LOG_CHANNEL_ID).catch(() => null);
+  async sendCreatedLog(thread: any, creatorId: string, tagLabel: string, config: any): Promise<void> {
+    const logChannel = await this.discordClient.channels.fetch(config.logChannelId).catch(() => null);
     if (!logChannel) return;
 
     const webhook = await this.webhookService.getOrCreateLogWebhook(logChannel).catch(() => null);

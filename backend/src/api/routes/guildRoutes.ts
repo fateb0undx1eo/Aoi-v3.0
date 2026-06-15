@@ -4,6 +4,7 @@ import multer from 'multer';
 import type { Client } from 'discord.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { requireGuildAccess } from '../middleware/requireGuildAccess.js';
+import { rateLimiter } from '../middleware/rateLimiter.js';
 import type { BotContext } from '../../types/index.js';
 import type { AuthService } from '../../services/authService.js';
 import type { AccessControlService } from '../../services/accessControlService.js';
@@ -34,6 +35,8 @@ export function createGuildRoutes({ guildService, accessControlService, client, 
   });
 
   router.use('/:guildId/*', requireGuildAccess(accessControlService));
+
+  router.use('/:guildId/dm-broadcast', rateLimiter({ windowMs: 300_000, maxRequests: 5, keyPrefix: 'dm_broadcast' }));
 
   router.get('/:guildId/overview', async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -105,7 +108,12 @@ export function createGuildRoutes({ guildService, accessControlService, client, 
         return res.status(404).json({ error: 'Guild not found' });
       }
 
-      await guild.emojis.fetch().catch(() => {});
+      const now = Date.now();
+      const lastFetch = (guild as any)._lastEmojisFetch || 0;
+      if (now - lastFetch > 120000) {
+        (guild as any)._lastEmojisFetch = now;
+        await guild.emojis.fetch().catch(() => {});
+      }
 
       const emojis = guild.emojis.cache
         .map((emoji: any) => ({
@@ -134,7 +142,10 @@ export function createGuildRoutes({ guildService, accessControlService, client, 
       const query = String(req.query.q ?? '').trim().toLowerCase();
       const limit = Math.min(50, Math.max(1, Number.parseInt(String(req.query.limit ?? '25'), 10) || 25));
 
-      if (guild.memberCount <= 1000 && guild.members.cache.size < guild.memberCount) {
+      const now = Date.now();
+      const lastFetch = (guild as any)._lastMembersFetch || 0;
+      if (guild.memberCount <= 1000 && guild.members.cache.size < guild.memberCount && now - lastFetch > 60000) {
+        (guild as any)._lastMembersFetch = now;
         await guild.members.fetch().catch(() => null);
       }
 

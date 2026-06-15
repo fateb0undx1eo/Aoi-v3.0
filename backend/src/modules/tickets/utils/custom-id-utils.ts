@@ -1,6 +1,6 @@
 import { CUSTOM_IDS } from './constants.js';
 
-const DISCORD_ID_REGEX = /^\d{16,20}$/;
+const DISCORD_ID_REGEX = /^\d{15,22}$/;
 
 export function buildResolvedCustomId(creatorId: string): string {
   return `${CUSTOM_IDS.resolvedPrefix}:${creatorId}`;

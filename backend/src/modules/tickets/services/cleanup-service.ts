@@ -42,7 +42,7 @@ export class CleanupService {
         cacheCleared: 0
       };
 
-      const archived = await this.archiveOldTickets(1);
+      const archived = await this.archiveOldTickets(30);
       results.orphanedRecordsRemoved = (archived as any).archived ?? 0;
 
       const duration = Date.now() - startTime;

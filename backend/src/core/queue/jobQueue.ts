@@ -130,14 +130,6 @@ export class JobQueue {
     }
   }
 
-  private queueKey(): string {
-    return `queue:${this.name}:ready`;
-  }
-
-  private deadLetterKey(): string {
-    return `queue:${this.name}:dead`;
-  }
-
   async enqueue(type: string, payload: any, options: JobOptions = {}): Promise<JobPayload> {
     const job: JobPayload = {
       id: options.id || randomUUID(),

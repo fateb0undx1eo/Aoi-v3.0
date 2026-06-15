@@ -10,7 +10,7 @@ export function getTicketTagByValue(value: string): TicketTag | null {
 }
 
 export function isValidDiscordId(id: string): boolean {
-  return /^\d{16,20}$/.test(String(id));
+  return /^\d{15,22}$/.test(String(id));
 }
 
 export function isValidChannelId(id: string): boolean {

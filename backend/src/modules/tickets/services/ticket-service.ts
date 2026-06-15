@@ -1,5 +1,4 @@
 import logger from './logging-service.js';
-import { PermissionError, ValidationError } from '../utils/error-handler.js';
 import type TicketRepository from '../repositories/ticket-repository.js';
 import type CooldownService from './cooldown-service.js';
 import type LockService from './lock-service.js';
@@ -71,6 +70,14 @@ export class TicketService {
 
   async getGuildStats(guildId: string): Promise<any> {
     return this.ticketRepo.getTicketStats(guildId);
+  }
+
+  async checkCooldown(userId: string): Promise<true> {
+    return this.cooldownService.checkCooldown(userId);
+  }
+
+  async applyCooldown(userId: string): Promise<number> {
+    return this.cooldownService.applyCooldown(userId);
   }
 }
 

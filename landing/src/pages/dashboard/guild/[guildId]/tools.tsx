@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
-import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
 import { FeatureCard } from "@/components/feature-card";
 import log from "@/lib/logger";
 import { Button } from "@/components/ui/button";
@@ -129,21 +128,6 @@ export default function ToolsPage() {
   }
 
   const layoutModules = modules as Array<{ name: string; display_name?: string; enabled?: boolean }>;
-
-  if (isLoading) {
-    return (
-      <DashboardLayout guildId={gid ?? ""} guildName={guild?.name || "Guild"} heading="Tools" modules={layoutModules}>
-        <div className="space-y-4">
-          <BoneyardCard lines={2} />
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <BoneyardCard key={index} lines={3} />
-            ))}
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
 
   return (
     <DashboardLayout guildId={gid ?? ""} guildName={guild?.name || "Guild"} heading="Tools" modules={layoutModules}>

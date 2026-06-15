@@ -65,9 +65,11 @@ export class MetricsService {
   async recordOperationTime(operation: string, durationMs: number): Promise<void> {
     try {
       const key = REDIS_KEYS.metrics(`operation_${operation}`, 'daily');
-
-      await this.redis.append(key, `${durationMs} `).catch(() => null);
-
+      // Store as a sorted set with timestamp as score for bounded growth
+      await (this.redis as any).zadd(key, Date.now(), `${durationMs}:${Date.now()}`);
+      // Trim to last 1000 entries to prevent unbounded growth
+      await (this.redis as any).zremrangebyrank(key, 0, -1001);
+      
       logger.debug('Operation time recorded', { operation, durationMs });
     } catch (error) {
       logger.error('Failed to record operation time', { error: (error as Error).message });

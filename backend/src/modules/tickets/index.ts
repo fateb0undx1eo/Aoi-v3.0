@@ -20,6 +20,8 @@ import DiscordRestService from './services/discord-rest-service.js';
 import ReconciliationService from './services/reconciliation-service.js';
 import CleanupService from './services/cleanup-service.js';
 import ProductionService from './services/production-service.js';
+import GuildConfigService from './services/guild-config-service.js';
+import BlacklistService from './services/blacklist-service.js';
 import TicketService from './services/ticket-service.js';
 
 import * as PayloadBuilders from './components/payloads.js';
@@ -54,6 +56,8 @@ export interface TicketModule extends ModuleDefinition {
     reconciliation: ReconciliationService;
     cleanup: CleanupService;
     production: ProductionService;
+    guildConfig: GuildConfigService;
+    blacklist: BlacklistService;
   };
   repositories: {
     ticket: TicketRepository;
@@ -91,14 +95,16 @@ export async function initializeTicketsModule(options: TicketModuleOptions): Pro
   const webhookService = new WebhookService(redis);
   const metricsService = new MetricsService(redis);
   const discordRestService = new DiscordRestService(discordClient);
-  const reconciliationService = new ReconciliationService(redis, ticketRepository, discordClient);
+  const reconciliationService = new ReconciliationService(redis, ticketRepository);
   const cleanupService = new CleanupService(redis, ticketRepository, cooldownRepository);
   const productionService = new ProductionService(environment);
+  const guildConfigService = new GuildConfigService(redis, database);
+  const blacklistService = new BlacklistService(redis, ticketRepository);
   const ticketService = new TicketService(ticketRepository, cooldownService, lockService, metricsService);
 
-  const ticketCreationHandler = new TicketCreationHandler(ticketService, lockService, discordRestService, webhookService, discordClient);
-  const ticketResolutionHandler = new TicketResolutionHandler(ticketService, webhookService, discordClient);
-  const userManagementHandler = new UserManagementHandler(ticketRepository, discordRestService);
+  const ticketCreationHandler = new TicketCreationHandler(ticketService, discordRestService, webhookService, discordClient, guildConfigService, blacklistService);
+  const ticketResolutionHandler = new TicketResolutionHandler(ticketService, webhookService, discordClient, lockService, guildConfigService);
+  const userManagementHandler = new UserManagementHandler(ticketRepository, discordRestService, guildConfigService);
   const interactionRouter = new InteractionRouter(
     lockService,
     ticketCreationHandler,
@@ -106,7 +112,7 @@ export async function initializeTicketsModule(options: TicketModuleOptions): Pro
     userManagementHandler
   );
 
-  const ticketCommandHandler = new TicketCommandHandler();
+  const ticketCommandHandler = new TicketCommandHandler(blacklistService);
 
   const cooldownCleanupJob = new CooldownCleanupJob(cooldownRepository, 60 * 60 * 1000);
   const reconciliationJob = new ReconciliationJob(reconciliationService, 60 * 60 * 1000);
@@ -150,6 +156,44 @@ export async function initializeTicketsModule(options: TicketModuleOptions): Pro
                 name: 'users',
                 type: 1,
                 description: 'Open add/remove user controls for this ticket thread'
+              }
+            ]
+          },
+          {
+            name: 'blacklist',
+            type: 2,
+            description: 'Manage ticket blacklist',
+            options: [
+              {
+                name: 'add',
+                type: 1,
+                description: 'Blacklist a user from creating tickets',
+                options: [
+                  {
+                    name: 'user',
+                    type: 6,
+                    description: 'The user to blacklist',
+                    required: true
+                  }
+                ]
+              },
+              {
+                name: 'remove',
+                type: 1,
+                description: 'Remove a user from the ticket blacklist',
+                options: [
+                  {
+                    name: 'user',
+                    type: 6,
+                    description: 'The user to unblacklist',
+                    required: true
+                  }
+                ]
+              },
+              {
+                name: 'list',
+                type: 1,
+                description: 'List all blacklisted users'
               }
             ]
           }
@@ -205,7 +249,9 @@ export async function initializeTicketsModule(options: TicketModuleOptions): Pro
       ticket: ticketService,
       reconciliation: reconciliationService,
       cleanup: cleanupService,
-      production: productionService
+      production: productionService,
+      guildConfig: guildConfigService,
+      blacklist: blacklistService
     },
 
     repositories: {
@@ -256,6 +302,7 @@ export {
   ReconciliationService,
   CleanupService,
   ProductionService,
+  BlacklistService,
   TicketService,
 
   PayloadBuilders,

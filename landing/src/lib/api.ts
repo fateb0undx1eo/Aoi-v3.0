@@ -68,7 +68,7 @@ export type OverviewPayload = {
 export function useGuildOverview(guildId: string | undefined) {
   return useQuery<OverviewPayload>({
     queryKey: ["guild-overview", guildId],
-    queryFn: () => fetchJson(`/api/dashboard/guild/${guildId}/overview`),
+    queryFn: () => fetchJson(`/api/backend/dashboard/guild/${guildId}/overview`),
     enabled: !!guildId,
   });
 }
@@ -85,7 +85,7 @@ type SettingsPayload = {
 export function useGuildSettings(guildId: string | undefined) {
   return useQuery<{ settings: SettingsPayload }>({
     queryKey: ["guild-settings", guildId],
-    queryFn: () => fetchJson(`/api/settings/${guildId}`),
+    queryFn: () => fetchJson(`/api/backend/settings/${guildId}`),
     enabled: !!guildId,
   });
 }
@@ -99,7 +99,7 @@ type GuildChannel = {
 export function useGuildChannels(guildId: string | undefined) {
   return useQuery<{ channels: GuildChannel[] }>({
     queryKey: ["guild-channels", guildId],
-    queryFn: () => fetchJson(`/api/guilds/${guildId}/channels`),
+    queryFn: () => fetchJson(`/api/backend/guilds/${guildId}/channels`),
     enabled: !!guildId,
   });
 }
@@ -116,7 +116,7 @@ export type GuildRole = {
 export function useGuildRoles(guildId: string | undefined) {
   return useQuery<{ roles: GuildRole[] }>({
     queryKey: ["guild-roles", guildId],
-    queryFn: () => fetchJson(`/api/guilds/${guildId}/roles`),
+    queryFn: () => fetchJson(`/api/backend/guilds/${guildId}/roles`),
     enabled: !!guildId,
   });
 }
@@ -132,7 +132,7 @@ type GuildEmoji = {
 export function useGuildEmojis(guildId: string | undefined) {
   return useQuery<{ emojis: GuildEmoji[] }>({
     queryKey: ["guild-emojis", guildId],
-    queryFn: () => fetchJson(`/api/guilds/${guildId}/emojis`),
+    queryFn: () => fetchJson(`/api/backend/guilds/${guildId}/emojis`),
     enabled: !!guildId,
   });
 }
@@ -146,7 +146,7 @@ type GuildMember = {
 export function useGuildMembers(guildId: string | undefined, query: string) {
   return useQuery<{ members: GuildMember[] }>({
     queryKey: ["guild-members", guildId, query],
-    queryFn: () => fetchJson(`/api/guilds/${guildId}/members?q=${encodeURIComponent(query)}&limit=25`),
+    queryFn: () => fetchJson(`/api/backend/guilds/${guildId}/members?q=${encodeURIComponent(query)}&limit=25`),
     enabled: !!guildId && query.length > 0,
   });
 }
@@ -168,7 +168,7 @@ type ModCase = {
 export function useModCases(guildId: string | undefined) {
   return useQuery<{ cases: ModCase[] }>({
     queryKey: ["mod-cases", guildId],
-    queryFn: () => fetchJson(`/api/moderation/${guildId}/cases?limit=50`),
+    queryFn: () => fetchJson(`/api/backend/moderation/${guildId}/cases?limit=50`),
     enabled: !!guildId,
   });
 }
@@ -176,7 +176,7 @@ export function useModCases(guildId: string | undefined) {
 export function useActivePunishments(guildId: string | undefined) {
   return useQuery<{ active: ModCase[] }>({
     queryKey: ["mod-active", guildId],
-    queryFn: () => fetchJson(`/api/moderation/${guildId}/active`),
+    queryFn: () => fetchJson(`/api/backend/moderation/${guildId}/active`),
     enabled: !!guildId,
   });
 }
@@ -195,7 +195,7 @@ type ModConfig = {
 export function useModConfig(guildId: string | undefined) {
   return useQuery<{ config: ModConfig }>({
     queryKey: ["mod-config", guildId],
-    queryFn: () => fetchJson(`/api/moderation/${guildId}/config`),
+    queryFn: () => fetchJson(`/api/backend/moderation/${guildId}/config`),
     enabled: !!guildId,
   });
 }
@@ -203,7 +203,7 @@ export function useModConfig(guildId: string | undefined) {
 export function useModModule(guildId: string | undefined) {
   return useQuery<{ module: { enabled?: boolean; config?: Record<string, unknown> } }>({
     queryKey: ["mod-module", guildId],
-    queryFn: () => fetchJson(`/api/modules/${guildId}/moderation`),
+    queryFn: () => fetchJson(`/api/backend/modules/${guildId}/moderation`),
     enabled: !!guildId,
   });
 }
@@ -211,7 +211,7 @@ export function useModModule(guildId: string | undefined) {
 export function useModuleConfig(guildId: string | undefined, moduleName: string) {
   return useQuery<{ module: { enabled?: boolean; config?: Record<string, unknown> } }>({
     queryKey: ["module-config", guildId, moduleName],
-    queryFn: () => fetchJson(`/api/modules/${guildId}/${moduleName}`),
+    queryFn: () => fetchJson(`/api/backend/modules/${guildId}/${moduleName}`),
     enabled: !!guildId,
   });
 }
@@ -220,7 +220,7 @@ export function useSaveSetting(guildId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ path, body }: { path: string; body: unknown }) =>
-      fetchJson(`/api/settings/${guildId}/${path}`, {
+      fetchJson(`/api/backend/settings/${guildId}/${path}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -235,7 +235,7 @@ export function useSaveModule(guildId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ moduleName, body }: { moduleName: string; body: unknown }) =>
-      fetchJson(`/api/modules/${guildId}/${moduleName}`, {
+      fetchJson(`/api/backend/modules/${guildId}/${moduleName}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -250,7 +250,7 @@ export function useSaveModConfig(guildId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: Partial<ModConfig>) =>
-      fetchJson(`/api/moderation/${guildId}/config`, {
+      fetchJson(`/api/backend/moderation/${guildId}/config`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -265,7 +265,7 @@ export function useCreateModCase(guildId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: { targetUserId: string; type: string; reason: string; durationSeconds?: number }) =>
-      fetchJson(`/api/moderation/${guildId}/cases`, {
+      fetchJson(`/api/backend/moderation/${guildId}/cases`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -281,7 +281,7 @@ export function useRevokePunishment(guildId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: { caseId: number; reason: string }) =>
-      fetchJson(`/api/moderation/${guildId}/revoke`, {
+      fetchJson(`/api/backend/moderation/${guildId}/revoke`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

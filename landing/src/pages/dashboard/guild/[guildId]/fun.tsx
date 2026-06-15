@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
-import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -190,8 +189,7 @@ export default function FunPage() {
 
   return (
     <DashboardLayout guildId={gid ?? ""} guildName={guildName} heading="Fun" modules={layoutModules}>
-      {isLoading && <BoneyardCard lines={6} />}
-      {!isLoading && error && <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">{(error as Error).message}</div>}
+      {error && <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">{(error as Error).message}</div>}
       {!isLoading && !error && (
         <div className="space-y-6">
           <Card className="border-zinc-800 bg-zinc-950 text-zinc-100">

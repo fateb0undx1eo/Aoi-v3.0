@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
 
 /**
  * Dashboard root entry. Shows welcome page and redirects authenticated users to server picker.
@@ -62,14 +61,9 @@ export default function DashboardHome() {
           )}
 
           <div className="mt-6 sm:mt-8">
-            {checking ? (
-              <div className="mx-auto max-w-xl">
-                <BoneyardCard lines={2} />
-              </div>
-            ) : (
+            {!checking && (
               <Link
                 href="/api/auth/discord"
-                className="theme-animate inline-flex w-full items-center justify-center rounded-2xl bg-[#5865F2] px-6 py-3 text-sm font-semibold text-white hover:opacity-90 sm:w-auto"
               >
                 LOGIN
               </Link>

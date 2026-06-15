@@ -308,9 +308,9 @@ export class ModerationService {
         .eq('type', 'WARN')
     );
 
-    for (const warn of warns) {
-      await this.updateCase(guildId, (warn as any).id, { active: false });
-    }
+    await Promise.allSettled(
+      warns.map((warn) => this.updateCase(guildId, (warn as any).id, { active: false }))
+    );
 
     await this.createCase({
       guildId,

@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useRouter } from "next/router";
 import { Settings2 } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard-layout";
-import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
 import { useGuildOverview, type ParsedModuleRow } from "@/lib/api";
 
 function slugify(name = "") {
@@ -34,9 +33,7 @@ export default function GuildModulePage() {
 
   return (
     <DashboardLayout guildId={gid ?? ""} guildName={guild?.name || "Guild"} heading={heading} modules={layoutModules}>
-      {isLoading && <BoneyardCard lines={3} />}
-
-      {!isLoading && error && (
+      {error && (
         <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-200">{(error as Error).message}</div>
       )}
 

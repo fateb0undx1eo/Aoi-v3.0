@@ -408,16 +408,17 @@ export class StaffListService {
     const staffMembers = new Map<string, GuildMember>();
     const nowIso = new Date().toISOString();
 
-    for (const roleId of config.staff_role_ids) {
-      const role = guild.roles.cache.get(roleId) ?? await guild.roles.fetch(roleId).catch(() => null);
-      if (!role) {
-        continue;
-      }
+    const roleResults = await Promise.allSettled(
+      config.staff_role_ids.map(async (roleId) => {
+        const role = guild.roles.cache.get(roleId) ?? await guild.roles.fetch(roleId).catch(() => null);
+        return role;
+      })
+    );
 
-      for (const member of role.members.values()) {
-        if (member.user?.bot) {
-          continue;
-        }
+    for (const result of roleResults) {
+      if (result.status !== 'fulfilled' || !result.value) continue;
+      for (const member of result.value.members.values()) {
+        if (member.user?.bot) continue;
         staffMembers.set(member.id, member);
       }
     }

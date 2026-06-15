@@ -147,6 +147,18 @@ export class LayeredCache {
 }
 
 const debounceMap = new Map<string, { timer: ReturnType<typeof setTimeout>; lastCall: number }>();
+const DEBOUNCE_CLEANUP_INTERVAL = 300_000;
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of debounceMap) {
+    if (now - entry.lastCall > DEBOUNCE_CLEANUP_INTERVAL) {
+      clearTimeout(entry.timer);
+      debounceMap.delete(key);
+    }
+  }
+}, DEBOUNCE_CLEANUP_INTERVAL).unref();
+
+const DEBOUNCE_MAX_SIZE = 1000;
 
 export function debounce<T extends (...args: any[]) => any>(
   fn: T,
@@ -164,6 +176,16 @@ export function debounce<T extends (...args: any[]) => any>(
       }, waitMs),
       lastCall: Date.now(),
     });
+
+    // Evict oldest if over max size
+    if (debounceMap.size > DEBOUNCE_MAX_SIZE) {
+      const oldest = debounceMap.keys().next().value;
+      if (oldest !== undefined && oldest !== id) {
+        const oldEntry = debounceMap.get(oldest);
+        if (oldEntry) clearTimeout(oldEntry.timer);
+        debounceMap.delete(oldest);
+      }
+    }
   };
 }
 

@@ -16,14 +16,14 @@ export function isThreadNameClosed(name: string): boolean {
   return name.startsWith(THREAD_PREFIX_CLOSED);
 }
 
-export async function addStaffMembersToThread(thread: any): Promise<void> {
+export async function addStaffMembersToThread(thread: any, staffRoleIds: string[] = TICKET_STAFF_ROLE_IDS): Promise<void> {
   if (!ADD_STAFF_MEMBERS_TO_THREAD) return;
 
   const guild = thread.guild;
   await guild.members.fetch().catch(() => null);
 
   const staffUserIds = new Set<string>();
-  for (const roleId of TICKET_STAFF_ROLE_IDS) {
+  for (const roleId of staffRoleIds) {
     const role = guild.roles.cache.get(roleId);
     if (!role) continue;
     for (const member of role.members.values()) {
@@ -70,8 +70,8 @@ export async function hasOpenTicketInChannel(parentChannel: any, userId: string,
   return false;
 }
 
-export function buildTicketMentions(creatorId: string): string {
-  const roleMentions = TICKET_STAFF_ROLE_IDS.map((roleId) => `<@&${roleId}>`).join(' ');
+export function buildTicketMentions(creatorId: string, staffRoleIds: string[] = TICKET_STAFF_ROLE_IDS): string {
+  const roleMentions = staffRoleIds.map((roleId) => `<@&${roleId}>`).join(' ');
   return `<@${creatorId}> ${roleMentions}`.trim();
 }
 

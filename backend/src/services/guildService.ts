@@ -113,9 +113,11 @@ export class GuildService {
       );
       results.push(...fetched);
       if (redisClient.isReady()) {
-        for (const row of fetched) {
-          redisClient.setex(`cache:guild:overview:${row.id}`, CACHE_TTL_SECONDS, JSON.stringify(row)).catch(() => {});
-        }
+        await Promise.allSettled(
+          fetched.map((row) =>
+            redisClient.setex(`cache:guild:overview:${row.id}`, CACHE_TTL_SECONDS, JSON.stringify(row)).catch(() => {})
+          )
+        );
       }
     }
 

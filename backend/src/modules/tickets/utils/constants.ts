@@ -7,7 +7,7 @@ export const TICKET_CREATION_LOCK_MS = 8000;
 
 export const TICKET_STAFF_ROLE_IDS = ['1503719057130782810'];
 export const TICKET_LOG_CHANNEL_ID = '1485668403132760243';
-export const ADD_STAFF_MEMBERS_TO_THREAD = false;
+export const ADD_STAFF_MEMBERS_TO_THREAD = true;
 export const THREAD_PREFIX_CLOSED = '[CLOSED] ';
 
 export const CUSTOM_IDS = {
@@ -125,7 +125,28 @@ export const ERROR_MESSAGES = {
   ADMIN_ONLY: 'Only server owner or admins can use this command.',
   LOCKED_IN_CREATION: 'A ticket creation is already in progress. Please wait a few seconds and try again.',
   UNKNOWN_CATEGORY: 'Unknown ticket category selected.',
-  INVALID_STATE: 'Invalid ticket state.'
+  INVALID_STATE: 'Invalid ticket state.',
+  BLACKLISTED: 'You are blacklisted from creating tickets.',
+  USER_ALREADY_BLACKLISTED: 'That user is already blacklisted.',
+  USER_NOT_BLACKLISTED: 'That user is not blacklisted.'
+};
+
+export interface TicketGuildConfig {
+  staffRoleIds: string[];
+  logChannelId: string;
+  addStaffToThread: boolean;
+  cooldownMs: number;
+  autoArchive24h: number;
+  autoArchive1h: number;
+}
+
+export const DEFAULT_GUILD_CONFIG: TicketGuildConfig = {
+  staffRoleIds: [...TICKET_STAFF_ROLE_IDS],
+  logChannelId: TICKET_LOG_CHANNEL_ID,
+  addStaffToThread: ADD_STAFF_MEMBERS_TO_THREAD,
+  cooldownMs: TICKET_COOLDOWN_MS,
+  autoArchive24h: AUTO_ARCHIVE_24H,
+  autoArchive1h: AUTO_ARCHIVE_1H
 };
 
 export default {
@@ -144,5 +165,7 @@ export default {
   TICKET_COMMAND_NAMES,
   LOG_COLORS,
   getTicketColor,
-  ERROR_MESSAGES
+  ERROR_MESSAGES,
+  DEFAULT_GUILD_CONFIG,
+  TicketGuildConfig
 };

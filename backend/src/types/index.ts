@@ -58,9 +58,18 @@ export interface BotContext {
 
 // ─── Service Interfaces (lazy, will be replaced by actual classes) ──
 export interface ConfigService {
-  getGuildConfig(guildId: string, module: string, feature: string): Promise<Record<string, any> | null>;
-  getModuleConfig(guildId: string, moduleName: string): Promise<Record<string, any>>;
+  getGuildModuleConfigs(guildId: string): Promise<ModuleConfigRow[]>;
+  getGuildCommandConfigs(guildId: string): Promise<CommandConfigRow[]>;
+  getLogsConfig(guildId: string): Promise<any[]>;
+  getModuleConfig(guildId: string, moduleName: string): Promise<ModuleConfigRow>;
   upsertModuleConfig(payload: Record<string, any>): Promise<void>;
+  upsertCommandConfig(payload: Record<string, any>): Promise<void>;
+  upsertLogsConfig(payload: Record<string, any>): Promise<void>;
+  getGuildConfig(guildId: string, module: string, feature: string): Promise<Record<string, any> | null>;
+  getGuildModuleConfigsV2(guildId: string, module: string): Promise<Record<string, any>[]>;
+  upsertGuildConfig(guildId: string, module: string, feature: string, configJson: Record<string, any>, isEnabled?: boolean): Promise<void>;
+  getWelcomeConfig(guildId: string): Promise<Record<string, any> | null>;
+  setFeatureEnabled(guildId: string, module: string, feature: string, enabled: boolean): Promise<boolean>;
 }
 
 export interface ConfigCache {
@@ -91,8 +100,10 @@ export interface AuthService {
 }
 
 export interface GuildService {
-  getGuilds(userId: string): Promise<any[]>;
-  getGuild(guildId: string): Promise<any>;
+  upsertGuildSnapshot(guild: any): Promise<void>;
+  getOverview(guildId: string): Promise<Record<string, any> | null>;
+  listGuilds(): Promise<Record<string, any>[]>;
+  getGuildSnapshots(guildIds?: string[]): Promise<Record<string, any>[]>;
 }
 
 export interface AccessControlService {
@@ -105,8 +116,7 @@ export interface AnalyticsService {
 }
 
 export interface ModuleService {
-  getModules(guildId: string): Promise<any[]>;
-  updateModule(guildId: string, moduleName: string, config: Record<string, any>): Promise<void>;
+  listModules(guildId: string): Record<string, any>[];
 }
 
 export interface DashboardOverviewService {

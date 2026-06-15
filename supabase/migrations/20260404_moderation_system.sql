@@ -1,5 +1,5 @@
 -- Moderation cases table for tracking all moderation actions
-CREATE TABLE mod_cases (
+CREATE TABLE IF NOT EXISTS mod_cases (
     id SERIAL PRIMARY KEY,
     guild_id TEXT REFERENCES guilds(id) ON DELETE CASCADE,
     case_number INTEGER NOT NULL, -- per-guild case number
@@ -114,10 +114,10 @@ CREATE TABLE level_role_rewards (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_mod_cases_guild ON mod_cases(guild_id);
-CREATE INDEX idx_mod_cases_target ON mod_cases(target_user_id);
-CREATE INDEX idx_mod_cases_type ON mod_cases(type);
-CREATE INDEX idx_mod_cases_active ON mod_cases(guild_id, active) WHERE active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_mod_cases_guild ON mod_cases(guild_id);
+CREATE INDEX IF NOT EXISTS idx_mod_cases_target ON mod_cases(target_user_id);
+CREATE INDEX IF NOT EXISTS idx_mod_cases_type ON mod_cases(type);
+CREATE INDEX IF NOT EXISTS idx_mod_cases_active ON mod_cases(guild_id, active) WHERE active = TRUE;
 CREATE INDEX idx_automod_rules_guild ON automod_rules(guild_id);
 CREATE INDEX idx_reaction_role_sets_guild ON reaction_role_sets(guild_id);
 CREATE INDEX idx_reaction_role_options_set ON reaction_role_options(set_id);

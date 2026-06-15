@@ -451,9 +451,7 @@ BEGIN
                 NEW.reopened_at = NOW();
             WHEN 'in_progress' THEN
                 NEW.assigned_to = COALESCE(NEW.assigned_to, NEW.resolved_by);
-            WHEN 'escalated' THEN
-                NEW.escalated_at = NOW();
-                NEW.escalation_level = COALESCE(NEW.escalation_level, 1) + 1;
+            -- 'escalated' status removed; escalation handled via escalation_level field
         END CASE;
     END IF;
     
@@ -475,7 +473,7 @@ DECLARE
 BEGIN
     -- Check if user already has an open ticket in this guild
     SELECT id INTO existing_ticket
-    FROM tickets_new 
+    FROM tickets
     WHERE guild_id = NEW.guild_id 
     AND creator_id = NEW.creator_id 
     AND status = 'open'
@@ -491,9 +489,41 @@ BEGIN
     IF NEW.guild_ticket_number IS NULL THEN
         SELECT COALESCE(MAX(guild_ticket_number), 0) + 1 
         INTO next_guild_number
-        FROM tickets_new 
+        FROM tickets
         WHERE guild_id = NEW.guild_id;
         
+        NEW.guild_ticket_number = next_guild_number;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Recreate function with correct table reference after rename
+CREATE OR REPLACE FUNCTION enforce_unique_open_tickets()
+RETURNS trigger AS $$
+DECLARE
+    existing_ticket RECORD;
+    next_guild_number INTEGER;
+BEGIN
+    SELECT id INTO existing_ticket
+    FROM tickets
+    WHERE guild_id = NEW.guild_id 
+    AND creator_id = NEW.creator_id 
+    AND status = 'open'
+    AND thread_id != NEW.thread_id
+    LIMIT 1;
+    
+    IF existing_ticket IS NOT NULL THEN
+        RAISE EXCEPTION 'User % already has an open ticket (#%) in this guild', 
+            NEW.creator_id, existing_ticket.id;
+    END IF;
+    
+    IF NEW.guild_ticket_number IS NULL THEN
+        SELECT COALESCE(MAX(guild_ticket_number), 0) + 1 
+        INTO next_guild_number
+        FROM tickets
+        WHERE guild_id = NEW.guild_id;
         NEW.guild_ticket_number = next_guild_number;
     END IF;
     

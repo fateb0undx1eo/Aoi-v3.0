@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
-import { BoneyardCard } from "@/components/ui/boneyard-skeleton";
 import { Button } from "@/components/ui/button";
 import log from "@/lib/logger";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -115,17 +114,7 @@ export default function SettingsPage() {
 
   return (
     <DashboardLayout guildId={gid ?? ""} guildName={guild?.name || "Guild"} heading="Settings" modules={layoutModules}>
-      {loading ? (
-        <div className="space-y-4">
-          <BoneyardCard lines={2} />
-          <div className="grid gap-4 md:grid-cols-2">
-            {Array.from({ length: 2 }).map((_, index) => (
-              <BoneyardCard key={index} lines={3} />
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-6">
+      <div className="space-y-6">
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
@@ -191,7 +180,6 @@ export default function SettingsPage() {
             </Card>
           </div>
         </div>
-      )}
     </DashboardLayout>
   );
 }

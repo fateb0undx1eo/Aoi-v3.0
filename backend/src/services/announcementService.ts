@@ -593,12 +593,16 @@ export class AnnouncementService {
   }
 
   async resolveChannels(guild: Guild, channelIds: string[]): Promise<TextBasedChannel[]> {
-    const channels: TextBasedChannel[] = [];
-    for (const channelId of channelIds) {
-      const channel = guild.channels.cache.get(channelId) ?? await guild.channels.fetch(channelId).catch(() => null);
-      if (channel?.isTextBased()) channels.push(channel as TextBasedChannel);
-    }
-    return channels;
+    const results = await Promise.allSettled(
+      channelIds.map(async (channelId) => {
+        const channel = guild.channels.cache.get(channelId) ?? await guild.channels.fetch(channelId).catch(() => null);
+        return channel?.isTextBased() ? (channel as TextBasedChannel) : null;
+      })
+    );
+    return results
+      .filter((r): r is PromiseFulfilledResult<TextBasedChannel | null> => r.status === 'fulfilled')
+      .map((r) => r.value)
+      .filter((c): c is TextBasedChannel => c !== null);
   }
 
   async sendEntry(channel: TextBasedChannel, entry: NormalizedEntry): Promise<void> {

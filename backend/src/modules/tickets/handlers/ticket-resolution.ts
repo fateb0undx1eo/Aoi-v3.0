@@ -2,9 +2,11 @@ import type { InteractionResult } from '../../../types/index.js';
 import logger from '../services/logging-service.js';
 import { isTicketStaffFromInteraction } from '../utils/permissions.js';
 import { isThreadNameClosed, markThreadNameClosed } from '../utils/thread-utils.js';
-import { AUTO_ARCHIVE_1H, ERROR_MESSAGES, TICKET_LOG_CHANNEL_ID, TICKET_TAGS, TICKET_STAFF_ROLE_IDS, getTicketColor } from '../utils/constants.js';
+import { ERROR_MESSAGES, TICKET_TAGS, getTicketColor } from '../utils/constants.js';
 import type TicketService from '../services/ticket-service.js';
 import type WebhookService from '../services/webhook-service.js';
+import type LockService from '../services/lock-service.js';
+import type GuildConfigService from '../services/guild-config-service.js';
 
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -181,15 +183,38 @@ function renderContent(content: string, attachments: any[], embeds: any[], stick
   return html || (embeds?.length > 0 || attachments?.length > 0 || stickers?.length > 0 ? '' : '[empty]');
 }
 
+async function fetchAllMessages(channel: any): Promise<any[]> {
+  const messages: any[] = [];
+  let lastId: string | undefined;
+  let fetched;
+  do {
+    fetched = await channel.messages.fetch({ limit: 100, before: lastId }).catch(() => null);
+    if (!fetched || fetched.size === 0) break;
+    messages.push(...fetched.values());
+    lastId = fetched.last()?.id;
+  } while (fetched.size === 100);
+  return messages;
+}
+
 export class TicketResolutionHandler {
   private ticketService: TicketService;
   private webhookService: WebhookService;
   private discordClient: any;
+  private lockService: LockService;
+  private guildConfig: GuildConfigService;
 
-  constructor(ticketService: TicketService, webhookService: WebhookService, discordClient: any) {
+  constructor(
+    ticketService: TicketService,
+    webhookService: WebhookService,
+    discordClient: any,
+    lockService: LockService,
+    guildConfig: GuildConfigService
+  ) {
     this.ticketService = ticketService;
     this.webhookService = webhookService;
     this.discordClient = discordClient;
+    this.lockService = lockService;
+    this.guildConfig = guildConfig;
   }
 
   handleResolvedButtonPress(interaction: any, creatorId: string): InteractionResult {
@@ -200,32 +225,44 @@ export class TicketResolutionHandler {
         if (!interaction.inGuild() || !channel?.isThread?.()) {
           return { type: 'EDIT_REPLY', content: '❌ ' + ERROR_MESSAGES.NOT_IN_THREAD };
         }
-        if (!isTicketStaffFromInteraction(interaction)) {
+        const config = await this.guildConfig.getConfig(interaction.guildId);
+
+        if (!isTicketStaffFromInteraction(interaction, config.staffRoleIds)) {
           return { type: 'EDIT_REPLY', content: '❌ ' + ERROR_MESSAGES.NOT_STAFF };
         }
         if (isThreadNameClosed(channel.name)) {
           return { type: 'EDIT_REPLY', content: '❌ ' + ERROR_MESSAGES.ALREADY_CLOSED };
         }
 
-        const messages = await channel.messages.fetch({ limit: 100 }).catch(() => null);
+        const lockKey = `resolution:${channel.id}`;
+        const lockId = await this.lockService.acquireLock(lockKey, 30);
+        if (!lockId) {
+          return { type: 'EDIT_REPLY', content: '❌ This ticket is being closed by someone else. Please wait.' };
+        }
 
-        await channel.setName(markThreadNameClosed(channel.name)).catch(() => null);
-        await channel.members.remove(creatorId).catch(() => null);
-        await channel.setAutoArchiveDuration(AUTO_ARCHIVE_1H).catch(() => null);
-        await channel.setLocked(true).catch(() => null);
-        await channel.setArchived(true).catch(() => null);
+        try {
+          const allMessages = await fetchAllMessages(channel);
 
-        await (this.ticketService as any).cooldownService.applyCooldown(creatorId).catch(() => null);
-        const ticketRow = await this.ticketService.resolveTicket(channel.id, interaction.user.id, creatorId).catch(() => null);
-        await this.sendResolvedLog(channel, creatorId, interaction.user.id, messages, ticketRow);
+          await channel.setName(markThreadNameClosed(channel.name)).catch(() => null);
+          await channel.members.remove(creatorId).catch(() => null);
+          await channel.setAutoArchiveDuration(config.autoArchive1h).catch(() => null);
+          await channel.setLocked(true).catch(() => null);
+          await channel.setArchived(true).catch(() => null);
 
-        return { type: 'EDIT_REPLY', content: '✅ Ticket has been closed.' };
+          await this.ticketService.applyCooldown(creatorId).catch(() => null);
+          const ticketRow = await this.ticketService.resolveTicket(channel.id, interaction.user.id, creatorId).catch(() => null);
+          await this.sendResolvedLog(channel, creatorId, interaction.user.id, allMessages, ticketRow, config);
+
+          return { type: 'EDIT_REPLY', content: '✅ Ticket has been closed.' };
+        } finally {
+          await this.lockService.releaseLock(lockKey, lockId);
+        }
       }
     };
   }
 
-  async sendResolvedLog(thread: any, creatorId: string, resolverId: string, messages: any, ticketRow: any): Promise<void> {
-    const logChannel = await this.discordClient.channels.fetch(TICKET_LOG_CHANNEL_ID).catch(() => null);
+  async sendResolvedLog(thread: any, creatorId: string, resolverId: string, messages: any[], ticketRow: any, config: any): Promise<void> {
+    const logChannel = await this.discordClient.channels.fetch(config.logChannelId).catch(() => null);
     if (!logChannel) return;
     const webhook = await this.webhookService.getOrCreateLogWebhook(logChannel).catch(() => null);
     if (!webhook) return;
@@ -276,8 +313,8 @@ export class TicketResolutionHandler {
       avatarURL: this.discordClient.user?.displayAvatarURL()
     };
 
-    if (messages && messages.size > 0) {
-      const file = this.buildTranscriptFile(thread, creatorId, resolverId, messages, createdAtUnix, now, finalTagLabel);
+    if (messages && messages.length > 0) {
+      const file = this.buildTranscriptFile(thread, creatorId, resolverId, messages, createdAtUnix, now, finalTagLabel, config);
       if (file) {
         payload.files = [file];
         components[0].components.push({
@@ -297,16 +334,16 @@ export class TicketResolutionHandler {
     thread: any,
     creatorId: string,
     resolverId: string,
-    messages: any,
+    messages: any[],
     createdAtUnix: number | null,
     now: number,
-    tagLabel: string
+    tagLabel: string,
+    config: any
   ): { attachment: Buffer; name: string } | null {
-    const sorted = [...messages.values()].reverse();
-    const staffRoleIds = new Set(TICKET_STAFF_ROLE_IDS);
+    const staffRoleIds = new Set(config.staffRoleIds);
 
     const userMap: Record<string, string> = {};
-    for (const msg of messages.values()) {
+    for (const msg of messages) {
       if (msg.author?.id) userMap[msg.author.id] = msg.member?.displayName || msg.author.username;
       if (msg.mentions) {
         for (const u of msg.mentions.users.values()) {
@@ -317,9 +354,7 @@ export class TicketResolutionHandler {
     }
 
     let body = '';
-    for (const msg of sorted) {
-      if (msg.author.bot) continue;
-
+    for (const msg of messages) {
       const unix = Math.floor(msg.createdAt.getTime() / 1000);
       const name = msg.author.username;
       const avatar = msg.author.displayAvatarURL({ extension: 'png', size: 128 });
@@ -554,7 +589,7 @@ export class TicketResolutionHandler {
           </div>
           <div class="detail-row">
             <span class="detail-lbl">Messages</span>
-            <span class="detail-val">${sorted.filter((m: any) => !m.author.bot).length}</span>
+            <span class="detail-val">${messages.filter((m: any) => !m.author.bot).length}</span>
           </div>
           <div class="detail-row">
             <span class="detail-lbl">Tag</span>

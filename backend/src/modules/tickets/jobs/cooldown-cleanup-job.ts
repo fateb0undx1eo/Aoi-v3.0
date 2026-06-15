@@ -43,9 +43,20 @@ export class CooldownCleanupJob {
         return;
       }
 
+      let cleaned = 0;
+      for (const cd of allCooldowns) {
+        const elapsed = Date.now() - cd.closedAt;
+        const cooldownMs = 10 * 60 * 1000; // matches TICKET_COOLDOWN_MS
+        if (elapsed >= cooldownMs) {
+          await this.repo.clearCooldown(cd.userId);
+          cleaned++;
+        }
+      }
+
       const duration = Date.now() - startTime;
       logger.info('Cooldown cleanup completed', {
         activeCooldowns: allCooldowns.length,
+        cleaned,
         durationMs: duration
       });
     } catch (error) {

@@ -24,10 +24,22 @@ DROP POLICY IF EXISTS "guild_configs_v2_update" ON guild_configs_v2;
 DROP POLICY IF EXISTS "guild_configs_v2_delete" ON guild_configs_v2;
 
 -- RLS policies
-CREATE POLICY "guild_configs_v2_select" ON guild_configs_v2 FOR SELECT USING (true);
-CREATE POLICY "guild_configs_v2_insert" ON guild_configs_v2 FOR INSERT WITH CHECK (true);
-CREATE POLICY "guild_configs_v2_update" ON guild_configs_v2 FOR UPDATE USING (true);
-CREATE POLICY "guild_configs_v2_delete" ON guild_configs_v2 FOR DELETE USING (true);
+CREATE POLICY "guild_configs_v2_select" ON guild_configs_v2 
+  FOR SELECT USING (
+    auth.uid()::text IN (SELECT user_id FROM dashboard_access WHERE guild_id::text = guild_configs_v2.guild_id::text)
+  );
+CREATE POLICY "guild_configs_v2_insert" ON guild_configs_v2 
+  FOR INSERT WITH CHECK (
+    auth.uid()::text IN (SELECT user_id FROM dashboard_access WHERE guild_id::text = guild_configs_v2.guild_id::text AND role IN ('owner', 'manager'))
+  );
+CREATE POLICY "guild_configs_v2_update" ON guild_configs_v2 
+  FOR UPDATE USING (
+    auth.uid()::text IN (SELECT user_id FROM dashboard_access WHERE guild_id::text = guild_configs_v2.guild_id::text AND role IN ('owner', 'manager'))
+  );
+CREATE POLICY "guild_configs_v2_delete" ON guild_configs_v2 
+  FOR DELETE USING (
+    auth.uid()::text IN (SELECT user_id FROM dashboard_access WHERE guild_id::text = guild_configs_v2.guild_id::text AND role IN ('owner', 'manager'))
+  );
 
 -- Indexes for fast lookups
 DROP INDEX IF EXISTS idx_guild_configs_v2_guild;
@@ -87,10 +99,22 @@ DROP POLICY IF EXISTS "automod_violations_update" ON automod_violations;
 DROP POLICY IF EXISTS "automod_violations_delete" ON automod_violations;
 
 -- RLS policies
-CREATE POLICY "automod_violations_select" ON automod_violations FOR SELECT USING (true);
-CREATE POLICY "automod_violations_insert" ON automod_violations FOR INSERT WITH CHECK (true);
-CREATE POLICY "automod_violations_update" ON automod_violations FOR UPDATE USING (true);
-CREATE POLICY "automod_violations_delete" ON automod_violations FOR DELETE USING (true);
+CREATE POLICY "automod_violations_select" ON automod_violations 
+  FOR SELECT USING (
+    auth.uid()::text IN (SELECT user_id FROM dashboard_access WHERE guild_id::text = automod_violations.guild_id::text)
+  );
+CREATE POLICY "automod_violations_insert" ON automod_violations 
+  FOR INSERT WITH CHECK (
+    auth.uid()::text IN (SELECT user_id FROM dashboard_access WHERE guild_id::text = automod_violations.guild_id::text AND role IN ('owner', 'manager'))
+  );
+CREATE POLICY "automod_violations_update" ON automod_violations 
+  FOR UPDATE USING (
+    auth.uid()::text IN (SELECT user_id FROM dashboard_access WHERE guild_id::text = automod_violations.guild_id::text AND role IN ('owner', 'manager'))
+  );
+CREATE POLICY "automod_violations_delete" ON automod_violations 
+  FOR DELETE USING (
+    auth.uid()::text IN (SELECT user_id FROM dashboard_access WHERE guild_id::text = automod_violations.guild_id::text AND role IN ('owner', 'manager'))
+  );
 
 -- Indexes
 DROP INDEX IF EXISTS idx_automod_violations_guild;
@@ -134,9 +158,18 @@ DROP POLICY IF EXISTS "log_entries_insert" ON log_entries;
 DROP POLICY IF EXISTS "log_entries_delete" ON log_entries;
 
 -- RLS policies
-CREATE POLICY "log_entries_select" ON log_entries FOR SELECT USING (true);
-CREATE POLICY "log_entries_insert" ON log_entries FOR INSERT WITH CHECK (true);
-CREATE POLICY "log_entries_delete" ON log_entries FOR DELETE USING (true);
+CREATE POLICY "log_entries_select" ON log_entries 
+  FOR SELECT USING (
+    auth.uid()::text IN (SELECT user_id FROM dashboard_access WHERE guild_id::text = log_entries.guild_id::text)
+  );
+CREATE POLICY "log_entries_insert" ON log_entries 
+  FOR INSERT WITH CHECK (
+    auth.uid()::text IN (SELECT user_id FROM dashboard_access WHERE guild_id::text = log_entries.guild_id::text AND role IN ('owner', 'manager'))
+  );
+CREATE POLICY "log_entries_delete" ON log_entries 
+  FOR DELETE USING (
+    auth.uid()::text IN (SELECT user_id FROM dashboard_access WHERE guild_id::text = log_entries.guild_id::text AND role IN ('owner', 'manager'))
+  );
 
 -- Indexes
 DROP INDEX IF EXISTS idx_log_entries_guild;
@@ -174,9 +207,18 @@ DROP POLICY IF EXISTS "welcome_messages_insert" ON welcome_messages;
 DROP POLICY IF EXISTS "welcome_messages_delete" ON welcome_messages;
 
 -- RLS policies
-CREATE POLICY "welcome_messages_select" ON welcome_messages FOR SELECT USING (true);
-CREATE POLICY "welcome_messages_insert" ON welcome_messages FOR INSERT WITH CHECK (true);
-CREATE POLICY "welcome_messages_delete" ON welcome_messages FOR DELETE USING (true);
+CREATE POLICY "welcome_messages_select" ON welcome_messages 
+  FOR SELECT USING (
+    auth.uid()::text IN (SELECT user_id FROM dashboard_access WHERE guild_id::text = welcome_messages.guild_id::text)
+  );
+CREATE POLICY "welcome_messages_insert" ON welcome_messages 
+  FOR INSERT WITH CHECK (
+    auth.uid()::text IN (SELECT user_id FROM dashboard_access WHERE guild_id::text = welcome_messages.guild_id::text AND role IN ('owner', 'manager'))
+  );
+CREATE POLICY "welcome_messages_delete" ON welcome_messages 
+  FOR DELETE USING (
+    auth.uid()::text IN (SELECT user_id FROM dashboard_access WHERE guild_id::text = welcome_messages.guild_id::text AND role IN ('owner', 'manager'))
+  );
 
 -- Indexes
 DROP INDEX IF EXISTS idx_welcome_messages_guild;
