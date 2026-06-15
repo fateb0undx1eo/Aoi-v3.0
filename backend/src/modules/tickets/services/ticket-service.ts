@@ -37,7 +37,7 @@ export class TicketService {
 
     logger.info('Creating ticket', { guildId, threadId, creatorId, tagValue });
 
-    await this.cooldownService.checkCooldown(creatorId);
+    await this.cooldownService.checkCooldown(guildId, creatorId);
 
     const ticket = await this.ticketRepo.createTicket(data);
 
@@ -46,13 +46,13 @@ export class TicketService {
     return ticket;
   }
 
-  async resolveTicket(threadId: string, resolverId: string, creatorId: string): Promise<any> {
+  async resolveTicket(threadId: string, resolverId: string, creatorId: string, guildId: string): Promise<any> {
     logger.info('Resolving ticket', { threadId, resolverId });
 
     const ticket = await this.ticketRepo.resolveTicket(threadId, resolverId);
 
-    if (creatorId) {
-      await this.cooldownService.applyCooldown(creatorId);
+    if (creatorId && guildId) {
+      await this.cooldownService.applyCooldown(guildId, creatorId);
     }
 
     await this.metricsService.recordTicketResolution({ threadId });
@@ -72,12 +72,12 @@ export class TicketService {
     return this.ticketRepo.getTicketStats(guildId);
   }
 
-  async checkCooldown(userId: string): Promise<true> {
-    return this.cooldownService.checkCooldown(userId);
+  async checkCooldown(guildId: string, userId: string): Promise<true> {
+    return this.cooldownService.checkCooldown(guildId, userId);
   }
 
-  async applyCooldown(userId: string): Promise<number> {
-    return this.cooldownService.applyCooldown(userId);
+  async applyCooldown(guildId: string, userId: string): Promise<number> {
+    return this.cooldownService.applyCooldown(guildId, userId);
   }
 }
 

@@ -1,3 +1,6 @@
+// BigInt polyfill: Discord.js v14 uses BigInt for snowflakes, which JSON.stringify can't handle
+BigInt.prototype.toJSON = function () { return this.toString(); };
+
 import { REST } from '@discordjs/rest';
 import { WebSocketManager } from '@discordjs/ws';
 import { GatewayDispatchEvents, GatewayIntentBits } from '@discordjs/core';

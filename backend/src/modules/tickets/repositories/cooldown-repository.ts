@@ -1,128 +1,114 @@
 import logger from '../services/logging-service.js';
-import { REDIS_KEYS, KEY_TTLS } from '../utils/redis-keys.js';
 import { TICKET_COOLDOWN_MS } from '../utils/constants.js';
 import { isValidDiscordId } from '../utils/validators.js';
 import { DatabaseError, ValidationError } from '../utils/error-handler.js';
-import type { RedisClient } from '../../../types/index.js';
 
 export class CooldownRepository {
-  private redis: RedisClient;
+  private db: any;
 
-  constructor(redis: RedisClient) {
-    this.redis = redis;
+  constructor(database: any) {
+    this.db = database;
   }
 
-  async setCooldown(userId: string): Promise<number> {
-    if (!isValidDiscordId(userId)) {
-      throw new ValidationError('Invalid user ID');
-    }
+  async setCooldown(guildId: string, userId: string): Promise<number> {
+    if (!isValidDiscordId(guildId)) throw new ValidationError('Invalid guild ID');
+    if (!isValidDiscordId(userId)) throw new ValidationError('Invalid user ID');
 
     try {
-      const key = REDIS_KEYS.cooldown(userId);
-      const timestamp = Date.now();
+      const now = new Date();
+      const cooldownEndsAt = new Date(now.getTime() + TICKET_COOLDOWN_MS);
 
-      await this.redis.setex(
-        key,
-        KEY_TTLS.COOLDOWN,
-        timestamp.toString()
+      await this.db.fetchMany('ticket_cooldowns', (table: any) =>
+        table
+          .upsert(
+            {
+              guild_id: guildId,
+              user_id: userId,
+              closed_at: now.toISOString(),
+              cooldown_ends_at: cooldownEndsAt.toISOString(),
+            },
+            { onConflict: 'guild_id,user_id' }
+          )
+          .select()
+          .limit(1)
       );
 
-      logger.debug('Cooldown set', { userId });
-      return timestamp;
+      logger.debug('Cooldown set', { guildId, userId });
+      return Date.now();
     } catch (error) {
-      logger.error('Failed to set cooldown', { userId, error: (error as Error).message });
-      throw new DatabaseError('Failed to set cooldown', { userId });
+      logger.error('Failed to set cooldown', { guildId, userId, error: (error as Error).message });
+      throw new DatabaseError('Failed to set cooldown', { guildId, userId });
     }
   }
 
-  async getRemainingCooldown(userId: string): Promise<number> {
-    if (!isValidDiscordId(userId)) {
-      throw new ValidationError('Invalid user ID');
-    }
+  async getRemainingCooldown(guildId: string, userId: string): Promise<number> {
+    if (!isValidDiscordId(guildId)) throw new ValidationError('Invalid guild ID');
+    if (!isValidDiscordId(userId)) throw new ValidationError('Invalid user ID');
 
     try {
-      const key = REDIS_KEYS.cooldown(userId);
-      const closedAt = await this.redis.get(key);
+      // Clean expired cooldowns on read
+      await this.db.fetchMany('ticket_cooldowns', (table: any) =>
+        table.delete().lt('cooldown_ends_at', new Date().toISOString())
+      ).catch(() => {});
 
-      if (!closedAt) {
-        return 0;
-      }
+      const rows = await this.db.fetchMany('ticket_cooldowns', (table: any) =>
+        table
+          .select('cooldown_ends_at')
+          .eq('guild_id', guildId)
+          .eq('user_id', userId)
+          .gte('cooldown_ends_at', new Date().toISOString())
+          .limit(1)
+      );
 
-      const elapsed = Date.now() - parseInt(closedAt as string, 10);
-      if (elapsed >= TICKET_COOLDOWN_MS) {
-        await this.redis.del(key);
-        return 0;
-      }
+      if (!rows || rows.length === 0) return 0;
 
-      return TICKET_COOLDOWN_MS - elapsed;
+      const endsAt = new Date(rows[0].cooldown_ends_at).getTime();
+      const remaining = endsAt - Date.now();
+      return remaining > 0 ? remaining : 0;
     } catch (error) {
-      logger.error('Failed to get remaining cooldown', { userId, error: (error as Error).message });
-      throw new DatabaseError('Failed to get remaining cooldown', { userId });
+      logger.error('Failed to get remaining cooldown', { guildId, userId, error: (error as Error).message });
+      throw new DatabaseError('Failed to get remaining cooldown', { guildId, userId });
     }
   }
 
-  async isOnCooldown(userId: string): Promise<boolean> {
-    const remaining = await this.getRemainingCooldown(userId);
+  async isOnCooldown(guildId: string, userId: string): Promise<boolean> {
+    const remaining = await this.getRemainingCooldown(guildId, userId);
     return remaining > 0;
   }
 
-  async getCooldownExpiration(userId: string): Promise<number | null> {
-    if (!isValidDiscordId(userId)) {
-      throw new ValidationError('Invalid user ID');
-    }
+  async getCooldownExpiration(guildId: string, userId: string): Promise<number | null> {
+    const remaining = await this.getRemainingCooldown(guildId, userId);
+    return remaining > 0 ? Date.now() + remaining : null;
+  }
+
+  async clearCooldown(guildId: string, userId: string): Promise<void> {
+    if (!isValidDiscordId(guildId)) throw new ValidationError('Invalid guild ID');
+    if (!isValidDiscordId(userId)) throw new ValidationError('Invalid user ID');
 
     try {
-      const remaining = await this.getRemainingCooldown(userId);
-      if (remaining === 0) {
-        return null;
-      }
-
-      return Date.now() + remaining;
+      await this.db.fetchMany('ticket_cooldowns', (table: any) =>
+        table.delete().eq('guild_id', guildId).eq('user_id', userId)
+      );
+      logger.debug('Cooldown cleared', { guildId, userId });
     } catch (error) {
-      logger.error('Failed to get cooldown expiration', { userId, error: (error as Error).message });
-      throw new DatabaseError('Failed to get cooldown expiration', { userId });
+      logger.error('Failed to clear cooldown', { guildId, userId, error: (error as Error).message });
+      throw new DatabaseError('Failed to clear cooldown', { guildId, userId });
     }
   }
 
-  async clearCooldown(userId: string): Promise<void> {
-    if (!isValidDiscordId(userId)) {
-      throw new ValidationError('Invalid user ID');
-    }
-
+  async getAllActiveCooldowns(): Promise<Array<{ guildId: string; userId: string; closedAt: number }>> {
     try {
-      const key = REDIS_KEYS.cooldown(userId);
-      await this.redis.del(key);
-      logger.debug('Cooldown cleared', { userId });
-    } catch (error) {
-      logger.error('Failed to clear cooldown', { userId, error: (error as Error).message });
-      throw new DatabaseError('Failed to clear cooldown', { userId });
-    }
-  }
+      const rows = await this.db.fetchMany('ticket_cooldowns', (table: any) =>
+        table
+          .select('guild_id, user_id, closed_at')
+          .gte('cooldown_ends_at', new Date().toISOString())
+      );
 
-  async getAllActiveCooldowns(): Promise<Array<{ userId: string; closedAt: number }>> {
-    try {
-      const pattern = REDIS_KEYS.cooldown('*');
-      const keys: string[] = [];
-      let cursor = '0';
-      do {
-        const result = await (this.redis as any).scan(cursor, { match: pattern, count: 100 });
-        cursor = result[0];
-        keys.push(...result[1]);
-      } while (cursor !== '0');
-
-      if (keys.length === 0) {
-        return [];
-      }
-
-      const values = await this.redis.mget(...keys);
-
-      return keys.map((key, index) => {
-        const userId = key.split(':').pop()!;
-        return {
-          userId,
-          closedAt: parseInt(values[index] as string, 10)
-        };
-      });
+      return (rows || []).map((row: any) => ({
+        guildId: String(row.guild_id),
+        userId: String(row.user_id),
+        closedAt: new Date(row.closed_at).getTime(),
+      }));
     } catch (error) {
       logger.error('Failed to fetch all active cooldowns', { error: (error as Error).message });
       throw new DatabaseError('Failed to fetch all active cooldowns');
@@ -131,20 +117,10 @@ export class CooldownRepository {
 
   async clearAllCooldowns(): Promise<number> {
     try {
-      const pattern = REDIS_KEYS.cooldown('*');
-      const keys: string[] = [];
-      let cursor = '0';
-      do {
-        const result = await (this.redis as any).scan(cursor, { match: pattern, count: 100 });
-        cursor = result[0];
-        keys.push(...result[1]);
-      } while (cursor !== '0');
-
-      if (keys.length === 0) {
-        return 0;
-      }
-
-      return this.redis.del(...keys);
+      const rows = await this.db.fetchMany('ticket_cooldowns', (table: any) =>
+        table.delete().gte('cooldown_ends_at', new Date().toISOString()).select('id')
+      );
+      return (rows || []).length;
     } catch (error) {
       logger.error('Failed to clear all cooldowns', { error: (error as Error).message });
       throw new DatabaseError('Failed to clear all cooldowns');

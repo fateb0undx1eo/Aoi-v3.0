@@ -249,8 +249,8 @@ export class TicketResolutionHandler {
           await channel.setLocked(true).catch(() => null);
           await channel.setArchived(true).catch(() => null);
 
-          await this.ticketService.applyCooldown(creatorId).catch(() => null);
-          const ticketRow = await this.ticketService.resolveTicket(channel.id, interaction.user.id, creatorId).catch(() => null);
+          await this.ticketService.applyCooldown(interaction.guildId, creatorId).catch(() => null);
+          const ticketRow = await this.ticketService.resolveTicket(channel.id, interaction.user.id, creatorId, interaction.guildId).catch(() => null);
           await this.sendResolvedLog(channel, creatorId, interaction.user.id, allMessages, ticketRow, config);
 
           return { type: 'EDIT_REPLY', content: '✅ Ticket has been closed.' };

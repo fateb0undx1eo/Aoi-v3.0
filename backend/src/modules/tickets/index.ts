@@ -88,7 +88,7 @@ export async function initializeTicketsModule(options: TicketModuleOptions): Pro
   logger.info('Initializing tickets module...', { environment });
 
   const ticketRepository = new TicketRepository(database);
-  const cooldownRepository = new CooldownRepository(redis);
+  const cooldownRepository = new CooldownRepository(database);
 
   const cooldownService = new CooldownService(cooldownRepository);
   const lockService = new LockService(redis);

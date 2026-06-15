@@ -60,7 +60,7 @@ export class TicketCreationHandler {
       const isAdminOrOwner = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) || interaction.guild?.ownerId === user.id;
       if (!isAdminOrOwner) {
         try {
-          await this.ticketService.checkCooldown(user.id);
+          await this.ticketService.checkCooldown(interaction.guildId, user.id);
         } catch (error) {
           if (error instanceof CooldownError) {
             return R.editReply(error.message);

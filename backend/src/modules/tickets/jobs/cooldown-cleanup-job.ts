@@ -48,7 +48,7 @@ export class CooldownCleanupJob {
         const elapsed = Date.now() - cd.closedAt;
         const cooldownMs = 10 * 60 * 1000; // matches TICKET_COOLDOWN_MS
         if (elapsed >= cooldownMs) {
-          await this.repo.clearCooldown(cd.userId);
+          await this.repo.clearCooldown(cd.guildId, cd.userId);
           cleaned++;
         }
       }

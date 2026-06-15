@@ -16,13 +16,13 @@ export class CooldownService {
     this.repo = cooldownRepository;
   }
 
-  async applyCooldown(userId: string): Promise<number> {
-    logger.debug('Applying cooldown', { userId });
-    return this.repo.setCooldown(userId);
+  async applyCooldown(guildId: string, userId: string): Promise<number> {
+    logger.debug('Applying cooldown', { guildId, userId });
+    return this.repo.setCooldown(guildId, userId);
   }
 
-  async checkCooldown(userId: string): Promise<true> {
-    const remaining = await this.repo.getRemainingCooldown(userId);
+  async checkCooldown(guildId: string, userId: string): Promise<true> {
+    const remaining = await this.repo.getRemainingCooldown(guildId, userId);
 
     if (remaining > 0) {
       const readyAt = Math.floor((Date.now() + remaining) / 1000);
@@ -36,8 +36,8 @@ export class CooldownService {
     return true;
   }
 
-  async getCooldownStatus(userId: string): Promise<CooldownStatus> {
-    const remaining = await this.repo.getRemainingCooldown(userId);
+  async getCooldownStatus(guildId: string, userId: string): Promise<CooldownStatus> {
+    const remaining = await this.repo.getRemainingCooldown(guildId, userId);
     const isOnCooldown = remaining > 0;
     const expiresAt = isOnCooldown ? Date.now() + remaining : null;
 
@@ -49,12 +49,12 @@ export class CooldownService {
     };
   }
 
-  async clearCooldown(userId: string): Promise<void> {
-    logger.info('Clearing cooldown', { userId });
-    return this.repo.clearCooldown(userId);
+  async clearCooldown(guildId: string, userId: string): Promise<void> {
+    logger.info('Clearing cooldown', { guildId, userId });
+    return this.repo.clearCooldown(guildId, userId);
   }
 
-  async getAllActiveCooldowns(): Promise<Array<{ userId: string; closedAt: number }>> {
+  async getAllActiveCooldowns(): Promise<Array<{ guildId: string; userId: string; closedAt: number }>> {
     return this.repo.getAllActiveCooldowns();
   }
 
