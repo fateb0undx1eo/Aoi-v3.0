@@ -613,13 +613,14 @@ export default function CommunityPage() {
     if (formsInitialized.current) return;
     formsInitialized.current = true;
 
-    const nextRoleColor = normalizeRoleColorConfig(communityModule.config?.role_color_rotation);
-    const nextMemeAutopost = normalizeMemeAutopostConfig(communityModule.config?.meme_autopost);
-    const nextBotLooks = normalizeBotLooksConfig(communityModule.config?.bot_looks);
-    const nextProfileStyle = normalizeProfileStyleConfig(communityModule.config?.profile_style);
-    const nextDmWelcomer = normalizeDmWelcomerConfig(communityModule.config?.dm_welcomer);
-    const nextAnnouncementPresets = normalizeAnnouncementPresets(communityModule.config?.announcements_studio);
-    const nextPremiumFeature = normalizePremiumFeatureConfig(communityModule.config?.premium_feature_1);
+    const cfg = communityModule.config as Record<string, any> | null | undefined;
+    const nextRoleColor = normalizeRoleColorConfig(cfg?.role_color_rotation);
+    const nextMemeAutopost = normalizeMemeAutopostConfig(cfg?.meme_autopost);
+    const nextBotLooks = normalizeBotLooksConfig(cfg?.bot_looks);
+    const nextProfileStyle = normalizeProfileStyleConfig(cfg?.profile_style);
+    const nextDmWelcomer = normalizeDmWelcomerConfig(cfg?.dm_welcomer);
+    const nextAnnouncementPresets = normalizeAnnouncementPresets(cfg?.announcements_studio);
+    const nextPremiumFeature = normalizePremiumFeatureConfig(cfg?.premium_feature_1);
 
     setRoleColorForm(nextRoleColor);
     setMemeForm(nextMemeAutopost);
@@ -716,7 +717,7 @@ export default function CommunityPage() {
   }, [activePremiumPreviewId, premiumFeatureForm.triggers]);
 
   const hasPersistedRoleColorConfig = useMemo(() => {
-    const persisted = normalizeRoleColorConfig(communityModule?.config?.role_color_rotation);
+    const persisted = normalizeRoleColorConfig((communityModule?.config as Record<string, any> | null | undefined)?.role_color_rotation);
     return (
       persisted.enabled ||
       persisted.role_ids.length > 0 ||
@@ -726,7 +727,7 @@ export default function CommunityPage() {
   }, [communityModule]);
 
   const hasPersistedMemeConfig = useMemo(() => {
-    const persisted = normalizeMemeAutopostConfig(communityModule?.config?.meme_autopost);
+    const persisted = normalizeMemeAutopostConfig((communityModule?.config as Record<string, any> | undefined)?.meme_autopost);
     return (
       persisted.enabled ||
       persisted.channel_id !== "" ||
@@ -738,7 +739,7 @@ export default function CommunityPage() {
   }, [communityModule]);
 
   const hasPersistedBotLooksConfig = useMemo(() => {
-    const persisted = normalizeBotLooksConfig(communityModule?.config?.bot_looks);
+    const persisted = normalizeBotLooksConfig((communityModule?.config as Record<string, any> | undefined)?.bot_looks);
     return (
       persisted.enabled ||
       persisted.status !== DEFAULT_BOT_LOOKS_CONFIG.status ||
@@ -750,7 +751,7 @@ export default function CommunityPage() {
   }, [communityModule]);
 
   const hasPersistedProfileStyleConfig = useMemo(() => {
-    const persisted = normalizeProfileStyleConfig(communityModule?.config?.profile_style);
+    const persisted = normalizeProfileStyleConfig((communityModule?.config as Record<string, any> | undefined)?.profile_style);
     return (
       persisted.enabled ||
       persisted.font_id !== DEFAULT_PROFILE_STYLE_CONFIG.font_id ||
@@ -760,7 +761,7 @@ export default function CommunityPage() {
   }, [communityModule]);
 
   const hasPersistedDmWelcomerConfig = useMemo(() => {
-    const persisted = normalizeDmWelcomerConfig(communityModule?.config?.dm_welcomer);
+    const persisted = normalizeDmWelcomerConfig((communityModule?.config as Record<string, any> | undefined)?.dm_welcomer);
     return (
       persisted.enabled ||
       persisted.title !== DEFAULT_DM_WELCOMER_CONFIG.title ||
@@ -770,7 +771,7 @@ export default function CommunityPage() {
   }, [communityModule]);
 
   const hasPersistedPremiumFeatureConfig = useMemo(() => {
-    const persisted = normalizePremiumFeatureConfig(communityModule?.config?.premium_feature_1);
+    const persisted = normalizePremiumFeatureConfig((communityModule?.config as Record<string, any> | undefined)?.premium_feature_1);
     return (
       persisted.enabled ||
       persisted.cooldown_seconds !== DEFAULT_PREMIUM_FEATURE_CONFIG.cooldown_seconds ||
