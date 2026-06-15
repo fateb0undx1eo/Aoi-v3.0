@@ -166,6 +166,5 @@ export default {
   LOG_COLORS,
   getTicketColor,
   ERROR_MESSAGES,
-  DEFAULT_GUILD_CONFIG,
-  TicketGuildConfig
+  DEFAULT_GUILD_CONFIG
 };
