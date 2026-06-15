@@ -117,6 +117,7 @@ export function buildBlacklistListPayload(entries: any[], guildName: string) {
   const content = lines.join('\n').slice(0, 3800);
 
   return {
+    flags: 32768,
     components: [
       {
         type: 17,

@@ -31,12 +31,17 @@ async function processResult(interaction: any, result: InteractionResult): Promi
     case 'ERROR': {
       try {
         if (interaction.deferred || interaction.replied) {
-          await interaction.editReply({
-            content: result.message,
-            ...(result.components ? { components: result.components } : {}),
-            ...(result.files ? { files: result.files } : {}),
-            ...extraFields(result)
-          } as any);
+          const editOpts: Record<string, any> = {};
+          if (result.components && result.message) {
+            editOpts.components = [{ type: 10, content: result.message }, ...result.components];
+          } else if (result.message) {
+            editOpts.content = result.message;
+          } else if (result.components) {
+            editOpts.components = result.components;
+          }
+          if (result.files) editOpts.files = result.files;
+          Object.assign(editOpts, extraFields(result));
+          await interaction.editReply(editOpts as any);
         } else {
           await interaction.reply({
             content: result.message,
@@ -57,13 +62,29 @@ async function processResult(interaction: any, result: InteractionResult): Promi
     }
     case 'EDIT_REPLY': {
       try {
-        await interaction.editReply({
-          content: result.content,
-          ...(result.components ? { components: result.components } : {}),
-          ...(result.files ? { files: result.files } : {}),
-          ...extraFields(result)
-        } as any);
+        const editOpts: Record<string, any> = {};
+        if (result.components && result.content) {
+          editOpts.components = [{ type: 10, content: result.content }, ...result.components];
+        } else if (result.content) {
+          editOpts.content = result.content;
+        } else if (result.components) {
+          editOpts.components = result.components;
+        }
+        if (result.files) editOpts.files = result.files;
+        Object.assign(editOpts, extraFields(result));
+        await interaction.editReply(editOpts as any);
       } catch (editError: any) {
+        if (editError.code === 50035 && result.content) {
+          try {
+            await interaction.editReply({
+              components: [{ type: 10, content: result.content }],
+              flags: 32768,
+              ...(result.files ? { files: result.files } : {}),
+              ...extraFields(result)
+            } as any);
+          } catch {}
+          return;
+        }
         logger.warn('EDIT_REPLY failed — interaction likely dead', {
           id: interaction.id,
           code: editError.code,
