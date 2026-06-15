@@ -67,11 +67,12 @@ export class TicketCommandHandler {
       return await this.handleManageUsersCommand(interaction);
     }
 
-    if (group === 'blacklist') {
+    if (subcommand === 'blacklist') {
       logger.info('BLACKLIST subcommand triggered', { subcommand });
-      if (subcommand === 'add') return await this.handleBlacklistAdd(interaction);
-      if (subcommand === 'remove') return await this.handleBlacklistRemove(interaction);
-      if (subcommand === 'list') return await this.handleBlacklistList(interaction);
+      const action = options.getString('action');
+      if (action === 'add') return await this.handleBlacklistAdd(interaction);
+      if (action === 'remove') return await this.handleBlacklistRemove(interaction);
+      return await this.handleBlacklistList(interaction);
     }
 
     logger.warn('Unknown subcommand', { group, subcommand });

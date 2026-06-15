@@ -161,39 +161,24 @@ export async function initializeTicketsModule(options: TicketModuleOptions): Pro
           },
           {
             name: 'blacklist',
-            type: 2,
-            description: 'Manage ticket blacklist',
+            type: 1,
+            description: 'List, add, or remove blacklisted users',
             options: [
               {
-                name: 'add',
-                type: 1,
-                description: 'Blacklist a user from creating tickets',
-                options: [
-                  {
-                    name: 'user',
-                    type: 6,
-                    description: 'The user to blacklist',
-                    required: true
-                  }
+                name: 'action',
+                type: 3,
+                description: 'Action to perform (default: list)',
+                required: false,
+                choices: [
+                  { name: 'add', value: 'add' },
+                  { name: 'remove', value: 'remove' }
                 ]
               },
               {
-                name: 'remove',
-                type: 1,
-                description: 'Remove a user from the ticket blacklist',
-                options: [
-                  {
-                    name: 'user',
-                    type: 6,
-                    description: 'The user to unblacklist',
-                    required: true
-                  }
-                ]
-              },
-              {
-                name: 'list',
-                type: 1,
-                description: 'List all blacklisted users'
+                name: 'user',
+                type: 6,
+                description: 'The user to add or remove',
+                required: false
               }
             ]
           }
