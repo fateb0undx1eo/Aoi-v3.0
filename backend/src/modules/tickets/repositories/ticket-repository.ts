@@ -214,11 +214,15 @@ export class TicketRepository {
     );
   }
 
-  async getBlacklist(guildId: string): Promise<string[]> {
+  async getBlacklist(guildId: string): Promise<{ user_id: string; added_by: string; created_at: string }[]> {
     const rows = await this.db.fetchMany('ticket_blacklist', (table: any) =>
       table.select('user_id, added_by, created_at').eq('guild_id', guildId).order('created_at', { ascending: false })
     );
-    return rows || [];
+    return (rows || []).map((row: any) => ({
+      user_id: String(row.user_id),
+      added_by: String(row.added_by),
+      created_at: row.created_at
+    }));
   }
 
   async deleteResolvedOlderThan(daysOld: number = 90): Promise<number> {

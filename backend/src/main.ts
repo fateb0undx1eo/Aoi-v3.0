@@ -124,8 +124,6 @@ async function main(): Promise<void> {
     } else {
       logger.info('✓ Redis connected');
     }
-    logStreamService.init(redisClient);
-
     // ─────────────────────────────────────────────────────────────
     // 2. Initialize Database
     // ─────────────────────────────────────────────────────────────

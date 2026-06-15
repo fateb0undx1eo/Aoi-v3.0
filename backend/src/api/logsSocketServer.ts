@@ -41,12 +41,7 @@ export function attachLogsSocketServer({ server, authService }: LogsSocketDeps):
     }
   });
 
-  wss.on('connection', async (ws: WebSocket): Promise<void> => {
-    const backlog = await logStreamService.getBacklog();
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'backlog', entries: backlog }));
-    }
-
+  wss.on('connection', (ws: WebSocket): void => {
     logStreamService.addSubscriber(ws);
 
     ws.on('close', () => logStreamService.removeSubscriber(ws));

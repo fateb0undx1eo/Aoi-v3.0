@@ -62,7 +62,7 @@ export class BlacklistService {
     }
   }
 
-  async getBlacklist(guildId: string): Promise<string[]> {
+  async getBlacklist(guildId: string): Promise<{ user_id: string; added_by: string; created_at: string }[]> {
     if (!isValidDiscordId(guildId)) throw new ValidationError('Invalid guild ID');
 
     try {
