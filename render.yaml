@@ -5,8 +5,8 @@ services:
     rootDir: backend
     plan: free
     autoDeploy: true
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: bun install
+    startCommand: bun run src/main.ts
     healthCheckPath: /healthz
     envVars:
       - key: NODE_VERSION
@@ -45,8 +45,8 @@ services:
     rootDir: landing
     plan: free
     autoDeploy: true
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: bun install && bun run build
+    startCommand: bun run start
     envVars:
       - key: NODE_VERSION
         value: 22.13.1
