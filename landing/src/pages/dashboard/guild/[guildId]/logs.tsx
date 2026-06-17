@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
@@ -38,8 +39,7 @@ const LEVEL_BADGES: Record<LogLevel, string> = {
 };
 
 function formatTime(ts: string) {
-  const d = new Date(ts);
-  return d.toLocaleTimeString("en-US", { hour12: false });
+  return format(new Date(ts), "HH:mm:ss");
 }
 
 function formatContext(ctx?: Record<string, unknown>): string {

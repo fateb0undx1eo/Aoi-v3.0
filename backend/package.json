@@ -9,9 +9,11 @@
     "build": "tsc",
     "start:prod": "bun run dist/main.js",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
     "lint:check": "tsc --noEmit",
     "test": "bun test",
-    "validate": "bun run typecheck"
+    "validate": "bun run typecheck && bun run lint"
   },
   "dependencies": {
     "@discordjs/core": "^2.5.0",
@@ -35,6 +37,7 @@
     "ws": "^8.20.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/compression": "^1.8.1",
     "@types/connect-timeout": "^1.9.0",
     "@types/express": "^5.0.6",
@@ -43,6 +46,10 @@
     "@types/node-cron": "^3.0.11",
     "@types/pino": "^7.0.4",
     "@types/ws": "^8.18.1",
-    "typescript": "^6.0.3"
+    "date-fns": "^4.4.0",
+    "eslint": "^10.5.0",
+    "nanoid": "^5.1.11",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.61.1"
   }
 }

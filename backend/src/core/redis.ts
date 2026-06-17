@@ -1,4 +1,4 @@
-import crypto from 'node:crypto';
+import { nanoid } from 'nanoid';
 import { Redis } from 'ioredis';
 import type { RedisClient } from '../types/index.js';
 import { env } from './config/env.js';
@@ -193,7 +193,7 @@ class RedisClientImpl implements RedisClient {
       return null;
     }
 
-    const lockValue = value || crypto.randomUUID();
+    const lockValue = value || nanoid();
 
     try {
       const result = await this.client!.set(key, lockValue, 'PX', ttl, 'NX');

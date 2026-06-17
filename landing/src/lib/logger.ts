@@ -1,6 +1,12 @@
-import log from 'loglevel';
+import pino from 'pino';
 
 const isDev = process.env.NODE_ENV === 'development';
-log.setLevel(isDev ? 'debug' : 'warn');
 
-export default log;
+const logger = pino({
+  level: isDev ? 'debug' : 'warn',
+  browser: {
+    asObject: true,
+  },
+});
+
+export default logger;

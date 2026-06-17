@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { nanoid } from 'nanoid';
 import { logger } from '../../utils/logger.js';
 import { metrics } from '../../observability/metrics.js';
 import type { RedisClient } from '../../types/index.js';
@@ -165,7 +165,7 @@ export function debounce<T extends (...args: any[]) => any>(
   waitMs: number,
   key?: string,
 ): (...args: Parameters<T>) => void {
-  const id = key ?? randomUUID();
+      const id = key ?? nanoid();
   return (...args: Parameters<T>) => {
     const existing = debounceMap.get(id);
     if (existing) clearTimeout(existing.timer);

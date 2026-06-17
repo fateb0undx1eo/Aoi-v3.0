@@ -1,5 +1,6 @@
 import { deleteWhere, fetchMany, upsertRows } from '../database/repository.js';
 import { redisClient } from '../core/redis.js';
+import { format, subDays } from 'date-fns';
 
 interface AnalyticsRow {
   guild_id: string;
@@ -13,7 +14,7 @@ const CACHE_PREFIX = 'analytics';
 
 export class AnalyticsService {
   async recordDaily(guildId: string, payload: Record<string, any>): Promise<void> {
-    const date = new Date().toISOString().slice(0, 10);
+    const date = format(new Date(), 'yyyy-MM-dd');
     await upsertRows(
       'analytics',
       {
@@ -35,7 +36,7 @@ export class AnalyticsService {
       } catch {}
     }
 
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const since = format(subDays(new Date(), 30), 'yyyy-MM-dd');
     const result = await fetchMany<AnalyticsRow>('analytics', (table) =>
       table
         .select('guild_id,date_bucket,metrics,created_at')
@@ -52,7 +53,7 @@ export class AnalyticsService {
   }
 
   async cleanupOlderThan30Days(): Promise<void> {
-    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const cutoff = format(subDays(new Date(), 30), 'yyyy-MM-dd');
     await deleteWhere('analytics', (table: any) => table.lt('date_bucket', cutoff));
     if (redisClient.isReady()) {
       try {

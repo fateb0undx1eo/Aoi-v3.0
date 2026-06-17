@@ -1,3 +1,5 @@
+import { nanoid } from "nanoid";
+import { formatDate } from "@/lib/date";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import {
@@ -100,7 +102,7 @@ const DEFAULT_COMPONENTS: AnnouncementComponent[][] = [];
 
 function createAnnouncementEntry(): AnnouncementEntry {
   return {
-    id: `entry-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: `entry-${nanoid(8)}`,
     content: "",
     embed: { ...EMPTY_EMBED, fields: [] },
     components: [],
@@ -178,10 +180,7 @@ function renderDiscordText(text: string): ReactNode[] {
 function formatTimestamp(iso: string): string {
   if (!iso) return "";
   try {
-    const d = new Date(iso);
-    const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-    return `${date} ${time}`;
+    return formatDate(iso, "MMM d, yyyy, h:mm a");
   } catch {
     return iso;
   }

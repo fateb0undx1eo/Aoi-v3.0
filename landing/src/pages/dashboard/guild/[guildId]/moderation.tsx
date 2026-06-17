@@ -139,7 +139,7 @@ export default function ModerationPage() {
       setReason("");
       setDuration("");
     } catch (err) {
-      log.error("Failed to create case:", err);
+      log.error({ err }, "Failed to create case:");
       alert("Failed to create case - check console");
     } finally {
       setSubmitting(false);
@@ -150,7 +150,7 @@ export default function ModerationPage() {
     try {
       await revokePunishment.mutateAsync({ caseId, reason: "Revoked from dashboard" });
     } catch (err) {
-      log.error("Failed to revoke punishment:", err);
+      log.error({ err }, "Failed to revoke punishment:");
     }
   };
 
@@ -160,7 +160,7 @@ export default function ModerationPage() {
       await saveModConfig.mutateAsync({ ...config, ...updates });
       setConfig({ ...config, ...updates });
     } catch (err) {
-      log.error("Failed to update config:", err);
+      log.error({ err }, "Failed to update config:");
     }
   };
 
@@ -184,7 +184,7 @@ export default function ModerationPage() {
         },
       });
     } catch (err) {
-      log.error("Failed to update case command config:", err);
+      log.error({ err }, "Failed to update case command config:");
     }
   };
 

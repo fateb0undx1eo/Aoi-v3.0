@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { randomUUID } from 'node:crypto';
+import { nanoid } from 'nanoid';
 import pino from 'pino';
 import type { Logger } from '../types/index.js';
 import { logStreamService } from '../services/logStreamService.js';
@@ -92,7 +92,7 @@ export function getLogContext(): Record<string, any> {
 }
 
 export function createRequestId(): string {
-  return randomUUID();
+  return nanoid();
 }
 
 export const logger: Logger = {

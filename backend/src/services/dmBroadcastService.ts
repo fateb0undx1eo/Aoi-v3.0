@@ -1,6 +1,6 @@
 import type { Client, Guild, GuildMember } from 'discord.js';
 import { MessageFlags } from 'discord.js';
-import { randomUUID } from 'node:crypto';
+import { nanoid } from 'nanoid';
 import { logger } from '../utils/logger.js';
 
 interface ContainerBlock {
@@ -283,7 +283,7 @@ export class DmBroadcastService {
     this.pruneJobs();
 
     const job: DmJob = {
-      id: randomUUID(),
+      id: nanoid(),
       guild_id: guildId,
       status: 'queued',
       target_mode: payload.target_mode,

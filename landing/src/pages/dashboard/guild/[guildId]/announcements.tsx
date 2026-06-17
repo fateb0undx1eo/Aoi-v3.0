@@ -1,3 +1,4 @@
+import { nanoid } from "nanoid";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
@@ -84,7 +85,7 @@ export default function GuildAnnouncementsPage() {
         const savedPresets = communityModule?.config?.announcements_studio?.dashboardPresets;
         if (Array.isArray(savedPresets) && savedPresets.length > 0) {
           setPresets(savedPresets.map((p: any) => ({
-            id: p.id || `preset-${Date.now()}`,
+            id: p.id || `preset-${nanoid()}`,
             name: String(p.name || "").slice(0, 80),
             kind: p.kind === "template" ? "template" as const : "draft" as const,
             data: p.data || { version: "d2", messages: [{ _id: randomId(), data: {} }], targets: [] },
@@ -187,7 +188,7 @@ export default function GuildAnnouncementsPage() {
     if (!name) { setStatus({ state: "error", text: "Enter a name before saving." }); return; }
     const existingIdx = presets.findIndex((p) => p.kind === kind && p.name.toLowerCase() === name.toLowerCase());
     const next = [...presets];
-    const preset = { id: existingIdx >= 0 ? next[existingIdx]!.id : `preset-${Date.now()}-${randomId()}`, name, kind, data: cloneQueryData(data) };
+    const preset = { id: existingIdx >= 0 ? next[existingIdx]!.id : `preset-${nanoid()}`, name, kind, data: cloneQueryData(data) };
     if (existingIdx >= 0) next[existingIdx]! = preset;
     else next.unshift(preset);
     setPresets(next);

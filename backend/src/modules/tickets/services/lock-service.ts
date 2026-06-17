@@ -1,3 +1,4 @@
+import { nanoid } from 'nanoid';
 import logger from './logging-service.js';
 import { REDIS_KEYS, KEY_TTLS } from '../utils/redis-keys.js';
 import { TICKET_CREATION_LOCK_MS } from '../utils/constants.js';
@@ -98,7 +99,7 @@ export class LockService {
   async acquireLock(resourceName: string, ttlSeconds: number = 30): Promise<string | null> {
     try {
       const key = REDIS_KEYS.lock(resourceName);
-      const lockId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const lockId = `${Date.now()}-${nanoid(9)}`;
 
       const result = await (this.redis as any).set(
         key,

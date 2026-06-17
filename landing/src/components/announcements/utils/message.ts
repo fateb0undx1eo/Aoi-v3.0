@@ -1,7 +1,9 @@
+import { nanoid } from "nanoid";
+import { formatDate } from "@/lib/date";
 import type { QueryDataMessage, QueryDataMessageData, QueryData, APIButtonComponent } from "../types";
 import { DISCORD_LIMITS } from "../constants";
 
-export function randomId(): string { return Math.random().toString(36).slice(2, 10); }
+export function randomId(): string { return nanoid(8); }
 
 export function createMessage(flags?: number): QueryDataMessage {
   return { _id: randomId(), data: { flags }, reference: undefined, thread_id: undefined };
@@ -66,8 +68,7 @@ export function getMessageLimitWarnings(msg: QueryDataMessageData): string[] {
 export function formatTimestamp(iso: string): string {
   if (!iso) return "";
   try {
-    const d = new Date(iso);
-    return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+    return formatDate(iso, "MMM d, yyyy, h:mm a");
   } catch { return iso; }
 }
 

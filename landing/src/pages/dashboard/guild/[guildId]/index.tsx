@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -60,8 +61,8 @@ function guildIconUrl(guild: GuildData | null) {
   return `https://cdn.discordapp.com/icons/${guild.id}/${iconPath}?size=256`;
 }
 
-function formatDate(input: string) {
-  return new Date(input).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+function formatDateShort(input: string) {
+  return format(new Date(input), "MMM d");
 }
 
 function formatRelativeTime(input: string) {
@@ -426,7 +427,7 @@ export default function GuildOverviewPage() {
                     <div className="mt-4 flex flex-wrap justify-between gap-3 text-xs text-muted-foreground">
                       {deferredAnalytics.slice(Math.max(deferredAnalytics.length - 6, 0)).map((point) => (
                         <div key={point.date} className="min-w-[68px]">
-                          <div>{formatDate(point.date)}</div>
+                          <div>{formatDateShort(point.date)}</div>
                           <div className="mt-1 text-foreground">{point.member_count}</div>
                         </div>
                       ))}

@@ -67,7 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     res.redirect("/dashboard");
   } catch (err) {
-    log.error("Auth callback error:", err);
+    log.error({ err }, "Auth callback error:");
     redirectWithError("authentication_failed");
   }
 }

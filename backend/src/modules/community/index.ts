@@ -1,5 +1,5 @@
 import { EmbedBuilder, MessageFlags, WebhookClient } from 'discord.js';
-import { randomUUID } from 'node:crypto';
+import { nanoid } from 'nanoid';
 import type { BotContext, InteractionResult, ConfigCache, PlaceholderEngine } from '../../types/index.js';
 import type { ChatInputCommandInteraction, ButtonInteraction, ModalSubmitInteraction, GuildMember, Message, PartialGuildMember } from 'discord.js';
 
@@ -293,7 +293,7 @@ function normalizePremiumTrigger(rawTrigger: Record<string, any> | undefined | n
     : [];
 
   return {
-    id: String(rawTrigger?.id ?? randomUUID()),
+    id: String(rawTrigger?.id ?? nanoid()),
     trigger: String(rawTrigger?.trigger ?? '').trim(),
     response_links: Array.from(new Set(responseLinks)),
     footer_text: String(rawTrigger?.footer_text ?? '').trim().slice(0, 500),
@@ -430,7 +430,7 @@ function buildMemeAutopostButtons(token: string, enabled: boolean): any[] {
 }
 
 function storePendingAction(store: Map<string, any>, data: Record<string, any>): string {
-  const token = randomUUID();
+  const token = nanoid();
   const timeout = setTimeout(() => {
     store.delete(token);
   }, 600000);

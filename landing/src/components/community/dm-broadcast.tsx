@@ -1,3 +1,4 @@
+import { nanoid } from "nanoid";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -76,7 +77,7 @@ export default function DmBroadcast({ guildId, open, onOpenChange, guild, emojis
 
   function createDmPlainMessage(content = ""): DmBroadcastPlainMessage {
     return {
-      id: `dm-plain-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: `dm-plain-${nanoid()}`,
       content,
     };
   }

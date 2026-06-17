@@ -1,3 +1,4 @@
+import { nanoid } from "nanoid";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -129,7 +130,7 @@ export default function PremiumFeature({ guildId, open, onOpenChange, moduleConf
 
   function createTrigger(): PremiumFeatureTrigger {
     return {
-      id: `premium-trigger-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: `premium-trigger-${nanoid()}`,
       trigger: "",
       response_links: [],
       footer_text: "",

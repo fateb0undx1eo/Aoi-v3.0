@@ -1,5 +1,5 @@
 import { Queue, Worker, QueueEvents } from 'bullmq';
-import { randomUUID } from 'node:crypto';
+import { nanoid } from 'nanoid';
 import { metrics } from '../../observability/metrics.js';
 import { logger } from '../../utils/logger.js';
 import { redisClient } from '../redis.js';
@@ -132,7 +132,7 @@ export class JobQueue {
 
   async enqueue(type: string, payload: any, options: JobOptions = {}): Promise<JobPayload> {
     const job: JobPayload = {
-      id: options.id || randomUUID(),
+      id: options.id || nanoid(),
       type,
       payload,
       attempts: 0,

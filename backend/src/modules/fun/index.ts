@@ -1,5 +1,6 @@
 import { MessageFlags } from 'discord.js';
-import { randomUUID } from 'node:crypto';
+import { nanoid } from 'nanoid';
+import { formatDate } from '../../utils/date.js';
 import type { BotContext, InteractionResult, PlaceholderEngine } from '../../types/index.js';
 import type { ChatInputCommandInteraction, ButtonInteraction, Message, Client } from 'discord.js';
 
@@ -126,11 +127,7 @@ function buildDurationText(totalSeconds: unknown): string {
 }
 
 function formatClaimedAt(date: Date = new Date()): string {
-  return new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'long',
-    timeStyle: 'medium',
-    hour12: true
-  }).format(date);
+  return formatDate(date, 'MMMM d, yyyy, h:mm:ss a');
 }
 
 function buildTemplateContext(opts: {
@@ -398,7 +395,7 @@ async function handleSummonCommand(interaction: ChatInputCommandInteraction, con
     return;
   }
 
-  const token = randomUUID();
+  const token = nanoid();
   const templateContext = buildTemplateContext({
     type,
     asset,
