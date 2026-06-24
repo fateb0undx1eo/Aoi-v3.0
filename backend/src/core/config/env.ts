@@ -12,7 +12,8 @@ const required = [
   'DISCORD_TOKEN',
   'DISCORD_CLIENT_ID',
   'SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY'
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'SESSION_SECRET'
 ];
 
 const missing = required.filter((key) => !process.env[key]);
@@ -43,10 +44,7 @@ export const env: EnvConfig = {
     redirectUri: process.env.DISCORD_OAUTH_REDIRECT_URI ?? ''
   },
   session: {
-    secret:
-      process.env.SESSION_SECRET ??
-      process.env.DISCORD_OAUTH_CLIENT_SECRET ??
-      process.env.DISCORD_TOKEN!
+    secret: process.env.SESSION_SECRET!
   },
   frontend: {
     url: frontendUrl,

@@ -23,12 +23,15 @@ export class DynamicRateLimiter {
   private rules: Map<string, RateLimitRule>;
   private hits: Map<string, number[]>;
   private maxHitKeys: number;
+  private periodicTimer: ReturnType<typeof setInterval>;
 
   constructor(rateLimitService: RateLimitService) {
     this.rateLimitService = rateLimitService;
     this.rules = new Map();
     this.hits = new Map();
     this.maxHitKeys = 10000;
+    this.periodicTimer = setInterval(() => this.pruneExpiredHits(), 60000);
+    this.periodicTimer.unref();
   }
 
   private _ruleKey(guildId: string, commandName: string, scope: string, targetId: string | null): string {

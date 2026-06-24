@@ -1,1 +1,1 @@
-export const SESSION_COOKIE_NAME = 'aoi_session';
+export const SESSION_COOKIE_NAME = '__Host-aoi_session';

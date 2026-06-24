@@ -33,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const callbackResponse = await fetch(
-      `${backendUrl}/api/auth/callback?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirectUri)}`
+      `${backendUrl}/api/auth/callback?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirectUri)}&format=cookie`
     );
 
     if (!callbackResponse.ok) {
@@ -42,24 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return;
     }
 
-    const { sessionToken } = await callbackResponse.json();
-
-    const sessionResponse = await fetch(`${backendUrl}/api/auth/session`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        sessionToken,
-      }),
-    });
-
-    if (!sessionResponse.ok) {
-      redirectWithError("session_initialization_failed");
-      return;
-    }
-
-    const sessionCookie = sessionResponse.headers.get("set-cookie");
+    const sessionCookie = callbackResponse.headers.get("set-cookie");
     res.setHeader(
       "Set-Cookie",
       [sessionCookie, clearStateCookie].filter((s): s is string => s != null)

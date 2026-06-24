@@ -7,6 +7,15 @@ const MEME_ACTION_PREFIX = 'memes:autopost';
 const pendingMemeAutopostActions = new Map<string, PendingMemeAction>();
 const premiumFeatureCooldowns = new Map<string, number>();
 
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, expiresAt] of premiumFeatureCooldowns) {
+    if (expiresAt <= now) {
+      premiumFeatureCooldowns.delete(key);
+    }
+  }
+}, 60_000).unref();
+
 interface PremiumTriggerConfig {
   id: string;
   trigger: string;
@@ -40,6 +49,7 @@ interface MemeAutopostStats {
 }
 
 interface ProfileStyleConfig {
+  enabled: boolean;
   font_id: number;
   effect_id: number;
   colors: number[];
@@ -165,13 +175,13 @@ const COMMUNITY_SCHEMA = {
 
 const FONT_PAIRS: Array<[string, number]> = [
   ['Bangers', 1],
-  ['Bio Rhyme', 2],
+  ['BioRhyme', 2],
   ['Cherry Bomb', 3],
   ['Chicle', 4],
   ['Compagnon', 5],
-  ['Museo Moderno', 6],
-  ['Neo Castel', 7],
-  ['Pixelify', 8],
+  ['MuseoModerno', 6],
+  ['Neo-Castel', 7],
+  ['Pixelify Sans', 8],
   ['Ribes', 9],
   ['Sinistre', 10],
   ['Default', 11],
@@ -749,6 +759,10 @@ export default {
 
           if (parsedColor1 === null && parsedColor2 === null) return { type: 'REPLY' as const, message: 'Please provide at least one color.', ephemeral: true };
           if (color2Raw && parsedColor2 === null) return { type: 'REPLY' as const, message: 'Invalid secondary color.', ephemeral: true };
+          if (effectId === 2 && (parsedColor1 === null || parsedColor2 === null)) return { type: 'REPLY' as const, message: 'Gradient effect requires two colors.', ephemeral: true };
+
+          const me = interaction.guild?.members?.me ?? await interaction.guild?.members?.fetchMe().catch(() => null);
+          if (!me?.permissions.has('ChangeNickname' as any)) return { type: 'REPLY' as const, message: 'I need the "Change Nickname" permission in this server to apply a profile style.', ephemeral: true };
 
           const colors = [parsedColor1, parsedColor2].filter((v: any) => v !== null).slice(0, 2);
 

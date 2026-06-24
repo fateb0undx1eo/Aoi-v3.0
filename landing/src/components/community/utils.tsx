@@ -38,13 +38,13 @@ export const DEFAULT_PROFILE_STYLE_CONFIG: ProfileStyleConfig = {
 
 export const PROFILE_STYLE_FONTS = [
   { id: 1, label: "Bangers" },
-  { id: 2, label: "Bio Rhyme" },
+  { id: 2, label: "BioRhyme" },
   { id: 3, label: "Cherry Bomb" },
   { id: 4, label: "Chicle" },
   { id: 5, label: "Compagnon" },
-  { id: 6, label: "Museo Moderno" },
-  { id: 7, label: "Neo Castel" },
-  { id: 8, label: "Pixelify" },
+  { id: 6, label: "MuseoModerno" },
+  { id: 7, label: "Neo-Castel" },
+  { id: 8, label: "Pixelify Sans" },
   { id: 9, label: "Ribes" },
   { id: 10, label: "Sinistre" },
   { id: 11, label: "Default" },

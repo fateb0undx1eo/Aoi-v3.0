@@ -166,7 +166,7 @@ export function registerInteractionRouter(client: Client, registry: ModuleRegist
 
   client.on('interactionCreate', async (interaction: any) => {
     if (ackedInteractions.has(interaction.id)) {
-      console.warn('DOUBLE INTERACTION BLOCKED', { id: interaction.id });
+      logger.warn('DOUBLE INTERACTION BLOCKED', { id: interaction.id });
       return;
     }
     ackedInteractions.add(interaction.id);
@@ -180,7 +180,7 @@ export function registerInteractionRouter(client: Client, registry: ModuleRegist
           try {
             await interaction.deferReply();
           } catch (deferErr: any) {
-            console.error('MODAL DEFER FAILED', { id: interaction.id, code: deferErr.code, message: deferErr.message });
+            logger.error('MODAL DEFER FAILED', { id: interaction.id, code: deferErr.code, message: deferErr.message });
           }
         }
 
@@ -216,7 +216,7 @@ export function registerInteractionRouter(client: Client, registry: ModuleRegist
       logger.info(`Executing command: ${interaction.commandName}`);
 
       if (interaction.deferred || interaction.replied) {
-        console.warn('CMD DOUBLE ACK BLOCKED', { id: interaction.id, command: interaction.commandName });
+        logger.warn('CMD DOUBLE ACK BLOCKED', { id: interaction.id, command: interaction.commandName });
         return;
       }
 

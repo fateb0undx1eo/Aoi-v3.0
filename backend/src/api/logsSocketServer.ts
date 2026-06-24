@@ -3,6 +3,7 @@ import type { Server as HttpServer } from 'node:http';
 import type { IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
 import { logStreamService } from '../services/logStreamService.js';
+import { checkUpgradeRateLimit, recordAuthFailure, isAuthBlocked } from '../core/wsRateLimiter.js';
 
 interface LogsSocketDeps {
   server: HttpServer;
@@ -26,9 +27,17 @@ export function attachLogsSocketServer({ server, authService }: LogsSocketDeps):
         return;
       }
 
+      if (!checkUpgradeRateLimit(request, socket)) return;
+
+      if (isAuthBlocked(request)) {
+        rejectUpgrade(socket, 429, 'Too Many Failed Auth Attempts');
+        return;
+      }
+
       const ticket = url.searchParams.get('ticket') || '';
       const session = authService.readLogsSocketTicket(ticket);
       if (!session?.user?.id) {
+        recordAuthFailure(request);
         rejectUpgrade(socket, 401, 'Unauthorized');
         return;
       }

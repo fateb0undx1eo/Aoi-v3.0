@@ -37,6 +37,13 @@ export function createAuthRoutes({ authService, guildService }: { authService: A
       const code = req.query.code?.toString() ?? '';
       const redirectUri = req.query.redirect_uri?.toString() ?? '';
       const result = await authService.handleCallback(code, redirectUri);
+
+      if (req.query.format?.toString() === 'cookie') {
+        res.setHeader('Set-Cookie', authService.buildCookieString(result.sessionToken));
+        res.status(200).json({ user: result.user });
+        return;
+      }
+
       res.status(200).json(result);
     } catch (error) {
       const errorCode = getOAuthErrorCode(error);

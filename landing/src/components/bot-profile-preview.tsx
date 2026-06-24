@@ -17,13 +17,13 @@ const ACTIVITY_PREFIX: Record<string, string> = {
 
 const FONT_STACK: Record<string, string> = {
   Bangers: "'Bangers', cursive",
-  "Bio Rhyme": "'Bio Rhyme', serif",
+  BioRhyme: "'BioRhyme', serif",
   "Cherry Bomb": "'Cherry Bomb', cursive",
   Chicle: "'Chicle', cursive",
   Compagnon: "'Compagnon', serif",
-  "Museo Moderno": "'Museo Moderno', cursive",
-  "Neo Castel": "'Neo Castel', serif",
-  Pixelify: "'Pixelify', sans-serif",
+  MuseoModerno: "'MuseoModerno', cursive",
+  "Neo-Castel": "'Neo-Castel', serif",
+  "Pixelify Sans": "'Pixelify Sans', sans-serif",
   Ribes: "'Ribes', serif",
   Sinistre: "'Sinistre', serif",
   Default: "inherit",

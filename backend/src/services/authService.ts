@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
 import type { EnvConfig } from '../types/env.js';
+import { deriveSessionKey } from '../utils/sessionKey.js';
+import { SESSION_COOKIE_NAME } from '../constants/auth.js';
 
 interface DiscordUser {
   id: string;
@@ -30,10 +32,7 @@ export class AuthService {
 
   constructor(env: EnvConfig) {
     this.env = env;
-    this.sessionKey = crypto
-      .createHash('sha256')
-      .update(String(env.session.secret || 'discord-ecosystem-session'))
-      .digest();
+    this.sessionKey = deriveSessionKey(env.session.secret);
   }
 
   getRedirectUri(override: string = ''): string {
@@ -207,5 +206,22 @@ export class AuthService {
       user,
       sessionToken: this.createSessionToken(session)
     };
+  }
+
+  createSessionCookieString(session: SessionData): string {
+    const token = this.createSessionToken(session);
+    return this.buildCookieString(token);
+  }
+
+  buildCookieString(token: string, maxAge?: number): string {
+    const parts: string[] = [
+      `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`,
+      'Path=/',
+      'SameSite=Lax',
+      'HttpOnly',
+      'Secure',
+      typeof maxAge === 'number' ? `Max-Age=${maxAge}` : `Max-Age=${7 * 24 * 60 * 60}`
+    ];
+    return parts.join('; ');
   }
 }

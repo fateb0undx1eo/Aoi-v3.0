@@ -187,6 +187,7 @@ export class ProfileStyleService {
   async restoreAll(guildIds: string[] = []): Promise<void> {
     for (const guildId of guildIds.filter(Boolean)) {
       await this.syncGuild(guildId);
+      await new Promise((r) => setTimeout(r, 1500));
     }
   }
 

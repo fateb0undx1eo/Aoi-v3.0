@@ -29,36 +29,6 @@ const baseLogger = pino(
   transport,
 );
 
-// Capture all stderr output (uncaught errors, pino errors, lib errors)
-const origStderrWrite = process.stderr.write.bind(process.stderr);
-process.stderr.write = (chunk: any, ...args: any[]) => {
-  const str = typeof chunk === 'string' ? chunk : chunk?.toString?.() || '';
-  if (str.trim()) {
-    logStreamService.write({
-      level: 'error',
-      message: str.trim(),
-      timestamp: new Date().toISOString(),
-      meta: { source: 'stderr' },
-    });
-  }
-  return origStderrWrite(chunk, ...args);
-};
-
-// Capture all stdout output (pino logs, runtime info)
-const origStdoutWrite = process.stdout.write.bind(process.stdout);
-process.stdout.write = (chunk: any, ...args: any[]) => {
-  const str = typeof chunk === 'string' ? chunk : chunk?.toString?.() || '';
-  if (str.trim()) {
-    logStreamService.write({
-      level: 'info',
-      message: str.trim(),
-      timestamp: new Date().toISOString(),
-      meta: { source: 'stdout' },
-    });
-  }
-  return origStdoutWrite(chunk, ...args);
-};
-
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 function emit(level: LogLevel, message: any, meta: any = null): void {
