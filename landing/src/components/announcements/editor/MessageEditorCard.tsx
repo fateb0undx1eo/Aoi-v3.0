@@ -11,7 +11,7 @@ import {
   Layers,
   MessageSquare,
   BellOff,
-  BellRemove,
+  BellMinus,
   X,
 } from "lucide-react";
 import type {
@@ -478,7 +478,7 @@ export default function MessageEditorCard({
                 }
                 className="h-3 w-3 rounded border-zinc-700 bg-zinc-800"
               />
-              <BellRemove className="h-2.5 w-2.5" /> Allow Mentions
+              <BellMinus className="h-2.5 w-2.5" /> Allow Mentions
             </label>
           </div>
         </div>
