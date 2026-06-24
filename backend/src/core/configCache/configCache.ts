@@ -92,7 +92,8 @@ export class ConfigCache {
   }
 
   private _formatErrorDetails(error: any): string {
-    const details = String(error?.cause?.details || error?.cause?.message || error?.message || 'unknown error');
+    const raw = error?.cause?.details || error?.cause?.message || error?.message || error;
+    const details = typeof raw === 'string' ? raw : JSON.stringify(raw);
     const compactLine = details
       .split('\n')
       .map((line: string) => line.trim())

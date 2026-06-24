@@ -156,6 +156,8 @@ export class ProfileStyleService {
     }
 
     const payload = this.buildPayload(config);
+    logger.info(`[ProfileStyle] PATCH guild=${guildId} payload=${JSON.stringify(payload)}`);
+
     const response = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/@me`, {
       method: 'PATCH',
       headers: {
@@ -165,10 +167,16 @@ export class ProfileStyleService {
       body: JSON.stringify(payload)
     });
 
+    logger.info(`[ProfileStyle] Response status=${response.status}`);
+
     if (!response.ok) {
       const text = await response.text().catch(() => '');
+      logger.error(`[ProfileStyle] Discord API error (${response.status}): ${text.slice(0, 500)}`);
       throw new Error(`Discord profile style update failed (${response.status}): ${text.slice(0, 200)}`);
     }
+
+    const body = await response.text().catch(() => '');
+    if (body) logger.info(`[ProfileStyle] Response body: ${body}`);
 
     logger.info(`Applied profile style for guild ${guildId}`);
     return true;
@@ -179,7 +187,8 @@ export class ProfileStyleService {
     try {
       await this.applyGuildConfig(guildId, config);
     } catch (error) {
-      logger.warn(`Profile style sync failed for guild ${guildId}`, error);
+      logger.error(`[ProfileStyle] Sync failed for guild ${guildId}`, error);
+      throw error;
     }
     return config;
   }

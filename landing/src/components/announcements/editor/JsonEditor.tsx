@@ -8,7 +8,7 @@ export const messageDataSchema = z.object({
   content: z.string().max(2000).optional(),
   embeds: z.array(z.object({
     title: z.string().max(256).optional(),
-    description: z.string().max(4000).optional(),
+    description: z.string().max(4096).optional(),
     url: z.string().max(1000).optional(),
     color: z.number().int().optional(),
     author: z.object({ name: z.string().max(256).optional(), icon_url: z.string().max(1000).optional(), url: z.string().max(1000).optional() }).optional(),
