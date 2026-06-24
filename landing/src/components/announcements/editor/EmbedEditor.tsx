@@ -194,7 +194,7 @@ function ColorPickerPopover({
             <span className="text-xs text-zinc-500 font-mono">#</span>
             <input
               type="text"
-              value={value !== undefined ? value.toString(16).padStart(6, "0") : ""}
+              value={value != null ? value.toString(16).padStart(6, "0") : ""}
               onChange={(e) => {
                 const v = e.target.value.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
                 if (v.length <= 6)
@@ -205,7 +205,7 @@ function ColorPickerPopover({
               className="flex-1 rounded border border-zinc-700 bg-black px-2 py-1 text-xs font-mono text-zinc-200 outline-none focus:border-zinc-500"
             />
           </div>
-          {value !== undefined && (
+          {value != null && (
             <button
               type="button"
               onClick={() => {
