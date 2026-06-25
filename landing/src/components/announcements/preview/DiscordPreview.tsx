@@ -405,7 +405,7 @@ export default function DiscordPreview({
   };
 
   return (
-    <div className="rounded-lg px-4 py-3 text-sm leading-relaxed font-discord" style={{ backgroundColor: noBg ? "transparent" : EMBED_BG }}>
+    <div className="text-sm leading-relaxed font-discord" style={{ backgroundColor: noBg ? "transparent" : EMBED_BG }}>
       {renderContent()}
     </div>
   );
