@@ -1,21 +1,27 @@
 import { ExternalLink, FileText } from "lucide-react";
 import { BUTTON_STYLES, TEXT_COLOR } from "../constants";
 import type { APIButtonComponent, APIComponentInActionRow, APIContainerComponent, APIV2TextDisplay, APIV2Thumbnail } from "../types";
-import { intToHex } from "../utils/color";
-import { renderDiscordText } from "../utils/markdown";
+import { decimalToHex } from "../utils/color";
+import { Markdown } from "../utils/markdown";
+import Gallery from "./Gallery";
 
 export default function ContainerPreview({ container, hasTopMargin, onEditComponent }: { container: APIContainerComponent; hasTopMargin: boolean; onEditComponent?: (comp: APIComponentInActionRow, ri?: number, ci?: number) => void }) {
-  const accentColor = container.accent_color != null ? intToHex(container.accent_color) : null;
   return (
-    <div className={`${hasTopMargin ? "mt-2" : ""} rounded-lg border border-zinc-700/50 bg-[#2b2d31] font-discord ${container.spoiler ? "blur-sm hover:blur-none transition-all cursor-pointer" : ""}`}>
-      <div className="flex">
-        {accentColor && (
-          <div className="w-1 shrink-0 rounded-l-lg" style={{ backgroundColor: accentColor }} />
+    <div className={`${hasTopMargin ? "mt-2" : ""} ${container.spoiler ? "cursor-pointer blur-sm transition-all hover:blur-none" : ""}`}>
+      <div
+        className="relative flex flex-col gap-1.5 overflow-hidden rounded-lg border border-zinc-700/50 bg-zinc-800/40 p-4"
+        style={{
+          maxWidth: 520,
+          ...(container.accent_color != null ? { "--accent-color": decimalToHex(container.accent_color) } as React.CSSProperties : {}),
+        }}
+      >
+        {container.accent_color != null && (
+          <div className="absolute left-0 top-0 h-full w-1" style={{ backgroundColor: decimalToHex(container.accent_color) }} />
         )}
-        <div className="min-w-0 flex-1 space-y-1.5 px-3 py-2">
+        <div className="pl-0.5 space-y-1.5">
           {container.components.map((item, ci) => {
             if (item.type === 10) {
-              return <div key={ci} className="whitespace-pre-wrap text-[15px] leading-relaxed" style={{ color: TEXT_COLOR }}>{renderDiscordText(item.content)}</div>;
+              return <div key={ci} className="whitespace-pre-wrap text-[15px] leading-relaxed" style={{ color: TEXT_COLOR }}><Markdown content={item.content} /></div>;
             }
             if (item.type === 11) {
               const url = item.items?.[0]?.media?.url;
@@ -23,15 +29,7 @@ export default function ContainerPreview({ container, hasTopMargin, onEditCompon
             }
             if (item.type === 12) {
               const images = item.items?.filter((i) => i.media?.url) || [];
-              if (images.length === 0) return null;
-              const cols = images.length === 1 ? 1 : images.length === 2 ? 2 : 2;
-              return (
-                <div key={ci} className={`grid gap-1 ${cols === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
-                  {images.map((img, ii) => (
-                    <img key={ii} src={img.media.url} alt="" className="w-full rounded-lg object-cover max-h-60" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                  ))}
-                </div>
-              );
+              return images.length > 0 ? <Gallery key={ci} items={images.map((i) => ({ url: i.media.url }))} /> : null;
             }
             if (item.type === 13) {
               const url = item.items?.[0]?.media?.url;
@@ -39,8 +37,8 @@ export default function ContainerPreview({ container, hasTopMargin, onEditCompon
               const filename = url.split("/").pop() || "file";
               return (
                 <div key={ci} className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-black/40 px-3 py-2">
-                  <FileText className="h-4 w-4 shrink-0 text-zinc-400" />
-                  <a href={url} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate text-xs hover:underline" style={{ color: "#00a8fc" }}>{filename}</a>
+                  <FileText className="h-4 w-4 shrink-0 text-cyan-400" />
+                  <a href={url} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate text-xs text-cyan-400 hover:underline">{filename}</a>
                 </div>
               );
             }
@@ -54,10 +52,10 @@ export default function ContainerPreview({ container, hasTopMargin, onEditCompon
               return (
                 <div key={ci} className="flex items-start gap-3 rounded-lg bg-black/30 px-3 py-2.5">
                   <div className="min-w-0 flex-1 space-y-1">
-                    {textChild && <div className="whitespace-pre-wrap text-sm leading-relaxed" style={{ color: TEXT_COLOR }}>{renderDiscordText(textChild.content)}</div>}
+                    {textChild && <div className="whitespace-pre-wrap text-sm leading-relaxed" style={{ color: TEXT_COLOR }}><Markdown content={textChild.content} /></div>}
                     {thumbChild && (() => {
                       const url = thumbChild.items?.[0]?.media?.url;
-                      return url ? <img src={url} alt="" className="mt-1 max-h-40 w-full rounded-lg object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /> : null;
+                      return url ? <img src={url} alt="" className="mt-1 max-h-40 w-full rounded-lg object-cover" /> : null;
                     })()}
                   </div>
                   {accessory?.type === 2 && (() => {
@@ -83,7 +81,7 @@ export default function ContainerPreview({ container, hasTopMargin, onEditCompon
                   })()}
                   {accessory?.type === 11 && (() => {
                     const url = (accessory as APIV2Thumbnail).items?.[0]?.media?.url;
-                    return url ? <img src={url} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /> : null;
+                    return url ? <img src={url} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" /> : null;
                   })()}
                 </div>
               );

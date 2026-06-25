@@ -1,5 +1,5 @@
 export function intToHex(num: number | null | undefined): string {
-  if (num == null) return "#57f287";
+  if (num == null) return "";
   return `#${num.toString(16).padStart(6, "0")}`;
 }
 
@@ -33,4 +33,12 @@ export function hsvToHex(h: number, s: number, v: number): string {
   const g = Math.round(f(3) * 255);
   const b = Math.round(f(1) * 255);
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
+export function decimalToRgb(decimal: number): { r: number; g: number; b: number } {
+  return { r: (decimal & 0xff0000) >> 16, g: (decimal & 0x00ff00) >> 8, b: decimal & 0x0000ff };
+}
+
+export function decimalToHex(decimal: number): string {
+  return `#${decimal.toString(16).padStart(6, "0")}`;
 }
