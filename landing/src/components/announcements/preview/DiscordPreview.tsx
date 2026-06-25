@@ -1,11 +1,11 @@
 import { ACCENT, EMBED_BG, TEXT_COLOR } from "../constants";
-import type { APIComponentInActionRow, APIEmbed, APIEmbedField, APIEmbedImage, DraftFile, QueryDataMessageData, QueryDataTarget } from "../types";
+import type { APIEmbed, APIEmbedField, APIEmbedImage, APIComponentInActionRow, DraftFile, QueryDataMessageData, QueryDataTarget, APIAttachment } from "../types";
 import { TargetType } from "../types";
 import { formatTimestamp } from "../utils/message";
 import { decimalToHex } from "../utils/color";
-import { Markdown } from "../utils/markdown";
+import { Markdown, type FeatureConfig } from "../utils/markdown";
 import { getImageUri } from "../utils/files";
-import { Eye } from "lucide-react";
+import { Eye, MessageSquare } from "lucide-react";
 import ContainerPreview from "./ContainerPreview";
 import Gallery from "./Gallery";
 import { PreviewActionRow } from "./ActionRowPreview";
@@ -16,7 +16,6 @@ function getRelativeTime(iso: string): string {
   try {
     const d = new Date(iso);
     const now = new Date();
-    const diff = now.getTime() - d.getTime();
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
     if (d.toDateString() === now.toDateString()) return `Today at ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
@@ -39,7 +38,7 @@ function EmbedFields({ fields }: { fields: APIEmbedField[] }) {
   }
 
   return (
-    <div className="mt-2 grid gap-2 text-sm leading-relaxed" style={{ gridTemplateColumns: "repeat(12, 1fr)" }}>
+    <div className="mt-2 grid gap-y-2 text-sm leading-relaxed" style={{ gridTemplateColumns: "repeat(12, 1fr)" }}>
       {fieldLines.map((line, li) =>
         line.map((f, fi) => {
           let colStart = 1, colEnd = 13;
@@ -51,8 +50,6 @@ function EmbedFields({ fields }: { fields: APIEmbedField[] }) {
             } else if (line.length === 2) {
               if (fi === 0) { colStart = 1; colEnd = 7; }
               else { colStart = 7; colEnd = 13; }
-            } else {
-              colStart = 1; colEnd = 13;
             }
           }
           return (
@@ -60,8 +57,8 @@ function EmbedFields({ fields }: { fields: APIEmbedField[] }) {
               <div className="mb-px text-xs font-semibold text-zinc-100">
                 <Markdown content={f.name} features="title" />
               </div>
-              <div className="whitespace-pre-wrap text-xs" style={{ color: TEXT_COLOR }}>
-                <Markdown content={f.value} />
+              <div className="whitespace-pre-wrap text-xs font-normal" style={{ color: TEXT_COLOR }}>
+                <Markdown content={f.value} features={{ extend: "full", headings: false } as FeatureConfig} />
               </div>
             </div>
           );
@@ -92,6 +89,7 @@ export default function DiscordPreview({
   const suppressEmbeds = (message.flags ?? 0) & 4;
 
   const webhookName = targets?.find((t) => t.type === TargetType.Webhook)?.url ? "Webhook" : undefined;
+  const now = new Date();
 
   if (!hasContent && !hasEmbeds && !hasFiles && !hasComponents && !threadName) {
     return (
@@ -103,17 +101,50 @@ export default function DiscordPreview({
     );
   }
 
-  const renderEmbed = (embed: APIEmbed, ei: number) => {
+  // Group embeds by URL (gallery behavior: embeds with same URL merge)
+  const embeds: { embed: APIEmbed; extraImages: APIEmbedImage[] }[] = [];
+  for (const embed of message.embeds ?? []) {
+    const galleryChildren = (message.embeds ?? []).filter((e) => embed.url && e.url === embed.url).slice(1);
+    if (galleryChildren.includes(embed)) continue;
+    embeds.push({
+      embed,
+      extraImages: galleryChildren.filter((e) => !!e.image?.url).map((e) => e.image!),
+    });
+  }
+
+  // Split attachments into media (image/video for Gallery) and file (generic)
+  const allAttachments: APIAttachment[] = isV2 ? [] : [
+    ...(message.attachments ?? []),
+    ...(files
+      ?.filter((f) => f.content_type?.startsWith("image/") || f.content_type?.startsWith("video/"))
+      ?.map((f) => ({
+        id: f.id,
+        filename: f.name,
+        size: f.size,
+        content_type: f.content_type,
+        url: f.url ?? (f.file ? URL.createObjectURL(f.file) : "#"),
+        proxy_url: "#",
+      } satisfies APIAttachment)) ?? []),
+  ];
+  const mediaAttachments = allAttachments.filter(
+    (a) => a.content_type && ["video", "image"].includes(a.content_type.split("/")[0]!),
+  );
+  const fileAttachments = allAttachments.filter(
+    (a) => !mediaAttachments.includes(a),
+  );
+
+  const threadThumb =
+    threadThumbnail ??
+    files?.find((f) => (f as any).is_thumbnail);
+
+  const renderEmbed = ({ embed, extraImages }: { embed: APIEmbed; extraImages: APIEmbedImage[] }, ei: number) => {
     const embedBorderColor = embed.color != null ? decimalToHex(embed.color) : "#4A4A50";
     const images: APIEmbedImage[] = [];
     if (embed.image?.url) images.push(embed.image);
+    if (extraImages) images.push(...extraImages);
 
     return (
-      <div
-        key={ei}
-        className="overflow-hidden rounded-lg border border-zinc-700/50"
-        style={{ maxWidth: 520 }}
-      >
+      <div key={ei} className="overflow-hidden rounded-lg border border-zinc-700/50" style={{ maxWidth: 520 }}>
         <div
           className="inline-grid border-l-4 bg-zinc-800/60 pr-4 pb-4 pl-3 pt-0.5 dark:text-zinc-100"
           style={{ borderLeftColor: embedBorderColor, maxWidth: 520 }}
@@ -129,7 +160,7 @@ export default function DiscordPreview({
           {embed.author?.name && (
             <div className="mt-2 flex min-w-0 items-center">
               {embed.author.icon_url && (() => {
-                const url = getImageUri(embed.author.icon_url, files);
+                const url = getImageUri(embed.author.icon_url!, files);
                 return url ? <img src={url} alt="" className="mr-2 h-6 w-6 rounded-full object-contain" /> : null;
               })()}
               <p className="my-auto inline-block whitespace-pre-wrap text-sm font-medium">
@@ -164,13 +195,31 @@ export default function DiscordPreview({
 
               {images.length > 0 && (
                 <div className="mt-2">
-                  <Gallery items={images.map((img) => ({ url: img.url, content_type: img.url.endsWith(".gif") ? "image/gif" : "image/png" }))} files={files} />
+                  <Gallery
+                    attachments={images.map((img) => ({
+                      id: "0",
+                      filename: "image",
+                      content_type: (img.url ?? "").endsWith(".gif") ? "image/gif" : "image/png",
+                      url: getImageUri(img.url, files),
+                      proxy_url: "#",
+                      size: 0,
+                    } satisfies APIAttachment))}
+                  />
                 </div>
               )}
 
               {embed.video?.url && (
                 <div className="mt-2">
-                  <Gallery items={[{ url: embed.video.url, content_type: "video/mp4" }]} />
+                  <Gallery
+                    attachments={[{
+                      id: "0",
+                      filename: "video",
+                      content_type: "video/mp4",
+                      url: embed.video.url,
+                      proxy_url: "#",
+                      size: 0,
+                    } satisfies APIAttachment]}
+                  />
                 </div>
               )}
             </div>
@@ -191,7 +240,7 @@ export default function DiscordPreview({
               {embed.footer?.text && (
                 <>
                   {embed.footer.icon_url && (() => {
-                    const url = getImageUri(embed.footer.icon_url, files);
+                    const url = getImageUri(embed.footer.icon_url!, files);
                     return url ? <img src={url} alt="" className="mr-2 h-5 w-5 rounded-full object-contain" /> : null;
                   })()}
                   <p className="my-auto inline-block whitespace-pre-wrap">{embed.footer.text}</p>
@@ -211,23 +260,20 @@ export default function DiscordPreview({
   };
 
   const renderContent = () => {
-    const imageFiles = (files ?? []).filter((f) => !f.spoiler && (f.content_type?.startsWith("image/") || /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name)));
-    const otherFiles = (files ?? []).filter((f) => !imageFiles.find((img) => img.id === f.id));
-
     return (
       <>
         {/* Thread header */}
-        {(threadName || threadThumbnail) && (
+        {(threadName || threadThumb) && (
           <div className="mb-2">
             <div className="flex">
               <div className="shrink-0">
                 <div className="mt-4 flex h-16 w-16 items-center justify-center rounded-full bg-zinc-700">
-                  <svg className="h-10 w-10 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  <MessageSquare className="h-10 w-10 text-zinc-400" />
                 </div>
                 <h3 className="my-2 select-text text-[32px] font-medium leading-5 text-zinc-200">{threadName || "Thread"}</h3>
               </div>
-              {threadThumbnail?.url && (threadThumbnail.content_type?.startsWith("image/")) && (
-                <div className="ml-auto mt-auto h-20 w-[140px] rounded-md bg-cover bg-center shadow" style={{ backgroundImage: `url(${threadThumbnail.url})` }} />
+              {threadThumb?.url && threadThumb.content_type?.startsWith("image/") && (
+                <div className="ml-auto mt-auto h-20 w-[140px] rounded-md bg-cover bg-center shadow" style={{ backgroundImage: `url(${threadThumb.url})` }} />
               )}
             </div>
             <div className="relative my-2">
@@ -237,7 +283,7 @@ export default function DiscordPreview({
           </div>
         )}
 
-        {/* Author header */}
+        {/* Author header (cozy mode) */}
         {!compact && (
           <div className="mb-1 flex items-center gap-3">
             <div className="shrink-0">
@@ -251,15 +297,17 @@ export default function DiscordPreview({
               </span>
               <span className="ml-1 rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] font-medium text-cyan-400">APP</span>
               {isV2 && <span className="ml-1 rounded bg-zinc-700 px-1 py-0.5 text-[9px] text-zinc-400">V2</span>}
-              <span className="ml-2 text-xs text-zinc-500">Today at 12:00 AM</span>
+              <span className="ml-2 text-xs text-zinc-500">{now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>
             </div>
           </div>
         )}
 
-        {/* Compact mode */}
+        {/* Compact mode header */}
         {compact && (
           <div className="relative pl-20 -indent-16">
-            <span className="mr-1 text-[11px] text-zinc-500">12:00 AM</span>
+            <span className="mr-1 text-[11px] text-zinc-500">
+              {now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+            </span>
             <span className="mr-1 text-base font-semibold" style={{ color: webhookName ? TEXT_COLOR : ACCENT }}>
               {webhookName || "AOI Bot"}
             </span>
@@ -269,26 +317,70 @@ export default function DiscordPreview({
         {/* Content */}
         {hasContent && (
           <div className="whitespace-pre-line text-[15px] font-medium leading-relaxed" style={{ color: TEXT_COLOR }}>
-            <Markdown content={message.content} />
+            <Markdown content={message.content ?? ""} />
           </div>
         )}
 
-        {/* Files */}
-        {hasFiles && (
+        {/* Media attachments */}
+        {mediaAttachments.length > 0 && (
           <div className={`max-w-[550px] ${hasContent ? "mt-1" : ""} space-y-1`}>
-            {imageFiles.length > 0 && (
-              <Gallery items={imageFiles.map((f) => ({ url: f.file ? URL.createObjectURL(f.file) : (f.url ?? ""), content_type: f.content_type }))} />
-            )}
-            {otherFiles.map((f) => (
-              <FileAttachmentPreview key={f.id} file={f} />
+            <Gallery attachments={mediaAttachments} />
+          </div>
+        )}
+
+        {/* File attachments */}
+        {fileAttachments.length > 0 && (
+          <div className={`max-w-[550px] ${hasContent || mediaAttachments.length > 0 ? "mt-1" : ""} space-y-1`}>
+            {fileAttachments.map((att) => (
+              <FileAttachmentPreview
+                key={att.id}
+                attachment={att}
+              />
             ))}
           </div>
         )}
 
+        {/* Legacy direct file handling (for non-CV2 messages with files that aren't in attachments) */}
+        {!isV2 && files && files.length > 0 && allAttachments.length === 0 && (
+          <div className={`max-w-[550px] ${hasContent ? "mt-1" : ""} space-y-1`}>
+            {files
+              .filter((f) => f.content_type?.startsWith("image/") || /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name))
+              .slice(0, 10)
+              .map((f) => (
+                <Gallery
+                  key={f.id}
+                  attachments={[{
+                    id: f.id,
+                    filename: f.name,
+                    content_type: f.content_type ?? "image/png",
+                    url: f.file ? URL.createObjectURL(f.file) : (f.url ?? ""),
+                    proxy_url: "#",
+                    size: f.size,
+                  } satisfies APIAttachment]}
+                />
+              ))}
+            {files
+              .filter((f) => !f.content_type?.startsWith("image/") && !/\.(png|jpg|jpeg|gif|webp)$/i.test(f.name))
+              .map((f) => (
+                <FileAttachmentPreview
+                  key={f.id}
+                  attachment={{
+                    id: f.id,
+                    filename: f.name,
+                    size: f.size,
+                    content_type: f.content_type,
+                    url: f.file ? URL.createObjectURL(f.file) : (f.url ?? ""),
+                    proxy_url: "#",
+                  }}
+                />
+              ))}
+          </div>
+        )}
+
         {/* Embeds */}
-        {hasEmbeds && !suppressEmbeds && (
+        {embeds.length > 0 && !suppressEmbeds && (
           <div className="mt-1 space-y-1">
-            {message.embeds!.map((embed, ei) => renderEmbed(embed, ei))}
+            {embeds.map((ed, i) => renderEmbed(ed, i))}
           </div>
         )}
 

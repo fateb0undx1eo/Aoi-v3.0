@@ -29,7 +29,7 @@ export default function ContainerPreview({ container, hasTopMargin, onEditCompon
             }
             if (item.type === 12) {
               const images = item.items?.filter((i) => i.media?.url) || [];
-              return images.length > 0 ? <Gallery key={ci} items={images.map((i) => ({ url: i.media.url }))} /> : null;
+              return images.length > 0 ? <Gallery key={ci} attachments={images.map((i) => ({ id: String(ci), filename: "media", content_type: "image/png", url: i.media.url, proxy_url: "#", size: 0 }))} /> : null;
             }
             if (item.type === 13) {
               const url = item.items?.[0]?.media?.url;

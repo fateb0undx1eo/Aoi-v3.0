@@ -1,30 +1,24 @@
 import { FileText } from "lucide-react";
-import type { DraftFile } from "../types";
-import { fileSize } from "../utils/files";
+import type { APIAttachment } from "../types";
 
-export default function FileAttachmentPreview({ file }: { file: DraftFile }) {
-  const src = file.file ? URL.createObjectURL(file.file) : file.url;
-  const isImage = file.content_type?.startsWith("image/") || /\.(png|jpg|jpeg|gif|webp)$/i.test(file.name);
-  const isVideo = file.content_type?.startsWith("video/");
+export default function FileAttachmentPreview({ attachment }: { attachment: APIAttachment }) {
+  const isImage = attachment.content_type?.startsWith("image/");
+  const isVideo = attachment.content_type?.startsWith("video/");
 
-  if (isImage && !file.spoiler) {
+  if (isImage) {
     return (
       <img
-        src={src}
-        alt={file.description || file.name}
+        src={attachment.url}
+        alt={attachment.filename}
         className="max-h-80 w-full rounded-lg object-cover"
       />
     );
   }
 
   return (
-    <div
-      className={`flex items-center gap-3 rounded-lg border p-3 ${
-        file.spoiler ? "border-zinc-700 bg-black/40" : "border-zinc-700/50 bg-zinc-800/30"
-      }`}
-    >
+    <div className="flex items-center gap-3 rounded-lg border border-zinc-700/50 bg-zinc-800/30 p-3">
       {isVideo ? (
-        <video src={src} controls className="max-h-40 rounded" />
+        <video src={attachment.url} controls className="max-h-40 rounded" />
       ) : (
         <>
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-zinc-800">
@@ -32,10 +26,15 @@ export default function FileAttachmentPreview({ file }: { file: DraftFile }) {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-zinc-200">
-              {file.spoiler && <span className="text-zinc-500">SPOILER </span>}
-              {file.name}
+              {attachment.filename}
             </p>
-            <p className="text-xs text-zinc-500">{fileSize(file.size)}</p>
+            <p className="text-xs text-zinc-500">
+              {attachment.size >= 1024 * 1024
+                ? `${(attachment.size / (1024 * 1024)).toFixed(1)} MB`
+                : attachment.size >= 1024
+                  ? `${(attachment.size / 1024).toFixed(1)} KB`
+                  : `${attachment.size} bytes`}
+            </p>
           </div>
         </>
       )}

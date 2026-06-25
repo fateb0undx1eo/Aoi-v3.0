@@ -35,8 +35,12 @@ export function fileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function isGifVideoUrl(url: string, cdn?: string): string | undefined {
+export function isGifVideoUrl(url: string, cdn?: string): string | null {
   if (cdn && url.startsWith(`${cdn}/tenor/`) && url.endsWith(".gif")) {
     return url.replace(/\.gif$/, ".mp4");
   }
+  if (url.startsWith("https://c.tenor.com/") && url.endsWith(".gif")) {
+    return url.replace(/\.gif$/, ".mp4");
+  }
+  return null;
 }

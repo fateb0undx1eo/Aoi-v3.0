@@ -78,10 +78,11 @@ interface APIEmbedImage { url: string; proxy_url?: string; width?: number; heigh
 interface APIEmbedThumbnail { url: string; proxy_url?: string; width?: number; height?: number; }
 interface APIEmbedVideo { url?: string; proxy_url?: string; width?: number; height?: number; }
 interface APIEmbedAuthor { name: string; url?: string; icon_url?: string; proxy_icon_url?: string; }
+interface APIEmbedProvider { name?: string; url?: string; icon_url?: string; }
 interface APIEmbed {
   title?: string; type?: string; description?: string; url?: string; timestamp?: string;
   color?: number; footer?: APIEmbedFooter; image?: APIEmbedImage; thumbnail?: APIEmbedThumbnail;
-  video?: APIEmbedVideo; author?: APIEmbedAuthor; fields?: APIEmbedField[];
+  video?: APIEmbedVideo; author?: APIEmbedAuthor; fields?: APIEmbedField[]; provider?: APIEmbedProvider;
 }
 
 interface APIAllowedMentions { parse?: string[]; roles?: string[]; users?: string[]; replied_user?: boolean; }
