@@ -1,4 +1,4 @@
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 
 type Renderable = string | ReactElement;
 
@@ -309,13 +309,34 @@ const breakRule: Rule = {
   render() { return <br />; },
 };
 
+function Spoiler({ children }: { children: React.ReactNode }) {
+  const [revealed, setRevealed] = useState(false);
+  return (
+    <span
+      onClick={() => setRevealed(true)}
+      className="relative inline-flex cursor-pointer rounded"
+      style={{
+        backgroundColor: revealed ? 'transparent' : 'rgba(32, 34, 37, 0.9)',
+        transition: 'background-color 0.25s ease',
+      }}
+    >
+      <span style={{
+        color: revealed ? undefined : 'transparent',
+        transition: 'color 0.25s ease',
+      }}>
+        {children}
+      </span>
+    </span>
+  );
+}
+
 const spoilerRule: Rule = {
   capture(source, _, parse) {
     const m = /^\|\|(.+?)\|\|/.exec(source);
     if (!m) return;
     return { size: m[0].length, content: parse(m[1]!) };
   },
-  render(c, r) { return <span className="rounded bg-zinc-700/40 box-decoration-clone">{r(c.content)}</span>; },
+  render(c, r) { return <Spoiler>{r(c.content)}</Spoiler>; },
 };
 
 const mentionStyle = "rounded bg-cyan-500/15 px-1 py-px font-medium text-cyan-400";

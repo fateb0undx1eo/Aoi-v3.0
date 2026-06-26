@@ -52,8 +52,8 @@ export default function DiscordPreview({
   const currentPupilRef = useRef({ x: 0, y: 0 });
   const trackingRafRef = useRef<number | undefined>(undefined);
   const seqAnimRef = useRef<number | undefined>(undefined);
-  const dartTargetRef = useRef({ x: 0, y: 0 });
-  const dartSwitchRef = useRef(0);
+  const dartVelocityRef = useRef({ x: 0, y: 0 });
+  const dartPosRef = useRef({ x: 0, y: 0 });
   eyeStateRef.current = eyeState;
 
   useEffect(() => {
@@ -90,7 +90,9 @@ export default function DiscordPreview({
       const elapsed = Date.now() - start;
 
       if (elapsed < 2000) {
-        const angle = (elapsed / 2000) * Math.PI * 6;
+        const t = elapsed / 2000;
+        const eased = t * t; // ease-in: slow start, fast end
+        const angle = eased * Math.PI * 8;
         const radius = Math.min(elapsed / 500, 1) * 3.5;
         setPupilOffset({ x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
         if (eyeStateRef.current === 'swirling') seqAnimRef.current = requestAnimationFrame(tick);
@@ -98,18 +100,37 @@ export default function DiscordPreview({
       }
 
       if (elapsed < 3500) {
-        if (eyeStateRef.current !== 'darting') { setEyeState('darting'); dartSwitchRef.current = Date.now(); }
-        const dartElapsed = Date.now() - start - 2000;
-        const interval = Math.max(30, 150 - (dartElapsed / 1500) * 120);
-        if (Date.now() - dartSwitchRef.current > interval) {
-          dartTargetRef.current = { x: (Math.random() - 0.5) * 7, y: (Math.random() - 0.5) * 7 };
-          dartSwitchRef.current = Date.now();
+        if (eyeStateRef.current !== 'darting') {
+          setEyeState('darting');
+          const a = Math.random() * Math.PI * 2;
+          dartVelocityRef.current = { x: Math.cos(a) * 0.4, y: Math.sin(a) * 0.4 };
+          dartPosRef.current = { ...currentPupilRef.current };
         }
-        const c = currentPupilRef.current;
-        const t = dartTargetRef.current;
-        c.x += (t.x - c.x) * 0.3;
-        c.y += (t.y - c.y) * 0.3;
-        setPupilOffset({ x: c.x, y: c.y });
+        const dartElapsed = Date.now() - start - 2000;
+        const speed = 0.3 + (dartElapsed / 1500) * 2.5;
+        const pos = dartPosRef.current;
+        const vel = dartVelocityRef.current;
+        pos.x += vel.x * speed;
+        pos.y += vel.y * speed;
+        const maxOff = 5;
+        let bounced = false;
+        if (Math.abs(pos.x) > maxOff) {
+          pos.x = Math.sign(pos.x) * maxOff;
+          vel.x *= -1;
+          vel.y += (Math.random() - 0.5) * 0.5;
+          bounced = true;
+        }
+        if (Math.abs(pos.y) > maxOff) {
+          pos.y = Math.sign(pos.y) * maxOff;
+          vel.y *= -1;
+          vel.x += (Math.random() - 0.5) * 0.5;
+          bounced = true;
+        }
+        if (bounced) {
+          const mag = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+          if (mag > 0) { vel.x = (vel.x / mag) * 0.5; vel.y = (vel.y / mag) * 0.5; }
+        }
+        setPupilOffset({ x: pos.x, y: pos.y });
         seqAnimRef.current = requestAnimationFrame(tick);
         return;
       }
@@ -205,7 +226,7 @@ export default function DiscordPreview({
               </g>
             )}
             {particles.map((p, i) => (
-              <rect key={i} x={p.x - p.size / 2} y={p.y - p.size / 2} width={p.size} height={p.size} fill={p.color} opacity={p.life} />
+              <rect key={i} x={p.x - p.size * p.life / 2} y={p.y - p.size * p.life / 2} width={p.size * p.life} height={p.size * p.life} fill={p.color} />
             ))}
           </svg>
         </div>
