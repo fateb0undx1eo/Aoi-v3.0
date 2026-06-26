@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2022",  // Bun supports modern JS
+    "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
@@ -24,7 +24,6 @@
     "next-env.d.ts",
     "src/**/*.ts",
     "src/**/*.tsx"
-    // ❌ REMOVED: ".next/types/**/*.ts" - This is the main culprit!
   ],
   "exclude": [
     "node_modules",
@@ -36,6 +35,6 @@
     "tailwind.config.js",
     "postcss.config.js",
     "server.js",
-    ".next"  // ✅ Exclude the entire .next folder
+    ".next"
   ]
 }
