@@ -81,8 +81,8 @@ export default function GuildAnnouncementsPage() {
         setModules(ov.modules || []);
         setChannels(Array.isArray(ch.channels) ? ch.channels.filter((c: GuildChannel) => c.type === 0) : []);
         setServerEmojis(Array.isArray(em.emojis) ? em.emojis : []);
-        const communityModule = (ov.modules || []).find((m: ModuleRow) => m.name === "community");
-        const savedPresets = communityModule?.config?.announcements_studio?.dashboardPresets;
+        const announcementsModule = (ov.modules || []).find((m: ModuleRow) => m.name === "announcements");
+        const savedPresets = announcementsModule?.config?.presets;
         if (Array.isArray(savedPresets) && savedPresets.length > 0) {
           setPresets(savedPresets.map((p: any) => ({
             id: p.id || `preset-${nanoid()}`,
@@ -193,12 +193,12 @@ export default function GuildAnnouncementsPage() {
     else next.unshift(preset);
     setPresets(next);
     try {
-      const communityModule = modules.find((m) => m.name === "community");
-      await fetch(`/api/backend/modules/${guildId}/community`, {
+      const announcementsModule = modules.find((m) => m.name === "announcements");
+      await fetch(`/api/backend/modules/${guildId}/announcements`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          enabled: communityModule?.enabled ?? true,
-          config: { ...(communityModule?.config ?? {}), announcements_studio: { ...(communityModule?.config?.announcements_studio ?? {}), dashboardPresets: next.map((p) => ({ id: p.id, name: p.name, kind: p.kind, data: p.data })) } },
+          enabled: announcementsModule?.enabled ?? true,
+          config: { presets: next.map((p) => ({ id: p.id, name: p.name, kind: p.kind, data: p.data })) },
         }),
       });
       setStatus({ state: "success", text: `${kind === "template" ? "Template" : "Draft"} saved.` });
@@ -216,12 +216,12 @@ export default function GuildAnnouncementsPage() {
     const next = presets.filter((p) => p.id !== presetId);
     setPresets(next);
     try {
-      const communityModule = modules.find((m) => m.name === "community");
-      await fetch(`/api/backend/modules/${guildId}/community`, {
+      const announcementsModule = modules.find((m) => m.name === "announcements");
+      await fetch(`/api/backend/modules/${guildId}/announcements`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          enabled: communityModule?.enabled ?? true,
-          config: { ...(communityModule?.config ?? {}), announcements_studio: { ...(communityModule?.config?.announcements_studio ?? {}), dashboardPresets: next.map((p) => ({ id: p.id, name: p.name, kind: p.kind, data: p.data })) } },
+          enabled: announcementsModule?.enabled ?? true,
+          config: { presets: next.map((p) => ({ id: p.id, name: p.name, kind: p.kind, data: p.data })) },
         }),
       });
       setStatus({ state: "success", text: "Preset deleted." });

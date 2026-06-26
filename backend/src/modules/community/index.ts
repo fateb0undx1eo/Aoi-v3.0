@@ -128,23 +128,6 @@ const COMMUNITY_SCHEMA = {
         colors: { type: 'array', items: { type: 'number' } }
       }
     },
-    announcements_studio: {
-      type: 'object',
-      properties: {
-        presets: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'string' },
-              name: { type: 'string' },
-              kind: { type: 'string' },
-              form: { type: 'object' }
-            }
-          }
-        }
-      }
-    },
     premium_feature_1: {
       type: 'object',
       properties: {
