@@ -39,143 +39,47 @@ export default function DiscordPreview({
   const username = message.username || webhookName || "AOI";
 
   const now = new Date();
-  const [eyeState, setEyeState] = useState<'idle' | 'swirling' | 'darting' | 'shaking' | 'exploding' | 'exploded'>('idle');
+  const [eyeState, setEyeState] = useState<'idle' | 'swirling'>('idle');
   const [pupilOffset, setPupilOffset] = useState({ x: 0, y: 0 });
-  const [shakeOffset, setShakeOffset] = useState({ x: 0, y: 0 });
-  const [particles, setParticles] = useState<{ x: number; y: number; vx: number; vy: number; color: string; size: number; life: number }[]>([]);
   const eyeRef = useRef<HTMLDivElement>(null);
-  const shakeRef = useRef<number | undefined>(undefined);
-  const particleRef = useRef<number | undefined>(undefined);
-  const explodeStartRef = useRef(0);
   const eyeStateRef = useRef(eyeState);
   const targetPupilRef = useRef({ x: 0, y: 0 });
   const currentPupilRef = useRef({ x: 0, y: 0 });
   const trackingRafRef = useRef<number | undefined>(undefined);
   const seqAnimRef = useRef<number | undefined>(undefined);
-  const dartVelocityRef = useRef({ x: 0, y: 0 });
-  const dartPosRef = useRef({ x: 0, y: 0 });
   eyeStateRef.current = eyeState;
 
   useEffect(() => {
     return () => {
-      if (shakeRef.current !== undefined) clearInterval(shakeRef.current);
-      if (particleRef.current !== undefined) cancelAnimationFrame(particleRef.current);
       if (trackingRafRef.current !== undefined) cancelAnimationFrame(trackingRafRef.current);
       if (seqAnimRef.current !== undefined) cancelAnimationFrame(seqAnimRef.current);
     };
   }, []);
 
-  useEffect(() => {
-    if (eyeState === 'exploding') {
-      document.body.classList.add('page-shake');
-      setTimeout(() => document.body.classList.remove('page-shake'), 500);
-    }
-  }, [eyeState]);
-
   const triggerEyeSequence = useCallback(() => {
     setEyeState('swirling');
     const start = Date.now();
-    const palette = [
-      '#ff0000','#ff3333','#cc0000',
-      '#00ff00','#33ff33','#00cc00',
-      '#0000ff','#3333ff','#0000cc',
-      '#ffff00','#ffff33','#ffcc00',
-      '#ff00ff','#ff33ff','#cc00cc',
-      '#00ffff','#33ffff','#00cccc',
-      '#ff8800','#ffaa33','#cc6600',
-      '#8800ff','#aa33ff','#6600cc',
-    ];
+    const duration = 2200;
 
     const tick = () => {
       const elapsed = Date.now() - start;
-
-      if (elapsed < 2000) {
-        const t = elapsed / 2000;
-        const eased = t * t; // ease-in: slow start, fast end
-        const angle = eased * Math.PI * 8;
-        const radius = Math.min(elapsed / 500, 1) * 3.5;
-        setPupilOffset({ x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
-        if (eyeStateRef.current === 'swirling') seqAnimRef.current = requestAnimationFrame(tick);
+      if (elapsed >= duration || eyeStateRef.current !== 'swirling') {
+        setPupilOffset({ x: 0, y: 0 });
+        setEyeState('idle');
         return;
       }
 
-      if (elapsed < 3500) {
-        if (eyeStateRef.current !== 'darting') {
-          setEyeState('darting');
-          const a = Math.random() * Math.PI * 2;
-          dartVelocityRef.current = { x: Math.cos(a) * 0.4, y: Math.sin(a) * 0.4 };
-          dartPosRef.current = { ...currentPupilRef.current };
-        }
-        const dartElapsed = Date.now() - start - 2000;
-        const speed = 0.3 + (dartElapsed / 1500) * 2.5;
-        const pos = dartPosRef.current;
-        const vel = dartVelocityRef.current;
-        pos.x += vel.x * speed;
-        pos.y += vel.y * speed;
-        const maxOff = 5;
-        let bounced = false;
-        if (Math.abs(pos.x) > maxOff) {
-          pos.x = Math.sign(pos.x) * maxOff;
-          vel.x *= -1;
-          vel.y += (Math.random() - 0.5) * 0.5;
-          bounced = true;
-        }
-        if (Math.abs(pos.y) > maxOff) {
-          pos.y = Math.sign(pos.y) * maxOff;
-          vel.y *= -1;
-          vel.x += (Math.random() - 0.5) * 0.5;
-          bounced = true;
-        }
-        if (bounced) {
-          const mag = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-          if (mag > 0) { vel.x = (vel.x / mag) * 0.5; vel.y = (vel.y / mag) * 0.5; }
-        }
-        setPupilOffset({ x: pos.x, y: pos.y });
-        seqAnimRef.current = requestAnimationFrame(tick);
-        return;
-      }
+      const t = elapsed / duration;
+      const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      const angle = eased * Math.PI * 6;
+      const radius = Math.sin(t * Math.PI) * 3.5;
 
-      setEyeState('shaking');
-      let tickCount = 0;
-      shakeRef.current = window.setInterval(() => {
-        tickCount++;
-        const intensity = Math.min(tickCount / 10, 1);
-        setShakeOffset({ x: (Math.random() - 0.5) * 16 * intensity, y: (Math.random() - 0.5) * 16 * intensity });
-        if (tickCount >= 20) {
-          if (shakeRef.current !== undefined) { clearInterval(shakeRef.current); shakeRef.current = undefined; }
-          setShakeOffset({ x: 0, y: 0 });
-          setEyeState('exploding');
-          setParticles(Array.from({ length: 60 }, () => {
-            const size = 0.4 + Math.random() * 0.8;
-            return {
-              x: 12 + (Math.random() - 0.5) * 3,
-              y: 12 + (Math.random() - 0.5) * 3,
-              vx: (Math.random() - 0.5) * 14,
-              vy: (Math.random() - 0.5) * 14,
-              color: palette[Math.floor(Math.random() * palette.length)]!,
-              size, life: 1,
-            };
-          }));
-          explodeStartRef.current = Date.now();
-          const anim = () => {
-            const elapsedExplode = Date.now() - explodeStartRef.current;
-            if (elapsedExplode > 2000) { setParticles([]); setEyeState('idle'); setPupilOffset({ x: 0, y: 0 }); setShakeOffset({ x: 0, y: 0 }); return; }
-            setParticles(prev => prev.map(p => ({
-              ...p,
-              x: p.x + p.vx * 0.08, y: p.y + p.vy * 0.08,
-              vx: p.vx * 0.96, vy: p.vy * 0.96,
-              life: Math.max(0, 1 - elapsedExplode / 2000),
-            })));
-            particleRef.current = requestAnimationFrame(anim);
-          };
-          particleRef.current = requestAnimationFrame(anim);
-        }
-      }, 40);
+      setPupilOffset({ x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
+      seqAnimRef.current = requestAnimationFrame(tick);
     };
 
     seqAnimRef.current = requestAnimationFrame(tick);
   }, []);
-
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       const rect = eyeRef.current?.getBoundingClientRect();
@@ -216,18 +120,12 @@ export default function DiscordPreview({
   if (!hasContent && !hasEmbeds && !hasFiles && !hasComponents && !threadName) {
     return (
       <div className="flex h-full flex-col items-center justify-center text-center" style={{ backgroundColor: noBg ? "transparent" : EMBED_BG }}>
-        <style>{`@keyframes pageShake{0%,to{transform:translateX(0)}10%{transform:translateX(-6px) rotate(-.6deg)}20%{transform:translateX(6px) rotate(.6deg)}30%{transform:translateX(-5px) rotate(-.4deg)}40%{transform:translateX(5px) rotate(.4deg)}50%{transform:translateX(-4px) rotate(-.3deg)}60%{transform:translateX(4px) rotate(.3deg)}70%{transform:translateX(-3px)}80%{transform:translateX(3px)}90%{transform:translateX(-1px)}}.page-shake{animation:pageShake .5s ease-in-out}`}</style>
         <div ref={eyeRef} className="mb-4 cursor-pointer" onClick={handleEyeClick} onContextMenu={(e) => { e.preventDefault(); handleEyeClick(); }}>
           <svg className="h-12 w-12 overflow-visible text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            {eyeState !== 'exploded' && (
-              <g style={{ transform: `translate(${shakeOffset.x}px, ${shakeOffset.y}px)`, transformOrigin: "12px 12px" }}>
-                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
-                <circle cx={12 + pupilOffset.x} cy={12 + pupilOffset.y} r="3" fill="currentColor" fillOpacity="0.3" />
-              </g>
-            )}
-            {particles.map((p, i) => (
-              <rect key={i} x={p.x - p.size * p.life / 2} y={p.y - p.size * p.life / 2} width={p.size * p.life} height={p.size * p.life} fill={p.color} />
-            ))}
+            <g style={{ transformOrigin: "12px 12px" }}>
+              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+              <circle cx={12 + pupilOffset.x} cy={12 + pupilOffset.y} r="3" fill="currentColor" fillOpacity="0.3" />
+            </g>
           </svg>
         </div>
         <p className="text-sm text-zinc-500">Your message preview will appear here</p>
