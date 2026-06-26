@@ -32,7 +32,7 @@ export default function DiscordPreview({
   const hasFiles = files && files.length > 0;
   const hasComponents = message.components && message.components.length > 0 && message.components.some((r) => (r.type === 1 && r.components.length > 0) || r.type === 17);
   const suppressEmbeds = (message.flags ?? 0) & 4;
-  const flagsV2 = isComponentsV2(message);
+  const flagsV2 = isComponentsV2(message.flags);
 
   const webhookName = targets?.find((t) => t.type === TargetType.Webhook)?.url ? "Webhook" : undefined;
   const username = message.username || webhookName || "AOI Bot";
