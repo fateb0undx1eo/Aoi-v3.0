@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "target": "ES2022",  // Bun supports modern JS
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -18,24 +14,28 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "src/*"
-      ]
+      "@/*": ["src/*"]
     }
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts"
+    "src/**/*.ts",
+    "src/**/*.tsx"
+    // ❌ REMOVED: ".next/types/**/*.ts" - This is the main culprit!
   ],
   "exclude": [
     "node_modules",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/*.stories.tsx",
+    "**/__tests__/**",
     "next.config.js",
     "tailwind.config.js",
     "postcss.config.js",
-    "server.js"
+    "server.js",
+    ".next"  // ✅ Exclude the entire .next folder
   ]
 }
