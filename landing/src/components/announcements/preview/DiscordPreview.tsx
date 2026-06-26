@@ -1,4 +1,5 @@
-import { Eye, MessageSquare } from "lucide-react";
+import { useEffect, useState } from "react";
+import { MessageSquare } from "lucide-react";
 import { EMBED_BG, TEXT_COLOR, ACCENT } from "../constants";
 import type { APIEmbed, APIEmbedImage, APIComponentInActionRow, DraftFile, QueryDataMessageData, QueryDataTarget, APIAttachment } from "../types";
 import { TargetType } from "../types";
@@ -38,11 +39,30 @@ export default function DiscordPreview({
   const username = message.username || webhookName || "AOI";
 
   const now = new Date();
+  const [animateEye, setAnimateEye] = useState(false);
+  useEffect(() => { setAnimateEye(true); }, []);
 
   if (!hasContent && !hasEmbeds && !hasFiles && !hasComponents && !threadName) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg px-6 py-12 text-center" style={{ backgroundColor: noBg ? "transparent" : EMBED_BG }}>
-        <Eye className="mb-3 h-10 w-10 text-zinc-600" />
+      <div className="flex h-full flex-col items-center justify-center text-center" style={{ backgroundColor: noBg ? "transparent" : EMBED_BG }}>
+        <style>{`
+          @keyframes eyeLookBlink {
+            0% { transform: translateX(0) scaleY(1); }
+            15% { transform: translateX(4px) scaleY(1); }
+            30% { transform: translateX(-4px) scaleY(1); }
+            45% { transform: translateX(0) scaleY(1); }
+            55% { transform: translateX(0) scaleY(0.08); }
+            62% { transform: translateX(0) scaleY(0.08); }
+            70% { transform: translateX(0) scaleY(1); }
+            100% { transform: translateX(0) scaleY(1); }
+          }
+        `}</style>
+        <svg className="mb-4 h-12 w-12 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <g style={{ transformOrigin: "12px 12px", animation: animateEye ? "eyeLookBlink 3s ease-in-out 1 forwards" : "none" }}>
+            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+            <circle cx="12" cy="12" r="3" fill="currentColor" fillOpacity="0.3" />
+          </g>
+        </svg>
         <p className="text-sm text-zinc-500">Your message preview will appear here</p>
         <p className="mt-1 text-xs text-zinc-600">{isV2 ? "Add V2 containers with text, images, or sections" : "Add content, embeds, or components to get started"}</p>
       </div>
@@ -113,19 +133,21 @@ export default function DiscordPreview({
                 onError={(e) => { (e.target as HTMLImageElement).src = defaultAvatarUrl; }}
               />
             ) : (
-              <img src="/favicon.svg" alt={username} className="h-10 w-10 rounded-full bg-black" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white">
+                <img src="/favicon.svg" alt={username} className="h-7 w-7" />
+              </div>
             )}
           </div>
         )}
         <div className="min-w-0 flex-1">
           {!compact && (
-            <p className="mb-1 leading-none">
-              <span className="text-base font-semibold dark:text-[#f2f3f5]" style={{ color: webhookName ? TEXT_COLOR : ACCENT }}>
+            <p className="mb-0 leading-none">
+              <span className="text-base font-semibold text-[#f2f3f5]">
                 {username}
               </span>
-              <span className="ml-1.5 rounded-sm bg-[#5865F2] px-1 py-0.5 text-[10px] font-semibold text-white">APP</span>
-              {flagsV2 && <span className="ml-1 rounded bg-zinc-700 px-1 py-0.5 text-[9px] text-zinc-400">V2</span>}
-              <span className="ml-2 text-xs text-zinc-500">
+              <span className="ml-1.5 inline-flex items-center rounded-sm bg-[#5865F2] px-1 text-[10px] font-semibold leading-none text-white">APP</span>
+              {flagsV2 && <span className="ml-1 inline-flex items-center rounded bg-zinc-700 px-1 text-[9px] font-semibold leading-none text-zinc-400">V2</span>}
+              <span className="ml-2 text-xs leading-none text-zinc-500">
                 {now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
               </span>
             </p>
@@ -137,19 +159,19 @@ export default function DiscordPreview({
                 {now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
               </span>
               <img src={defaultAvatarUrl} alt="" className="mr-1 inline h-4 w-4 rounded-full" />
-              <span className="mr-1 text-base font-semibold dark:text-[#f2f3f5]" style={{ color: webhookName ? TEXT_COLOR : ACCENT }}>
+              <span className="mr-1 text-base font-semibold text-[#f2f3f5]">
                 {username}
               </span>
             </div>
           )}
 
           {hasContent && (
-            <div className={`whitespace-pre-line text-[15px] font-medium leading-[1.25] dark:text-[#dbdee1]`}>
+            <div className={`whitespace-pre-line pr-4 text-[15px] font-medium leading-[1.25] dark:text-[#dbdee1]`}>
               <Markdown content={message.content ?? ""} />
             </div>
           )}
 
-          <div className={compact ? "pl-20" : ""}>
+          <div className={compact ? "pl-20 pr-4" : "pr-4"}>
             {mediaAttachments.length > 0 && (
               <div className={`max-w-[550px] ${hasContent ? "mt-1" : ""}`}>
                 <Gallery attachments={mediaAttachments} />
