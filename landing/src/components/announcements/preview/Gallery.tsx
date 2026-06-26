@@ -57,7 +57,7 @@ function GalleryItem({
 
   return (
     <div className={className}>
-      <img src={url} className={itemClassName ?? "block object-cover"} alt="" />
+      <img src={url} className={itemClassName ?? "block max-w-full max-h-full object-cover"} alt="" />
     </div>
   );
 }
@@ -65,9 +65,9 @@ function GalleryItem({
 type GridFn = React.FC<{ attachments: APIAttachment[] }>;
 
 const LAYOUTS: Record<number, GridFn> = {
-  1: (d) => (
+   1: (d) => (
     <div className="w-full">
-      <GalleryItem attachments={d.attachments} index={0} className="max-h-[350px] max-w-full rounded-lg" itemClassName="max-h-inherit w-full rounded-lg object-cover" />
+      <GalleryItem attachments={d.attachments} index={0} className="max-h-[350px] max-w-full rounded-lg" itemClassName="max-h-inherit max-w-full rounded-lg object-cover" />
     </div>
   ),
   2: (d) => (

@@ -60,7 +60,7 @@ const headingRule: Rule = {
     return { size: m[0]!.length, content: parse(m[2]?.trim() ?? ""), level: m[1]!.length };
   },
   render(c, r) {
-    const cls = "mx-0 mb-1.5 mt-2 font-bold leading-relaxed text-zinc-100";
+    const cls = "mx-0 mb-1.5 mt-2 font-semibold leading-snug text-zinc-100";
     if (c.level === 1) return <h4 className={`${cls} text-lg`}>{r(c.content)}</h4>;
     if (c.level === 2) return <h5 className={`${cls} text-base`}>{r(c.content)}</h5>;
     return <h6 className={`${cls} text-sm`}>{r(c.content)}</h6>;
@@ -88,7 +88,7 @@ const codeBlockRule: Rule = {
   render(c) {
     return (
       <pre className="mt-1 max-w-[90%] overflow-x-auto rounded border border-zinc-700 bg-black p-3">
-        <code className="font-mono text-xs leading-relaxed text-zinc-200">{c.content}</code>
+        <code className="font-mono text-inherit text-zinc-200">{c.content}</code>
       </pre>
     );
   },
@@ -194,7 +194,7 @@ const linkRule: Rule = {
     return { size: m[0].length, url: new URL(m[1]!).href };
   },
   render(c) {
-    return <a href={c.url} target="_blank" rel="noreferrer noopener nofollow ugc" className="text-cyan-400 hover:underline break-words">{c.url}</a>;
+    return <a href={c.url} target="_blank" rel="noreferrer noopener nofollow ugc" className="text-[#5865F2] hover:underline break-words">{c.url}</a>;
   },
 };
 
@@ -213,7 +213,7 @@ const autoLinkRule: Rule = {
     return { size: url.length, url };
   },
   render(c) {
-    return <a href={c.url} target="_blank" rel="noreferrer noopener nofollow ugc" className="text-cyan-400 hover:underline break-words">{c.url}</a>;
+    return <a href={c.url} target="_blank" rel="noreferrer noopener nofollow ugc" className="text-[#5865F2] hover:underline break-words">{c.url}</a>;
   },
 };
 
@@ -229,7 +229,7 @@ const maskedLinkRule: Rule = {
   },
   render(c, r) {
     if (c.valid) {
-      return <a href={c.url} title={c.title} target="_blank" rel="noreferrer noopener nofollow ugc" className="text-cyan-400 hover:underline">{r(c.content)}</a>;
+      return <a href={c.url} title={c.title} target="_blank" rel="noreferrer noopener nofollow ugc" className="text-[#5865F2] hover:underline">{r(c.content)}</a>;
     }
     return <span>{c.raw}</span>;
   },
@@ -250,7 +250,25 @@ const strongRule: Rule = {
     if (!m) return;
     return { size: m[0].length, content: parse(m[1]!) };
   },
-  render(c, r) { return <strong className="font-semibold">{r(c.content)}</strong>; },
+  render(c, r) { return <strong className="font-bold">{r(c.content)}</strong>; },
+};
+
+const superStrongRule: Rule = {
+  capture(source, _, parse) {
+    const m = /^\*{4}((?:\\.|[^*])+?)\*{4}(?!\*)/.exec(source);
+    if (!m) return;
+    return { size: m[0].length, content: parse(m[1]!) };
+  },
+  render(c, r) { return <strong className="font-black">{r(c.content)}</strong>; },
+};
+
+const superStrongItalicRule: Rule = {
+  capture(source, _, parse) {
+    const m = /^\*{5}((?:\\.|[^*])+?)\*{5}(?!\*)/.exec(source);
+    if (!m) return;
+    return { size: m[0].length, content: parse(m[1]!) };
+  },
+  render(c, r) { return <em className="font-black italic">{r(c.content)}</em>; },
 };
 
 const underlineRule: Rule = {
@@ -278,7 +296,7 @@ const codeRule: Rule = {
     return { size: m[0].length, content: m[2]! };
   },
   render(c) {
-    return <code className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-xs text-zinc-200">{c.content}</code>;
+    return <code className="rounded bg-zinc-800 px-1 py-px font-mono text-inherit text-zinc-200">{c.content}</code>;
   },
 };
 
@@ -300,7 +318,7 @@ const spoilerRule: Rule = {
   render(c, r) { return <span className="rounded bg-zinc-700/40 box-decoration-clone">{r(c.content)}</span>; },
 };
 
-const mentionStyle = "rounded bg-cyan-500/15 px-1 py-0.5 font-medium text-cyan-400";
+const mentionStyle = "rounded bg-cyan-500/15 px-1 py-px font-medium text-cyan-400";
 
 const globalMentionRule: Rule = {
   capture(source) {
@@ -409,7 +427,7 @@ const textRule: Rule = {
 type RuleOptionKey =
   | "headings" | "footings" | "codeBlocks" | "inlineCode" | "blockQuotes"
   | "lists" | "paragraphs" | "escapes" | "links" | "autoLinks"
-  | "maskedLinks" | "italic" | "bold" | "underline" | "strikethrough"
+  | "maskedLinks" | "italic" | "superBoldItalic" | "superBold" | "bold" | "underline" | "strikethrough"
   | "breaks" | "spoilers" | "timestamps" | "globalMentions"
   | "channelMentions" | "memberMentions" | "roleMentions" | "commandMentions"
   | "customEmojis" | "text";
@@ -427,6 +445,8 @@ const ruleOptions: Record<RuleOptionKey, { rule: Rule; title?: boolean; full?: b
   autoLinks: { rule: autoLinkRule, title: true, full: true },
   maskedLinks: { rule: maskedLinkRule, full: true },
   italic: { rule: emphasisRule, title: true, full: true },
+  superBoldItalic: { rule: superStrongItalicRule, full: true },
+  superBold: { rule: superStrongRule, full: true },
   bold: { rule: strongRule, title: true, full: true },
   underline: { rule: underlineRule, title: true, full: true },
   strikethrough: { rule: strikethroughRule, title: true, full: true },

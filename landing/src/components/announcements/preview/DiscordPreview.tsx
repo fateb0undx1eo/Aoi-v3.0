@@ -11,7 +11,7 @@ import FileAttachmentPreview from "./FileAttachment";
 import { PreviewActionRow } from "./ActionRow";
 import MessageDivider from "./MessageDivider";
 
-const defaultAvatarUrl = "https://cdn.discordapp.com/embed/avatars/0.png";
+  const defaultAvatarUrl = "/favicon.svg";
 
 export default function DiscordPreview({
   message, isV2, targets, onEditComponent, noBg, files, compact, forceSeparateAuthor, threadName, threadThumbnail
@@ -35,8 +35,7 @@ export default function DiscordPreview({
   const flagsV2 = isComponentsV2(message.flags);
 
   const webhookName = targets?.find((t) => t.type === TargetType.Webhook)?.url ? "Webhook" : undefined;
-  const username = message.username || webhookName || "AOI Bot";
-  const avatarInit = username.charAt(0).toUpperCase();
+  const username = message.username || webhookName || "AOI";
 
   const now = new Date();
 
@@ -114,9 +113,7 @@ export default function DiscordPreview({
                 onError={(e) => { (e.target as HTMLImageElement).src = defaultAvatarUrl; }}
               />
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#5865F2] text-base font-bold text-white">
-                {avatarInit}
-              </div>
+              <img src="/favicon.svg" alt={username} className="h-10 w-10 rounded-full bg-black" />
             )}
           </div>
         )}
@@ -126,7 +123,7 @@ export default function DiscordPreview({
               <span className="text-base font-semibold dark:text-[#f2f3f5]" style={{ color: webhookName ? TEXT_COLOR : ACCENT }}>
                 {username}
               </span>
-              <span className="ml-1.5 rounded bg-[#5865F2]/15 px-1.5 py-0.5 text-[10px] font-medium text-[#5865F2]">APP</span>
+              <span className="ml-1.5 rounded-sm bg-[#5865F2] px-1 py-0.5 text-[10px] font-semibold text-white">APP</span>
               {flagsV2 && <span className="ml-1 rounded bg-zinc-700 px-1 py-0.5 text-[9px] text-zinc-400">V2</span>}
               <span className="ml-2 text-xs text-zinc-500">
                 {now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
@@ -147,7 +144,7 @@ export default function DiscordPreview({
           )}
 
           {hasContent && (
-            <div className={`whitespace-pre-line text-[15px] font-medium leading-relaxed dark:text-[#dbdee1]`}>
+            <div className={`whitespace-pre-line text-[15px] font-medium leading-[1.25] dark:text-[#dbdee1]`}>
               <Markdown content={message.content ?? ""} />
             </div>
           )}

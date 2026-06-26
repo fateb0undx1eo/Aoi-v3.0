@@ -16,7 +16,7 @@ import type {
   ButtonStyle, APITopLevelComponent, APIActionRowComponent, APIContainerComponent,
   APIComponentInActionRow, APIEmbed, APIV2TextDisplay, APIAllowedMentions, ModuleRow,
 } from "@/components/announcements/types";
-import { ACCENT } from "@/components/announcements/constants";
+import { ACCENT, EMBED_BG } from "@/components/announcements/constants";
 import { TargetType } from "@/components/announcements/types";
 import { getBackendApiUrl } from "@/lib/backend";
 import {
@@ -538,8 +538,8 @@ export default function GuildAnnouncementsPage() {
           </div>
         </div>
 
-        <div className="flex flex-col w-1/2 border-s-2 border-zinc-800">
-          <div className="overflow-y-scroll grow p-4 pb-8">
+        <div className="flex flex-col w-1/2" style={{ backgroundColor: EMBED_BG }}>
+          <div className="overflow-y-scroll grow px-4 py-4 pb-8">
             {data.messages.map((m, i) => {
               const mid = m._id || String(i);
               return (

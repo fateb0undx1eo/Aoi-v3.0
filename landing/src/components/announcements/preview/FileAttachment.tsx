@@ -62,7 +62,7 @@ export default function FileAttachmentPreview({ attachment, isVoiceMessage }: { 
   const isVideo = attachment.content_type?.startsWith("video/");
 
   if (isImage) {
-    return <img src={attachment.url} alt={attachment.filename} className="max-h-80 w-full rounded-lg object-cover" />;
+    return <img src={attachment.url} alt={attachment.filename} className="max-h-80 max-w-full rounded-lg object-cover" />;
   }
 
   if (isAudioType(attachment.content_type) && isVoiceMessage) {
