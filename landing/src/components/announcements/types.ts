@@ -86,7 +86,7 @@ interface APIEmbed {
 }
 
 interface APIAllowedMentions { parse?: string[]; roles?: string[]; users?: string[]; replied_user?: boolean; }
-interface APIAttachment { id: string; filename: string; size: number; url: string; proxy_url: string; width?: number; height?: number; content_type?: string; }
+interface APIAttachment { id: string; filename: string; size: number; url: string; proxy_url: string; width?: number; height?: number; content_type?: string; duration_secs?: number; }
 
 interface DraftFile {
   id: string;
