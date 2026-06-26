@@ -39,7 +39,7 @@ export default function DiscordPreview({
   const username = message.username || webhookName || "AOI";
 
   const now = new Date();
-  const [eyeState, setEyeState] = useState<'idle' | 'shaking' | 'exploding' | 'exploded'>('idle');
+  const [eyeState, setEyeState] = useState<'idle' | 'swirling' | 'darting' | 'shaking' | 'exploding' | 'exploded'>('idle');
   const [pupilOffset, setPupilOffset] = useState({ x: 0, y: 0 });
   const [shakeOffset, setShakeOffset] = useState({ x: 0, y: 0 });
   const [particles, setParticles] = useState<{ x: number; y: number; vx: number; vy: number; color: string; size: number; life: number }[]>([]);
@@ -51,6 +51,9 @@ export default function DiscordPreview({
   const targetPupilRef = useRef({ x: 0, y: 0 });
   const currentPupilRef = useRef({ x: 0, y: 0 });
   const trackingRafRef = useRef<number | undefined>(undefined);
+  const seqAnimRef = useRef<number | undefined>(undefined);
+  const dartTargetRef = useRef({ x: 0, y: 0 });
+  const dartSwitchRef = useRef(0);
   eyeStateRef.current = eyeState;
 
   useEffect(() => {
@@ -58,6 +61,7 @@ export default function DiscordPreview({
       if (shakeRef.current !== undefined) clearInterval(shakeRef.current);
       if (particleRef.current !== undefined) cancelAnimationFrame(particleRef.current);
       if (trackingRafRef.current !== undefined) cancelAnimationFrame(trackingRafRef.current);
+      if (seqAnimRef.current !== undefined) cancelAnimationFrame(seqAnimRef.current);
     };
   }, []);
 
@@ -68,81 +72,112 @@ export default function DiscordPreview({
     }
   }, [eyeState]);
 
-  const triggerShake = useCallback(() => {
-    setEyeState('shaking');
-    let tick = 0;
-    shakeRef.current = window.setInterval(() => {
-      tick++;
-      const intensity = Math.min(tick / 10, 1);
-      setShakeOffset({ x: (Math.random() - 0.5) * 16 * intensity, y: (Math.random() - 0.5) * 16 * intensity });
-      if (tick >= 20) {
-        if (shakeRef.current !== undefined) { clearInterval(shakeRef.current); shakeRef.current = undefined; }
-        setShakeOffset({ x: 0, y: 0 });
-        setEyeState('exploding');
-        const palette = [
-          '#ff0000','#ff3333','#cc0000',
-          '#00ff00','#33ff33','#00cc00',
-          '#0000ff','#3333ff','#0000cc',
-          '#ffff00','#ffff33','#ffcc00',
-          '#ff00ff','#ff33ff','#cc00cc',
-          '#00ffff','#33ffff','#00cccc',
-          '#ff8800','#ffaa33','#cc6600',
-          '#8800ff','#aa33ff','#6600cc',
-        ];
-        setParticles(Array.from({ length: 60 }, () => {
-          const size = 0.4 + Math.random() * 0.8;
-          return {
-            x: 12 + (Math.random() - 0.5) * 3,
-            y: 12 + (Math.random() - 0.5) * 3,
-            vx: (Math.random() - 0.5) * 14,
-            vy: (Math.random() - 0.5) * 14,
-            color: palette[Math.floor(Math.random() * palette.length)]!,
-            size,
-            life: 1,
-          };
-        }));
-        explodeStartRef.current = Date.now();
-        const anim = () => {
-          const elapsed = Date.now() - explodeStartRef.current;
-          if (elapsed > 2000) { setParticles([]); setEyeState('idle'); setPupilOffset({ x: 0, y: 0 }); setShakeOffset({ x: 0, y: 0 }); return; }
-          setParticles(prev => prev.map(p => ({
-            ...p,
-            x: p.x + p.vx * 0.08,
-            y: p.y + p.vy * 0.08,
-            vx: p.vx * 0.96,
-            vy: p.vy * 0.96,
-            life: Math.max(0, 1 - elapsed / 2000),
-          })));
-          particleRef.current = requestAnimationFrame(anim);
-        };
-        particleRef.current = requestAnimationFrame(anim);
+  const triggerEyeSequence = useCallback(() => {
+    setEyeState('swirling');
+    const start = Date.now();
+    const palette = [
+      '#ff0000','#ff3333','#cc0000',
+      '#00ff00','#33ff33','#00cc00',
+      '#0000ff','#3333ff','#0000cc',
+      '#ffff00','#ffff33','#ffcc00',
+      '#ff00ff','#ff33ff','#cc00cc',
+      '#00ffff','#33ffff','#00cccc',
+      '#ff8800','#ffaa33','#cc6600',
+      '#8800ff','#aa33ff','#6600cc',
+    ];
+
+    const tick = () => {
+      const elapsed = Date.now() - start;
+
+      if (elapsed < 2000) {
+        const angle = (elapsed / 2000) * Math.PI * 6;
+        const radius = Math.min(elapsed / 500, 1) * 3.5;
+        setPupilOffset({ x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
+        if (eyeStateRef.current === 'swirling') seqAnimRef.current = requestAnimationFrame(tick);
+        return;
       }
-    }, 40);
+
+      if (elapsed < 3500) {
+        if (eyeStateRef.current !== 'darting') { setEyeState('darting'); dartSwitchRef.current = Date.now(); }
+        const dartElapsed = Date.now() - start - 2000;
+        const interval = Math.max(30, 150 - (dartElapsed / 1500) * 120);
+        if (Date.now() - dartSwitchRef.current > interval) {
+          dartTargetRef.current = { x: (Math.random() - 0.5) * 7, y: (Math.random() - 0.5) * 7 };
+          dartSwitchRef.current = Date.now();
+        }
+        const c = currentPupilRef.current;
+        const t = dartTargetRef.current;
+        c.x += (t.x - c.x) * 0.3;
+        c.y += (t.y - c.y) * 0.3;
+        setPupilOffset({ x: c.x, y: c.y });
+        seqAnimRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      setEyeState('shaking');
+      let tickCount = 0;
+      shakeRef.current = window.setInterval(() => {
+        tickCount++;
+        const intensity = Math.min(tickCount / 10, 1);
+        setShakeOffset({ x: (Math.random() - 0.5) * 16 * intensity, y: (Math.random() - 0.5) * 16 * intensity });
+        if (tickCount >= 20) {
+          if (shakeRef.current !== undefined) { clearInterval(shakeRef.current); shakeRef.current = undefined; }
+          setShakeOffset({ x: 0, y: 0 });
+          setEyeState('exploding');
+          setParticles(Array.from({ length: 60 }, () => {
+            const size = 0.4 + Math.random() * 0.8;
+            return {
+              x: 12 + (Math.random() - 0.5) * 3,
+              y: 12 + (Math.random() - 0.5) * 3,
+              vx: (Math.random() - 0.5) * 14,
+              vy: (Math.random() - 0.5) * 14,
+              color: palette[Math.floor(Math.random() * palette.length)]!,
+              size, life: 1,
+            };
+          }));
+          explodeStartRef.current = Date.now();
+          const anim = () => {
+            const elapsedExplode = Date.now() - explodeStartRef.current;
+            if (elapsedExplode > 2000) { setParticles([]); setEyeState('idle'); setPupilOffset({ x: 0, y: 0 }); setShakeOffset({ x: 0, y: 0 }); return; }
+            setParticles(prev => prev.map(p => ({
+              ...p,
+              x: p.x + p.vx * 0.08, y: p.y + p.vy * 0.08,
+              vx: p.vx * 0.96, vy: p.vy * 0.96,
+              life: Math.max(0, 1 - elapsedExplode / 2000),
+            })));
+            particleRef.current = requestAnimationFrame(anim);
+          };
+          particleRef.current = requestAnimationFrame(anim);
+        }
+      }, 40);
+    };
+
+    seqAnimRef.current = requestAnimationFrame(tick);
   }, []);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       const rect = eyeRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const dx = e.clientX - cx;
-      const dy = e.clientY - cy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
       const scale = rect.width / 24;
-      const mapped = Math.min(dist / (scale * 8), 1) * 4;
+      const mapped = Math.min(e.clientX - rect.left - rect.width / 2, scale * 8) / (scale * 8) * 4;
+      const dx = e.clientX - (rect.left + rect.width / 2);
+      const dy = e.clientY - (rect.top + rect.height / 2);
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const m = Math.min(dist / (scale * 8), 1) * 4;
       const angle = Math.atan2(dy, dx);
-      targetPupilRef.current = { x: Math.cos(angle) * mapped, y: Math.sin(angle) * mapped };
+      targetPupilRef.current = { x: Math.cos(angle) * m, y: Math.sin(angle) * m };
     };
     document.addEventListener('mousemove', onMove);
     return () => document.removeEventListener('mousemove', onMove);
-  }, [triggerShake]);
+  }, []);
 
   const handleEyeClick = useCallback(() => {
-    if (eyeStateRef.current === 'idle') triggerShake();
-  }, [triggerShake]);
+    if (eyeStateRef.current === 'idle') triggerEyeSequence();
+  }, [triggerEyeSequence]);
 
   useEffect(() => {
+    if (eyeState !== 'idle') return;
     const tick = () => {
       const t = targetPupilRef.current;
       const c = currentPupilRef.current;
@@ -155,7 +190,7 @@ export default function DiscordPreview({
     };
     trackingRafRef.current = requestAnimationFrame(tick);
     return () => { if (trackingRafRef.current !== undefined) cancelAnimationFrame(trackingRafRef.current); };
-  }, []);
+  }, [eyeState]);
 
   if (!hasContent && !hasEmbeds && !hasFiles && !hasComponents && !threadName) {
     return (
