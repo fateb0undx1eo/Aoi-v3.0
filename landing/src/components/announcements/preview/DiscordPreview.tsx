@@ -80,14 +80,14 @@ export default function DiscordPreview({
         setShakeOffset({ x: 0, y: 0 });
         setEyeState('exploding');
         const palette = [
-          '#ff6666','#ff0000','#990000',
-          '#66ff66','#00ff00','#009900',
-          '#6666ff','#0000ff','#000099',
-          '#ffff66','#ffff00','#999900',
-          '#ff66ff','#ff00ff','#990099',
-          '#66ffff','#00ffff','#009999',
-          '#ffaa66','#ff8800','#995500',
-          '#aa66ff','#8800ff','#550099',
+          '#ff0000','#ff3333','#cc0000',
+          '#00ff00','#33ff33','#00cc00',
+          '#0000ff','#3333ff','#0000cc',
+          '#ffff00','#ffff33','#ffcc00',
+          '#ff00ff','#ff33ff','#cc00cc',
+          '#00ffff','#33ffff','#00cccc',
+          '#ff8800','#ffaa33','#cc6600',
+          '#8800ff','#aa33ff','#6600cc',
         ];
         setParticles(Array.from({ length: 60 }, () => {
           const size = 0.4 + Math.random() * 0.8;
@@ -104,7 +104,7 @@ export default function DiscordPreview({
         explodeStartRef.current = Date.now();
         const anim = () => {
           const elapsed = Date.now() - explodeStartRef.current;
-          if (elapsed > 2000) { setParticles([]); return; }
+          if (elapsed > 2000) { setParticles([]); setEyeState('idle'); setPupilOffset({ x: 0, y: 0 }); setShakeOffset({ x: 0, y: 0 }); return; }
           setParticles(prev => prev.map(p => ({
             ...p,
             x: p.x + p.vx * 0.08,
@@ -122,7 +122,6 @@ export default function DiscordPreview({
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
-      if (eyeStateRef.current === 'exploded') return;
       const rect = eyeRef.current?.getBoundingClientRect();
       if (!rect) return;
       const cx = rect.left + rect.width / 2;
@@ -152,7 +151,7 @@ export default function DiscordPreview({
       if (Math.abs(c.x - t.x) < 0.005) c.x = t.x;
       if (Math.abs(c.y - t.y) < 0.005) c.y = t.y;
       setPupilOffset({ x: c.x, y: c.y });
-      if (eyeStateRef.current !== 'exploded') trackingRafRef.current = requestAnimationFrame(tick);
+      trackingRafRef.current = requestAnimationFrame(tick);
     };
     trackingRafRef.current = requestAnimationFrame(tick);
     return () => { if (trackingRafRef.current !== undefined) cancelAnimationFrame(trackingRafRef.current); };
