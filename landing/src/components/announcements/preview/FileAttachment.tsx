@@ -1,6 +1,30 @@
-import { FileText } from "lucide-react";
+import { CheckCircle, AlertTriangle, FileText } from "lucide-react";
 import type { APIAttachment } from "../types";
 import { fileSize } from "../utils/files";
+
+const IMG_HOST_MIMETYPES = [
+  'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/bmp',
+  'image/tiff', 'image/webp', 'image/heic', 'image/heif',
+  'image/vnd.microsoft.icon', 'image/x-icon', 'image/ico',
+];
+
+const IMG_HOST_MAX_SIZE = 32 * 1024 * 1024;
+
+function ImgbbBadge({ attachment }: { attachment: APIAttachment }) {
+  if (!attachment.content_type || !IMG_HOST_MIMETYPES.includes(attachment.content_type)) return null;
+  if (attachment.size <= IMG_HOST_MAX_SIZE) {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[10px] text-green-400" title="This image will be hosted permanently on imgbb">
+        <CheckCircle className="h-3 w-3" />imgbb
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center text-[10px] text-yellow-500" title="Image exceeds imgbb 32MB limit, will be attached normally">
+      <AlertTriangle className="h-3 w-3" />
+    </span>
+  );
+}
 
 function isAudioType(type: string | undefined): boolean {
   return type !== undefined && (type.startsWith("audio/") || type === "application/ogg");
@@ -16,7 +40,10 @@ function GenericFileCard({ attachment }: { attachment: APIAttachment }) {
         <a href={attachment.url} target="_blank" rel="noreferrer" className="block truncate text-sm font-medium text-[#00A8FC] hover:underline dark:text-[#00A8FC]">
           {attachment.filename}
         </a>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">{fileSize(attachment.size)}</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          {fileSize(attachment.size)}
+          {' '}<ImgbbBadge attachment={attachment} />
+        </p>
       </div>
     </div>
   );
@@ -62,7 +89,17 @@ export default function FileAttachmentPreview({ attachment, isVoiceMessage }: { 
   const isVideo = attachment.content_type?.startsWith("video/");
 
   if (isImage) {
-    return <img src={attachment.url} alt={attachment.filename} className="max-h-80 max-w-full rounded-lg object-cover" />;
+    return (
+      <div>
+        <img src={attachment.url} alt={attachment.filename} className="max-h-80 max-w-full rounded-lg object-cover" />
+        <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <span>{attachment.filename}</span>
+          <span>&middot;</span>
+          <span>{fileSize(attachment.size)}</span>
+          <ImgbbBadge attachment={attachment} />
+        </div>
+      </div>
+    );
   }
 
   if (isAudioType(attachment.content_type) && isVoiceMessage) {

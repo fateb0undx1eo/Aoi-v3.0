@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FileText, Image, Lock, Upload, Video, X } from "lucide-react";
+import { CheckCircle, AlertTriangle, FileText, Image, Lock, Upload, Video, X } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -120,6 +120,20 @@ function FileEditModal({
   );
 }
 
+const IMG_HOST_MIMETYPES = [
+  'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/bmp',
+  'image/tiff', 'image/webp', 'image/heic', 'image/heif',
+  'image/vnd.microsoft.icon', 'image/x-icon', 'image/ico',
+];
+
+const IMG_HOST_MAX_SIZE = 32 * 1024 * 1024;
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function FileAttachmentEditor({
   files,
   onChange,
@@ -182,6 +196,9 @@ export default function FileAttachmentEditor({
   const isImage = (f: DraftFile) =>
     f.content_type?.startsWith("image/") ||
     /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name);
+
+  const isImgbbImage = (f: DraftFile) =>
+    !!f.content_type && IMG_HOST_MIMETYPES.includes(f.content_type);
 
   return (
     <div className="space-y-3">
@@ -273,8 +290,19 @@ export default function FileAttachmentEditor({
                     {f.name}
                   </span>
                   <span className="ml-1.5 text-[10px] text-zinc-600">
-                    {(f.size / 1024).toFixed(0)}KB
+                    {formatFileSize(f.size)}
                   </span>
+                  {isImgbbImage(f) && (
+                    f.size <= IMG_HOST_MAX_SIZE ? (
+                      <span className="ml-1 inline-flex items-center gap-0.5 text-[9px] text-green-400" title="This image will be hosted permanently on imgbb">
+                        <CheckCircle className="h-2.5 w-2.5" />imgbb
+                      </span>
+                    ) : (
+                      <span className="ml-1" title="Image exceeds imgbb 32MB limit, will be attached normally">
+                        <AlertTriangle className="inline h-2.5 w-2.5 text-yellow-500" />
+                      </span>
+                    )
+                  )}
                   {usedInEmbed && (
                     <span className="ml-1.5 text-[9px] text-primary">
                       in use

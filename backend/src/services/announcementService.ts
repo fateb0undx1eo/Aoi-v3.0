@@ -1,5 +1,21 @@
+import { createHash } from 'node:crypto';
 import type { Client, Guild, TextBasedChannel } from 'discord.js';
 import { AttachmentBuilder, EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, StringSelectMenuBuilder, ButtonStyle } from 'discord.js';
+
+const IMG_HOST_MIMETYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/gif',
+  'image/bmp',
+  'image/tiff',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'image/vnd.microsoft.icon',
+  'image/x-icon',
+  'image/ico',
+];
 
 interface FlatEmbed {
   title: string;
@@ -406,34 +422,122 @@ function normalizeEntry(rawEntry: Record<string, any> = {}): NormalizedEntry {
   } as NewEntry;
 }
 
-function normalizePayload(rawPayload: Record<string, any> = {}): NormalizedPayload {
+/**
+ * Uploads an image buffer to imgbb and returns the permanent CDN URL.
+ * On failure, returns null and logs the error (the announcement still proceeds with normal attachment).
+ */
+async function uploadToImgbb(buffer: Buffer, filename: string): Promise<string | null> {
+  try {
+    const apiKey = process.env.IMG_HOST;
+    if (!apiKey) {
+      console.warn('[imgbb] IMG_HOST environment variable is not set');
+      return null;
+    }
+    const base64 = buffer.toString('base64');
+    const res = await fetch('https://api.imgbb.com/1/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: apiKey, image: base64, name: filename }),
+    });
+    if (!res.ok) {
+      console.error(`[imgbb] HTTP ${res.status}`, await res.text().catch(() => ''));
+      return null;
+    }
+    const json = await res.json();
+    if (!json.success) {
+      console.error('[imgbb] API error:', json);
+      return null;
+    }
+    return json.data.url as string;
+  } catch (err) {
+    console.error('[imgbb] Upload error:', err);
+    return null;
+  }
+}
+
+function replaceAttachmentUrlsInComponents(components: any[], searchUri: string, replaceUrl: string): void {
+  for (const comp of components) {
+    if (!comp || typeof comp.type === 'undefined') continue;
+    if ((comp.type === 11 || comp.type === 12 || comp.type === 13) && comp.items) {
+      for (const item of comp.items) {
+        if (item.media?.url === searchUri) item.media.url = replaceUrl;
+      }
+    }
+    if (comp.type === 9) {
+      if (comp.components) replaceAttachmentUrlsInComponents(comp.components, searchUri, replaceUrl);
+      if (comp.accessory?.type === 11 && comp.accessory.items) {
+        for (const item of comp.accessory.items) {
+          if (item.media?.url === searchUri) item.media.url = replaceUrl;
+        }
+      }
+    }
+    if (comp.type === 17 && comp.components) {
+      replaceAttachmentUrlsInComponents(comp.components, searchUri, replaceUrl);
+    }
+  }
+}
+
+async function normalizePayload(rawPayload: Record<string, any> = {}): Promise<NormalizedPayload> {
   const channelIds = Array.isArray(rawPayload?.channel_ids)
     ? Array.from(new Set(rawPayload.channel_ids.map((value: any) => trimString(value, 32)).filter(Boolean)))
     : [];
 
   const entryFiles: Record<string, any> = rawPayload._entryFiles || {};
 
-  const entries: NormalizedEntry[] = Array.isArray(rawPayload?.entries)
-    ? rawPayload.entries.map((raw: any) => {
-        const entry = normalizeEntry(raw);
-        const files = entryFiles[entry.id] || [];
-        if (files.length > 0) {
-          entry._files = files.slice(0, 10).map((f: any) => new AttachmentBuilder(f.buffer, {
+  const entries: NormalizedEntry[] = [];
+  const imgbbCache = new Map<string, string>();
+  for (const raw of (Array.isArray(rawPayload?.entries) ? rawPayload.entries : [])) {
+    const entry = normalizeEntry(raw);
+    const files = entryFiles[entry.id] || [];
+    if (files.length > 0) {
+      const rawComponents = (entry as any)._rawComponents as NormalizedComponent[] | undefined;
+      const isV2 = !!(rawComponents && rawComponents.length > 0);
+      for (const f of files.slice(0, 10)) {
+        const safeName = f.originalname.replace(/ /g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+        const uri = `attachment://${safeName}`;
+        let usedImgbb = false;
+        if (IMG_HOST_MIMETYPES.includes(f.mimetype)) {
+          const hash = createHash('md5').update(f.buffer).digest('hex');
+          let imgbbUrl = imgbbCache.get(hash);
+          if (imgbbUrl === undefined) {
+            const uploadResult = await uploadToImgbb(f.buffer, f.originalname);
+            if (uploadResult) {
+              imgbbCache.set(hash, uploadResult);
+              imgbbUrl = uploadResult;
+            }
+          }
+          if (imgbbUrl) {
+            if (isV2) {
+              replaceAttachmentUrlsInComponents(rawComponents!, uri, imgbbUrl);
+            } else {
+              for (const embed of (entry.embeds || [])) {
+                if (embed.image_url === uri) embed.image_url = imgbbUrl;
+                if (embed.thumbnail_url === uri) embed.thumbnail_url = imgbbUrl;
+                if (embed.author_icon_url === uri) embed.author_icon_url = imgbbUrl;
+                if (embed.footer_icon_url === uri) embed.footer_icon_url = imgbbUrl;
+              }
+            }
+            usedImgbb = true;
+          }
+        }
+        if (!usedImgbb) {
+          if (!entry._files) entry._files = [];
+          entry._files.push(new AttachmentBuilder(f.buffer, {
             name: f.originalname,
             description: f.description,
             spoiler: f.spoiler,
           } as any));
         }
-        return entry;
-      }).filter((entry: NormalizedEntry) => {
-        if (hasLegacyType(entry)) {
-          if (entry.type === 'normal') return Boolean(entry.content);
-          if (entry.type === 'embed') return Boolean(entry.embed.title || entry.embed.description || entry.embed.image_url || entry.embed.footer_text);
-          return entry.container_blocks.length > 0;
-        }
-        return Boolean(entry.content) || entry.embeds.length > 0 || entry.components.length > 0 || (entry._rawComponents && entry._rawComponents.length > 0) || (entry._files && entry._files.length > 0);
-      })
-    : [];
+      }
+    }
+    if (hasLegacyType(entry)) {
+      if (entry.type === 'normal') { if (Boolean(entry.content)) entries.push(entry); }
+      else if (entry.type === 'embed') { if (Boolean(entry.embed.title || entry.embed.description || entry.embed.image_url || entry.embed.footer_text)) entries.push(entry); }
+      else { if (entry.container_blocks.length > 0) entries.push(entry); }
+    } else {
+      if (Boolean(entry.content) || entry.embeds.length > 0 || entry.components.length > 0 || (entry._rawComponents && entry._rawComponents.length > 0) || (entry._files && entry._files.length > 0)) entries.push(entry);
+    }
+  }
 
   return { channel_ids: channelIds, entries };
 }
@@ -643,7 +747,7 @@ export class AnnouncementService {
   }
 
   async send(guildId: string, rawPayload: Record<string, any>): Promise<SendResult> {
-    const payload = normalizePayload(rawPayload);
+    const payload = await normalizePayload(rawPayload);
     const newEntries = payload.entries.filter((entry) => !entry.edit_existing);
     const editEntries = payload.entries.filter((entry) => entry.edit_existing);
     const requestedChannels = newEntries.length > 0 ? payload.channel_ids.length : 0;
