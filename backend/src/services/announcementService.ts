@@ -441,7 +441,7 @@ async function uploadToImgbb(buffer: Buffer, filename: string): Promise<string |
 
     const url = `https://api.imgbb.com/1/upload?key=${encodeURIComponent(apiKey)}`;
     const form = new FormData();
-    form.append('image', new Blob([buffer]), filename);
+    form.append('image', buffer, filename);
     form.append('name', filename);
 
     let res;
@@ -731,6 +731,11 @@ export class AnnouncementService {
     const payload = message.flags?.has?.(MessageFlags.IsComponentsV2)
       ? buildComponentsV2EntryPayload(entry)
       : buildEntryPayload(entry);
+    if (!payload && entry._files?.length) {
+      const filePayload: Record<string, any> = { files: entry._files, allowedMentions: { parse: [] } };
+      await (message as any).edit(filePayload);
+      return;
+    }
     if (!payload) {
       throw new Error('Add at least one message component before editing this message.');
     }
