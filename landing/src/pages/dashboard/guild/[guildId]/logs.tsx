@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
@@ -12,6 +12,8 @@ type ModuleItem = {
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
+const ALL_LEVELS: LogLevel[] = ["debug", "info", "warn", "error"];
+
 type LogEntry = {
   level: LogLevel;
   message: string;
@@ -23,6 +25,14 @@ type LogEntry = {
 type LogMessage =
   | { type: "backlog"; entries: LogEntry[] }
   | { type: "log"; entry: LogEntry };
+
+type HistoryResponse = {
+  entries: LogEntry[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
 
 const LEVEL_COLORS: Record<LogLevel, string> = {
   debug: "text-zinc-400 dark:text-zinc-500",
@@ -39,13 +49,25 @@ const LEVEL_BADGES: Record<LogLevel, string> = {
 };
 
 function formatTime(ts: string) {
-  return format(new Date(ts), "HH:mm:ss");
+  try {
+    return format(parseISO(ts), "HH:mm:ss.SSS");
+  } catch {
+    return format(new Date(ts), "HH:mm:ss.SSS");
+  }
+}
+
+function formatDate(ts: string) {
+  try {
+    return format(parseISO(ts), "yyyy-MM-dd HH:mm:ss");
+  } catch {
+    return format(new Date(ts), "yyyy-MM-dd HH:mm:ss");
+  }
 }
 
 function formatContext(ctx?: Record<string, unknown>): string {
   if (!ctx || Object.keys(ctx).length === 0) return "";
   const pairs = Object.entries(ctx)
-    .filter(([_, v]) => typeof v === "string" || typeof v === "number")
+    .filter(([_, v]) => typeof v === "string" || typeof v === "number" || typeof v === "boolean")
     .map(([k, v]) => `${k}=${v}`)
     .join(" ");
   return pairs ? ` [${pairs}]` : "";
@@ -57,13 +79,15 @@ function formatMeta(meta?: Record<string, unknown>): string {
   if (keys.length === 0) return "";
   const sub = keys.slice(0, 3).map((k) => {
     const v = typeof meta[k] === "string" ? meta[k] : JSON.stringify(meta[k]);
-    return v.length > 60 ? v.slice(0, 60) + "..." : v;
+    return v.length > 80 ? v.slice(0, 80) + "..." : v;
   }).join(" ");
   return sub ? ` — ${sub}` : "";
 }
 
-function LogLine({ entry }: { entry: LogEntry }) {
-  const time = formatTime(entry.timestamp);
+const levelOrder: Record<LogLevel, number> = { error: 0, warn: 1, info: 2, debug: 3 };
+
+function LogLine({ entry, showDate }: { entry: LogEntry; showDate?: boolean }) {
+  const time = showDate ? formatDate(entry.timestamp) : formatTime(entry.timestamp);
   const levelLabel = entry.level.toUpperCase().padEnd(5);
   const ctx = formatContext(entry.context);
   const meta = formatMeta(entry.meta);
@@ -152,29 +176,14 @@ function AutoScroll({ children, logs }: { children: React.ReactNode; logs: LogEn
   );
 }
 
-export default function GuildLogsPage() {
-  const router = useRouter();
-  const { guildId } = router.query;
-  const gid = typeof guildId === "string" ? guildId : undefined;
-
+function LiveTab({ gid }: { gid: string }) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
-  const [modules, setModules] = useState<ModuleItem[]>([]);
-  const wsRef = useRef<WebSocket | null>(null);
-
-  const { data: overviewData } = useGuildOverview(gid);
 
   useEffect(() => {
-    if (overviewData?.modules) {
-      setModules(overviewData.modules as ModuleItem[]);
-    }
-  }, [overviewData]);
-
-  useEffect(() => {
-    if (!gid) return;
-
     let cancelled = false;
+    let ws: WebSocket | null = null;
 
     const connect = async () => {
       try {
@@ -191,8 +200,7 @@ export default function GuildLogsPage() {
         if (!ticket || !wsUrl) throw new Error("invalid_ticket_response");
 
         const url = `${wsUrl}?ticket=${encodeURIComponent(ticket)}`;
-        const ws = new WebSocket(url);
-        wsRef.current = ws;
+        ws = new WebSocket(url);
 
         ws.onopen = () => {
           if (!cancelled) setConnected(true);
@@ -207,7 +215,7 @@ export default function GuildLogsPage() {
             } else if (msg.type === "log") {
               setLogs((prev) => [...prev, msg.entry]);
             }
-          } catch { }
+          } catch {}
         };
 
         ws.onerror = () => {
@@ -226,16 +234,221 @@ export default function GuildLogsPage() {
 
     return () => {
       cancelled = true;
-      wsRef.current?.close();
-      wsRef.current = null;
+      ws?.close();
     };
   }, [gid]);
+
+  if (error) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-1 flex-col">
+      <AutoScroll logs={logs}>
+        {logs.length > 0 ? (
+          logs.map((entry, i) => <LogLine key={i} entry={entry} />)
+        ) : (
+          <span className="font-mono text-zinc-400 dark:text-zinc-600">Waiting for log entries...</span>
+        )}
+      </AutoScroll>
+      <div className="flex items-center justify-end gap-2 border-t border-zinc-200 px-3 py-1 dark:border-zinc-800">
+        <span className={`inline-block h-2 w-2 rounded-full ${connected ? "bg-[#10540E]" : "bg-red-500"}`} />
+        <span className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500">{connected ? "LIVE" : "DISCONNECTED"}</span>
+      </div>
+    </div>
+  );
+}
+
+function HistoryTab({ gid }: { gid: string }) {
+  const [entries, setEntries] = useState<LogEntry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const [q, setQ] = useState("");
+  const [levels, setLevels] = useState<LogLevel[]>([]);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+
+  const fetchHistory = useCallback(async (p: number) => {
+    setLoading(true);
+    setError("");
+    try {
+      const qs = new URLSearchParams();
+      qs.set("page", String(p));
+      qs.set("limit", "50");
+      if (q) qs.set("q", q);
+      if (levels.length > 0) qs.set("level", levels.join(","));
+      if (from) qs.set("from", new Date(from).toISOString());
+      if (to) qs.set("to", new Date(to).toISOString());
+
+      const res = await fetch(`/api/dashboard/guild/${gid}/logs-history?${qs.toString()}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "fetch_failed");
+      }
+      const data: HistoryResponse = await res.json();
+      setEntries(data.entries);
+      setTotal(data.total);
+      setPage(data.page);
+      setTotalPages(data.totalPages);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "fetch_failed");
+    } finally {
+      setLoading(false);
+    }
+  }, [gid, q, levels, from, to]);
+
+  const handleSearch = useCallback(() => {
+    fetchHistory(1);
+  }, [fetchHistory]);
+
+  const toggleLevel = useCallback((level: LogLevel) => {
+    setLevels((prev) =>
+      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level]
+    );
+  }, []);
+
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-wrap items-end gap-3 border-b border-zinc-200 bg-white/80 px-3 py-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Search</label>
+          <input
+            type="text"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
+            placeholder="Search messages, meta, context..."
+            className="w-64 rounded border border-zinc-300 bg-white px-2 py-1.5 text-[13px] text-zinc-900 placeholder-zinc-400 outline-none focus:border-[#10540E] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder-zinc-500 dark:focus:border-[#10540E]"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Level</label>
+          <div className="flex gap-1.5">
+            {ALL_LEVELS.map((level) => (
+              <button
+                key={level}
+                type="button"
+                onClick={() => toggleLevel(level)}
+                className={`rounded px-2 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors ${
+                  levels.includes(level)
+                    ? level === "error" ? "bg-red-100 text-red-700 dark:bg-red-900/60 dark:text-red-300"
+                    : level === "warn" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300"
+                    : level === "info" ? "bg-green-100 text-green-700 dark:bg-[#10540E]/10 dark:text-[#10540E]"
+                    : "bg-zinc-200 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-300"
+                    : "bg-zinc-100 text-zinc-400 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-500 dark:hover:bg-zinc-700"
+                }`}
+              >
+                {level}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">From</label>
+          <input
+            type="datetime-local"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="rounded border border-zinc-300 bg-white px-2 py-1.5 text-[13px] text-zinc-900 outline-none focus:border-[#10540E] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-[#10540E]"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">To</label>
+          <input
+            type="datetime-local"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="rounded border border-zinc-300 bg-white px-2 py-1.5 text-[13px] text-zinc-900 outline-none focus:border-[#10540E] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-[#10540E]"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleSearch}
+          disabled={loading}
+          className="rounded bg-[#10540E] px-4 py-1.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#0d430b] disabled:opacity-50"
+        >
+          {loading ? "Searching..." : "Search"}
+        </button>
+      </div>
+
+      {error && (
+        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
+          {error}
+        </div>
+      )}
+
+      <div className="flex-1 overflow-x-auto overflow-y-auto font-mono text-[13px] leading-relaxed px-3 py-2">
+        {loading ? (
+          <span className="text-zinc-400 dark:text-zinc-600">Loading...</span>
+        ) : entries.length > 0 ? (
+          entries.map((entry, i) => <LogLine key={i} entry={entry} showDate />)
+        ) : (
+          <span className="text-zinc-400 dark:text-zinc-600">No log entries found.</span>
+        )}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-zinc-200 px-3 py-2 dark:border-zinc-800">
+          <span className="text-[12px] text-zinc-500 dark:text-zinc-400">
+            {total} total entries — Page {page} of {totalPages}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fetchHistory(page - 1)}
+              disabled={page <= 1 || loading}
+              className="rounded bg-zinc-200 px-3 py-1 text-[12px] font-medium text-zinc-600 transition-colors hover:bg-zinc-300 disabled:opacity-40 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+            >
+              ← Prev
+            </button>
+            <button
+              type="button"
+              onClick={() => fetchHistory(page + 1)}
+              disabled={page >= totalPages || loading}
+              className="rounded bg-zinc-200 px-3 py-1 text-[12px] font-medium text-zinc-600 transition-colors hover:bg-zinc-300 disabled:opacity-40 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function GuildLogsPage() {
+  const router = useRouter();
+  const { guildId } = router.query;
+  const gid = typeof guildId === "string" ? guildId : undefined;
+
+  const [tab, setTab] = useState<"live" | "history">("live");
+  const [modules, setModules] = useState<ModuleItem[]>([]);
+
+  const { data: overviewData } = useGuildOverview(gid);
+
+  useEffect(() => {
+    if (overviewData?.modules) {
+      setModules(overviewData.modules as ModuleItem[]);
+    }
+  }, [overviewData]);
 
   return (
     <DashboardLayout guildId={gid ?? ""} heading="Logs" modules={modules}>
       <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex items-center border-b border-zinc-200 bg-white/80 px-3 py-2 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center border-b border-zinc-200 bg-white/80 px-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
+          <div className="flex items-center gap-1.5 py-2">
             <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
             <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
             <span className="h-2.5 w-2.5 rounded-full bg-[#10540E]" />
@@ -243,25 +456,35 @@ export default function GuildLogsPage() {
           <span className="ml-4 select-none font-mono text-[13px] font-semibold tracking-tight text-zinc-500 dark:text-zinc-400">
             AOI00.dat
           </span>
-          <div className="ml-auto flex items-center gap-2">
-            <span className={`inline-block h-2 w-2 rounded-full ${connected ? "bg-[#10540E]" : "bg-red-500"}`} />
-            <span className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500">{connected ? "LIVE" : "DISCONNECTED"}</span>
+
+          <div className="ml-auto flex">
+            <button
+              type="button"
+              onClick={() => setTab("live")}
+              className={`px-4 py-2.5 text-[13px] font-semibold transition-colors ${
+                tab === "live"
+                  ? "border-b-2 border-[#10540E] text-zinc-900 dark:text-zinc-100"
+                  : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+              }`}
+            >
+              Live
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("history")}
+              className={`px-4 py-2.5 text-[13px] font-semibold transition-colors ${
+                tab === "history"
+                  ? "border-b-2 border-[#10540E] text-zinc-900 dark:text-zinc-100"
+                  : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+              }`}
+            >
+              History
+            </button>
           </div>
         </div>
 
-        {error && (
-          <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
-            {error}
-          </div>
-        )}
-
-        <AutoScroll logs={logs}>
-          {logs.length > 0 ? (
-            logs.map((entry, i) => <LogLine key={i} entry={entry} />)
-          ) : (
-            <span className="font-mono text-zinc-400 dark:text-zinc-600">Waiting for log entries...</span>
-          )}
-        </AutoScroll>
+        {gid && tab === "live" && <LiveTab gid={gid} />}
+        {gid && tab === "history" && <HistoryTab gid={gid} />}
       </div>
     </DashboardLayout>
   );
