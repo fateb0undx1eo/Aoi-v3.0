@@ -435,28 +435,55 @@ async function uploadToImgbb(buffer: Buffer, filename: string): Promise<string |
       return null;
     }
     logger.info({ filename, sizeBytes: buffer.length }, 'uploading to imgbb');
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
     const url = `https://api.imgbb.com/1/upload?key=${encodeURIComponent(apiKey)}`;
     const form = new FormData();
     form.append('image', new Blob([buffer]), filename);
     form.append('name', filename);
-    const res = await fetch(url, {
-      method: 'POST',
-      body: form,
-    });
+
+    let res;
+    const start = performance.now();
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        body: form,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+
     if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      logger.error({ filename, status: res.status, body: text }, 'imgbb HTTP error');
+      const body = await res.text();
+      logger.error({ filename, status: res.status, body }, 'imgbb HTTP error');
       return null;
     }
-    const json = await res.json();
+
+    const bodyText = await res.text();
+    let json: any;
+    try {
+      json = JSON.parse(bodyText);
+    } catch {
+      logger.error({ filename, body: bodyText }, 'imgbb invalid JSON response');
+      return null;
+    }
+
     if (!json.success) {
       logger.error({ filename, response: json }, 'imgbb API error');
       return null;
     }
-    logger.info({ filename, url: json.data.url }, 'imgbb upload succeeded');
+
+    logger.info({ filename, url: json.data.url, durationMs: performance.now() - start }, 'imgbb upload succeeded');
     return json.data.url as string;
   } catch (err) {
-    logger.error({ filename, err }, 'imgbb upload threw');
+    console.error(err);
+    logger.error({
+      message: err instanceof Error ? err.message : err,
+      stack: err instanceof Error ? err.stack : undefined,
+    }, 'imgbb upload threw');
     return null;
   }
 }
