@@ -481,7 +481,7 @@ function replaceAttachmentUrlsInComponents(components: any[], searchUri: string,
   }
 }
 
-async function normalizePayload(rawPayload: Record<string, any> = {}): Promise<NormalizedPayload> {
+function normalizePayload(rawPayload: Record<string, any> = {}): NormalizedPayload {
   const channelIds = Array.isArray(rawPayload?.channel_ids)
     ? Array.from(new Set(rawPayload.channel_ids.map((value: any) => trimString(value, 32)).filter(Boolean)))
     : [];
@@ -489,62 +489,18 @@ async function normalizePayload(rawPayload: Record<string, any> = {}): Promise<N
   const entryFiles: Record<string, any> = rawPayload._entryFiles || {};
 
   const entries: NormalizedEntry[] = [];
-  const imgbbCache = new Map<string, string>();
   for (const raw of (Array.isArray(rawPayload?.entries) ? rawPayload.entries : [])) {
     const entry = normalizeEntry(raw);
     const files = entryFiles[entry.id] || [];
     if (files.length > 0) {
-      logger.info({ entryId: entry.id, fileCount: files.length }, 'processing entry files');
-      const rawComponents = (entry as any)._rawComponents as NormalizedComponent[] | undefined;
-      const isV2 = !!(rawComponents && rawComponents.length > 0);
-      for (const f of files.slice(0, 10)) {
-        const safeName = f.originalname.replace(/ /g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-        const uri = `attachment://${safeName}`;
-        let usedImgbb = false;
-        if (IMG_HOST_MIMETYPES.includes(f.mimetype)) {
-          logger.debug({ filename: f.originalname, mimetype: f.mimetype, size: f.size }, 'attempting imgbb upload for file');
-          const hash = createHash('md5').update(f.buffer).digest('hex');
-          let imgbbUrl = imgbbCache.get(hash);
-          if (imgbbUrl === undefined) {
-            const uploadResult = await uploadToImgbb(f.buffer, f.originalname);
-            if (uploadResult) {
-              imgbbCache.set(hash, uploadResult);
-              imgbbUrl = uploadResult;
-            } else {
-              logger.warn({ filename: f.originalname }, 'imgbb upload failed, falling back to attachment');
-            }
-          }
-          if (imgbbUrl) {
-            logger.info({ filename: f.originalname, url: imgbbUrl }, 'imgbb url applied to embed');
-            if (isV2) {
-              replaceAttachmentUrlsInComponents(rawComponents!, uri, imgbbUrl);
-            } else {
-              for (const embed of (entry.embeds || [])) {
-                if (embed.image_url === uri) embed.image_url = imgbbUrl;
-                if (embed.thumbnail_url === uri) embed.thumbnail_url = imgbbUrl;
-                if (embed.author_icon_url === uri) embed.author_icon_url = imgbbUrl;
-                if (embed.footer_icon_url === uri) embed.footer_icon_url = imgbbUrl;
-              }
-            }
-            usedImgbb = true;
-          }
-        }
-        if (!usedImgbb) {
-          if (!entry._files) entry._files = [];
-          entry._files.push(new AttachmentBuilder(f.buffer, {
-            name: f.originalname,
-            description: f.description,
-            spoiler: f.spoiler,
-          } as any));
-        }
-      }
+      (entry as any)._rawFiles = files.slice(0, 10);
     }
     if (hasLegacyType(entry)) {
       if (entry.type === 'normal') { if (Boolean(entry.content)) entries.push(entry); }
       else if (entry.type === 'embed') { if (Boolean(entry.embed.title || entry.embed.description || entry.embed.image_url || entry.embed.footer_text)) entries.push(entry); }
       else { if (entry.container_blocks.length > 0) entries.push(entry); }
     } else {
-      if (Boolean(entry.content) || entry.embeds.length > 0 || entry.components.length > 0 || (entry._rawComponents && entry._rawComponents.length > 0) || (entry._files && entry._files.length > 0)) entries.push(entry);
+      if (Boolean(entry.content) || entry.embeds.length > 0 || entry.components.length > 0 || (entry._rawComponents && entry._rawComponents.length > 0) || ((entry as any)._rawFiles && (entry as any)._rawFiles.length > 0)) entries.push(entry);
     }
   }
 
@@ -757,13 +713,57 @@ export class AnnouncementService {
 
   async send(guildId: string, rawPayload: Record<string, any>): Promise<SendResult> {
     logger.info({ guildId, hasEntryFiles: !!rawPayload._entryFiles, entryFileKeys: Object.keys(rawPayload._entryFiles || {}) }, 'send called');
-    let payload: NormalizedPayload;
-    try {
-      payload = await normalizePayload(rawPayload);
-      logger.info({ channelCount: payload.channel_ids.length, entryCount: payload.entries.length }, 'payload normalized');
-    } catch (err) {
-      logger.error({ err }, 'normalizePayload threw');
-      throw err;
+    const payload = normalizePayload(rawPayload);
+    logger.info({ channelCount: payload.channel_ids.length, entryCount: payload.entries.length }, 'payload normalized');
+
+    const imgbbCache = new Map<string, string>();
+    for (const entry of payload.entries) {
+      const rawFiles: any[] = (entry as any)._rawFiles || [];
+      if (rawFiles.length === 0) continue;
+      logger.info({ entryId: entry.id, fileCount: rawFiles.length }, 'processing entry files for imgbb');
+      const rawComponents = (entry as any)._rawComponents as NormalizedComponent[] | undefined;
+      const isV2 = !!(rawComponents && rawComponents.length > 0);
+      for (const f of rawFiles) {
+        const safeName = f.originalname.replace(/ /g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+        const uri = `attachment://${safeName}`;
+        let usedImgbb = false;
+        if (IMG_HOST_MIMETYPES.includes(f.mimetype)) {
+          logger.debug({ filename: f.originalname, mimetype: f.mimetype, size: f.size }, 'attempting imgbb upload for file');
+          const hash = createHash('md5').update(f.buffer).digest('hex');
+          let imgbbUrl = imgbbCache.get(hash);
+          if (imgbbUrl === undefined) {
+            const uploadResult = await uploadToImgbb(f.buffer, f.originalname);
+            if (uploadResult) {
+              imgbbCache.set(hash, uploadResult);
+              imgbbUrl = uploadResult;
+            } else {
+              logger.warn({ filename: f.originalname }, 'imgbb upload failed, falling back to attachment');
+            }
+          }
+          if (imgbbUrl) {
+            logger.info({ filename: f.originalname, url: imgbbUrl }, 'imgbb url applied');
+            if (isV2) {
+              replaceAttachmentUrlsInComponents(rawComponents!, uri, imgbbUrl);
+            } else {
+              for (const embed of (entry.embeds || [])) {
+                if (embed.image_url === uri) embed.image_url = imgbbUrl;
+                if (embed.thumbnail_url === uri) embed.thumbnail_url = imgbbUrl;
+                if (embed.author_icon_url === uri) embed.author_icon_url = imgbbUrl;
+                if (embed.footer_icon_url === uri) embed.footer_icon_url = imgbbUrl;
+              }
+            }
+            usedImgbb = true;
+          }
+        }
+        if (!usedImgbb) {
+          if (!entry._files) entry._files = [];
+          entry._files.push(new AttachmentBuilder(f.buffer, {
+            name: f.originalname,
+            description: f.description,
+            spoiler: f.spoiler,
+          } as any));
+        }
+      }
     }
     const newEntries = payload.entries.filter((entry) => !entry.edit_existing);
     const editEntries = payload.entries.filter((entry) => entry.edit_existing);
