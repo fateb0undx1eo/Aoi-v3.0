@@ -257,73 +257,79 @@ export default function GuildAnnouncementsPage() {
     if (!data.messages.some(hasContent)) {
       setStatus({ state: "error", text: "Add content to at least one message." }); return;
     }
-    setStatus({ state: "sending", text: "Sending announcement..." });
-    try {
-      const hasFiles = data.messages.some((m) => (messageFiles[m._id || ""] || []).length > 0);
-      const body = {
-        channel_ids: Array.from(selectedChannelIds),
-        entries: data.messages.map((m) => {
-          const flows: FlowActionPayload[] = [];
-          const cleanComponents = (m.data.components || []).map((row, ri) => {
-            if (row.type === 1) {
-              const children = (row as APIActionRowComponent).components.map((comp, ci) => {
-                const f = (comp as any)._flows as FlowAction[] | undefined;
-                if (f) { f.forEach((a) => flows.push({ ...a, ri, ci })); }
-                const { _flows, ...clean } = comp as any;
-                return clean;
-              });
-              return { type: 1, components: children };
-            }
-            if (row.type === 17) {
-              const children = (row as any).components?.map((comp: any, ci: number) => {
-                const f = comp._flows as FlowAction[] | undefined;
-                if (f) { f.forEach((a) => flows.push({ ...a, ri, ci })); }
-                const { _flows, ...clean } = comp;
-                return clean;
-              }) || [];
-              return { ...row, components: children };
-            }
-            return row;
+      setStatus({ state: "sending", text: "Sending announcement..." });
+      try {
+        const hasFiles = data.messages.some((m) => (messageFiles[m._id || ""] || []).length > 0);
+        const body = {
+          channel_ids: Array.from(selectedChannelIds),
+          entries: data.messages.map((m) => {
+            const flows: FlowActionPayload[] = [];
+            const cleanComponents = (m.data.components || []).map((row, ri) => {
+              if (row.type === 1) {
+                const children = (row as APIActionRowComponent).components.map((comp, ci) => {
+                  const f = (comp as any)._flows as FlowAction[] | undefined;
+                  if (f) { f.forEach((a) => flows.push({ ...a, ri, ci })); }
+                  const { _flows, ...clean } = comp as any;
+                  return clean;
+                });
+                return { type: 1, components: children };
+              }
+              if (row.type === 17) {
+                const children = (row as any).components?.map((comp: any, ci: number) => {
+                  const f = comp._flows as FlowAction[] | undefined;
+                  if (f) { f.forEach((a) => flows.push({ ...a, ri, ci })); }
+                  const { _flows, ...clean } = comp;
+                  return clean;
+                }) || [];
+                return { ...row, components: children };
+              }
+              return row;
+            });
+            return {
+              id: m._id,
+              content: m.data.content || undefined,
+              embeds: m.data.embeds?.filter((e) => e.title || e.description || (e.fields && e.fields.length > 0) || e.image?.url || e.thumbnail?.url || e.footer?.text || e.author?.name),
+              components: cleanComponents,
+              flags: m.data.flags,
+              edit_existing: !!m.reference,
+              message_link: m.reference || undefined,
+              thread_name: m.data.thread_name || undefined,
+              allowed_mentions: m.data.allowed_mentions || undefined,
+              flows: flows.length > 0 ? flows : undefined,
+            };
+          }),
+        };
+        let res: Response;
+        if (hasFiles) {
+          const fd = new FormData();
+          fd.append("payload", JSON.stringify(body));
+          data.messages.forEach((m) => {
+            const files = messageFiles[m._id || ""] || [];
+            const metas = files.map((f) => ({ name: f.name, spoiler: f.spoiler, description: f.description }));
+            fd.append(`filemeta_${m._id || "unknown"}`, JSON.stringify(metas));
+            files.forEach((f) => {
+              if (f.file) fd.append(`file_${m._id || "unknown"}`, f.file, f.name);
+            });
           });
-          return {
-            id: m._id,
-            content: m.data.content || undefined,
-            embeds: m.data.embeds?.filter((e) => e.title || e.description || (e.fields && e.fields.length > 0) || e.image?.url || e.thumbnail?.url || e.footer?.text || e.author?.name),
-            components: cleanComponents,
-            flags: m.data.flags,
-            edit_existing: !!m.reference,
-            message_link: m.reference || undefined,
-            thread_name: m.data.thread_name || undefined,
-            allowed_mentions: m.data.allowed_mentions || undefined,
-            flows: flows.length > 0 ? flows : undefined,
-          };
-        }),
-      };
-      let res: Response;
-      if (hasFiles) {
-        const fd = new FormData();
-        fd.append("payload", JSON.stringify(body));
-        data.messages.forEach((m) => {
-          const files = messageFiles[m._id || ""] || [];
-          const metas = files.map((f) => ({ name: f.name, spoiler: f.spoiler, description: f.description }));
-          fd.append(`filemeta_${m._id || "unknown"}`, JSON.stringify(metas));
-          files.forEach((f) => {
-            if (f.file) fd.append(`file_${m._id || "unknown"}`, f.file, f.name);
+          const url = `${getBackendApiUrl()}/api/guilds/${guildId}/announcements`;
+          console.log('[announcement] sending with files to', url, 'payload keys:', Object.keys(body), 'files:', data.messages.reduce((a, m) => a + (messageFiles[m._id || ""] || []).length, 0));
+          res = await fetch(url, { method: "POST", body: fd, credentials: "include" });
+          console.log('[announcement] file upload response', res.status, res.statusText);
+        } else {
+          console.log('[announcement] sending without files');
+          res = await fetch(`/api/backend/guilds/${guildId}/announcements`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
           });
-        });
-        res = await fetch(`${getBackendApiUrl()}/api/guilds/${guildId}/announcements`, { method: "POST", body: fd, credentials: "include" });
-      } else {
-        res = await fetch(`/api/backend/guilds/${guildId}/announcements`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
+          console.log('[announcement] json response', res.status, res.statusText);
+        }
+        const responseData = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(responseData?.error || "Failed to send");
+        setStatus({ state: "success", text: "Announcement sent successfully!" });
+      } catch (err) {
+        console.error('[announcement] send error', err);
+        setStatus({ state: "error", text: err instanceof Error ? err.message : "Failed to send" });
       }
-      const responseData = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(responseData?.error || "Failed to send");
-      setStatus({ state: "success", text: "Announcement sent successfully!" });
-    } catch (err) {
-      setStatus({ state: "error", text: err instanceof Error ? err.message : "Failed to send" });
-    }
   }, [guildId, data, selectedChannelIds]);
 
   const msg = message?.data;

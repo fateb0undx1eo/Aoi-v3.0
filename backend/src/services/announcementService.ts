@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { Client, Guild, TextBasedChannel } from 'discord.js';
 import { AttachmentBuilder, EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, StringSelectMenuBuilder, ButtonStyle } from 'discord.js';
+import { logger } from '../utils/logger.js';
 
 const IMG_HOST_MIMETYPES = [
   'image/png',
@@ -430,27 +431,30 @@ async function uploadToImgbb(buffer: Buffer, filename: string): Promise<string |
   try {
     const apiKey = process.env.IMG_HOST;
     if (!apiKey) {
-      console.warn('[imgbb] IMG_HOST environment variable is not set');
+      logger.warn({ filename }, 'IMG_HOST env var not set, skipping imgbb upload');
       return null;
     }
     const base64 = buffer.toString('base64');
+    logger.info({ filename, sizeBytes: buffer.length }, 'uploading to imgbb');
     const res = await fetch('https://api.imgbb.com/1/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key: apiKey, image: base64, name: filename }),
     });
     if (!res.ok) {
-      console.error(`[imgbb] HTTP ${res.status}`, await res.text().catch(() => ''));
+      const text = await res.text().catch(() => '');
+      logger.error({ filename, status: res.status, body: text }, 'imgbb HTTP error');
       return null;
     }
     const json = await res.json();
     if (!json.success) {
-      console.error('[imgbb] API error:', json);
+      logger.error({ filename, response: json }, 'imgbb API error');
       return null;
     }
+    logger.info({ filename, url: json.data.url }, 'imgbb upload succeeded');
     return json.data.url as string;
   } catch (err) {
-    console.error('[imgbb] Upload error:', err);
+    logger.error({ filename, err }, 'imgbb upload threw');
     return null;
   }
 }
@@ -490,6 +494,7 @@ async function normalizePayload(rawPayload: Record<string, any> = {}): Promise<N
     const entry = normalizeEntry(raw);
     const files = entryFiles[entry.id] || [];
     if (files.length > 0) {
+      logger.info({ entryId: entry.id, fileCount: files.length }, 'processing entry files');
       const rawComponents = (entry as any)._rawComponents as NormalizedComponent[] | undefined;
       const isV2 = !!(rawComponents && rawComponents.length > 0);
       for (const f of files.slice(0, 10)) {
@@ -497,6 +502,7 @@ async function normalizePayload(rawPayload: Record<string, any> = {}): Promise<N
         const uri = `attachment://${safeName}`;
         let usedImgbb = false;
         if (IMG_HOST_MIMETYPES.includes(f.mimetype)) {
+          logger.debug({ filename: f.originalname, mimetype: f.mimetype, size: f.size }, 'attempting imgbb upload for file');
           const hash = createHash('md5').update(f.buffer).digest('hex');
           let imgbbUrl = imgbbCache.get(hash);
           if (imgbbUrl === undefined) {
@@ -504,9 +510,12 @@ async function normalizePayload(rawPayload: Record<string, any> = {}): Promise<N
             if (uploadResult) {
               imgbbCache.set(hash, uploadResult);
               imgbbUrl = uploadResult;
+            } else {
+              logger.warn({ filename: f.originalname }, 'imgbb upload failed, falling back to attachment');
             }
           }
           if (imgbbUrl) {
+            logger.info({ filename: f.originalname, url: imgbbUrl }, 'imgbb url applied to embed');
             if (isV2) {
               replaceAttachmentUrlsInComponents(rawComponents!, uri, imgbbUrl);
             } else {
@@ -747,7 +756,15 @@ export class AnnouncementService {
   }
 
   async send(guildId: string, rawPayload: Record<string, any>): Promise<SendResult> {
-    const payload = await normalizePayload(rawPayload);
+    logger.info({ guildId, hasEntryFiles: !!rawPayload._entryFiles, entryFileKeys: Object.keys(rawPayload._entryFiles || {}) }, 'send called');
+    let payload: NormalizedPayload;
+    try {
+      payload = await normalizePayload(rawPayload);
+      logger.info({ channelCount: payload.channel_ids.length, entryCount: payload.entries.length }, 'payload normalized');
+    } catch (err) {
+      logger.error({ err }, 'normalizePayload threw');
+      throw err;
+    }
     const newEntries = payload.entries.filter((entry) => !entry.edit_existing);
     const editEntries = payload.entries.filter((entry) => entry.edit_existing);
     const requestedChannels = newEntries.length > 0 ? payload.channel_ids.length : 0;

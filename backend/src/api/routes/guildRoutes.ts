@@ -11,6 +11,7 @@ import type { AccessControlService } from '../../services/accessControlService.j
 import type { GuildService } from '../../services/guildService.js';
 import type { DmBroadcastService } from '../../services/dmBroadcastService.js';
 import type { AnnouncementService } from '../../services/announcementService.js';
+import { logger } from '../../utils/logger.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
@@ -200,6 +201,7 @@ export function createGuildRoutes({ guildService, accessControlService, client, 
   router.post('/:guildId/announcements', upload.any(), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const guildId = req.params.guildId as string;
+      logger.info({ guildId, filesCount: (req.files as any[])?.length ?? 0, bodyKeys: Object.keys(req.body ?? {}) }, 'announcement upload received');
       let payload: Record<string, any> = req.body ?? {};
       if ((req.body as Record<string, any>)?.payload) {
         try { payload = JSON.parse((req.body as Record<string, any>).payload); } catch { payload = {}; }
@@ -247,9 +249,12 @@ export function createGuildRoutes({ guildService, accessControlService, client, 
           description: (metaArr[i] as EntryMeta)?.description || undefined,
         }));
       }
+      logger.info({ entryCount: Object.keys(payload._entryFiles).length, channelCount: payload.channel_ids?.length }, 'announcement payload assembled');
       const result = await announcementService.send(guildId, payload);
+      logger.info({ result }, 'announcement sent successfully');
       res.status(200).json({ ok: true, result });
     } catch (error) {
+      logger.error({ err: error, guildId: req.params.guildId }, 'announcement upload failed');
       if (error instanceof Error) {
         res.status(400).json({ error: error.message });
         return;
