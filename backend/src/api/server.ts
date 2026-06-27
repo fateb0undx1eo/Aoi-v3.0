@@ -46,7 +46,7 @@ export function buildApiServer(deps: any): express.Application {
   app.set('etag', 'strong');
   app.use(compression({ level: 6, threshold: 512 }));
   const allowedOrigins = new Set(deps.env?.frontend?.corsAllowedOrigins ?? []);
-  const allowAnyOrigin = allowedOrigins.size === 0 && deps.env?.nodeEnv !== 'production';
+  const allowAnyOrigin = deps.env?.nodeEnv !== 'production';
 
   app.use((req: Request, res: Response, next: NextFunction): void => {
     const requestId = req.headers['x-request-id']?.toString() || createRequestId();
