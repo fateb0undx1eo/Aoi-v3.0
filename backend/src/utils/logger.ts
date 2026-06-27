@@ -1,6 +1,4 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { createWriteStream, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
 import { nanoid } from 'nanoid';
 import pino from 'pino';
 import type { Logger } from '../types/index.js';
@@ -31,10 +29,6 @@ const baseLogger = pino(
   transport,
 );
 
-const logDir = process.env.LOG_DIR || join(process.cwd(), 'logs');
-mkdirSync(logDir, { recursive: true });
-const fileStream = createWriteStream(join(logDir, 'app.log'), { flags: 'a' });
-
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 function emit(level: LogLevel, message: any, meta: any = null): void {
@@ -49,17 +43,13 @@ function emit(level: LogLevel, message: any, meta: any = null): void {
     logFn({ ...context }, String(message));
   }
 
-  const entry = {
+  logStreamService.write({
     level,
     message: String(message),
     timestamp: new Date().toISOString(),
     meta: meta instanceof Error ? { message: meta.message, stack: meta.stack, name: meta.name } : meta || undefined,
     context: Object.keys(context).length > 0 ? context : undefined,
-  };
-
-  logStreamService.write(entry);
-
-  fileStream.write(JSON.stringify(entry) + '\n');
+  });
 }
 
 export function withLogContext<T>(context: Record<string, any>, fn: () => T): T {
