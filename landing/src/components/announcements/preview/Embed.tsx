@@ -1,5 +1,5 @@
 import type { APIEmbed, APIEmbedField, APIEmbedImage } from "../types";
-import { TEXT_COLOR } from "../constants";
+import { TEXT_COLOR, C } from "../constants";
 import { decimalToHex } from "../utils/color";
 import { Markdown, type FeatureConfig } from "../utils/markdown";
 import { formatTimestamp } from "../utils/message";
@@ -33,7 +33,7 @@ function EmbedFields({ fields }: { fields: APIEmbedField[] }) {
   }
 
   return (
-    <div className="mt-2 grid gap-y-2 text-sm leading-relaxed dark:text-[#dbdee1]" style={{ gridTemplateColumns: "repeat(12, 1fr)" }}>
+    <div style={{ marginTop: 8, display: "grid", gap: "8px 0", gridTemplateColumns: "repeat(12, 1fr)", fontSize: 13, lineHeight: 1.5, color: "#b5bac1" }}>
       {fieldLines.map((line, li) =>
         line.map((f, fi) => {
           let colStart = 1, colEnd = 13;
@@ -49,10 +49,10 @@ function EmbedFields({ fields }: { fields: APIEmbedField[] }) {
           }
           return (
             <div key={`${li}-${fi}`} style={{ gridColumn: `${colStart} / ${colEnd}` }}>
-              <div className="mb-px text-xs font-semibold dark:text-[#f2f3f5]">
+              <div style={{ marginBottom: 1, fontSize: 12, fontWeight: 600, color: "#f2f3f5" }}>
                 <Markdown content={f.name} features="title" />
               </div>
-              <div className="whitespace-pre-wrap text-xs font-normal dark:text-[#dbdee1]">
+              <div style={{ whiteSpace: "pre-wrap", fontSize: 12, fontWeight: 400, color: "#b5bac1" }}>
                 <Markdown content={f.value} features={{ extend: "full", headings: false } as FeatureConfig} />
               </div>
             </div>
@@ -72,125 +72,128 @@ export default function EmbedPreview({
   extraImages?: APIEmbedImage[];
   files?: { url?: string; content_type?: string; name: string }[];
 }) {
-  const embedColor = embed.color != null ? decimalToHex(embed.color) : undefined;
+  const embedColor = embed.color != null ? decimalToHex(embed.color) : C.burg;
   const images: APIEmbedImage[] = [];
   if (embed.image?.url) images.push(embed.image);
   if (extraImages) images.push(...extraImages);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-[rgba(227,229,232,0.5)] dark:border-[rgba(67,67,73,0.5)]" style={{ maxWidth: 520 }}>
-      <div
-        className="inline-grid border-l-4 bg-white pr-4 pb-4 pl-3 pt-0.5 dark:bg-[#2b2d31] dark:text-[#dbdee1]"
-        style={{
-          borderLeftColor: embedColor ?? "#4A4A50",
-          maxWidth: 520,
-        }}
-      >
-        {embed.provider?.name && (
-          <div className="mt-2 min-w-0 text-xs font-normal dark:text-[#dbdee1]">
-            {embed.provider.url ? (
-              <a href={embed.provider.url} target="_blank" rel="noreferrer noopener" className="hover:underline decoration-[#dbdee1]">{embed.provider.name}</a>
-            ) : <span>{embed.provider.name}</span>}
-          </div>
-        )}
+    <div style={{ overflow: "hidden", borderRadius: 4, maxWidth: 520, marginTop: 4 }}>
+      <div style={{
+        display: "flex",
+        borderLeft: `4px solid ${embedColor}`,
+        background: C.discEmbed,
+        color: "#b5bac1",
+        fontSize: 13,
+        maxWidth: 520,
+      }}>
+        <div style={{ padding: "8px 14px 10px 14px", minWidth: 0, flex: 1 }}>
+          {embed.provider?.name && (
+            <div style={{ marginTop: 4, fontSize: 12, fontWeight: 400, color: "#b5bac1" }}>
+              {embed.provider.url ? (
+                <a href={embed.provider.url} target="_blank" rel="noreferrer noopener" style={{ color: "#00a8fc", textDecoration: "none" }}>{embed.provider.name}</a>
+              ) : <span>{embed.provider.name}</span>}
+            </div>
+          )}
 
-        {embed.author?.name && (
-          <div className="mt-2 flex min-w-0 items-center">
-            {embed.author.icon_url && (() => {
-              const url = getImageUri(embed.author.icon_url, files as any);
-              return url ? <img src={url} alt="" className="mr-2 h-6 w-6 rounded-full object-contain" /> : null;
-            })()}
-            <p className="my-auto inline-block whitespace-pre-wrap text-sm font-medium dark:text-[#f2f3f5]">
-              {embed.author.url ? (
-                <a href={embed.author.url} target="_blank" rel="noreferrer noopener" className="text-[#00a8fc] hover:underline">{embed.author.name}</a>
-              ) : <span>{embed.author.name}</span>}
-            </p>
-          </div>
-        )}
+          {embed.author?.name && (
+            <div style={{ marginTop: 4, display: "flex", alignItems: "center", minWidth: 0 }}>
+              {embed.author.icon_url && (() => {
+                const url = getImageUri(embed.author.icon_url, files as any);
+                return url ? <img src={url} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "contain", marginRight: 8 }} /> : null;
+              })()}
+              <span style={{ display: "inline", fontSize: 12, fontWeight: 600, color: "#f2f3f5" }}>
+                {embed.author.url ? (
+                  <a href={embed.author.url} target="_blank" rel="noreferrer noopener" style={{ color: "#00a8fc", textDecoration: "none" }}>{embed.author.name}</a>
+                ) : <span>{embed.author.name}</span>}
+              </span>
+            </div>
+          )}
 
-        <div className="flex gap-3">
-          <div className="min-w-0 flex-1">
-            {embed.title && (
-              <div className="mt-2 inline-block text-base font-semibold leading-relaxed dark:text-[#f2f3f5]">
-                {embed.url ? (
-                  <a href={embed.url} target="_blank" rel="noreferrer noopener" className="text-[#00a8fc] hover:underline">
+          <div style={{ display: "flex" }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              {embed.title && (
+                <div style={{ marginTop: 4, fontSize: 14, fontWeight: 600, lineHeight: 1.3, color: "#f2f3f5" }}>
+                  {embed.url ? (
+                    <a href={embed.url} target="_blank" rel="noreferrer noopener" style={{ color: "#00a8fc", textDecoration: "none" }}>
+                      <Markdown content={embed.title} features="title" />
+                    </a>
+                  ) : (
                     <Markdown content={embed.title} features="title" />
-                  </a>
-                ) : (
-                  <Markdown content={embed.title} features="title" />
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
 
-            {embed.description && (
-              <div className="mt-2 inline-block whitespace-pre-line text-sm font-normal dark:text-[#dbdee1]">
-                <Markdown content={embed.description} />
-              </div>
-            )}
+              {embed.description && (
+                <div style={{ marginTop: 4, whiteSpace: "pre-line", fontSize: 13, fontWeight: 400, color: "#b5bac1", lineHeight: 1.5 }}>
+                  <Markdown content={embed.description} />
+                </div>
+              )}
 
-            {embed.fields && embed.fields.length > 0 && <EmbedFields fields={embed.fields} />}
+              {embed.fields && embed.fields.length > 0 && <EmbedFields fields={embed.fields} />}
 
-            {images.length > 0 && (
-              <div className="mt-2">
-                <Gallery
-                  attachments={images.map((img) => ({
-                    id: "0",
-                    filename: "image",
-                    content_type: (img.url ?? "").endsWith(".gif") ? "image/gif" : "image/png",
-                    url: getImageUri(img.url, files as any),
-                    proxy_url: "#",
-                    size: 0,
-                  }))}
-                />
-              </div>
-            )}
+              {images.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <Gallery
+                    attachments={images.map((img) => ({
+                      id: "0",
+                      filename: "image",
+                      content_type: (img.url ?? "").endsWith(".gif") ? "image/gif" : "image/png",
+                      url: getImageUri(img.url, files as any),
+                      proxy_url: "#",
+                      size: 0,
+                    }))}
+                  />
+                </div>
+              )}
 
-            {embed.video?.url && (
-              <div className="mt-2">
-                <Gallery
-                  attachments={[{
-                    id: "0",
-                    filename: "video",
-                    content_type: "video/mp4",
-                    url: embed.video.url,
-                    proxy_url: "#",
-                    size: 0,
-                  }]}
+              {embed.video?.url && (
+                <div style={{ marginTop: 8 }}>
+                  <Gallery
+                    attachments={[{
+                      id: "0",
+                      filename: "video",
+                      content_type: "video/mp4",
+                      url: embed.video.url,
+                      proxy_url: "#",
+                      size: 0,
+                    }]}
+                  />
+                </div>
+              )}
+            </div>
+
+            {embed.thumbnail?.url && (
+              <div style={{ marginTop: 8, marginLeft: 16, flexShrink: 0, height: "fit-content" }}>
+                <img
+                  src={getImageUri(embed.thumbnail.url, files as any)}
+                  alt=""
+                  style={{ maxHeight: 80, maxWidth: 80, borderRadius: 4, objectFit: "cover" }}
                 />
               </div>
             )}
           </div>
 
-          {embed.thumbnail?.url && (
-            <div className="mt-2 ml-4 flex h-fit shrink-0 justify-self-end" style={{ gridArea: "1 / 2 / 8 / 3" }}>
-              <img
-                src={getImageUri(embed.thumbnail.url, files as any)}
-                alt=""
-                className="max-h-20 max-w-[80px] rounded object-cover"
-              />
+          {(embed.footer?.text || embed.timestamp) && (
+            <div style={{ marginTop: 8, display: "flex", alignItems: "center", fontSize: 11, fontWeight: 500, color: "#b5bac1" }}>
+              {embed.footer?.text && (
+                <>
+                  {embed.footer.icon_url && (() => {
+                    const url = getImageUri(embed.footer.icon_url, files as any);
+                    return url ? <img src={url} alt="" style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "contain", marginRight: 8 }} /> : null;
+                  })()}
+                  <span style={{ display: "inline", whiteSpace: "pre-wrap" }}>{embed.footer.text}</span>
+                </>
+              )}
+              {embed.timestamp && (
+                <>
+                  {embed.footer?.text && <span style={{ margin: "0 4px" }}>&bull;</span>}
+                  <span style={{ display: "inline", whiteSpace: "pre-wrap" }}>{getRelativeTime(embed.timestamp)}</span>
+                </>
+              )}
             </div>
           )}
         </div>
-
-        {(embed.footer?.text || embed.timestamp) && (
-          <div className="mt-2 flex min-w-0 items-center text-xs font-medium dark:text-[#dbdee1]">
-            {embed.footer?.text && (
-              <>
-                {embed.footer.icon_url && (() => {
-                  const url = getImageUri(embed.footer.icon_url, files as any);
-                  return url ? <img src={url} alt="" className="mr-2 h-5 w-5 rounded-full object-contain" /> : null;
-                })()}
-                <p className="my-auto inline-block whitespace-pre-wrap">{embed.footer.text}</p>
-              </>
-            )}
-            {embed.timestamp && (
-              <>
-                {embed.footer?.text && <span className="mx-1">&bull;</span>}
-                <span className="my-auto inline-block whitespace-pre-wrap">{getRelativeTime(embed.timestamp)}</span>
-              </>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

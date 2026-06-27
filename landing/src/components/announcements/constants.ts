@@ -1,6 +1,21 @@
-export const ACCENT = "#06b6d4";
+export const ACCENT = "#8B1538";
 export const EMBED_BG = "#2b2d31";
 export const TEXT_COLOR = "#dbdee1";
+
+export const C = {
+  bg: "#090909",
+  surface: "#111111",
+  card: "#1a1a1a",
+  burg: "#8B1538",
+  border: "#1a1a1a",
+  text: "#dbdee1",
+  textMuted: "#6b6b6b",
+  discBg: "#313338",
+  discEmbed: "#2b2d31",
+  discName: "#f2f3f5",
+  discMuted: "#b5bac1",
+  discBorder: "#2b2d31",
+};
 
 export const BUTTON_STYLES: Record<number, { label: string; color: string; bg: string; border: string; discordClass: string }> = {
   1: { label: "Primary", color: "#fff", bg: "#5865f2", border: "#5865f2", discordClass: "bg-[#5865f2] text-white border-[#5865f2]" },
