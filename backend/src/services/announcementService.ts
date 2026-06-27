@@ -434,12 +434,14 @@ async function uploadToImgbb(buffer: Buffer, filename: string): Promise<string |
       logger.warn({ filename }, 'IMG_HOST env var not set, skipping imgbb upload');
       return null;
     }
-    const base64 = buffer.toString('base64');
     logger.info({ filename, sizeBytes: buffer.length }, 'uploading to imgbb');
-    const res = await fetch('https://api.imgbb.com/1/upload', {
+    const url = `https://api.imgbb.com/1/upload?key=${encodeURIComponent(apiKey)}`;
+    const form = new FormData();
+    form.append('image', new Blob([buffer]), filename);
+    form.append('name', filename);
+    const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: apiKey, image: base64, name: filename }),
+      body: form,
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
