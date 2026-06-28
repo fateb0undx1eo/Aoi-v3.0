@@ -1,29 +1,12 @@
-import { nanoid } from "nanoid";
-import { formatDate } from "@/lib/date";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import {
-  Megaphone, Plus, Copy, Trash2, ChevronDown, ChevronUp,
-  Send, Save, X, Palette, Eye, RotateCcw, Code, Layers,
-  MessageSquare, Bot, Globe, Hash, Check, AlertTriangle,
-  Share2, ExternalLink, Ban, BellOff, Zap,
+  Megaphone, Plus, Copy, Trash2, GripVertical, ChevronDown, ChevronUp,
+  Send, Save, X, Palette, Eye,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { SiteNavbar } from "@/components/site-navbar";
-
-const C = {
-  bg: "#090909",
-  surface: "#111111",
-  card: "#1a1a1a",
-  burg: "#8B1538",
-  border: "#1a1a1a",
-  text: "#dbdee1",
-  textMuted: "#6b6b6b",
-  discBg: "#313338",
-  discEmbed: "#2b2d31",
-  discName: "#f2f3f5",
-  discMuted: "#b5bac1",
-};
 
 type GuildChannel = {
   id: string;
@@ -74,7 +57,6 @@ type AnnouncementEntry = {
   components: AnnouncementComponent[][];
   edit_existing: boolean;
   message_link: string;
-  thread_name: string;
 };
 
 type AnnouncementForm = {
@@ -91,8 +73,7 @@ type AnnouncementPreset = {
 
 type SaveState = "idle" | "success" | "error" | "info" | "sending";
 
-type Toast = {
-  id: string;
+type StatusMessage = {
   state: SaveState;
   text: string;
 };
@@ -101,7 +82,7 @@ const EMPTY_EMBED: AnnouncementEmbed = {
   title: "",
   description: "",
   url: "",
-  color: "#8B1538",
+  color: "#57f287",
   author_name: "",
   author_icon_url: "",
   author_url: "",
@@ -113,26 +94,28 @@ const EMPTY_EMBED: AnnouncementEmbed = {
   timestamp: "",
 };
 
-const DISCORD_MESSAGE_LINK_RE = /^https:\/\/(?:canary\.|ptb\.)?discord(?:app)?\.com\/channels\/\d+\/\d+\/\d+$/;
-
 const DEFAULT_COMPONENTS: AnnouncementComponent[][] = [];
 
 function createAnnouncementEntry(): AnnouncementEntry {
   return {
-    id: `entry-${nanoid(8)}`,
+    id: `entry-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     content: "",
     embed: { ...EMPTY_EMBED, fields: [] },
     components: [],
     edit_existing: false,
     message_link: "",
-    thread_name: "",
   };
 }
 
-const ACCENT_COLOR = C.burg;
-const EMBED_BG = C.discEmbed;
-const MESSAGE_BG = C.discBg;
-const CHANNEL_TEXT_COLOR = C.text;
+const DEFAULT_ANNOUNCEMENT_FORM: AnnouncementForm = {
+  channel_ids: [],
+  entries: [createAnnouncementEntry()],
+};
+
+const ACCENT_COLOR = "#06b6d4";
+const EMBED_BG = "#2b2d31";
+const MESSAGE_BG = "#313338";
+const CHANNEL_TEXT_COLOR = "#dbdee1";
 
 const BUTTON_STYLES: Record<number, { label: string; color: string; bg: string; border: string }> = {
   1: { label: "Primary", color: "#fff", bg: "#5865f2", border: "#5865f2" },
@@ -145,7 +128,7 @@ const BUTTON_STYLES: Record<number, { label: string; color: string; bg: string; 
 function rgbToInt(hex: string): number {
   const h = hex.replace("#", "");
   if (h.length === 3) {
-    return Number.parseInt((h[0] ?? "") + (h[0] ?? "") + (h[1] ?? "") + (h[1] ?? "") + (h[2] ?? "") + (h[2] ?? ""), 16);
+    return Number.parseInt(h[0] + h[0] + h[1] + h[1] + h[2] + h[2], 16);
   }
   return Number.parseInt(h, 16) || 0;
 }
@@ -193,201 +176,152 @@ function renderDiscordText(text: string): ReactNode[] {
 function formatTimestamp(iso: string): string {
   if (!iso) return "";
   try {
-    return formatDate(iso, "MMM d, yyyy, h:mm a");
+    const d = new Date(iso);
+    const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return `${date} ${time}`;
   } catch {
     return iso;
   }
 }
 
-function DiscordEmbed({ entry }: { entry: AnnouncementEntry }) {
-  const e = entry.embed;
-  const hasContent = e.title || e.description || e.fields.length > 0 || e.image_url || e.thumbnail_url || e.footer_text || e.author_name;
-  if (!hasContent) return null;
-
-  return (
-    <div style={{
-      marginTop: 6,
-      borderLeft: `4px solid ${e.color || C.burg}`,
-      background: C.discEmbed,
-      borderRadius: 4,
-      padding: "10px 14px",
-      maxWidth: 380,
-    }}>
-      {e.author_name && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-          {e.author_icon_url && (
-            <img src={e.author_icon_url} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover" }}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-          )}
-          {e.author_url ? (
-            <a href={e.author_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, fontWeight: 600, color: "#00a8fc", textDecoration: "none" }}>
-              {e.author_name}
-            </a>
-          ) : (
-            <span style={{ fontSize: 12, fontWeight: 600, color: C.discName }}>{e.author_name}</span>
-          )}
-        </div>
-      )}
-      {e.title && (
-        <div style={{ fontSize: 14, fontWeight: 600, color: C.discName, marginBottom: 4 }}>
-          {e.url ? (
-            <a href={e.url} target="_blank" rel="noopener noreferrer" style={{ color: "#00a8fc", textDecoration: "none" }}>
-              {renderDiscordText(e.title)}
-            </a>
-          ) : (
-            renderDiscordText(e.title)
-          )}
-        </div>
-      )}
-      {e.description && (
-        <div style={{ fontSize: 13, color: C.discMuted, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-          {renderDiscordText(e.description)}
-        </div>
-      )}
-      {e.fields.length > 0 && (
-        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-          {e.fields.map((f, i) => (
-            <div key={i} style={f.inline ? { display: "inline-block", width: "33%", verticalAlign: "top" } : {}}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: C.discName }}>{renderDiscordText(f.name)}</div>
-              <div style={{ fontSize: 12, color: C.discMuted, whiteSpace: "pre-wrap" }}>{renderDiscordText(f.value)}</div>
-            </div>
-          ))}
-        </div>
-      )}
-      {e.image_url && (
-        <img src={e.image_url} alt="" style={{ marginTop: 8, maxHeight: 240, width: "100%", borderRadius: 8, objectFit: "cover" }}
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-      )}
-      {e.thumbnail_url && (
-        <div style={{ float: "right", marginLeft: 12 }}>
-          <img src={e.thumbnail_url} alt="" style={{ maxHeight: 80, maxWidth: 80, borderRadius: 4, objectFit: "cover" }}
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-        </div>
-      )}
-      {(e.footer_text || e.timestamp) && (
-        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 8, fontSize: 11, color: C.discMuted }}>
-          {e.footer_icon_url && (
-            <img src={e.footer_icon_url} alt="" style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "cover" }}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-          )}
-          {e.footer_text && <span>{e.footer_text}</span>}
-          {e.footer_text && e.timestamp && <span>•</span>}
-          {e.timestamp && <span>{formatTimestamp(e.timestamp)}</span>}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DiscordContainer({ embed }: { embed: AnnouncementEmbed }) {
-  const hasContent = embed.title || embed.description || embed.fields.length > 0 || embed.image_url || embed.footer_text;
-  if (!hasContent) return null;
-
-  return (
-    <div style={{
-      marginTop: 6,
-      borderLeft: embed.color ? `4px solid ${embed.color}` : undefined,
-      background: C.discEmbed,
-      borderRadius: 4,
-      padding: "10px 14px",
-      maxWidth: 380,
-    }}>
-      {embed.title && (
-        <div style={{ fontSize: 14, fontWeight: 600, color: C.discName, marginBottom: 4 }}>
-          {renderDiscordText(embed.title)}
-        </div>
-      )}
-      {embed.description && (
-        <div style={{ fontSize: 13, color: C.discMuted, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-          {renderDiscordText(embed.description)}
-        </div>
-      )}
-      {embed.fields.length > 0 && (
-        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-          {embed.fields.map((f, i) => (
-            <div key={i} style={f.inline ? { display: "inline-block", width: "33%", verticalAlign: "top" } : {}}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: C.discName }}>{renderDiscordText(f.name)}</div>
-              <div style={{ fontSize: 12, color: C.discMuted, whiteSpace: "pre-wrap" }}>{renderDiscordText(f.value)}</div>
-            </div>
-          ))}
-        </div>
-      )}
-      {embed.footer_text && (
-        <div style={{ marginTop: 8, fontSize: 11, color: C.discMuted }}>
-          {embed.footer_text}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function DiscordMessagePreview({ entry, channelName }: { entry: AnnouncementEntry; channelName?: string }) {
   const hasContent = entry.content.trim().length > 0;
-  const hasEmbed = entry.embed.title || entry.embed.description || entry.embed.fields.length > 0 || entry.embed.image_url || entry.embed.thumbnail_url || entry.embed.footer_text || entry.embed.author_name;
+  const hasEmbed = entry.embed.title || entry.embed.description || entry.embed.fields.length > 0 || entry.embed.image_url || entry.embed.thumbnail_url || entry.embed.footer_text;
   const hasComponents = entry.components.length > 0 && entry.components.some((row) => row.length > 0);
 
   if (!hasContent && !hasEmbed && !hasComponents) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 24px", textAlign: "center", backgroundColor: EMBED_BG, borderRadius: 8 }}>
-        <Eye style={{ marginBottom: 12, width: 40, height: 40, color: "#52525b" }} />
-        <p style={{ fontSize: 14, color: "#71717a" }}>Your message preview will appear here</p>
-        <p style={{ marginTop: 4, fontSize: 12, color: "#52525b" }}>Add content, embed, or components to get started</p>
+      <div className="flex flex-col items-center justify-center rounded-lg px-6 py-12 text-center" style={{ backgroundColor: EMBED_BG }}>
+        <Eye className="mb-3 h-10 w-10 text-zinc-600" />
+        <p className="text-sm text-zinc-500">Your message preview will appear here</p>
+        <p className="mt-1 text-xs text-zinc-600">Add content, embed, or components to get started</p>
       </div>
     );
   }
 
   return (
-    <div style={{ backgroundColor: EMBED_BG, borderRadius: 8, padding: "12px 16px", fontSize: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        <div style={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: "#52525b", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff" }}>
+    <div className="rounded-lg px-4 py-3 text-sm leading-relaxed" style={{ backgroundColor: EMBED_BG }}>
+      <div className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-500 text-sm font-bold text-white">
           A
         </div>
         <div>
-          <span style={{ fontWeight: 600, color: ACCENT_COLOR }}>AOI Bot</span>
-          <span style={{ marginLeft: 8, color: "#71717a", fontSize: 12 }}>
+          <span className="font-semibold text-white" style={{ color: ACCENT_COLOR }}>AOI Bot</span>
+          <span className="ml-2 text-zinc-500">
             {channelName ? `#${channelName}` : "Today at 12:00 AM"}
           </span>
         </div>
       </div>
 
       {hasContent && (
-        <div style={{ whiteSpace: "pre-wrap", fontSize: 15, color: CHANNEL_TEXT_COLOR }}>
+        <div className="whitespace-pre-wrap text-[15px]" style={{ color: CHANNEL_TEXT_COLOR }}>
           {renderDiscordText(entry.content)}
         </div>
       )}
 
-      {entry.edit_existing && entry.message_link && (
-        <div style={{ marginTop: 4, fontSize: 11, color: "#00a8fc" }}>
-          Editing: {entry.message_link.slice(0, 60)}...
-        </div>
-      )}
+      {hasContent && hasEmbed && <div className="mb-2" />}
 
-      {entry.thread_name && (
-        <div style={{ marginTop: 4, fontSize: 11, color: "#b5bac1" }}>
-          Thread: {entry.thread_name}
+      {hasEmbed && (
+        <div className="overflow-hidden rounded-lg border-l-4" style={{
+          borderLeftColor: entry.embed.color || "#57f287",
+          backgroundColor: "#2f3136",
+        }}>
+          <div className="px-3 py-2">
+            {entry.embed.author_name && (
+              <div className="mb-1 flex items-center gap-2 text-xs text-zinc-400">
+                {entry.embed.author_icon_url && (
+                  <img src={entry.embed.author_icon_url} alt="" className="h-4 w-4 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                )}
+                {entry.embed.author_url ? (
+                  <a href={entry.embed.author_url} target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline" style={{ color: "#00a8fc" }}>
+                    {entry.embed.author_name}
+                  </a>
+                ) : (
+                  <span className="font-semibold text-white">{entry.embed.author_name}</span>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <div className="min-w-0 flex-1">
+                {entry.embed.title && (
+                  <div className="mb-1">
+                    {entry.embed.url ? (
+                      <a href={entry.embed.url} target="_blank" rel="noopener noreferrer" className="text-lg font-semibold hover:underline" style={{ color: "#00a8fc" }}>
+                        {renderDiscordText(entry.embed.title)}
+                      </a>
+                    ) : (
+                      <h3 className="text-lg font-semibold text-white">{renderDiscordText(entry.embed.title)}</h3>
+                    )}
+                  </div>
+                )}
+
+                {entry.embed.description && (
+                  <div className="whitespace-pre-wrap text-sm" style={{ color: CHANNEL_TEXT_COLOR }}>
+                    {renderDiscordText(entry.embed.description)}
+                  </div>
+                )}
+
+                {entry.embed.fields.length > 0 && (
+                  <div className="mt-2 grid grid-cols-3 gap-1">
+                    {entry.embed.fields.map((field, i) => (
+                      <div key={i} className={field.inline ? "col-span-1" : "col-span-3"}>
+                        <div className="text-xs font-semibold text-white">{renderDiscordText(field.name)}</div>
+                        <div className="whitespace-pre-wrap text-xs" style={{ color: CHANNEL_TEXT_COLOR }}>
+                          {renderDiscordText(field.value)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {entry.embed.image_url && (
+                  <img src={entry.embed.image_url} alt="Embed image" className="mt-2 max-h-80 w-full rounded-lg object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                )}
+              </div>
+
+              {entry.embed.thumbnail_url && (
+                <img src={entry.embed.thumbnail_url} alt="Thumbnail" className="mt-1 h-20 w-20 flex-shrink-0 rounded-lg object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+              )}
+            </div>
+
+            {(entry.embed.footer_text || entry.embed.timestamp) && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
+                {entry.embed.footer_icon_url && (
+                  <img src={entry.embed.footer_icon_url} alt="" className="h-4 w-4 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                )}
+                {entry.embed.footer_text && <span>{entry.embed.footer_text}</span>}
+                {entry.embed.footer_text && entry.embed.timestamp && <span>•</span>}
+                {entry.embed.timestamp && <span>{formatTimestamp(entry.embed.timestamp)}</span>}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {hasComponents && (
-        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+        <div className="mt-2 space-y-1">
           {entry.components.map((row, ri) => (
-            <div key={ri} style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <div key={ri} className="flex flex-wrap gap-2">
               {row.map((comp, ci) => {
-                const style = BUTTON_STYLES[comp.style] ?? BUTTON_STYLES[1]!;
+                const style = BUTTON_STYLES[comp.style] || BUTTON_STYLES[1];
                 if (comp.type === "button") {
                   if (comp.style === 5) {
                     return (
                       <a key={ci} href={comp.url || "#"} target="_blank" rel="noopener noreferrer"
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 4, fontSize: 13, fontWeight: 500, color: style.color, backgroundColor: style.bg, border: `1px solid ${style.border}`, textDecoration: "none" }}>
+                        className="inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm font-medium transition-colors hover:brightness-110"
+                        style={{ color: style.color, backgroundColor: style.bg, border: `1px solid ${style.border}` }}>
                         {comp.emoji?.name && <span>{comp.emoji.name}</span>}
                         {comp.label || "Link"}
-                        <ExternalLink style={{ width: 12, height: 12 }} />
+                        <ExternalLink className="h-3 w-3" />
                       </a>
                     );
                   }
                   return (
                     <button key={ci} type="button" disabled={comp.disabled}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 4, fontSize: 13, fontWeight: 500, color: style.color, backgroundColor: style.bg, border: `1px solid ${style.border}`, cursor: comp.disabled ? "not-allowed" : "pointer", opacity: comp.disabled ? 0.5 : 1 }}>
+                      className="inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm font-medium transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{ color: style.color, backgroundColor: style.bg, border: `1px solid ${style.border}` }}>
                       {comp.emoji?.name && <span>{comp.emoji.name}</span>}
                       {comp.label || "Button"}
                     </button>
@@ -395,8 +329,10 @@ function DiscordMessagePreview({ entry, channelName }: { entry: AnnouncementEntr
                 }
                 if (comp.type === "select") {
                   return (
-                    <div key={ci} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 4, fontSize: 13, color: "#a1a1aa", backgroundColor: "#4e5058" }}>
-                      <ChevronDown style={{ width: 12, height: 12 }} />
+                    <div key={ci}
+                      className="inline-flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-400"
+                      style={{ backgroundColor: "#4e5058" }}>
+                      <ChevronDown className="h-3 w-3" />
                       {comp.placeholder || "Select an option"}
                     </div>
                   );
@@ -428,35 +364,52 @@ function ColorSwatch({ value, onChange }: { value: string; onChange: (v: string)
   }, [open]);
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <div ref={ref} className="relative">
       <button type="button" onClick={() => setOpen(!open)}
-        style={{ display: "flex", width: 48, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 4, border: "1px solid #3f3f46", backgroundColor: value }}>
-        <ChevronDown style={{ width: 12, height: 12, color: "rgba(255,255,255,0.7)" }} />
+        className="flex h-8 w-12 items-center justify-center rounded border border-zinc-700"
+        style={{ backgroundColor: value }}>
+        <ChevronDown className="h-3 w-3 text-white/70" />
       </button>
       {open && (
-        <div style={{ position: "absolute", left: 0, top: "100%", zIndex: 20, marginTop: 4, width: 224, borderRadius: 8, border: "1px solid #3f3f46", backgroundColor: "#18181b", padding: 8, boxShadow: "0 10px 25px rgba(0,0,0,0.5)" }}>
-          <div style={{ marginBottom: 8, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4 }}>
+        <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-lg border border-zinc-700 bg-zinc-900 p-2 shadow-xl">
+          <div className="mb-2 grid grid-cols-5 gap-1">
             {EMBED_PRESETS.map((p) => (
               <button key={p.value} type="button" title={p.label}
                 onClick={() => { onChange(p.value); setOpen(false); }}
-                style={{ height: 24, width: "100%", borderRadius: 4, border: "1px solid #3f3f46", backgroundColor: p.value, cursor: "pointer" }} />
+                className="h-6 w-full rounded border border-zinc-700 hover:scale-110 hover:border-white"
+                style={{ backgroundColor: p.value }} />
             ))}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 12, color: "#a1a1aa" }}>#</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-zinc-400">#</span>
             <input type="text" value={value.replace("#", "")}
               onChange={(e) => {
                 const v = e.target.value.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
                 if (v.length <= 6) onChange(`#${v}`);
               }}
-              style={{ flex: 1, borderRadius: 4, border: "1px solid #3f3f46", backgroundColor: "#000", padding: "4px 8px", fontSize: 12, color: "#e4e4e7", outline: "none" }}
+              className="flex-1 rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200"
               placeholder="000000" />
           </div>
           <input type="color" value={value}
             onChange={(e) => onChange(e.target.value)}
-            style={{ marginTop: 8, width: "100%", height: 24, cursor: "pointer", borderRadius: 4, border: "1px solid #3f3f46" }} />
+            className="mt-2 h-6 w-full cursor-pointer rounded border border-zinc-700" />
         </div>
       )}
+    </div>
+  );
+}
+
+function StatusBanner({ status }: { status: StatusMessage | null }) {
+  if (!status || status.state === "idle") return null;
+  const colors: Record<string, string> = {
+    success: "border-emerald-700/60 bg-emerald-500/10 text-emerald-300",
+    error: "border-red-700/60 bg-red-500/10 text-red-300",
+    info: "border-sky-700/60 bg-sky-500/10 text-sky-300",
+    sending: "border-amber-700/60 bg-amber-500/10 text-amber-300",
+  };
+  return (
+    <div className={`rounded-lg border px-3 py-2 text-sm ${colors[status.state] || "text-zinc-400"}`}>
+      {status.text}
     </div>
   );
 }
@@ -468,34 +421,34 @@ function FieldEditor({ fields, onChange }: { fields: AnnouncementField[]; onChan
     onChange(fields.map((f, idx) => idx === i ? { ...f, ...updates } : f));
   };
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div className="space-y-2">
       {fields.map((field, i) => (
-        <div key={i} style={{ borderRadius: 8, border: "1px solid #27272a", backgroundColor: "rgba(0,0,0,0.5)", padding: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ fontSize: 12, color: "#71717a" }}>Field {i + 1}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#a1a1aa" }}>
+        <div key={i} className="rounded-lg border border-zinc-800 bg-black/50 p-2">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-zinc-500">Field {i + 1}</span>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1 text-xs text-zinc-400">
                 <input type="checkbox" checked={field.inline}
                   onChange={(e) => updateField(i, { inline: e.target.checked })}
-                  style={{ width: 12, height: 12 }} />
+                  className="h-3 w-3 rounded border-zinc-700 bg-zinc-800" />
                 Inline
               </label>
-              <button type="button" onClick={() => removeField(i)} style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer" }}>
-                <X style={{ width: 12, height: 12 }} />
+              <button type="button" onClick={() => removeField(i)} className="text-zinc-600 hover:text-red-400">
+                <X className="h-3 w-3" />
               </button>
             </div>
           </div>
           <input type="text" value={field.name} placeholder="Field name"
             onChange={(e) => updateField(i, { name: e.target.value })}
-            style={{ width: "100%", marginBottom: 4, borderRadius: 4, border: "1px solid #27272a", backgroundColor: "#000", padding: "4px 8px", fontSize: 12, color: "#e4e4e7", outline: "none" }} />
+            className="mb-1 w-full rounded border border-zinc-800 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600" />
           <textarea value={field.value} placeholder="Field value" rows={2}
             onChange={(e) => updateField(i, { value: e.target.value })}
-            style={{ width: "100%", borderRadius: 4, border: "1px solid #27272a", backgroundColor: "#000", padding: "4px 8px", fontSize: 12, color: "#e4e4e7", outline: "none", resize: "none" }} />
+            className="w-full rounded border border-zinc-800 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 resize-none" />
         </div>
       ))}
       <button type="button" onClick={addField}
-        style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "center", gap: 4, borderRadius: 8, border: "1px dashed #3f3f46", padding: "6px 0", fontSize: 12, color: "#71717a", background: "none", cursor: "pointer" }}>
-        <Plus style={{ width: 12, height: 12 }} /> Add Field
+        className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-700 py-1.5 text-xs text-zinc-500 hover:border-zinc-500 hover:text-zinc-300">
+        <Plus className="h-3 w-3" /> Add Field
       </button>
     </div>
   );
@@ -526,69 +479,75 @@ function ComponentEditor({ rows, onChange }: { rows: AnnouncementComponent[][]; 
   const updateComponent = (ri: number, ci: number, updates: Partial<AnnouncementComponent>) => {
     onChange(rows.map((row, idx) => idx === ri ? row.map((c, cidx) => cidx === ci ? { ...c, ...updates } : c) : row));
   };
+  const moveComponent = (fromRi: number, fromCi: number, toRi: number, toCi: number) => {
+    const newRows = rows.map((r) => [...r]);
+    const [moved] = newRows[fromRi].splice(fromCi, 1);
+    newRows[toRi].splice(toCi, 0, moved);
+    onChange(newRows);
+  };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div className="space-y-2">
       {rows.map((row, ri) => (
-        <div key={ri} style={{ borderRadius: 8, border: "1px solid #27272a", backgroundColor: "rgba(0,0,0,0.5)", padding: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ fontSize: 12, fontWeight: 500, color: "#a1a1aa" }}>Row {ri + 1} ({row.length}/5)</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <div key={ri} className="rounded-lg border border-zinc-800 bg-black/50 p-2">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs font-medium text-zinc-400">Row {ri + 1} ({row.length}/5)</span>
+            <div className="flex items-center gap-1">
               <button type="button" onClick={() => addButton(ri)}
-                style={{ padding: "2px 8px", fontSize: 10, textTransform: "uppercase", color: "#a1a1aa", background: "none", border: "none", cursor: "pointer" }}>
+                className="rounded px-2 py-0.5 text-[10px] uppercase text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200">
                 + Button
               </button>
               <button type="button" onClick={() => addSelect(ri)}
-                style={{ padding: "2px 8px", fontSize: 10, textTransform: "uppercase", color: "#a1a1aa", background: "none", border: "none", cursor: "pointer" }}>
+                className="rounded px-2 py-0.5 text-[10px] uppercase text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200">
                 + Select
               </button>
               {rows.length > 1 && (
-                <button type="button" onClick={() => removeRow(ri)} style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer" }}>
-                  <X style={{ width: 12, height: 12 }} />
+                <button type="button" onClick={() => removeRow(ri)} className="text-zinc-600 hover:text-red-400">
+                  <X className="h-3 w-3" />
                 </button>
               )}
             </div>
           </div>
           {row.length === 0 ? (
-            <div style={{ padding: "8px 0", textAlign: "center", fontSize: 10, color: "#52525b" }}>Empty row — add buttons or select menus</div>
+            <div className="py-2 text-center text-[10px] text-zinc-600">Empty row — add buttons or select menus</div>
           ) : (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            <div className="flex flex-wrap gap-1.5">
               {row.map((comp, ci) => (
-                <div key={ci} style={{ position: "relative", borderRadius: 4, border: "1px solid #3f3f46", backgroundColor: "rgba(63,63,70,0.5)", padding: 6 }}>
+                <div key={ci} className="relative rounded border border-zinc-700 bg-zinc-800/50 p-1.5">
                   <button type="button" onClick={() => removeComponent(ri, ci)}
-                    style={{ position: "absolute", right: -4, top: -4, width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", backgroundColor: "#ef4444", color: "#fff", fontSize: 8, border: "none", cursor: "pointer" }}>
-                    <X style={{ width: 8, height: 8 }} />
+                    className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[8px] text-white">
+                    <X className="h-2 w-2" />
                   </button>
                   {comp.type === "button" ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 10 }}>
+                    <div className="space-y-1 text-[10px]">
                       <select value={comp.style}
                         onChange={(e) => updateComponent(ri, ci, { style: Number(e.target.value) })}
-                        style={{ width: "100%", borderRadius: 4, border: "1px solid #3f3f46", backgroundColor: "#000", padding: "2px 4px", fontSize: 10, color: "#d4d4d8" }}>
+                        className="w-full rounded border border-zinc-700 bg-black px-1 py-0.5 text-[10px] text-zinc-300">
                         {Object.entries(BUTTON_STYLES).map(([k, v]) => (
                           <option key={k} value={k}>{v.label}</option>
                         ))}
                       </select>
                       <input type="text" value={comp.label} placeholder="Label"
                         onChange={(e) => updateComponent(ri, ci, { label: e.target.value })}
-                        style={{ width: "100%", borderRadius: 4, border: "1px solid #3f3f46", backgroundColor: "#000", padding: "2px 4px", fontSize: 10, color: "#e4e4e7", outline: "none" }} />
+                        className="w-full rounded border border-zinc-700 bg-black px-1 py-0.5 text-[10px] text-zinc-200 placeholder-zinc-600" />
                       {comp.style === 5 ? (
                         <input type="text" value={comp.url} placeholder="https://..."
                           onChange={(e) => updateComponent(ri, ci, { url: e.target.value })}
-                          style={{ width: "100%", borderRadius: 4, border: "1px solid #3f3f46", backgroundColor: "#000", padding: "2px 4px", fontSize: 10, color: "#e4e4e7", outline: "none" }} />
+                          className="w-full rounded border border-zinc-700 bg-black px-1 py-0.5 text-[10px] text-zinc-200 placeholder-zinc-600" />
                       ) : (
                         <input type="text" value={comp.custom_id} placeholder="Custom ID"
                           onChange={(e) => updateComponent(ri, ci, { custom_id: e.target.value })}
-                          style={{ width: "100%", borderRadius: 4, border: "1px solid #3f3f46", backgroundColor: "#000", padding: "2px 4px", fontSize: 10, color: "#e4e4e7", outline: "none" }} />
+                          className="w-full rounded border border-zinc-700 bg-black px-1 py-0.5 text-[10px] text-zinc-200 placeholder-zinc-600" />
                       )}
                     </div>
                   ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 10 }}>
+                    <div className="space-y-1 text-[10px]">
                       <input type="text" value={comp.placeholder} placeholder="Placeholder"
                         onChange={(e) => updateComponent(ri, ci, { placeholder: e.target.value })}
-                        style={{ width: "100%", borderRadius: 4, border: "1px solid #3f3f46", backgroundColor: "#000", padding: "2px 4px", fontSize: 10, color: "#e4e4e7", outline: "none" }} />
+                        className="w-full rounded border border-zinc-700 bg-black px-1 py-0.5 text-[10px] text-zinc-200 placeholder-zinc-600" />
                       <input type="text" value={comp.custom_id} placeholder="Custom ID"
                         onChange={(e) => updateComponent(ri, ci, { custom_id: e.target.value })}
-                        style={{ width: "100%", borderRadius: 4, border: "1px solid #3f3f46", backgroundColor: "#000", padding: "2px 4px", fontSize: 10, color: "#e4e4e7", outline: "none" }} />
+                        className="w-full rounded border border-zinc-700 bg-black px-1 py-0.5 text-[10px] text-zinc-200 placeholder-zinc-600" />
                     </div>
                   )}
                 </div>
@@ -598,175 +557,9 @@ function ComponentEditor({ rows, onChange }: { rows: AnnouncementComponent[][]; 
         </div>
       ))}
       <button type="button" onClick={addRow}
-        style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "center", gap: 4, borderRadius: 8, border: "1px dashed #3f3f46", padding: "6px 0", fontSize: 12, color: "#71717a", background: "none", cursor: "pointer" }}>
-        <Plus style={{ width: 12, height: 12 }} /> Add Row
+        className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-700 py-1.5 text-xs text-zinc-500 hover:border-zinc-500 hover:text-zinc-300">
+        <Plus className="h-3 w-3" /> Add Row
       </button>
-    </div>
-  );
-}
-
-function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: string) => void }) {
-  return (
-    <div style={{
-      position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
-      zIndex: 9999, display: "flex", flexDirection: "column", gap: 8, pointerEvents: "none",
-    }}>
-      {toasts.map((toast) => {
-        const colors: Record<string, { border: string; bg: string; text: string }> = {
-          success: { border: "#065f4620", bg: "rgba(5,150,105,0.15)", text: "#34d399" },
-          error: { border: "#991b1b20", bg: "rgba(239,68,68,0.15)", text: "#f87171" },
-          info: { border: "#07598520", bg: "rgba(14,165,233,0.15)", text: "#38bdf8" },
-          sending: { border: "#92400e20", bg: "rgba(245,158,11,0.15)", text: "#fbbf24" },
-        };
-        const c = (colors[toast.state] || colors.info)!;
-        return (
-          <div key={toast.id} style={{
-            pointerEvents: "auto",
-            animation: "slideUp 0.3s ease-out",
-            display: "flex", alignItems: "center", gap: 10,
-            padding: "12px 20px", borderRadius: 10,
-            border: `1px solid ${c.border}`,
-            backgroundColor: c.bg,
-            color: c.text,
-            fontSize: 14, fontWeight: 500,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-            minWidth: 280,
-            backdropFilter: "blur(8px)",
-          }}>
-            {toast.state === "error" && <AlertTriangle style={{ width: 16, height: 16, flexShrink: 0 }} />}
-            {toast.state === "success" && <Check style={{ width: 16, height: 16, flexShrink: 0 }} />}
-            {toast.state === "sending" && <Zap style={{ width: 16, height: 16, flexShrink: 0 }} />}
-            <span>{toast.text}</span>
-            <button type="button" onClick={() => onDismiss(toast.id)}
-              style={{ marginLeft: "auto", background: "none", border: "none", color: "inherit", opacity: 0.6, cursor: "pointer" }}>
-              <X style={{ width: 14, height: 14 }} />
-            </button>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function SendModal({
-  open,
-  channels,
-  selectedChannelIds,
-  onToggleChannel,
-  onSelectAll,
-  onDeselectAll,
-  sendMode,
-  onSendModeChange,
-  onSend,
-  onClose,
-}: {
-  open: boolean;
-  channels: GuildChannel[];
-  selectedChannelIds: Set<string>;
-  onToggleChannel: (id: string) => void;
-  onSelectAll: () => void;
-  onDeselectAll: () => void;
-  sendMode: "webhook" | "bot" | "edit_webhook" | "edit_bot";
-  onSendModeChange: (mode: "webhook" | "bot" | "edit_webhook" | "edit_bot") => void;
-  onSend: () => void;
-  onClose: () => void;
-}) {
-  if (!open) return null;
-
-  return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 9998,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
-    }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()}
-        style={{
-          backgroundColor: C.surface, borderRadius: 16,
-          border: `1px solid ${C.border}`,
-          padding: 24, width: 420, maxWidth: "90vw",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-        }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: C.text }}>Send Announcement</h2>
-          <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer" }}>
-            <X style={{ width: 18, height: 18 }} />
-          </button>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 12, fontWeight: 500, color: C.textMuted, marginBottom: 8, display: "block" }}>Send Mode</label>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {[
-              { value: "webhook" as const, label: "Send as Webhook", icon: Globe },
-              { value: "bot" as const, label: "Send as Bot", icon: Bot },
-              { value: "edit_webhook" as const, label: "Edit Message as Webhook", icon: Globe },
-              { value: "edit_bot" as const, label: "Edit Message as Bot", icon: Bot },
-            ].map(({ value, label, icon: Icon }) => (
-              <button key={value} type="button" onClick={() => onSendModeChange(value)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  padding: "10px 14px", borderRadius: 10,
-                  border: `1px solid ${sendMode === value ? C.burg : C.border}`,
-                  backgroundColor: sendMode === value ? `${C.burg}15` : "transparent",
-                  color: sendMode === value ? C.burg : C.text,
-                  cursor: "pointer", fontSize: 13, fontWeight: 500,
-                  transition: "all 0.15s",
-                }}>
-                <Icon style={{ width: 16, height: 16 }} />
-                {label}
-                {sendMode === value && <Check style={{ width: 14, height: 14, marginLeft: "auto" }} />}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <label style={{ fontSize: 12, fontWeight: 500, color: C.textMuted }}>
-              <Hash style={{ width: 12, height: 12, display: "inline", marginRight: 4 }} />
-              Channels ({selectedChannelIds.size})
-            </label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button type="button" onClick={onSelectAll} style={{ fontSize: 10, color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>All</button>
-              <button type="button" onClick={onDeselectAll} style={{ fontSize: 10, color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>None</button>
-            </div>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 160, overflowY: "auto" }}>
-            {channels.length === 0 ? (
-              <p style={{ fontSize: 11, color: C.textMuted }}>No text channels available.</p>
-            ) : channels.map((ch) => {
-              const sel = selectedChannelIds.has(ch.id);
-              return (
-                <button key={ch.id} type="button" onClick={() => onToggleChannel(ch.id)}
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 4,
-                    padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 500,
-                    border: `1px solid ${sel ? `${C.burg}60` : C.border}`,
-                    backgroundColor: sel ? `${C.burg}15` : "transparent",
-                    color: sel ? C.burg : C.textMuted,
-                    cursor: "pointer", transition: "all 0.15s",
-                  }}>
-                  {sel && <Check style={{ width: 10, height: 10 }} />}
-                  # {ch.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <button type="button" onClick={onSend}
-          disabled={selectedChannelIds.size === 0}
-          style={{
-            display: "flex", width: "100%", alignItems: "center", justifyContent: "center", gap: 8,
-            padding: "12px 0", borderRadius: 10, fontSize: 14, fontWeight: 600, color: "#fff",
-            backgroundColor: C.burg, border: "none", cursor: selectedChannelIds.size === 0 ? "not-allowed" : "pointer",
-            opacity: selectedChannelIds.size === 0 ? 0.5 : 1,
-            transition: "all 0.15s",
-          }}>
-          <Send style={{ width: 16, height: 16 }} />
-          Send to {selectedChannelIds.size} channel{selectedChannelIds.size !== 1 ? "s" : ""}
-        </button>
-      </div>
     </div>
   );
 }
@@ -808,7 +601,6 @@ const SAMPLE_ANNOUNCEMENT: AnnouncementForm = {
       ],
       edit_existing: false,
       message_link: "",
-      thread_name: "",
     },
   ],
 };
@@ -820,30 +612,11 @@ export default function AnnouncementsPage() {
   const [form, setForm] = useState<AnnouncementForm>(SAMPLE_ANNOUNCEMENT);
   const [presets, setPresets] = useState<AnnouncementPreset[]>([]);
   const [presetName, setPresetName] = useState("");
+  const [status, setStatus] = useState<StatusMessage | null>(null);
   const [previewEntryId, setPreviewEntryId] = useState<string>(form.entries[0]?.id || "");
   const [editTab, setEditTab] = useState<"content" | "embed" | "components">("content");
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const [sendModalOpen, setSendModalOpen] = useState(false);
-  const [sendMode, setSendMode] = useState<"webhook" | "bot" | "edit_webhook" | "edit_bot">("webhook");
-  const [selectedChannelIds, setSelectedChannelIds] = useState<Set<string>>(new Set());
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const msgRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const activeEntry = useMemo(() => form.entries.find((e) => e.id === previewEntryId), [form.entries, previewEntryId]);
-
-  const addToast = useCallback((state: SaveState, text: string) => {
-    const id = nanoid(6);
-    setToasts((prev) => [...prev, { id, state, text }]);
-    if (state !== "sending") {
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 5000);
-    }
-  }, []);
-
-  const dismissToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
 
   const updateForm = useCallback((updates: Partial<AnnouncementForm>) => {
     setForm((current) => ({ ...current, ...updates }));
@@ -858,13 +631,6 @@ export default function AnnouncementsPage() {
 
   const addEntry = useCallback(() => {
     const newEntry = createAnnouncementEntry();
-    setForm((current) => ({ ...current, entries: [...current.entries, newEntry] }));
-    setPreviewEntryId(newEntry.id);
-  }, []);
-
-  const addEntryV2 = useCallback(() => {
-    const newEntry = createAnnouncementEntry();
-    newEntry.embed.color = "";
     setForm((current) => ({ ...current, entries: [...current.entries, newEntry] }));
     setPreviewEntryId(newEntry.id);
   }, []);
@@ -890,7 +656,7 @@ export default function AnnouncementsPage() {
         return { ...current, entries: [fresh] };
       }
       if (previewEntryId === entryId) {
-        setPreviewEntryId(next[0]!.id);
+        setPreviewEntryId(next[0].id);
       }
       return { ...current, entries: next };
     });
@@ -903,84 +669,51 @@ export default function AnnouncementsPage() {
       const targetIdx = direction === "up" ? idx - 1 : idx + 1;
       if (targetIdx < 0 || targetIdx >= current.entries.length) return current;
       const next = [...current.entries];
-      [next[idx]!, next[targetIdx]!] = [next[targetIdx]!, next[idx]!];
+      [next[idx], next[targetIdx]] = [next[targetIdx], next[idx]];
       return { ...current, entries: next };
     });
   }, []);
 
-  const scrollToMessage = useCallback((entryId: string) => {
-    const el = msgRefs.current[entryId];
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-    setPreviewEntryId(entryId);
-  }, []);
-
   const toggleChannel = useCallback((channelId: string) => {
-    setSelectedChannelIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(channelId)) next.delete(channelId);
-      else next.add(channelId);
-      return next;
+    setForm((current) => {
+      const selected = new Set(current.channel_ids);
+      if (selected.has(channelId)) selected.delete(channelId);
+      else selected.add(channelId);
+      return { ...current, channel_ids: Array.from(selected) };
     });
-  }, []);
-
-  const selectAllChannels = useCallback(() => {
-    setSelectedChannelIds(new Set(SAMPLE_CHANNELS.map((c) => c.id)));
-  }, []);
-
-  const deselectAllChannels = useCallback(() => {
-    setSelectedChannelIds(new Set());
   }, []);
 
   const savePreset = useCallback(async (kind: AnnouncementPreset["kind"]) => {
     const name = presetName.trim().slice(0, 80);
     if (!name) {
-      addToast("error", "Enter a name before saving.");
+      setStatus({ state: "error", text: "Enter a name before saving." });
       return;
     }
     const existingIdx = presets.findIndex((p) => p.kind === kind && p.name.toLowerCase() === name.toLowerCase());
     const nextPresets = [...presets];
     const payload: AnnouncementPreset = {
-      id: existingIdx >= 0 ? nextPresets[existingIdx]!.id : `preset-${Date.now()}`,
+      id: existingIdx >= 0 ? nextPresets[existingIdx].id : `preset-${Date.now()}`,
       name,
       kind,
       form: JSON.parse(JSON.stringify(form)),
     };
-    if (existingIdx >= 0) nextPresets[existingIdx]! = payload;
+    if (existingIdx >= 0) nextPresets[existingIdx] = payload;
     else nextPresets.unshift(payload);
     setPresets(nextPresets);
-    addToast("success", `${kind === "template" ? "Template" : "Draft"} saved.`);
-  }, [presetName, presets, form, addToast]);
+    setStatus({ state: "success", text: `${kind === "template" ? "Template" : "Draft"} saved.` });
+  }, [presetName, presets, form]);
 
   const loadPreset = useCallback((preset: AnnouncementPreset) => {
     setForm(JSON.parse(JSON.stringify(preset.form)));
     setPresetName(preset.name);
     setPreviewEntryId(preset.form.entries[0]?.id || "");
-    addToast("info", `Loaded ${preset.kind} "${preset.name}".`);
-  }, [addToast]);
+    setStatus({ state: "info", text: `Loaded ${preset.kind} "${preset.name}".` });
+  }, []);
 
   const deletePreset = useCallback((presetId: string) => {
     setPresets((current) => current.filter((p) => p.id !== presetId));
-    addToast("success", "Preset removed.");
-  }, [addToast]);
-
-  const handleSend = useCallback(() => {
-    if (selectedChannelIds.size === 0) {
-      addToast("error", "Select at least one channel to send to.");
-      return;
-    }
-    const hasContent = form.entries.some((e) => e.content.trim() || e.embed.title || e.embed.description || e.embed.fields.length > 0 || e.components.length > 0);
-    if (!hasContent) {
-      addToast("error", "Add content to at least one message.");
-      return;
-    }
-    addToast("sending", "Sending announcement...");
-    setTimeout(() => {
-      addToast("success", "Announcement sent successfully!");
-      setSendModalOpen(false);
-    }, 1500);
-  }, [form, selectedChannelIds, addToast]);
+    setStatus({ state: "success", text: "Preset removed." });
+  }, []);
 
   const handleDashboardRedirect = useCallback(() => {
     window.open("/dashboard", "_blank");
@@ -989,512 +722,309 @@ export default function AnnouncementsPage() {
   if (!mounted) return null;
 
   return (
-    <div style={{ backgroundColor: C.bg, color: C.text, minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <style>{`
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .scrollbar-thin::-webkit-scrollbar { width: 6px; }
-        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-        .scrollbar-thin::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
-        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #52525b; }
-      `}</style>
-
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-      <SendModal
-        open={sendModalOpen}
-        channels={SAMPLE_CHANNELS}
-        selectedChannelIds={selectedChannelIds}
-        onToggleChannel={toggleChannel}
-        onSelectAll={selectAllChannels}
-        onDeselectAll={deselectAllChannels}
-        sendMode={sendMode}
-        onSendModeChange={setSendMode}
-        onSend={handleSend}
-        onClose={() => setSendModalOpen(false)}
-      />
-
-      {/* Header */}
+    <div className="public-page min-h-screen text-foreground">
       <SiteNavbar showAnchors={false} />
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+        <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55 }}>
+          <p className="subtext text-xs uppercase tracking-[0.24em] text-muted-foreground">Tool</p>
+          <h1 className="subpage-heading mt-4 text-5xl sm:text-6xl lg:text-7xl leading-[1.05]">Announcements</h1>
+          <p className="mt-5 max-w-3xl text-base leading-8 text-foreground/85">
+            Compose and send rich announcements to your server channels. Build messages with embeds, buttons, select menus, and more.
+          </p>
+        </motion.section>
 
-      {/* Main content - full height split */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", height: "calc(100vh - 64px)" }}>
-        {/* LEFT PANE */}
-        <div style={{ width: "50%", display: "flex", flexDirection: "column", backgroundColor: C.surface, borderRight: `1px solid ${C.border}` }}>
-          {/* Fixed header */}
-          <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}`, backgroundColor: C.surface }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Megaphone style={{ width: 20, height: 20, color: C.burg }} />
-                <span style={{ fontSize: 18, fontWeight: 600, color: C.text }}>Announcement Studio</span>
-              </div>
-              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                {/* Toolbar buttons with tooltips */}
-                <ToolbarButton icon={<Share2 style={{ width: 14, height: 14 }} />} tooltip="Share" onClick={() => {}} />
-                <ToolbarButton icon={<Save style={{ width: 14, height: 14 }} />} tooltip="Presets" onClick={() => {}} />
-                <ToolbarButton icon={<Code style={{ width: 14, height: 14 }} />} tooltip="Generate Code" onClick={() => {}} />
-                <ToolbarButton icon={<RotateCcw style={{ width: 14, height: 14 }} />} tooltip="Reset" onClick={() => {
-                  setForm({ channel_ids: [], entries: [createAnnouncementEntry()] });
-                  setPreviewEntryId(form.entries[0]?.id || "");
-                  addToast("info", "Reset to empty state.");
-                }} />
-              </div>
-            </div>
+        <StatusBanner status={status} />
 
-            {/* Message navigation numbers */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 11, color: C.textMuted, marginRight: 4 }}>Messages:</span>
-              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                {form.entries.map((entry, i) => (
-                  <button key={entry.id} type="button" onClick={() => scrollToMessage(entry.id)}
-                    title={`Message ${i + 1}`}
-                    style={{
-                      width: 24, height: 24, borderRadius: 6,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 11, fontWeight: 600,
-                      border: `1px solid ${previewEntryId === entry.id ? C.burg : C.border}`,
-                      backgroundColor: previewEntryId === entry.id ? `${C.burg}20` : "transparent",
-                      color: previewEntryId === entry.id ? C.burg : C.textMuted,
-                      cursor: "pointer", transition: "all 0.15s",
-                    }}>
-                    {i + 1}
-                  </button>
-                ))}
-                <button type="button" onClick={(e) => {
-                  const rect = (e.target as HTMLElement).closest("div")?.getBoundingClientRect();
-                  // show add options
-                }}
-                  title="Add Message"
-                  style={{
-                    width: 24, height: 24, borderRadius: 6,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    border: `1px dashed ${C.border}`,
-                    backgroundColor: "transparent",
-                    color: C.textMuted, cursor: "pointer",
-                  }}>
-                  <Plus style={{ width: 12, height: 12 }} />
-                </button>
-              </div>
-              {/* Add message option buttons */}
-              <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_480px]">
+
+          {/* LEFT: Editor */}
+          <div className="rounded-xl p-5" style={{ backgroundColor: "#000000" }}>
+
+            {/* Messages list */}
+            <section>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="card-heading text-sm uppercase tracking-wider" style={{ color: "#8a8a8a" }}>Messages ({form.entries.length})</h2>
                 <button type="button" onClick={addEntry}
-                  title="Add Standard Message"
-                  style={{
-                    display: "flex", alignItems: "center", gap: 4,
-                    padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 500,
-                    border: `1px solid ${C.border}`, backgroundColor: "transparent",
-                    color: C.textMuted, cursor: "pointer", transition: "all 0.15s",
-                  }}>
-                  <MessageSquare style={{ width: 10, height: 10 }} /> Msg
-                </button>
-                <button type="button" onClick={addEntryV2}
-                  title="Add Components V2 Message"
-                  style={{
-                    display: "flex", alignItems: "center", gap: 4,
-                    padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 500,
-                    border: `1px solid ${C.border}`, backgroundColor: "transparent",
-                    color: C.textMuted, cursor: "pointer", transition: "all 0.15s",
-                  }}>
-                  <Layers style={{ width: 10, height: 10 }} /> V2
+                  className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                  style={{ backgroundColor: ACCENT_COLOR + "20", color: ACCENT_COLOR }}>
+                  <Plus className="h-3 w-3" /> Add Message
                 </button>
               </div>
-            </div>
-          </div>
-
-          {/* Scrollable message list */}
-          <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}
-            className="scrollbar-thin">
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {form.entries.map((entry, i) => {
-                const isSelected = previewEntryId === entry.id;
-                const hasContent = entry.content.trim() || entry.embed.title || entry.embed.description || entry.embed.fields.length > 0 || entry.components.length > 0;
-                return (
-                  <div key={entry.id} ref={(el) => { msgRefs.current[entry.id] = el; }}
-                    style={{
-                      borderRadius: 10,
-                      border: `1px solid ${isSelected ? `${C.burg}50` : C.border}`,
-                      backgroundColor: isSelected ? `${C.burg}08` : C.card,
-                      overflow: "hidden",
-                      transition: "all 0.15s",
-                    }}>
-                    {/* Message header */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px" }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        <button type="button" onClick={() => moveEntry(entry.id, "up")}
-                          disabled={i === 0}
-                          style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>
-                          <ChevronUp style={{ width: 10, height: 10 }} />
-                        </button>
-                        <button type="button" onClick={() => moveEntry(entry.id, "down")}
-                          disabled={i === form.entries.length - 1}
-                          style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>
-                          <ChevronDown style={{ width: 10, height: 10 }} />
-                        </button>
-                      </div>
-                      <button type="button" onClick={() => { setPreviewEntryId(entry.id); scrollToMessage(entry.id); }}
-                        style={{ flex: 1, textAlign: "left", background: "none", border: "none", cursor: "pointer", minWidth: 0 }}>
-                        <span style={{ fontSize: 12, fontWeight: 500, color: isSelected ? C.burg : C.text, display: "block" }}>
-                          {!entry.embed.color && <span style={{ fontSize: 9, color: "#a78bfa", marginRight: 4 }}>[V2]</span>}
-                          {entry.content.trim() || entry.embed.title || entry.embed.description || `Message ${i + 1}`}
-                        </span>
+              <div className="space-y-1">
+                {form.entries.map((entry, i) => (
+                  <div key={entry.id}
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                      previewEntryId === entry.id ? "border-zinc-600 bg-zinc-800/50" : "border-zinc-800 bg-black hover:bg-zinc-900"
+                    }`}>
+                    <div className="flex flex-col gap-0.5">
+                      <button type="button" onClick={() => moveEntry(entry.id, "up")}
+                        disabled={i === 0}
+                        className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30">
+                        <ChevronUp className="h-3 w-3" />
                       </button>
-                      <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-                        <button type="button" onClick={() => duplicateEntry(entry.id)} title="Duplicate"
-                          style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                          <Copy style={{ width: 12, height: 12 }} />
-                        </button>
-                        <button type="button" onClick={() => removeEntry(entry.id)} title="Remove"
-                          style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                          <Trash2 style={{ width: 12, height: 12 }} />
-                        </button>
-                      </div>
+                      <button type="button" onClick={() => moveEntry(entry.id, "down")}
+                        disabled={i === form.entries.length - 1}
+                        className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30">
+                        <ChevronDown className="h-3 w-3" />
+                      </button>
                     </div>
-
-                    {/* Expanded editor */}
-                    {isSelected && (
-                      <div style={{ borderTop: `1px solid ${C.border}`, padding: "12px 12px" }}>
-                        {/* Edit tabs */}
-                        <div style={{ display: "flex", gap: 4, marginBottom: 12, borderRadius: 8, border: `1px solid ${C.border}`, backgroundColor: C.bg, padding: 3 }}>
-                          {(["content", "embed", "components"] as const).map((tab) => (
-                            <button key={tab} type="button" onClick={() => setEditTab(tab)}
-                              style={{
-                                flex: 1, borderRadius: 6, padding: "4px 12px", fontSize: 11, fontWeight: 500,
-                                border: "none",
-                                backgroundColor: editTab === tab ? C.burg : "transparent",
-                                color: editTab === tab ? "#fff" : C.textMuted,
-                                cursor: "pointer", transition: "all 0.15s",
-                              }}>
-                              {tab === "content" ? "Content" : tab === "embed" ? "Embed" : "Components"}
-                            </button>
-                          ))}
-                        </div>
-
-                        {editTab === "content" && (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                            <div>
-                              <textarea value={entry.content}
-                                onChange={(e) => updateEntry(entry.id, { content: e.target.value })}
-                                placeholder="Type your announcement message here..."
-                                rows={4}
-                                style={{
-                                  width: "100%", borderRadius: 8,
-                                  border: `1px solid ${C.border}`, backgroundColor: C.bg,
-                                  padding: "8px 12px", fontSize: 13, color: C.text,
-                                  outline: "none", resize: "none",
-                                }} />
-                            </div>
-                            <div style={{ display: "flex", gap: 8 }}>
-                              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: C.textMuted }}>
-                                <input type="checkbox" checked={entry.edit_existing}
-                                  onChange={(e) => updateEntry(entry.id, { edit_existing: e.target.checked })}
-                                  style={{ width: 12, height: 12 }} />
-                                Edit existing
-                              </label>
-                            </div>
-                            {entry.edit_existing && (
-                              <div>
-                                <input type="text" value={entry.message_link}
-                                  onChange={(e) => updateEntry(entry.id, { message_link: e.target.value })}
-                                  placeholder="https://discord.com/channels/..."
-                                  style={{
-                                    width: "100%", borderRadius: 8,
-                                    border: `1px solid ${entry.message_link && !DISCORD_MESSAGE_LINK_RE.test(entry.message_link) ? "#dc2626" : C.border}`,
-                                    backgroundColor: C.bg, padding: "8px 12px",
-                                    fontSize: 12, color: C.text, outline: "none",
-                                  }} />
-                                {entry.message_link && !DISCORD_MESSAGE_LINK_RE.test(entry.message_link) && (
-                                  <p style={{ marginTop: 4, fontSize: 11, color: "#f87171" }}>Invalid Discord message link format</p>
-                                )}
-                              </div>
-                            )}
-                            <div>
-                              <input type="text" value={entry.thread_name}
-                                onChange={(e) => updateEntry(entry.id, { thread_name: e.target.value })}
-                                placeholder="Thread name (optional)"
-                                style={{
-                                  width: "100%", borderRadius: 8,
-                                  border: `1px solid ${C.border}`, backgroundColor: C.bg,
-                                  padding: "8px 12px", fontSize: 12, color: C.text, outline: "none",
-                                }} />
-                            </div>
-                          </div>
-                        )}
-
-                        {editTab === "embed" && (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-                                <input type="text" value={entry.embed.title}
-                                  onChange={(e) => updateEntry(entry.id, { embed: { ...entry.embed, title: e.target.value } })}
-                                  placeholder="Embed title"
-                                  style={{ width: "100%", borderRadius: 8, border: `1px solid ${C.border}`, backgroundColor: C.bg, padding: "8px 12px", fontSize: 13, color: C.text, outline: "none" }} />
-                                <input type="text" value={entry.embed.url}
-                                  onChange={(e) => updateEntry(entry.id, { embed: { ...entry.embed, url: e.target.value } })}
-                                  placeholder="Title URL (optional)"
-                                  style={{ width: "100%", borderRadius: 8, border: `1px solid ${C.border}`, backgroundColor: C.bg, padding: "8px 12px", fontSize: 13, color: C.text, outline: "none" }} />
-                                <textarea value={entry.embed.description}
-                                  onChange={(e) => updateEntry(entry.id, { embed: { ...entry.embed, description: e.target.value } })}
-                                  placeholder="Embed description"
-                                  rows={3}
-                                  style={{ width: "100%", borderRadius: 8, border: `1px solid ${C.border}`, backgroundColor: C.bg, padding: "8px 12px", fontSize: 13, color: C.text, outline: "none", resize: "none" }} />
-                              </div>
-                              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, paddingTop: 4 }}>
-                                <span style={{ fontSize: 10, color: C.textMuted }}>Color</span>
-                                <ColorSwatch value={entry.embed.color}
-                                  onChange={(v) => updateEntry(entry.id, { embed: { ...entry.embed, color: v } })} />
-                                <button type="button" onClick={() => updateEntry(entry.id, { embed: { ...entry.embed, color: "" } })}
-                                  title="Remove color (container mode)"
-                                  style={{ fontSize: 9, color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>
-                                  <Ban style={{ width: 10, height: 10 }} />
-                                </button>
-                              </div>
-                            </div>
-
-                            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
-                              <div style={{ fontSize: 12, fontWeight: 500, color: C.textMuted, marginBottom: 6 }}>Author</div>
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                                <input type="text" value={entry.embed.author_name}
-                                  onChange={(e) => updateEntry(entry.id, { embed: { ...entry.embed, author_name: e.target.value } })}
-                                  placeholder="Author name"
-                                  style={{ borderRadius: 6, border: `1px solid ${C.border}`, backgroundColor: C.bg, padding: "6px 8px", fontSize: 12, color: C.text, outline: "none" }} />
-                                <input type="text" value={entry.embed.author_icon_url}
-                                  onChange={(e) => updateEntry(entry.id, { embed: { ...entry.embed, author_icon_url: e.target.value } })}
-                                  placeholder="Icon URL"
-                                  style={{ borderRadius: 6, border: `1px solid ${C.border}`, backgroundColor: C.bg, padding: "6px 8px", fontSize: 12, color: C.text, outline: "none" }} />
-                                <input type="text" value={entry.embed.author_url}
-                                  onChange={(e) => updateEntry(entry.id, { embed: { ...entry.embed, author_url: e.target.value } })}
-                                  placeholder="Author URL"
-                                  style={{ borderRadius: 6, border: `1px solid ${C.border}`, backgroundColor: C.bg, padding: "6px 8px", fontSize: 12, color: C.text, outline: "none" }} />
-                              </div>
-                            </div>
-
-                            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
-                              <div style={{ fontSize: 12, fontWeight: 500, color: C.textMuted, marginBottom: 6 }}>Fields ({entry.embed.fields.length}/25)</div>
-                              <FieldEditor fields={entry.embed.fields}
-                                onChange={(fields) => updateEntry(entry.id, { embed: { ...entry.embed, fields } })} />
-                            </div>
-
-                            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
-                              <div style={{ fontSize: 12, fontWeight: 500, color: C.textMuted, marginBottom: 6 }}>Images</div>
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                                <div>
-                                  <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 4 }}>Thumbnail URL</div>
-                                  <input type="text" value={entry.embed.thumbnail_url}
-                                    onChange={(e) => updateEntry(entry.id, { embed: { ...entry.embed, thumbnail_url: e.target.value } })}
-                                    placeholder="https://..."
-                                    style={{ width: "100%", borderRadius: 6, border: `1px solid ${C.border}`, backgroundColor: C.bg, padding: "6px 8px", fontSize: 12, color: C.text, outline: "none" }} />
-                                </div>
-                                <div>
-                                  <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 4 }}>Image URL</div>
-                                  <input type="text" value={entry.embed.image_url}
-                                    onChange={(e) => updateEntry(entry.id, { embed: { ...entry.embed, image_url: e.target.value } })}
-                                    placeholder="https://..."
-                                    style={{ width: "100%", borderRadius: 6, border: `1px solid ${C.border}`, backgroundColor: C.bg, padding: "6px 8px", fontSize: 12, color: C.text, outline: "none" }} />
-                                </div>
-                              </div>
-                            </div>
-
-                            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
-                              <div style={{ fontSize: 12, fontWeight: 500, color: C.textMuted, marginBottom: 6 }}>Footer & Timestamp</div>
-                              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                                  <input type="text" value={entry.embed.footer_text}
-                                    onChange={(e) => updateEntry(entry.id, { embed: { ...entry.embed, footer_text: e.target.value } })}
-                                    placeholder="Footer text"
-                                    style={{ borderRadius: 6, border: `1px solid ${C.border}`, backgroundColor: C.bg, padding: "6px 8px", fontSize: 12, color: C.text, outline: "none" }} />
-                                  <input type="text" value={entry.embed.footer_icon_url}
-                                    onChange={(e) => updateEntry(entry.id, { embed: { ...entry.embed, footer_icon_url: e.target.value } })}
-                                    placeholder="Icon URL"
-                                    style={{ borderRadius: 6, border: `1px solid ${C.border}`, backgroundColor: C.bg, padding: "6px 8px", fontSize: 12, color: C.text, outline: "none" }} />
-                                </div>
-                                <input type="datetime-local" value={entry.embed.timestamp}
-                                  onChange={(e) => updateEntry(entry.id, { embed: { ...entry.embed, timestamp: e.target.value } })}
-                                  style={{ borderRadius: 6, border: `1px solid ${C.border}`, backgroundColor: C.bg, padding: "6px 8px", fontSize: 12, color: C.text, outline: "none" }} />
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {editTab === "components" && (
-                          <ComponentEditor rows={entry.components}
-                            onChange={(components) => updateEntry(entry.id, { components })} />
-                        )}
-                      </div>
-                    )}
+                    <button type="button" onClick={() => setPreviewEntryId(entry.id)} className="min-w-0 flex-1 text-left">
+                      <span className="truncate text-zinc-300">
+                        {entry.content.trim() || entry.embed.title.trim() || entry.embed.description.trim() || `Message ${i + 1}`}
+                      </span>
+                    </button>
+                    <button type="button" onClick={() => duplicateEntry(entry.id)} title="Duplicate"
+                      className="text-zinc-600 hover:text-zinc-300">
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" onClick={() => removeEntry(entry.id)} title="Remove"
+                      className="text-zinc-600 hover:text-red-400">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            </section>
 
-            {/* Quick add buttons at bottom */}
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button type="button" onClick={addEntry}
-                style={{
-                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                  padding: "10px 0", borderRadius: 8, fontSize: 12, fontWeight: 500,
-                  border: `1px dashed ${C.border}`, backgroundColor: "transparent",
-                  color: C.textMuted, cursor: "pointer", transition: "all 0.15s",
-                }}>
-                <Plus style={{ width: 14, height: 14 }} /> Add Message
-              </button>
-            </div>
-
-            <div style={{ marginTop: 16 }}>
-              <div style={{
-                borderRadius: 8, border: `1px solid ${C.border}`, backgroundColor: C.card, padding: 12,
-              }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ fontSize: 11, fontWeight: 500, color: C.textMuted }}>
-                    <Save style={{ width: 12, height: 12, display: "inline", marginRight: 4 }} />
-                    Presets ({presets.length})
-                  </span>
-                </div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                  <input type="text" value={presetName}
-                    onChange={(e) => setPresetName(e.target.value)}
-                    placeholder="Preset name..."
-                    style={{
-                      flex: 1, borderRadius: 6,
-                      border: `1px solid ${C.border}`, backgroundColor: C.bg,
-                      padding: "6px 10px", fontSize: 12, color: C.text, outline: "none",
-                    }} />
-                  <button type="button" onClick={() => savePreset("draft")}
-                    style={{ borderRadius: 6, padding: "6px 12px", fontSize: 10, fontWeight: 500, backgroundColor: `${C.burg}20`, color: C.burg, border: "none", cursor: "pointer" }}>
-                    Draft
-                  </button>
-                  <button type="button" onClick={() => savePreset("template")}
-                    style={{ borderRadius: 6, padding: "6px 12px", fontSize: 10, fontWeight: 500, backgroundColor: "rgba(167,139,250,0.15)", color: "#a78bfa", border: "none", cursor: "pointer" }}>
-                    Template
-                  </button>
-                </div>
-                {presets.length > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 100, overflowY: "auto" }}>
-                    {presets.map((p) => (
-                      <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, borderRadius: 6, border: `1px solid ${C.border}`, backgroundColor: C.bg, padding: "6px 10px" }}>
-                        <button type="button" onClick={() => loadPreset(p)}
-                          style={{ flex: 1, textAlign: "left", background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.textMuted }}>
-                          {p.name}
+            {/* Channel picker */}
+            <section>
+              <h2 className="card-heading mb-3 text-sm uppercase tracking-wider" style={{ color: "#8a8a8a" }}>Target Channels</h2>
+              <div className="text-xs text-zinc-500">
+                Channel selection connects to your Discord server once authenticated via the dashboard.
+              </div>
+              <div className="mt-2 rounded-lg border border-zinc-800 bg-black/50 p-3">
+                {form.channel_ids.length === 0 ? (
+                  <div className="text-xs text-zinc-500">
+                    <Link href="/dashboard" className="underline hover:text-zinc-300" style={{ color: ACCENT_COLOR }}>
+                      Open Dashboard
+                    </Link> to select target channels for your announcement.
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {form.channel_ids.map((id) => (
+                      <span key={id} className="inline-flex items-center gap-1 rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300">
+                        #{id.slice(0, 8)}
+                        <button type="button" onClick={() => toggleChannel(id)} className="text-zinc-600 hover:text-red-400">
+                          <X className="h-3 w-3" />
                         </button>
-                        <span style={{ fontSize: 9, color: p.kind === "template" ? "#a78bfa" : C.burg }}>{p.kind === "template" ? "T" : "D"}</span>
-                        <button type="button" onClick={() => deletePreset(p.id)} style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer" }}>
-                          <X style={{ width: 12, height: 12 }} />
-                        </button>
-                      </div>
+                      </span>
                     ))}
                   </div>
                 )}
               </div>
-            </div>
+            </section>
 
-            <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 8, fontSize: 10, color: C.textMuted, paddingBottom: 16 }}>
-              <Megaphone style={{ width: 14, height: 14, color: "#3f3f46" }} />
-              <span>Announcements Studio</span>
-              <span style={{ color: "#27272a" }}>&middot;</span>
-              <span>{form.entries.length} message{form.entries.length !== 1 ? "s" : ""}</span>
-            </div>
-          </div>
-        </div>
+            {/* Active entry editor */}
+            {activeEntry && (
+              <section>
+                <h2 className="card-heading mb-3 text-sm uppercase tracking-wider" style={{ color: "#8a8a8a" }}>Edit Message</h2>
 
-        {/* RIGHT PANE - Preview */}
-        <div style={{ width: "50%", display: "flex", flexDirection: "column", backgroundColor: C.discBg }}>
-          {/* Send button at top of preview */}
-          <div style={{ padding: "12px 20px", borderBottom: `1px solid ${C.discEmbed}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 12, fontWeight: 500, color: C.textMuted }}>
-              <Eye style={{ width: 14, height: 14, display: "inline", marginRight: 6 }} />
-              Preview
-            </span>
-            <button type="button" onClick={() => setSendModalOpen(true)}
-              style={{
-                display: "flex", alignItems: "center", gap: 6,
-                padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-                backgroundColor: C.burg, color: "#fff", border: "none", cursor: "pointer",
-                transition: "all 0.15s",
-              }}>
-              <Send style={{ width: 14, height: 14 }} />
-              Send
-            </button>
-          </div>
-
-          {/* Scrollable preview */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }} className="scrollbar-thin">
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {form.entries.length === 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 24px", textAlign: "center" }}>
-                  <Eye style={{ width: 48, height: 48, color: "#52525b", marginBottom: 16 }} />
-                  <p style={{ fontSize: 14, color: "#71717a" }}>No messages yet</p>
-                  <p style={{ fontSize: 12, color: "#52525b" }}>Add a message to see the preview</p>
+                <div className="mb-3 flex gap-1 rounded-lg border border-zinc-800 bg-black p-1">
+                  {(["content", "embed", "components"] as const).map((tab) => (
+                    <button key={tab} type="button" onClick={() => setEditTab(tab)}
+                      className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                        editTab === tab ? "text-white" : "text-zinc-500 hover:text-zinc-300"
+                      }`}
+                      style={editTab === tab ? { backgroundColor: ACCENT_COLOR + "30", color: ACCENT_COLOR } : {}}>
+                      {tab === "content" ? "Content" : tab === "embed" ? "Embed" : "Components"}
+                    </button>
+                  ))}
                 </div>
-              ) : (
-                form.entries.map((entry, i) => {
-                  const isSelected = previewEntryId === entry.id;
-                  const isContainer = !entry.embed.color;
-                  return (
-                    <div key={entry.id} ref={(el) => { msgRefs.current[`preview-${entry.id}`] = el; }}
-                      style={{
-                        borderRadius: 8,
-                        border: isSelected ? `1px solid ${C.burg}40` : "1px solid transparent",
-                        backgroundColor: isSelected ? `${C.burg}08` : "transparent",
-                        transition: "all 0.15s",
-                        cursor: "pointer",
-                      }}
-                      onClick={() => setPreviewEntryId(entry.id)}>
-                      <DiscordMessagePreview entry={entry} />
-                      {isContainer && entry.embed.title ? (
-                        <DiscordContainer embed={entry.embed} />
-                      ) : (
-                        <DiscordEmbed entry={entry} />
-                      )}
+
+                {editTab === "content" && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-500">Message Content</label>
+                      <textarea value={activeEntry.content}
+                        onChange={(e) => updateEntry(activeEntry.id, { content: e.target.value })}
+                        placeholder="Type your announcement message here..."
+                        rows={4}
+                        className="w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 resize-none focus:border-zinc-600 focus:outline-none" />
                     </div>
-                  );
-                })
+                    <label className="flex items-center gap-2 text-xs text-zinc-500">
+                      <input type="checkbox" checked={activeEntry.edit_existing}
+                        onChange={(e) => updateEntry(activeEntry.id, { edit_existing: e.target.checked })}
+                        className="h-3.5 w-3.5 rounded border-zinc-700 bg-zinc-800" />
+                      Edit existing message (provide message link below)
+                    </label>
+                    {activeEntry.edit_existing && (
+                      <input type="text" value={activeEntry.message_link}
+                        onChange={(e) => updateEntry(activeEntry.id, { message_link: e.target.value })}
+                        placeholder="https://discord.com/channels/..."
+                        className="w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-zinc-600 focus:outline-none" />
+                    )}
+                  </div>
+                )}
+
+                {editTab === "embed" && (
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <input type="text" value={activeEntry.embed.title}
+                          onChange={(e) => updateEntry(activeEntry.id, { embed: { ...activeEntry.embed, title: e.target.value } })}
+                          placeholder="Embed title"
+                          className="w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-zinc-600 focus:outline-none" />
+                        <input type="text" value={activeEntry.embed.url}
+                          onChange={(e) => updateEntry(activeEntry.id, { embed: { ...activeEntry.embed, url: e.target.value } })}
+                          placeholder="Title URL (optional)"
+                          className="w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-zinc-600 focus:outline-none" />
+                        <textarea value={activeEntry.embed.description}
+                          onChange={(e) => updateEntry(activeEntry.id, { embed: { ...activeEntry.embed, description: e.target.value } })}
+                          placeholder="Embed description"
+                          rows={3}
+                          className="w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 resize-none focus:border-zinc-600 focus:outline-none" />
+                      </div>
+                      <div className="flex flex-col items-center gap-1.5 pt-1">
+                        <span className="text-[10px] text-zinc-600">Color</span>
+                        <ColorSwatch value={activeEntry.embed.color}
+                          onChange={(v) => updateEntry(activeEntry.id, { embed: { ...activeEntry.embed, color: v } })} />
+                      </div>
+                    </div>
+
+                    <div className="border-t border-zinc-800 pt-3">
+                      <h3 className="mb-2 text-xs font-medium text-zinc-400">Author</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="text" value={activeEntry.embed.author_name}
+                          onChange={(e) => updateEntry(activeEntry.id, { embed: { ...activeEntry.embed, author_name: e.target.value } })}
+                          placeholder="Author name"
+                          className="w-full rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 focus:border-zinc-600 focus:outline-none" />
+                        <input type="text" value={activeEntry.embed.author_icon_url}
+                          onChange={(e) => updateEntry(activeEntry.id, { embed: { ...activeEntry.embed, author_icon_url: e.target.value } })}
+                          placeholder="Icon URL"
+                          className="w-full rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 focus:border-zinc-600 focus:outline-none" />
+                        <input type="text" value={activeEntry.embed.author_url}
+                          onChange={(e) => updateEntry(activeEntry.id, { embed: { ...activeEntry.embed, author_url: e.target.value } })}
+                          placeholder="Author URL"
+                          className="w-full rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 focus:border-zinc-600 focus:outline-none" />
+                      </div>
+                    </div>
+
+                    <div className="border-t border-zinc-800 pt-3">
+                      <h3 className="mb-2 text-xs font-medium text-zinc-400">Fields ({activeEntry.embed.fields.length}/25)</h3>
+                      <FieldEditor fields={activeEntry.embed.fields}
+                        onChange={(fields) => updateEntry(activeEntry.id, { embed: { ...activeEntry.embed, fields } })} />
+                    </div>
+
+                    <div className="border-t border-zinc-800 pt-3">
+                      <h3 className="mb-2 text-xs font-medium text-zinc-400">Images</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="mb-1 block text-[10px] text-zinc-600">Thumbnail URL</label>
+                          <input type="text" value={activeEntry.embed.thumbnail_url}
+                            onChange={(e) => updateEntry(activeEntry.id, { embed: { ...activeEntry.embed, thumbnail_url: e.target.value } })}
+                            placeholder="https://..."
+                            className="w-full rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 focus:border-zinc-600 focus:outline-none" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] text-zinc-600">Image URL</label>
+                          <input type="text" value={activeEntry.embed.image_url}
+                            onChange={(e) => updateEntry(activeEntry.id, { embed: { ...activeEntry.embed, image_url: e.target.value } })}
+                            placeholder="https://..."
+                            className="w-full rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 focus:border-zinc-600 focus:outline-none" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-zinc-800 pt-3">
+                      <h3 className="mb-2 text-xs font-medium text-zinc-400">Footer & Timestamp</h3>
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <input type="text" value={activeEntry.embed.footer_text}
+                            onChange={(e) => updateEntry(activeEntry.id, { embed: { ...activeEntry.embed, footer_text: e.target.value } })}
+                            placeholder="Footer text"
+                            className="w-full rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 focus:border-zinc-600 focus:outline-none" />
+                          <input type="text" value={activeEntry.embed.footer_icon_url}
+                            onChange={(e) => updateEntry(activeEntry.id, { embed: { ...activeEntry.embed, footer_icon_url: e.target.value } })}
+                            placeholder="Icon URL"
+                            className="w-full rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 focus:border-zinc-600 focus:outline-none" />
+                        </div>
+                        <input type="datetime-local" value={activeEntry.embed.timestamp}
+                          onChange={(e) => updateEntry(activeEntry.id, { embed: { ...activeEntry.embed, timestamp: e.target.value } })}
+                          className="w-full rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 focus:border-zinc-600 focus:outline-none" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {editTab === "components" && (
+                  <ComponentEditor rows={activeEntry.components}
+                    onChange={(components) => updateEntry(activeEntry.id, { components })} />
+                )}
+              </section>
+            )}
+          </div>
+
+          {/* RIGHT: Preview */}
+          <div className="space-y-4">
+            <div style={{ backgroundColor: "#000000" }} className="rounded-xl p-5">
+              <h2 className="card-heading mb-3 text-sm uppercase tracking-wider" style={{ color: "#8a8a8a" }}>Preview</h2>
+              {activeEntry ? (
+                <DiscordMessagePreview entry={activeEntry} channelName={form.channel_ids[0]?.slice(0, 8) || undefined} />
+              ) : (
+                <div className="flex items-center justify-center rounded-lg bg-zinc-800/50 py-12 text-sm text-zinc-500">
+                  Select a message to preview
+                </div>
               )}
             </div>
+
+            {/* Presets */}
+            <div style={{ backgroundColor: "#000000" }} className="rounded-xl p-5">
+              <h2 className="card-heading mb-3 text-sm uppercase tracking-wider" style={{ color: "#8a8a8a" }}>Presets</h2>
+              <div className="flex gap-2">
+                <input type="text" value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
+                  placeholder="Preset name..."
+                  className="min-w-0 flex-1 rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-zinc-600 focus:outline-none" />
+                <button type="button" onClick={() => savePreset("draft")}
+                  className="rounded-lg px-3 py-2 text-xs font-medium transition-colors"
+                  style={{ backgroundColor: ACCENT_COLOR + "20", color: ACCENT_COLOR }}>
+                  <Save className="mr-1 inline h-3 w-3" />Draft
+                </button>
+                <button type="button" onClick={() => savePreset("template")}
+                  className="rounded-lg px-3 py-2 text-xs font-medium transition-colors"
+                  style={{ backgroundColor: "#a78bfa20", color: "#a78bfa" }}>
+                  <Save className="mr-1 inline h-3 w-3" />Template
+                </button>
+              </div>
+              {presets.length > 0 && (
+                <div className="mt-3 space-y-1">
+                  {presets.map((preset) => (
+                    <div key={preset.id} className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-black/50 px-3 py-2 text-sm">
+                      <span className={`text-[10px] uppercase ${preset.kind === "template" ? "text-violet-400" : "text-amber-400"}`}>
+                        {preset.kind === "template" ? "T" : "D"}
+                      </span>
+                      <button type="button" onClick={() => loadPreset(preset)} className="min-w-0 flex-1 text-left text-zinc-300 hover:text-white">
+                        {preset.name}
+                      </button>
+                      <button type="button" onClick={() => deletePreset(preset.id)} className="text-zinc-600 hover:text-red-400">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Dashboard CTA */}
+            <div style={{ backgroundColor: "#000000" }} className="rounded-xl p-5">
+              <Link href="/dashboard"
+                className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold transition-all hover:brightness-110"
+                style={{ backgroundColor: ACCENT_COLOR, color: "#fff" }}>
+                <Send className="h-4 w-4" /> Open Dashboard to Send
+              </Link>
+              <p className="mt-2 text-center text-[10px] text-zinc-600">
+                Authenticate with Discord to send announcements to your server
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
 
-function ToolbarButton({ icon, tooltip, onClick }: { icon: ReactNode; tooltip: string; onClick: () => void }) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <div style={{ position: "relative", display: "inline-flex" }}>
-      <button type="button" onClick={onClick}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "center",
-          width: 32, height: 32, borderRadius: 8,
-          border: `1px solid ${hovered ? "#3f3f46" : C.border}`,
-          backgroundColor: "transparent",
-          color: hovered ? C.text : C.textMuted,
-          cursor: "pointer", transition: "all 0.15s",
-        }}>
-        {icon}
-      </button>
-      {hovered && (
-        <div style={{
-          position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)",
-          marginBottom: 6, padding: "4px 10px", borderRadius: 6,
-          backgroundColor: "#18181b", color: C.text,
-          fontSize: 11, fontWeight: 500, whiteSpace: "nowrap",
-          border: `1px solid ${C.border}`,
-          zIndex: 100, pointerEvents: "none",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-        }}>
-          {tooltip}
+        <div className="mt-12">
+          <Link href="/" className="inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold" style={{ backgroundColor: '#000000', color: '#8a8a8a' }}>
+            Back to Landing
+          </Link>
         </div>
-      )}
+      </main>
     </div>
   );
 }
-
-const SAMPLE_CHANNELS: GuildChannel[] = [
-  { id: "1", name: "announcements", type: 0 },
-  { id: "2", name: "general", type: 0 },
-  { id: "3", name: "updates", type: 0 },
-  { id: "4", name: "dev-log", type: 0 },
-  { id: "5", name: "community", type: 0 },
-];
