@@ -772,14 +772,14 @@ export default function GuildAnnouncementsPage() {
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600;700&display=swap');
 
         /* ── Left-pane slim scrollbar ─────────────────────────────── */
-        .left-scroll::-webkit-scrollbar        { width: 5px; }
-        .left-scroll::-webkit-scrollbar-track  { background: transparent; }
+        .left-scroll::-webkit-scrollbar        { width: 6px; }
+        .left-scroll::-webkit-scrollbar-track  { background: #1a1a1a; }
         .left-scroll::-webkit-scrollbar-thumb  {
-          background: rgba(255,255,255,0.10);
+          background: #555;
           border-radius: 10px;
         }
         .left-scroll::-webkit-scrollbar-thumb:hover {
-          background: rgba(255,255,255,0.22);
+          background: #777;
         }
 
         /* ── Preview scrollbar ────────────────────────────────────── */
