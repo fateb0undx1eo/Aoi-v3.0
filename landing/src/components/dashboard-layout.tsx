@@ -30,6 +30,7 @@ type DashboardLayoutProps = {
   guildName?: string;
   heading?: string;
   modules?: ModuleItem[];
+  flush?: boolean;
 };
 
 function slugify(name = "") {
@@ -56,6 +57,7 @@ export function DashboardLayout({
   guildName = "Guild",
   heading = "Overview",
   modules = [],
+  flush = false,
 }: DashboardLayoutProps) {
   const router = useRouter();
   const sidebarOpen = useDashboardStore((state) => state.sidebarOpen);
@@ -172,7 +174,7 @@ export function DashboardLayout({
         </nav>
       </header>
 
-      <div className="relative mx-auto flex max-w-[96rem] gap-6 px-4 pb-8 pt-6 sm:px-6 lg:px-8">
+      <div className={`relative mx-auto flex ${flush ? "" : "max-w-[96rem] gap-6 px-4 pb-8 pt-6 sm:px-6 lg:px-8"}`}>
         {(sidebarOpen || closing) && (
           <>
             <button

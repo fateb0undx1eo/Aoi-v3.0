@@ -339,7 +339,8 @@ const spoilerRule: Rule = {
   render(c, r) { return <Spoiler>{r(c.content)}</Spoiler>; },
 };
 
-const mentionStyle = "rounded bg-cyan-500/15 px-1 py-px font-medium text-cyan-400";
+const mentionCyan = "font-medium text-cyan-400";
+const mentionBurg = "font-medium text-[#8B1538]";
 
 const globalMentionRule: Rule = {
   capture(source) {
@@ -347,7 +348,7 @@ const globalMentionRule: Rule = {
     if (!m) return;
     return { size: m[0].length, content: m[0] };
   },
-  render(c) { return <span className={mentionStyle}>{c.content}</span>; },
+  render(c) { return <span className={mentionCyan}>{c.content}</span>; },
 };
 
 const channelMentionRule: Rule = {
@@ -356,7 +357,7 @@ const channelMentionRule: Rule = {
     if (!m) return;
     return { size: m[0].length, id: m[1] };
   },
-  render() { return <span className={mentionStyle}>#channel</span>; },
+  render() { return <span className={mentionCyan}>#channel</span>; },
 };
 
 const memberMentionRule: Rule = {
@@ -365,7 +366,7 @@ const memberMentionRule: Rule = {
     if (!m) return;
     return { size: m[0].length, id: m[1] };
   },
-  render() { return <span className={mentionStyle}>@user</span>; },
+  render() { return <span className={mentionBurg}>@user</span>; },
 };
 
 const roleMentionRule: Rule = {
@@ -374,7 +375,7 @@ const roleMentionRule: Rule = {
     if (!m) return;
     return { size: m[0].length, id: m[1] };
   },
-  render() { return <span className={mentionStyle}>@role</span>; },
+  render() { return <span className={mentionCyan}>@role</span>; },
 };
 
 const commandMentionRule: Rule = {
@@ -383,7 +384,7 @@ const commandMentionRule: Rule = {
     if (!m) return;
     return { size: m[0].length, name: m[1], id: m[2] };
   },
-  render(c) { return <span className={mentionStyle}>/{c.name}</span>; },
+  render(c) { return <span className={mentionCyan}>/{c.name}</span>; },
 };
 
 const timestampRule: Rule = {

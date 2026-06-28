@@ -3,10 +3,10 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import {
-  Megaphone, Copy, Trash2, ChevronDown,
+  Copy, Trash2, ChevronDown,
   Send, Save, X, Eye, Check, Bot, Globe, Hash,
   MessageSquare, FileText, Code, RotateCcw, Layers,
-  AlertTriangle, Zap,
+  AlertTriangle, Zap, Undo2, Redo2,
 } from "lucide-react";
 
 import type {
@@ -32,8 +32,9 @@ import { Section, Toggle, Label, Input, ChannelTag, EmbedRow, AddButton } from "
 
 type Toast = { id: string; state: "idle" | "success" | "error" | "info" | "sending"; text: string };
 
-function ToolbarButton({ icon, tooltip, onClick }: { icon: ReactNode; tooltip: string; onClick: () => void }) {
+function ToolbarButton({ icon, tooltip, onClick, color }: { icon: ReactNode; tooltip: string; onClick: () => void; color?: string }) {
   const [hovered, setHovered] = useState(false);
+  const bg = color || "transparent";
   return (
     <div style={{ position: "relative", display: "inline-flex" }}>
       <button type="button" onClick={onClick}
@@ -42,9 +43,9 @@ function ToolbarButton({ icon, tooltip, onClick }: { icon: ReactNode; tooltip: s
         style={{
           display: "flex", alignItems: "center", justifyContent: "center",
           width: 32, height: 32, borderRadius: 8,
-          border: `1px solid ${hovered ? "#3f3f46" : C.border}`,
-          backgroundColor: "transparent",
-          color: hovered ? C.text : C.textMuted,
+          border: "none",
+          backgroundColor: hovered ? `${bg}dd` : bg,
+          color: "#fff",
           cursor: "pointer", transition: "all 0.15s",
         }}>
         {icon}
@@ -262,6 +263,20 @@ export default function GuildAnnouncementsPage() {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [messageLink, setMessageLink] = useState("");
 
+  const [history, setHistory] = useState<QueryData[]>([cloneQueryData(data)]);
+  const [historyIdx, setHistoryIdx] = useState(0);
+  const skipHistoryRef = useRef(false);
+
+  useEffect(() => {
+    if (skipHistoryRef.current) { skipHistoryRef.current = false; return; }
+    setHistory((prev) => {
+      const next = prev.slice(0, historyIdx + 1);
+      next.push(cloneQueryData(data));
+      return next;
+    });
+    setHistoryIdx((prev) => prev + 1);
+  }, [data]);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const msgRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
@@ -312,6 +327,39 @@ export default function GuildAnnouncementsPage() {
   }, [guildId, router]);
 
   const setD = useCallback((next: QueryData) => setData(cloneQueryData(next)), []);
+
+  const undo = useCallback(() => {
+    if (historyIdx <= 0) return;
+    skipHistoryRef.current = true;
+    const newIdx = historyIdx - 1;
+    setHistoryIdx(newIdx);
+    setD(cloneQueryData(history[newIdx]!));
+  }, [historyIdx, history, setD]);
+
+  const redo = useCallback(() => {
+    if (historyIdx >= history.length - 1) return;
+    skipHistoryRef.current = true;
+    const newIdx = historyIdx + 1;
+    setHistoryIdx(newIdx);
+    setD(cloneQueryData(history[newIdx]!));
+  }, [historyIdx, history, setD]);
+
+  const resetAll = useCallback(() => {
+    setD({ version: data.version, messages: [{ _id: randomId(), data: {} }], targets: [] });
+    setMessageFiles({});
+    setSelectedChannelIds(new Set());
+    setWebhookUrl("");
+    setMessageLink("");
+    setEditMode(false);
+    setEditEmbedIndex(null);
+    setPresetName("");
+    setComponentModalOpen(false);
+    setEditingComponent(null);
+    setEditingComponentPos(null);
+    setHistory([cloneQueryData({ version: data.version, messages: [{ _id: randomId(), data: {} }], targets: [] })]);
+    setHistoryIdx(0);
+    addToast("info", "Reset to empty state.");
+  }, [data.version, setD, addToast]);
 
   const updateMessageData = useCallback((updates: Partial<QueryDataMessageData>) => {
     setD({ ...data, messages: data.messages.map((m, i) => i === selectedMessageIndex ? { ...m, data: { ...m.data, ...updates } } : m) });
@@ -533,7 +581,7 @@ export default function GuildAnnouncementsPage() {
   const msg = message?.data;
 
   return (
-    <DashboardLayout guildId={String(guildId || "")} guildName={guild?.name || "Guild"} heading="" modules={modules}>
+    <DashboardLayout guildId={String(guildId || "")} guildName={guild?.name || "Guild"} heading="" modules={modules} flush>
       <style>{`
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .scrollbar-thin::-webkit-scrollbar { width: 7px; }
@@ -574,16 +622,14 @@ export default function GuildAnnouncementsPage() {
         <div style={{ width: "45%", display: "flex", flexDirection: "column", backgroundColor: C.surface, borderRight: `1px solid ${C.border}` }}>
 
           {/* Header */}
-          <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, backgroundColor: C.surface }}>
+          <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, backgroundColor: C.surface }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Megaphone style={{ width: 16, height: 16, color: C.burg }} />
-                <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Announcement Studio</span>
-              </div>
-              <div style={{ display: "flex", gap: 2 }}>
-                <ToolbarButton icon={<Save style={{ width: 11, height: 11 }} />} tooltip="Presets" onClick={() => setPresetsOpen(!presetsOpen)} />
-                <ToolbarButton icon={<Code style={{ width: 11, height: 11 }} />} tooltip="Generate Code" onClick={() => setCodeGenOpen(true)} />
-                <ToolbarButton icon={<RotateCcw style={{ width: 11, height: 11 }} />} tooltip="Reset" onClick={() => { setD({ version: data.version, messages: [{ _id: randomId(), data: {} }], targets: [] }); addToast("info", "Reset to empty state."); }} />
+              <span style={{ fontSize: 17, fontWeight: 700, color: C.text, fontFamily: "'Inter','Segoe UI',system-ui,sans-serif", letterSpacing: "-0.02em" }}>Announcement Studio</span>
+              <div style={{ display: "flex", gap: 4 }}>
+                <ToolbarButton icon={<RotateCcw style={{ width: 12, height: 12 }} />} tooltip="Reset" color="#dc2626" onClick={resetAll} />
+                <ToolbarButton icon={<Undo2 style={{ width: 12, height: 12 }} />} tooltip="Undo" color="#2563eb" onClick={undo} />
+                <ToolbarButton icon={<Redo2 style={{ width: 12, height: 12 }} />} tooltip="Redo" color="#16a34a" onClick={redo} />
+                <ToolbarButton icon={<Save style={{ width: 12, height: 12 }} />} tooltip="Presets" color="#8B1538" onClick={() => setPresetsOpen(!presetsOpen)} />
               </div>
             </div>
             {/* Message nav */}
@@ -609,7 +655,7 @@ export default function GuildAnnouncementsPage() {
           </div>
 
           {/* Scrollable sections area */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "10px 12px" }} className="scrollbar-thin">
+          <div style={{ flex: 1, overflowY: "scroll", overflowX: "hidden", padding: "10px 12px" }} className="scrollbar-thin">
             {!msg ? (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 0", textAlign: "center" }}>
                 <MessageSquare style={{ width: 32, height: 32, color: "#52525b", marginBottom: 8 }} />
