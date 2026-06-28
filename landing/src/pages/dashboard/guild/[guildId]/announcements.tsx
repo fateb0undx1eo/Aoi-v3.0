@@ -3,42 +3,34 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import {
-  Megaphone, Plus, Copy, Trash2, ChevronDown, ChevronUp,
+  Megaphone, Copy, Trash2, ChevronDown,
   Send, Save, X, Eye, Check, Bot, Globe, Hash,
-  MessageSquare, FileText, Code, Share2, RotateCcw, Layers,
-  AlertTriangle, Zap, Ban,
+  MessageSquare, FileText, Code, RotateCcw, Layers,
+  AlertTriangle, Zap,
 } from "lucide-react";
 
 import type {
-  QueryData, QueryDataMessage, QueryDataMessageData, QueryDataTarget,
-  StatusMsg, GuildChannel, GuildRole, GuildEmoji, DraftFile, FlowActionPayload, FlowAction,
-  ButtonStyle, APITopLevelComponent, APIActionRowComponent, APIContainerComponent,
-  APIComponentInActionRow, APIEmbed, APIV2TextDisplay, APIAllowedMentions, ModuleRow,
+  QueryData, QueryDataMessage, QueryDataMessageData,
+  GuildChannel, GuildEmoji, DraftFile, FlowActionPayload, FlowAction,
+  APIActionRowComponent, APIContainerComponent,
+  APIComponentInActionRow, APIV2TextDisplay,
 } from "@/components/announcements/types";
-import { ACCENT, EMBED_BG, C } from "@/components/announcements/constants";
-import { TargetType } from "@/components/announcements/types";
+import { C } from "@/components/announcements/constants";
 import { getBackendApiUrl } from "@/lib/backend";
 import {
-  randomId, createMessage, getNewMessageData, cloneQueryData,
-  isComponentsV2, getMessageDisplayName, formatTimestamp,
+  randomId, createMessage, cloneQueryData,
+  isComponentsV2,
 } from "@/components/announcements/utils/message";
 
-import MessageEditorCard from "@/components/announcements/editor/MessageEditorCard";
 import CodeGenerator from "@/components/announcements/modals/CodeGenerator";
 import ComponentEditModal from "@/components/announcements/modals/ComponentEditModal";
 import DiscordPreview from "@/components/announcements/preview/DiscordPreview";
+import EmbedEditor from "@/components/announcements/editor/EmbedEditor";
+import ComponentEditorForMessage from "@/components/announcements/editor/ComponentEditorForMessage";
+import FileAttachmentEditor from "@/components/announcements/editor/FileAttachmentEditor";
+import { Section, Toggle, Label, Input, ChannelTag, EmbedRow, AddButton } from "@/components/announcements/editor/ui";
 
 type Toast = { id: string; state: "idle" | "success" | "error" | "info" | "sending"; text: string };
-
-const THEME = {
-  bg: "#090909",
-  surface: "#111111",
-  card: "#1a1a1a",
-  burg: "#8B1538",
-  border: "#1a1a1a",
-  text: "#dbdee1",
-  textMuted: "#6b6b6b",
-};
 
 function ToolbarButton({ icon, tooltip, onClick }: { icon: ReactNode; tooltip: string; onClick: () => void }) {
   const [hovered, setHovered] = useState(false);
@@ -50,9 +42,9 @@ function ToolbarButton({ icon, tooltip, onClick }: { icon: ReactNode; tooltip: s
         style={{
           display: "flex", alignItems: "center", justifyContent: "center",
           width: 32, height: 32, borderRadius: 8,
-          border: `1px solid ${hovered ? "#3f3f46" : THEME.border}`,
+          border: `1px solid ${hovered ? "#3f3f46" : C.border}`,
           backgroundColor: "transparent",
-          color: hovered ? THEME.text : THEME.textMuted,
+          color: hovered ? C.text : C.textMuted,
           cursor: "pointer", transition: "all 0.15s",
         }}>
         {icon}
@@ -61,9 +53,9 @@ function ToolbarButton({ icon, tooltip, onClick }: { icon: ReactNode; tooltip: s
         <div style={{
           position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)",
           marginBottom: 6, padding: "4px 10px", borderRadius: 6,
-          backgroundColor: "#18181b", color: THEME.text,
+          backgroundColor: "#18181b", color: C.text,
           fontSize: 11, fontWeight: 500, whiteSpace: "nowrap",
-          border: `1px solid ${THEME.border}`,
+          border: `1px solid ${C.border}`,
           zIndex: 100, pointerEvents: "none",
           boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
         }}>
@@ -116,92 +108,13 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
   );
 }
 
-function SendModal({
-  open, channels, selectedChannelIds, onToggleChannel, onSelectAll, onDeselectAll,
-  sendMode, onSendModeChange, onSend, onClose,
-}: {
-  open: boolean; channels: GuildChannel[]; selectedChannelIds: Set<string>;
-  onToggleChannel: (id: string) => void; onSelectAll: () => void; onDeselectAll: () => void;
-  sendMode: "webhook" | "bot" | "edit_webhook" | "edit_bot";
-  onSendModeChange: (mode: "webhook" | "bot" | "edit_webhook" | "edit_bot") => void;
-  onSend: () => void; onClose: () => void;
-}) {
-  if (!open) return null;
-  return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 9998,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
-    }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()}
-        style={{ backgroundColor: THEME.surface, borderRadius: 16, border: `1px solid ${THEME.border}`, padding: 24, width: 420, maxWidth: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: THEME.text }}>Send Announcement</h2>
-          <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: THEME.textMuted, cursor: "pointer" }}>
-            <X style={{ width: 18, height: 18 }} />
-          </button>
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 12, fontWeight: 500, color: THEME.textMuted, marginBottom: 8, display: "block" }}>Send Mode</label>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {[
-              { value: "webhook" as const, label: "Send as Webhook", icon: Globe },
-              { value: "bot" as const, label: "Send as Bot", icon: Bot },
-              { value: "edit_webhook" as const, label: "Edit Message as Webhook", icon: Globe },
-              { value: "edit_bot" as const, label: "Edit Message as Bot", icon: Bot },
-            ].map(({ value, label, icon: Icon }) => (
-              <button key={value} type="button" onClick={() => onSendModeChange(value)}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, border: `1px solid ${sendMode === value ? THEME.burg : THEME.border}`, backgroundColor: sendMode === value ? `${THEME.burg}15` : "transparent", color: sendMode === value ? THEME.burg : THEME.text, cursor: "pointer", fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}>
-                <Icon style={{ width: 16, height: 16 }} />
-                {label}
-                {sendMode === value && <Check style={{ width: 14, height: 14, marginLeft: "auto" }} />}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <label style={{ fontSize: 12, fontWeight: 500, color: THEME.textMuted }}>
-              <Hash style={{ width: 12, height: 12, display: "inline", marginRight: 4 }} />
-              Channels ({selectedChannelIds.size})
-            </label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button type="button" onClick={onSelectAll} style={{ fontSize: 10, color: THEME.textMuted, background: "none", border: "none", cursor: "pointer" }}>All</button>
-              <button type="button" onClick={onDeselectAll} style={{ fontSize: 10, color: THEME.textMuted, background: "none", border: "none", cursor: "pointer" }}>None</button>
-            </div>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 160, overflowY: "auto" }}>
-            {channels.length === 0 ? (
-              <p style={{ fontSize: 11, color: THEME.textMuted }}>No text channels available.</p>
-            ) : channels.map((ch) => {
-              const sel = selectedChannelIds.has(ch.id);
-              return (
-                <button key={ch.id} type="button" onClick={() => onToggleChannel(ch.id)}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 500, border: `1px solid ${sel ? `${THEME.burg}60` : THEME.border}`, backgroundColor: sel ? `${THEME.burg}15` : "transparent", color: sel ? THEME.burg : THEME.textMuted, cursor: "pointer", transition: "all 0.15s" }}>
-                  {sel && <Check style={{ width: 10, height: 10 }} />}
-                  # {ch.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <button type="button" onClick={onSend} disabled={selectedChannelIds.size === 0}
-          style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 0", borderRadius: 10, fontSize: 14, fontWeight: 600, color: "#fff", backgroundColor: THEME.burg, border: "none", cursor: selectedChannelIds.size === 0 ? "not-allowed" : "pointer", opacity: selectedChannelIds.size === 0 ? 0.5 : 1, transition: "all 0.15s" }}>
-          <Send style={{ width: 16, height: 16 }} />
-          Send to {selectedChannelIds.size} channel{selectedChannelIds.size !== 1 ? "s" : ""}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export default function GuildAnnouncementsPage() {
   const router = useRouter();
   const { guildId } = router.query;
 
   const [loading, setLoading] = useState(true);
   const [guild, setGuild] = useState<Record<string, any> | null>(null);
-  const [modules, setModules] = useState<ModuleRow[]>([]);
+  const [modules, setModules] = useState<Record<string, any>[]>([]);
   const [channels, setChannels] = useState<GuildChannel[]>([]);
   const [serverEmojis, setServerEmojis] = useState<GuildEmoji[]>([]);
 
@@ -223,9 +136,7 @@ export default function GuildAnnouncementsPage() {
   const [presetName, setPresetName] = useState("");
   const [presetsOpen, setPresetsOpen] = useState(false);
 
-  const [editTab, setEditTab] = useState<"content" | "embed" | "files" | "components" | "json">("content");
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [sendModalOpen, setSendModalOpen] = useState(false);
   const [sendMode, setSendMode] = useState<"webhook" | "bot" | "edit_webhook" | "edit_bot">("webhook");
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -263,7 +174,7 @@ export default function GuildAnnouncementsPage() {
         setModules(ov.modules || []);
         setChannels(Array.isArray(ch.channels) ? ch.channels.filter((c: GuildChannel) => c.type === 0) : []);
         setServerEmojis(Array.isArray(em.emojis) ? em.emojis : []);
-        const announcementsModule = (ov.modules || []).find((m: ModuleRow) => m.name === "announcements");
+        const announcementsModule = (ov.modules || []).find((m: any) => m.name === "announcements");
         const savedPresets = announcementsModule?.config?.presets;
         if (Array.isArray(savedPresets) && savedPresets.length > 0) {
           setPresets(savedPresets.map((p: any) => ({
@@ -459,11 +370,15 @@ export default function GuildAnnouncementsPage() {
       const responseData = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(responseData?.error || "Failed to send");
       addToast("success", "Announcement sent successfully!");
-      setSendModalOpen(false);
     } catch (err) {
       addToast("error", err instanceof Error ? err.message : "Failed to send");
     }
   }, [guildId, data, selectedChannelIds, messageFiles, addToast]);
+
+  const mid = message?._id || "";
+  const currentFiles = messageFiles[mid] || [];
+
+  const [editEmbedIndex, setEditEmbedIndex] = useState<number | null>(null);
 
   const msg = message?.data;
 
@@ -478,13 +393,6 @@ export default function GuildAnnouncementsPage() {
       `}</style>
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-      <SendModal
-        open={sendModalOpen} channels={channels}
-        selectedChannelIds={selectedChannelIds}
-        onToggleChannel={toggleChannel} onSelectAll={selectAllChannels} onDeselectAll={deselectAllChannels}
-        sendMode={sendMode} onSendModeChange={setSendMode}
-        onSend={handleSend} onClose={() => setSendModalOpen(false)}
-      />
 
       <CodeGenerator messageData={msg || {}} open={codeGenOpen} onClose={() => setCodeGenOpen(false)} />
       <ComponentEditModal open={componentModalOpen} onClose={() => setComponentModalOpen(false)}
@@ -503,134 +411,255 @@ export default function GuildAnnouncementsPage() {
         serverEmojis={serverEmojis} />
 
       <div style={{ flex: 1, display: "flex", overflow: "hidden", height: "calc(100vh - 120px)" }}>
-        {/* LEFT PANE */}
-        <div style={{ width: "50%", display: "flex", flexDirection: "column", backgroundColor: THEME.surface, borderRight: `1px solid ${THEME.border}` }}>
-          {/* Fixed header */}
-          <div style={{ padding: "12px 16px", borderBottom: `1px solid ${THEME.border}`, backgroundColor: THEME.surface }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        {/* LEFT PANEL - 400px */}
+        <div style={{ width: 400, display: "flex", flexDirection: "column", backgroundColor: C.surface, borderRight: `1px solid ${C.border}`, flexShrink: 0 }}>
+
+          {/* Header */}
+          <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, backgroundColor: C.surface }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Megaphone style={{ width: 18, height: 18, color: THEME.burg }} />
-                <span style={{ fontSize: 16, fontWeight: 600, color: THEME.text }}>Announcement Studio</span>
+                <Megaphone style={{ width: 16, height: 16, color: C.burg }} />
+                <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Announcement Studio</span>
               </div>
-              <div style={{ display: "flex", gap: 4 }}>
-                <ToolbarButton icon={<Share2 style={{ width: 14, height: 14 }} />} tooltip="Share" onClick={() => {}} />
-                <ToolbarButton icon={<Save style={{ width: 14, height: 14 }} />} tooltip="Presets" onClick={() => setPresetsOpen(!presetsOpen)} />
-                <ToolbarButton icon={<Code style={{ width: 14, height: 14 }} />} tooltip="Generate Code" onClick={() => setCodeGenOpen(true)} />
-                <ToolbarButton icon={<RotateCcw style={{ width: 14, height: 14 }} />} tooltip="Reset" onClick={() => { setD({ version: data.version, messages: [{ _id: randomId(), data: {} }], targets: [] }); addToast("info", "Reset to empty state."); }} />
+              <div style={{ display: "flex", gap: 2 }}>
+                <ToolbarButton icon={<Save style={{ width: 12, height: 12 }} />} tooltip="Presets" onClick={() => setPresetsOpen(!presetsOpen)} />
+                <ToolbarButton icon={<Code style={{ width: 12, height: 12 }} />} tooltip="Generate Code" onClick={() => setCodeGenOpen(true)} />
+                <ToolbarButton icon={<RotateCcw style={{ width: 12, height: 12 }} />} tooltip="Reset" onClick={() => { setD({ version: data.version, messages: [{ _id: randomId(), data: {} }], targets: [] }); addToast("info", "Reset to empty state."); }} />
               </div>
             </div>
 
-            {/* Message nav numbers */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 11, color: THEME.textMuted, marginRight: 4 }}>Messages:</span>
-              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {/* Message nav */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ fontSize: 10, color: C.textMuted, marginRight: 2 }}>Msg:</span>
+              <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                 {data.messages.map((_, i) => (
                   <button key={i} type="button" onClick={() => scrollToMessage(i)} title={`Message ${i + 1}`}
-                    style={{ width: 24, height: 24, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 600, border: `1px solid ${selectedMessageIndex === i ? THEME.burg : THEME.border}`, backgroundColor: selectedMessageIndex === i ? `${THEME.burg}20` : "transparent", color: selectedMessageIndex === i ? THEME.burg : THEME.textMuted, cursor: "pointer", transition: "all 0.15s" }}>
+                    style={{ width: 22, height: 22, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 600, border: `1px solid ${selectedMessageIndex === i ? C.burg : C.border}`, backgroundColor: selectedMessageIndex === i ? `${C.burg}20` : "transparent", color: selectedMessageIndex === i ? C.burg : C.textMuted, cursor: "pointer" }}>
                     {i + 1}
                   </button>
                 ))}
               </div>
-              <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+              <div style={{ display: "flex", gap: 2, marginLeft: 4 }}>
                 <button type="button" onClick={() => addMessage(false)} title="Add Standard Message"
-                  style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 500, border: `1px solid ${THEME.border}`, backgroundColor: "transparent", color: THEME.textMuted, cursor: "pointer" }}>
-                  <MessageSquare style={{ width: 10, height: 10 }} /> Msg
+                  style={{ display: "flex", alignItems: "center", gap: 3, padding: "3px 7px", borderRadius: 5, fontSize: 9, fontWeight: 500, border: `1px solid ${C.border}`, backgroundColor: "transparent", color: C.textMuted, cursor: "pointer" }}>
+                  <MessageSquare style={{ width: 9, height: 9 }} />
                 </button>
                 <button type="button" onClick={() => addMessage(true)} title="Add Components V2 Message"
-                  style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 500, border: `1px solid ${THEME.border}`, backgroundColor: "transparent", color: THEME.textMuted, cursor: "pointer" }}>
-                  <Layers style={{ width: 10, height: 10 }} /> V2
+                  style={{ display: "flex", alignItems: "center", gap: 3, padding: "3px 7px", borderRadius: 5, fontSize: 9, fontWeight: 500, border: `1px solid ${C.border}`, backgroundColor: "transparent", color: C.textMuted, cursor: "pointer" }}>
+                  <Layers style={{ width: 9, height: 9 }} />
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Scrollable message list */}
-          <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }} className="scrollbar-thin">
-            {data.messages.length === 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 0", textAlign: "center" }}>
-                <MessageSquare style={{ width: 40, height: 40, color: "#52525b", marginBottom: 12 }} />
-                <p style={{ fontSize: 13, color: THEME.textMuted }}>No messages yet</p>
-                <p style={{ fontSize: 11, color: "#52525b" }}>Click Msg or V2 above to add one</p>
+          {/* Scrollable sections area */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "10px 14px" }} className="scrollbar-thin">
+            {!msg ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 0", textAlign: "center" }}>
+                <MessageSquare style={{ width: 32, height: 32, color: "#52525b", marginBottom: 8 }} />
+                <p style={{ fontSize: 12, color: C.textMuted }}>No messages yet</p>
+                <p style={{ fontSize: 10, color: "#52525b" }}>Click Msg or V2 above to add one</p>
               </div>
-            ) : data.messages.map((m, i) => {
-              const isSelected = selectedMessageIndex === i;
-              return (
-                <div key={m._id} ref={(el) => { msgRefs.current[i] = el; }}
-                  style={{ marginBottom: 8, borderRadius: 10, border: `1px solid ${isSelected ? `${THEME.burg}50` : THEME.border}`, backgroundColor: isSelected ? `${THEME.burg}08` : THEME.card, overflow: "hidden", transition: "all 0.15s" }}>
-                  {/* Message header row */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                      <button type="button" onClick={() => moveMessage(i, "up")} disabled={i === 0}
-                        style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>
-                        <ChevronUp style={{ width: 10, height: 10 }} />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+
+                {/* TARGET SECTION */}
+                <Section title="Target" badge={`${selectedChannelIds.size} channels`}>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                    {(["webhook", "bot", "edit_webhook", "edit_bot"] as const).map((mode) => (
+                      <button key={mode} type="button" onClick={() => setSendMode(mode)}
+                        style={{
+                          flex: 1, padding: "6px 0", borderRadius: 6, fontSize: 9, fontWeight: 500,
+                          border: `1px solid ${sendMode === mode ? C.burg : C.border}`,
+                          backgroundColor: sendMode === mode ? `${C.burg}15` : "transparent",
+                          color: sendMode === mode ? C.burg : C.textMuted, cursor: "pointer",
+                        }}>
+                        {mode === "webhook" || mode === "edit_webhook" ? <Globe style={{ width: 10, height: 10, display: "inline", marginRight: 2 }} /> : <Bot style={{ width: 10, height: 10, display: "inline", marginRight: 2 }} />}
+                        {mode.startsWith("edit_") ? "Edit" : mode === "webhook" ? "Webhook" : "Bot"}
                       </button>
-                      <button type="button" onClick={() => moveMessage(i, "down")} disabled={i === data.messages.length - 1}
-                        style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>
-                        <ChevronDown style={{ width: 10, height: 10 }} />
-                      </button>
-                    </div>
-                    <button type="button" onClick={() => scrollToMessage(i)}
-                      style={{ flex: 1, textAlign: "left", background: "none", border: "none", cursor: "pointer", minWidth: 0 }}>
-                      <span style={{ fontSize: 12, fontWeight: 500, color: isSelected ? THEME.burg : THEME.text, display: "block" }}>
-                        {isV2 && <span style={{ fontSize: 9, color: "#a78bfa", marginRight: 4 }}>[V2]</span>}
-                        {m.name || m.data.content?.slice(0, 40) || (m.data.embeds?.[0]?.title?.slice(0, 40)) || `Message ${i + 1}`}
-                      </span>
-                    </button>
-                    <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-                      <button type="button" onClick={() => duplicateMessage(i)} title="Duplicate" style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                        <Copy style={{ width: 12, height: 12 }} />
-                      </button>
-                      <button type="button" onClick={() => removeMessage(i)} title="Remove" style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                        <Trash2 style={{ width: 12, height: 12 }} />
-                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                    <Label muted style={{ fontSize: 10 }}><Hash style={{ width: 10, height: 10, display: "inline", marginRight: 2 }} />Channels</Label>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button type="button" onClick={selectAllChannels} style={{ fontSize: 9, color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>All</button>
+                      <button type="button" onClick={deselectAllChannels} style={{ fontSize: 9, color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>None</button>
                     </div>
                   </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, maxHeight: 120, overflowY: "auto" }}>
+                    {channels.length === 0 ? (
+                      <p style={{ fontSize: 10, color: C.textMuted }}>No text channels available.</p>
+                    ) : channels.map((ch) => (
+                      <ChannelTag key={ch.id} name={ch.name} selected={selectedChannelIds.has(ch.id)} onClick={() => toggleChannel(ch.id)} />
+                    ))}
+                  </div>
+                </Section>
 
-                  {/* Expandable editor */}
-                  {isSelected && (
-                    <MessageEditorCard
-                      message={m}
-                      index={i}
-                      isSelected={isSelected}
-                      isV2={isV2}
-                      onSelect={() => setSelectedMessageIndex(i)}
-                      onMoveUp={() => moveMessage(i, "up")}
-                      onMoveDown={() => moveMessage(i, "down")}
-                      canMoveUp={i > 0}
-                      canMoveDown={i < data.messages.length - 1}
-                      onDuplicate={() => duplicateMessage(i)}
-                      onRemove={() => removeMessage(i)}
-                      updateMessageData={(upd) => {
-                        const next = [...data.messages];
-                        next[i] = { ...next[i]!, data: { ...next[i]!.data, ...upd } };
-                        setD({ ...data, messages: next });
-                      }}
-                      files={messageFiles[m._id || ""] || []}
-                      setFiles={(f) => setMessageFiles((prev) => ({ ...prev, [m._id || ""]: f }))}
-                      editTab={editTab}
-                      setEditTab={setEditTab}
-                      serverEmojis={serverEmojis}
-                      onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri: ri!, ci: ci! }); setComponentModalOpen(true); }}
-                    />
+                {/* CONTENT SECTION */}
+                <Section title="Content" badge={`${msg.content?.length || 0}/2000`}>
+                  <Input multiline rows={5} value={msg.content || ""}
+                    onChange={(v) => updateMessageData({ content: v || undefined })}
+                    placeholder="Message content (Discord markdown supported)" />
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                    <span style={{ fontSize: 9, color: C.textMuted }}>
+                      {msg.content?.length ? `${msg.content.length} chars` : "Empty"}
+                    </span>
+                    <span style={{ fontSize: 9, color: (msg.content?.length || 0) >= 2000 ? "#ef4444" : (msg.content?.length || 0) >= 1800 ? "#eab308" : C.textMuted }}>
+                      {msg.content?.length || 0}/2000
+                    </span>
+                  </div>
+                </Section>
+
+                {/* EMBEDS SECTION */}
+                <Section title="Embeds" badge={`${msg.embeds?.length || 0}/10`}>
+                  {(msg.embeds ?? []).length === 0 ? (
+                    <div style={{ borderRadius: 8, border: `1px dashed ${C.border}`, padding: "16px 0", textAlign: "center" }}>
+                      <FileText style={{ width: 20, height: 20, color: "#52525b", margin: "0 auto 4px" }} />
+                      <p style={{ fontSize: 10, color: C.textMuted }}>No embeds yet</p>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {(msg.embeds ?? []).map((embed, ei) => (
+                        <div key={ei} style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+                          <EmbedRow
+                            title={embed.title || embed.description?.slice(0, 40) || `Embed ${ei + 1}`}
+                            onEdit={() => setEditEmbedIndex(editEmbedIndex === ei ? null : ei)}
+                            onRemove={() => {
+                              const embeds = msg.embeds?.filter((_, i) => i !== ei);
+                              updateMessageData({ embeds: embeds?.length ? embeds : undefined });
+                            }} />
+                          {editEmbedIndex === ei && (
+                            <div style={{ padding: "8px 10px", borderTop: `1px solid ${C.border}`, backgroundColor: C.bg }}>
+                              <EmbedEditor
+                                embed={embed}
+                                embedIndex={ei}
+                                maxEmbeds={msg.embeds?.length ?? 0}
+                                onChange={(updated) => {
+                                  const embeds = [...(msg.embeds ?? [])];
+                                  embeds[ei] = updated;
+                                  updateMessageData({ embeds });
+                                }}
+                                onRemove={() => {
+                                  const embeds = msg.embeds?.filter((_, i) => i !== ei);
+                                  updateMessageData({ embeds: embeds?.length ? embeds : undefined });
+                                }}
+                                onMoveUp={() => {
+                                  if (ei === 0) return;
+                                  const embeds = [...(msg.embeds ?? [])];
+                                  [embeds[ei], embeds[ei - 1]] = [embeds[ei - 1]!, embeds[ei]!];
+                                  updateMessageData({ embeds });
+                                }}
+                                onMoveDown={() => {
+                                  const embeds = [...(msg.embeds ?? [])];
+                                  if (ei >= embeds.length - 1) return;
+                                  [embeds[ei], embeds[ei + 1]] = [embeds[ei + 1]!, embeds[ei]!];
+                                  updateMessageData({ embeds });
+                                }}
+                                canMoveUp={ei > 0}
+                                canMoveDown={ei < (msg.embeds?.length ?? 0) - 1}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   )}
-                </div>
-              );
-            })}
+                  <AddButton label={`Add Embed (${msg.embeds?.length ?? 0}/10)`}
+                    disabled={(msg.embeds?.length ?? 0) >= 10}
+                    onClick={() => {
+                      const embeds = [...(msg.embeds ?? [])];
+                      embeds.push({});
+                      updateMessageData({ embeds });
+                      setEditEmbedIndex(embeds.length - 1);
+                    }} />
+                </Section>
+
+                {/* COMPONENTS SECTION */}
+                <Section title="Components" badge={msg.components ? `${msg.components.length} rows` : "0 rows"}>
+                  <ComponentEditorForMessage
+                    components={msg.components ?? []}
+                    onChange={(comps) => updateMessageData({ components: comps })}
+                    onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri: ri!, ci: ci! }); setComponentModalOpen(true); }}
+                    serverEmojis={serverEmojis}
+                    isV2={isV2} />
+                </Section>
+
+                {/* OPTIONS SECTION */}
+                <Section title="Options" defaultOpen={false}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <Toggle
+                      checked={(msg.flags ?? 0) & 4 ? true : false}
+                      onChange={(v) => {
+                        let f = msg.flags || 0;
+                        f = v ? f | 4 : f & ~4;
+                        updateMessageData({ flags: f || undefined });
+                      }}
+                      label="Suppress Embeds" />
+                    <Toggle
+                      checked={(msg.flags ?? 0) & 4096 ? true : false}
+                      onChange={(v) => {
+                        let f = msg.flags || 0;
+                        f = v ? f | 4096 : f & ~4096;
+                        updateMessageData({ flags: f || undefined });
+                      }}
+                      label="Suppress Notifications" />
+                    <Toggle
+                      checked={!!msg.allowed_mentions}
+                      onChange={(v) => updateMessageData({
+                        allowed_mentions: v ? { parse: ["users", "roles"] } : undefined,
+                      })}
+                      label="Allow Mentions" />
+                    <div style={{ marginTop: 4 }}>
+                      <Label muted style={{ fontSize: 10, marginBottom: 6, display: "block" }}>File Attachments</Label>
+                      <FileAttachmentEditor
+                        files={currentFiles}
+                        onChange={(f) => setMessageFiles((prev) => ({ ...prev, [mid]: f }))}
+                        messageData={msg}
+                        updateMessageData={updateMessageData} />
+                    </div>
+                  </div>
+                </Section>
+
+              </div>
+            )}
+          </div>
+
+          {/* SEND BAR */}
+          <div style={{
+            padding: "10px 14px", borderTop: `1px solid ${C.border}`,
+            backgroundColor: C.surface, flexShrink: 0,
+          }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div style={{ flex: 1, fontSize: 11, color: C.textMuted }}>
+                {selectedChannelIds.size > 0
+                  ? `${selectedChannelIds.size} channel${selectedChannelIds.size > 1 ? "s" : ""} selected`
+                  : "Select channels in Target"}
+              </div>
+              <button type="button" onClick={handleSend} disabled={selectedChannelIds.size === 0}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                  border: "none", cursor: selectedChannelIds.size === 0 ? "not-allowed" : "pointer",
+                  opacity: selectedChannelIds.size === 0 ? 0.5 : 1,
+                  background: selectedChannelIds.size > 0
+                    ? `linear-gradient(135deg, ${C.burg}, #a3153f)`
+                    : "#3f3f46",
+                  color: "#fff", transition: "all 0.15s",
+                }}>
+                <Send style={{ width: 14, height: 14 }} /> Send
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* RIGHT PANE - Preview */}
-        <div style={{ width: "50%", display: "flex", flexDirection: "column", backgroundColor: C.discBg }}>
-          <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.discEmbed}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 12, fontWeight: 500, color: THEME.textMuted }}>
+        {/* RIGHT PANEL - Preview (flex) */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", backgroundColor: C.discBg, minWidth: 0 }}>
+          <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.discEmbed}`, display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: C.discBg }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: C.discMuted }}>
               <Eye style={{ width: 14, height: 14, display: "inline", marginRight: 6 }} /> Preview
             </span>
-            <button type="button" onClick={() => setSendModalOpen(true)}
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, backgroundColor: THEME.burg, color: "#fff", border: "none", cursor: "pointer" }}>
-              <Send style={{ width: 14, height: 14 }} /> Send
-            </button>
           </div>
-          <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }} className="scrollbar-thin">
+          <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px" }} className="scrollbar-thin">
             {data.messages.length === 0 ? (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 24px", textAlign: "center" }}>
                 <Eye style={{ width: 48, height: 48, color: "#52525b", marginBottom: 16 }} />
@@ -638,13 +667,13 @@ export default function GuildAnnouncementsPage() {
                 <p style={{ fontSize: 12, color: "#52525b" }}>Add a message to see the preview</p>
               </div>
             ) : data.messages.map((m, i) => {
-              const mid = m._id || String(i);
+              const pMid = m._id || String(i);
               return (
-                <div key={mid} onClick={() => setSelectedMessageIndex(i)}
-                  style={{ marginBottom: 8, borderRadius: 8, border: selectedMessageIndex === i ? `1px solid ${THEME.burg}40` : "1px solid transparent", backgroundColor: selectedMessageIndex === i ? `${THEME.burg}08` : "transparent", cursor: "pointer", padding: 8 }}>
+                <div key={pMid} onClick={() => scrollToMessage(i)}
+                  style={{ marginBottom: 8, borderRadius: 8, border: selectedMessageIndex === i ? `1px solid ${C.burg}40` : "1px solid transparent", backgroundColor: selectedMessageIndex === i ? `${C.burg}08` : "transparent", cursor: "pointer", padding: 8 }}>
                   <DiscordPreview message={m.data} isV2={isComponentsV2(m.data.flags)} targets={data.targets}
                     onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri: ri!, ci: ci! }); setComponentModalOpen(true); }}
-                    files={messageFiles[mid]} />
+                    files={messageFiles[pMid]} />
                 </div>
               );
             })}
