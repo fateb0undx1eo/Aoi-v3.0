@@ -341,7 +341,7 @@ const spoilerRule: Rule = {
 
 const mentionBlurple = "font-medium text-[#5865F2]";
 const mentionBurg = "font-medium text-[#8B1538]";
-const mentionRole = "font-medium text-[#5865F2]";
+const mentionOrange = "font-medium text-[#FE9A00]";
 
 const globalMentionRule: Rule = {
   capture(source) {
@@ -358,7 +358,7 @@ const channelMentionRule: Rule = {
     if (!m) return;
     return { size: m[0].length, id: m[1] };
   },
-  render() { return <span className={mentionBlurple}>#channel</span>; },
+  render() { return <span className={mentionOrange}>#channel</span>; },
 };
 
 const memberMentionRule: Rule = {
@@ -376,7 +376,7 @@ const roleMentionRule: Rule = {
     if (!m) return;
     return { size: m[0].length, id: m[1] };
   },
-  render() { return <span className={mentionRole}>@role</span>; },
+  render() { return <span className={mentionBurg}>@role</span>; },
 };
 
 const commandMentionRule: Rule = {
