@@ -16,7 +16,7 @@ export function Input({ value, onChange, placeholder, multiline, rows, style }: 
 }) {
   const cls: React.CSSProperties = {
     width: "100%", borderRadius: 8, border: `1px solid ${C.border}`,
-    backgroundColor: C.bg, color: C.text, fontSize: 13, outline: "none",
+    backgroundColor: "transparent", color: C.text, fontSize: 13, outline: "none",
     padding: multiline ? "8px 12px" : "6px 10px", fontFamily: "inherit",
     ...style,
   };
@@ -51,15 +51,12 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
   );
 }
 
-export function Section({ title, badge, defaultOpen, children, accent }: {
-  title: string; badge?: string; defaultOpen?: boolean; children: ReactNode; accent?: boolean;
+export function Section({ title, badge, defaultOpen, children }: {
+  title: string; badge?: string; defaultOpen?: boolean; children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen !== false);
   return (
-    <div style={{
-      borderRadius: 10, border: `1px solid ${accent ? `${C.burg}60` : C.border}`,
-      backgroundColor: C.card, overflow: "hidden",
-    }}>
+    <div style={{ borderBottom: `1px solid #181818` }}>
       <button type="button" onClick={() => setOpen(!open)}
         style={{
           display: "flex", alignItems: "center", gap: 8, width: "100%",
@@ -104,8 +101,7 @@ export function EmbedRow({ title, onEdit, onRemove }: { title?: string; onEdit?:
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: 8,
-      padding: "6px 10px", borderRadius: 8,
-      border: `1px solid ${C.border}`, backgroundColor: C.bg,
+      padding: "6px 10px",
     }}>
       <div style={{
         width: 3, height: 28, borderRadius: 2, backgroundColor: C.burg, flexShrink: 0,
@@ -123,12 +119,14 @@ export function AddButton({ label, onClick, disabled }: { label: string; onClick
   return (
     <button type="button" onClick={onClick} disabled={disabled}
       style={{
-        display: "flex", width: "100%", alignItems: "center", justifyContent: "center", gap: 6,
-        padding: "8px 0", borderRadius: 8, fontSize: 11, fontWeight: 500,
-        border: `1px dashed ${C.border}`, backgroundColor: "transparent",
+        display: "flex", width: "100%", alignItems: "center", gap: 6,
+        padding: "6px 0", fontSize: 11, fontWeight: 500,
+        backgroundColor: "transparent", border: "none",
         color: disabled ? "#52525b" : C.textMuted, cursor: disabled ? "not-allowed" : "pointer",
-        transition: "all 0.15s",
-      }}>
+        transition: "color 0.12s",
+      }}
+      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.color = C.text; }}
+      onMouseLeave={(e) => { if (!disabled) e.currentTarget.style.color = C.textMuted; }}>
       <Plus style={{ width: 12, height: 12 }} /> {label}
     </button>
   );

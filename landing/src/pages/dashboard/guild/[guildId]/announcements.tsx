@@ -110,15 +110,19 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
 
 function SendModal({
   open, channels, selectedChannelIds, onToggleChannel, onSelectAll, onDeselectAll,
-  sendMode, onSendModeChange, onSend, onClose,
+  sendAsBot, editMode, webhookUrl, messageLink,
+  onSendAsBotChange, onEditModeChange, onWebhookUrlChange, onMessageLinkChange,
+  onSend, onClose,
 }: {
   open: boolean; channels: GuildChannel[]; selectedChannelIds: Set<string>;
   onToggleChannel: (id: string) => void; onSelectAll: () => void; onDeselectAll: () => void;
-  sendMode: "webhook" | "bot" | "edit_webhook" | "edit_bot";
-  onSendModeChange: (mode: "webhook" | "bot" | "edit_webhook" | "edit_bot") => void;
+  sendAsBot: boolean; editMode: boolean; webhookUrl: string; messageLink: string;
+  onSendAsBotChange: (v: boolean) => void; onEditModeChange: (v: boolean) => void;
+  onWebhookUrlChange: (v: string) => void; onMessageLinkChange: (v: string) => void;
   onSend: () => void; onClose: () => void;
 }) {
   if (!open) return null;
+  const canSend = sendAsBot ? selectedChannelIds.size > 0 : webhookUrl.trim().length > 0;
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 9998,
@@ -133,54 +137,90 @@ function SendModal({
             <X style={{ width: 18, height: 18 }} />
           </button>
         </div>
+
+        {/* Send Method */}
         <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 12, fontWeight: 500, color: C.textMuted, marginBottom: 8, display: "block" }}>Send Mode</label>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {([
-              { value: "webhook" as const, label: "Send as Webhook", icon: Globe },
-              { value: "bot" as const, label: "Send as Bot", icon: Bot },
-              { value: "edit_webhook" as const, label: "Edit Message as Webhook", icon: Globe },
-              { value: "edit_bot" as const, label: "Edit Message as Bot", icon: Bot },
-            ]).map(({ value, label, icon: Icon }) => (
-              <button key={value} type="button" onClick={() => onSendModeChange(value)}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, border: `1px solid ${sendMode === value ? C.burg : C.border}`, backgroundColor: sendMode === value ? `${C.burg}15` : "transparent", color: sendMode === value ? C.burg : C.text, cursor: "pointer", fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}>
-                <Icon style={{ width: 16, height: 16 }} />
-                {label}
-                {sendMode === value && <Check style={{ width: 14, height: 14, marginLeft: "auto" }} />}
-              </button>
-            ))}
+          <label style={{ fontSize: 12, fontWeight: 500, color: C.textMuted, marginBottom: 8, display: "block" }}>Send Method</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" onClick={() => onSendAsBotChange(true)}
+              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", borderRadius: 10, border: `1px solid ${sendAsBot ? C.burg : C.border}`, backgroundColor: sendAsBot ? `${C.burg}15` : "transparent", color: sendAsBot ? C.burg : C.text, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
+              <Bot style={{ width: 16, height: 16 }} /> Bot
+            </button>
+            <button type="button" onClick={() => onSendAsBotChange(false)}
+              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", borderRadius: 10, border: `1px solid ${!sendAsBot ? C.burg : C.border}`, backgroundColor: !sendAsBot ? `${C.burg}15` : "transparent", color: !sendAsBot ? C.burg : C.text, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
+              <Globe style={{ width: 16, height: 16 }} /> Webhook
+            </button>
           </div>
         </div>
+
+        {/* Edit Mode Toggle */}
         <div style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <label style={{ fontSize: 12, fontWeight: 500, color: C.textMuted }}>
-              <Hash style={{ width: 12, height: 12, display: "inline", marginRight: 4 }} />
-              Channels ({selectedChannelIds.size})
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <div onClick={(e) => { e.preventDefault(); onEditModeChange(!editMode); }}
+              style={{ width: 32, height: 18, borderRadius: 10, position: "relative", backgroundColor: editMode ? C.burg : "#3f3f46", transition: "background 0.2s", cursor: "pointer", flexShrink: 0 }}>
+              <div style={{ width: 14, height: 14, borderRadius: "50%", backgroundColor: "#fff", position: "absolute", top: 2, left: editMode ? 16 : 2, transition: "left 0.2s" }} />
+            </div>
+            <span style={{ fontSize: 13, color: C.text }}>Edit existing message</span>
+          </label>
+        </div>
+
+        {/* Message Link (when edit mode) */}
+        {editMode && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 12, fontWeight: 500, color: C.textMuted, marginBottom: 6, display: "block" }}>
+              <Hash style={{ width: 12, height: 12, display: "inline", marginRight: 4 }} />Message Link
             </label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button type="button" onClick={onSelectAll} style={{ fontSize: 10, color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>All</button>
-              <button type="button" onClick={onDeselectAll} style={{ fontSize: 10, color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>None</button>
+            <input value={messageLink} onChange={(e) => onMessageLinkChange(e.target.value)}
+              placeholder="https://discord.com/channels/..."
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.border}`, backgroundColor: C.bg, color: C.text, fontSize: 13, outline: "none" }} />
+          </div>
+        )}
+
+        {/* Bot Mode: Channel Selection */}
+        {sendAsBot && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <label style={{ fontSize: 12, fontWeight: 500, color: C.textMuted }}>
+                <Hash style={{ width: 12, height: 12, display: "inline", marginRight: 4 }} />Channels ({selectedChannelIds.size})
+              </label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" onClick={onSelectAll} style={{ fontSize: 10, color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>All</button>
+                <button type="button" onClick={onDeselectAll} style={{ fontSize: 10, color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>None</button>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 160, overflowY: "auto" }}>
+              {channels.length === 0 ? (
+                <p style={{ fontSize: 11, color: C.textMuted }}>No text channels available.</p>
+              ) : channels.map((ch) => {
+                const sel = selectedChannelIds.has(ch.id);
+                return (
+                  <button key={ch.id} type="button" onClick={() => onToggleChannel(ch.id)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 500, border: `1px solid ${sel ? `${C.burg}60` : C.border}`, backgroundColor: sel ? `${C.burg}15` : "transparent", color: sel ? C.burg : C.textMuted, cursor: "pointer", transition: "all 0.15s" }}>
+                    {sel && <Check style={{ width: 10, height: 10 }} />}# {ch.name}
+                  </button>
+                );
+              })}
             </div>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 160, overflowY: "auto" }}>
-            {channels.length === 0 ? (
-              <p style={{ fontSize: 11, color: C.textMuted }}>No text channels available.</p>
-            ) : channels.map((ch) => {
-              const sel = selectedChannelIds.has(ch.id);
-              return (
-                <button key={ch.id} type="button" onClick={() => onToggleChannel(ch.id)}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 500, border: `1px solid ${sel ? `${C.burg}60` : C.border}`, backgroundColor: sel ? `${C.burg}15` : "transparent", color: sel ? C.burg : C.textMuted, cursor: "pointer", transition: "all 0.15s" }}>
-                  {sel && <Check style={{ width: 10, height: 10 }} />}
-                  # {ch.name}
-                </button>
-              );
-            })}
+        )}
+
+        {/* Webhook Mode: URL Input */}
+        {!sendAsBot && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 12, fontWeight: 500, color: C.textMuted, marginBottom: 6, display: "block" }}>
+              <Globe style={{ width: 12, height: 12, display: "inline", marginRight: 4 }} />Webhook URL
+            </label>
+            <input value={webhookUrl} onChange={(e) => onWebhookUrlChange(e.target.value)}
+              placeholder="https://discord.com/api/webhooks/..."
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.border}`, backgroundColor: C.bg, color: C.text, fontSize: 13, outline: "none" }} />
+            <p style={{ fontSize: 10, color: C.textMuted, marginTop: 4 }}>Webhooks send to their pre-configured channel. No channel selection needed.</p>
           </div>
-        </div>
-        <button type="button" onClick={onSend} disabled={selectedChannelIds.size === 0}
-          style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 0", borderRadius: 10, fontSize: 14, fontWeight: 600, color: "#fff", background: selectedChannelIds.size > 0 ? `linear-gradient(135deg, ${C.burg}, #a3153f)` : "#3f3f46", border: "none", cursor: selectedChannelIds.size === 0 ? "not-allowed" : "pointer", opacity: selectedChannelIds.size === 0 ? 0.5 : 1, transition: "all 0.15s" }}>
+        )}
+
+        <button type="button" onClick={onSend} disabled={!canSend}
+          style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 0", borderRadius: 10, fontSize: 14, fontWeight: 600, color: "#fff", background: canSend ? `linear-gradient(135deg, ${C.burg}, #a3153f)` : "#3f3f46", border: "none", cursor: canSend ? "pointer" : "not-allowed", opacity: canSend ? 1 : 0.5, transition: "all 0.15s" }}>
           <Send style={{ width: 16, height: 16 }} />
-          Send to {selectedChannelIds.size} channel{selectedChannelIds.size !== 1 ? "s" : ""}
+          {sendAsBot ? `Send to ${selectedChannelIds.size} channel${selectedChannelIds.size !== 1 ? "s" : ""}` : "Send via Webhook"}
         </button>
       </div>
     </div>
@@ -216,8 +256,11 @@ export default function GuildAnnouncementsPage() {
   const [presetsOpen, setPresetsOpen] = useState(false);
 
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [sendMode, setSendMode] = useState<"webhook" | "bot" | "edit_webhook" | "edit_bot">("webhook");
   const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [sendAsBot, setSendAsBot] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [messageLink, setMessageLink] = useState("");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const msgRefs = useRef<Record<number, HTMLDivElement | null>>({});
@@ -372,7 +415,9 @@ export default function GuildAnnouncementsPage() {
 
   const handleSend = useCallback(async () => {
     if (!guildId || typeof guildId !== "string") return;
-    if (selectedChannelIds.size === 0) { addToast("error", "Select at least one channel to send to."); return; }
+    if (sendAsBot && selectedChannelIds.size === 0) { addToast("error", "Select at least one channel to send to."); return; }
+    if (!sendAsBot && !webhookUrl.trim()) { addToast("error", "Enter a webhook URL."); return; }
+    if (editMode && !messageLink.trim()) { addToast("error", "Enter the message link to edit."); return; }
     const hasContent = (m: QueryDataMessage) => {
       if (m.data.content) return true;
       if (m.data.embeds?.length) return true;
@@ -393,67 +438,92 @@ export default function GuildAnnouncementsPage() {
     if (!data.messages.some(hasContent)) { addToast("error", "Add content to at least one message."); return; }
     addToast("sending", "Sending announcement...");
     try {
-      const hasFiles = data.messages.some((m) => (messageFiles[m._id || ""] || []).length > 0);
-      const body = {
-        channel_ids: Array.from(selectedChannelIds),
-        entries: data.messages.map((m) => {
-          const flows: FlowActionPayload[] = [];
-          const cleanComponents = (m.data.components || []).map((row, ri) => {
-            if (row.type === 1) {
-              const children = (row as APIActionRowComponent).components.map((comp, ci) => {
-                const f = (comp as any)._flows as FlowAction[] | undefined;
-                if (f) f.forEach((a) => flows.push({ ...a, ri, ci }));
-                const { _flows, ...clean } = comp as any;
-                return clean;
-              });
-              return { type: 1, components: children };
-            }
-            if (row.type === 17) {
-              const children = ((row as any).components || []).map((comp: any, ci: number) => {
-                const f = comp._flows as FlowAction[] | undefined;
-                if (f) f.forEach((a) => flows.push({ ...a, ri, ci }));
-                const { _flows, ...clean } = comp;
-                return clean;
-              });
-              return { ...row, components: children };
-            }
-            return row;
-          });
-          return {
-            id: m._id,
-            content: m.data.content || undefined,
-            embeds: m.data.embeds?.filter((e) => e.title || e.description || (e.fields && e.fields.length > 0) || e.image?.url || e.thumbnail?.url || e.footer?.text || e.author?.name),
-            components: cleanComponents,
-            flags: m.data.flags,
-            edit_existing: !!m.reference,
-            message_link: m.reference || undefined,
-            thread_name: m.data.thread_name || undefined,
-            allowed_mentions: m.data.allowed_mentions || undefined,
-            flows: flows.length > 0 ? flows : undefined,
-          };
-        }),
+      const msgData = data.messages[0]?.data;
+      const payload = {
+        content: msgData?.content || undefined,
+        embeds: msgData?.embeds?.filter((e) => e.title || e.description || (e.fields && e.fields.length > 0) || e.image?.url || e.thumbnail?.url || e.footer?.text || e.author?.name),
+        components: msgData?.components || undefined,
+        flags: msgData?.flags || undefined,
+        allowed_mentions: msgData?.allowed_mentions || undefined,
       };
-      let res: Response;
-      if (hasFiles) {
-        const fd = new FormData();
-        fd.append("payload", JSON.stringify(body));
-        data.messages.forEach((m) => {
-          const files = messageFiles[m._id || ""] || [];
-          const metas = files.map((f) => ({ name: f.name, spoiler: f.spoiler, description: f.description }));
-          fd.append(`filemeta_${m._id || "unknown"}`, JSON.stringify(metas));
-          files.forEach((f) => { if (f.file) fd.append(`file_${m._id || "unknown"}`, f.file, f.name); });
+
+      if (!sendAsBot && webhookUrl.trim()) {
+        const isEdit = editMode && messageLink.trim();
+        const f = isEdit ? "PATCH" : "POST";
+        const url = isEdit
+          ? `${webhookUrl.replace(/\/$/, "")}/messages/${messageLink.split("/").pop()}`
+          : webhookUrl;
+        const res = await fetch(url, {
+          method: f,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
         });
-        res = await fetch(`${getBackendApiUrl()}/api/guilds/${guildId}/announcements`, { method: "POST", body: fd, credentials: "include" });
+        if (!res.ok) throw new Error(`Webhook ${isEdit ? "edit" : "send"} failed (${res.status})`);
+        addToast("success", "Announcement sent via webhook!");
       } else {
-        res = await fetch(`/api/backend/guilds/${guildId}/announcements`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        const body = {
+          channel_ids: Array.from(selectedChannelIds),
+          entries: data.messages.map((m) => {
+            const flows: FlowActionPayload[] = [];
+            const cleanComponents = (m.data.components || []).map((row, ri) => {
+              if (row.type === 1) {
+                const children = (row as APIActionRowComponent).components.map((comp, ci) => {
+                  const f = (comp as any)._flows as FlowAction[] | undefined;
+                  if (f) f.forEach((a) => flows.push({ ...a, ri, ci }));
+                  const { _flows, ...clean } = comp as any;
+                  return clean;
+                });
+                return { type: 1, components: children };
+              }
+              if (row.type === 17) {
+                const children = ((row as any).components || []).map((comp: any, ci: number) => {
+                  const f = comp._flows as FlowAction[] | undefined;
+                  if (f) f.forEach((a) => flows.push({ ...a, ri, ci }));
+                  const { _flows, ...clean } = comp;
+                  return clean;
+                });
+                return { ...row, components: children };
+              }
+              return row;
+            });
+            return {
+              id: m._id,
+              content: m.data.content || undefined,
+              embeds: m.data.embeds?.filter((e) => e.title || e.description || (e.fields && e.fields.length > 0) || e.image?.url || e.thumbnail?.url || e.footer?.text || e.author?.name),
+              components: cleanComponents,
+              flags: m.data.flags,
+              edit_existing: editMode && !!messageLink,
+              message_link: editMode ? messageLink : m.reference || undefined,
+              thread_name: m.data.thread_name || undefined,
+              allowed_mentions: m.data.allowed_mentions || undefined,
+              flows: flows.length > 0 ? flows : undefined,
+            };
+          }),
+        };
+        const hasFiles = data.messages.some((m) => (messageFiles[m._id || ""] || []).length > 0);
+        let res: Response;
+        if (hasFiles) {
+          const fd = new FormData();
+          fd.append("payload", JSON.stringify(body));
+          data.messages.forEach((m) => {
+            const files = messageFiles[m._id || ""] || [];
+            const metas = files.map((f) => ({ name: f.name, spoiler: f.spoiler, description: f.description }));
+            fd.append(`filemeta_${m._id || "unknown"}`, JSON.stringify(metas));
+            files.forEach((f) => { if (f.file) fd.append(`file_${m._id || "unknown"}`, f.file, f.name); });
+          });
+          res = await fetch(`${getBackendApiUrl()}/api/guilds/${guildId}/announcements`, { method: "POST", body: fd, credentials: "include" });
+        } else {
+          res = await fetch(`/api/backend/guilds/${guildId}/announcements`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        }
+        const responseData = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(responseData?.error || "Failed to send");
+        addToast("success", "Announcement sent successfully!");
       }
-      const responseData = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(responseData?.error || "Failed to send");
-      addToast("success", "Announcement sent successfully!");
+      setSendModalOpen(false);
     } catch (err) {
       addToast("error", err instanceof Error ? err.message : "Failed to send");
     }
-  }, [guildId, data, selectedChannelIds, messageFiles, addToast]);
+  }, [guildId, data, selectedChannelIds, messageFiles, addToast, sendAsBot, webhookUrl, editMode, messageLink]);
 
   const mid = message?._id || "";
   const currentFiles = messageFiles[mid] || [];
@@ -463,11 +533,11 @@ export default function GuildAnnouncementsPage() {
   const msg = message?.data;
 
   return (
-    <DashboardLayout guildId={String(guildId || "")} guildName={guild?.name || "Guild"} modules={modules}>
+    <DashboardLayout guildId={String(guildId || "")} guildName={guild?.name || "Guild"} heading="" modules={modules}>
       <style>{`
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .scrollbar-thin::-webkit-scrollbar { width: 6px; }
-        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: #1a1a1a; }
         .scrollbar-thin::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
         .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #52525b; }
       `}</style>
@@ -477,7 +547,9 @@ export default function GuildAnnouncementsPage() {
         open={sendModalOpen} channels={channels}
         selectedChannelIds={selectedChannelIds}
         onToggleChannel={toggleChannel} onSelectAll={selectAllChannels} onDeselectAll={deselectAllChannels}
-        sendMode={sendMode} onSendModeChange={setSendMode}
+        sendAsBot={sendAsBot} editMode={editMode} webhookUrl={webhookUrl} messageLink={messageLink}
+        onSendAsBotChange={setSendAsBot} onEditModeChange={setEditMode}
+        onWebhookUrlChange={setWebhookUrl} onMessageLinkChange={setMessageLink}
         onSend={handleSend} onClose={() => setSendModalOpen(false)}
       />
 
@@ -497,9 +569,9 @@ export default function GuildAnnouncementsPage() {
         }}
         serverEmojis={serverEmojis} />
 
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", height: "calc(100vh - 120px)" }}>
-        {/* LEFT PANEL - 50% */}
-        <div style={{ width: "50%", display: "flex", flexDirection: "column", backgroundColor: C.surface, borderRight: `1px solid ${C.border}` }}>
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+        {/* LEFT PANEL - 45% */}
+        <div style={{ width: "45%", display: "flex", flexDirection: "column", backgroundColor: C.surface, borderRight: `1px solid ${C.border}` }}>
 
           {/* Header */}
           <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, backgroundColor: C.surface }}>
@@ -545,39 +617,7 @@ export default function GuildAnnouncementsPage() {
                 <p style={{ fontSize: 10, color: "#52525b" }}>Click Msg or V2 above to add one</p>
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-
-                {/* TARGET SECTION */}
-                <Section title="Target" badge={`${selectedChannelIds.size} channels`}>
-                  <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-                    {(["webhook", "bot", "edit_webhook", "edit_bot"] as const).map((mode) => (
-                      <button key={mode} type="button" onClick={() => setSendMode(mode)}
-                        style={{
-                          flex: 1, padding: "6px 0", borderRadius: 6, fontSize: 9, fontWeight: 500,
-                          border: `1px solid ${sendMode === mode ? C.burg : C.border}`,
-                          backgroundColor: sendMode === mode ? `${C.burg}15` : "transparent",
-                          color: sendMode === mode ? C.burg : C.textMuted, cursor: "pointer",
-                        }}>
-                        {mode === "webhook" || mode === "edit_webhook" ? <Globe style={{ width: 10, height: 10, display: "inline", marginRight: 2 }} /> : <Bot style={{ width: 10, height: 10, display: "inline", marginRight: 2 }} />}
-                        {mode.startsWith("edit_") ? "Edit" : mode === "webhook" ? "Webhook" : "Bot"}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                    <Label muted style={{ fontSize: 10 }}><Hash style={{ width: 10, height: 10, display: "inline", marginRight: 2 }} />Channels</Label>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button type="button" onClick={selectAllChannels} style={{ fontSize: 9, color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>All</button>
-                      <button type="button" onClick={deselectAllChannels} style={{ fontSize: 9, color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>None</button>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, maxHeight: 120, overflowY: "auto" }}>
-                    {channels.length === 0 ? (
-                      <p style={{ fontSize: 10, color: C.textMuted }}>No text channels available.</p>
-                    ) : channels.map((ch) => (
-                      <ChannelTag key={ch.id} name={ch.name} selected={selectedChannelIds.has(ch.id)} onClick={() => toggleChannel(ch.id)} />
-                    ))}
-                  </div>
-                </Section>
+              <div style={{ display: "flex", flexDirection: "column" }}>
 
                 {/* CONTENT SECTION */}
                 <Section title="Content" badge={`${msg.content?.length || 0}/2000`}>
@@ -597,14 +637,13 @@ export default function GuildAnnouncementsPage() {
                 {/* EMBEDS SECTION */}
                 <Section title="Embeds" badge={`${msg.embeds?.length || 0}/10`}>
                   {(msg.embeds ?? []).length === 0 ? (
-                    <div style={{ borderRadius: 8, border: `1px dashed ${C.border}`, padding: "16px 0", textAlign: "center" }}>
-                      <FileText style={{ width: 20, height: 20, color: "#52525b", margin: "0 auto 4px" }} />
+                    <div style={{ textAlign: "center", padding: "12px 0" }}>
                       <p style={{ fontSize: 10, color: C.textMuted }}>No embeds yet</p>
                     </div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       {(msg.embeds ?? []).map((embed, ei) => (
-                        <div key={ei} style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+                        <div key={ei}>
                           <EmbedRow
                             title={embed.title || embed.description?.slice(0, 40) || `Embed ${ei + 1}`}
                             onEdit={() => setEditEmbedIndex(editEmbedIndex === ei ? null : ei)}
@@ -613,7 +652,7 @@ export default function GuildAnnouncementsPage() {
                               updateMessageData({ embeds: embeds?.length ? embeds : undefined });
                             }} />
                           {editEmbedIndex === ei && (
-                            <div style={{ padding: "8px 10px", borderTop: `1px solid ${C.border}`, backgroundColor: C.bg }}>
+                            <div style={{ padding: "8px 10px" }}>
                               <EmbedEditor
                                 embed={embed}
                                 embedIndex={ei}
@@ -670,7 +709,7 @@ export default function GuildAnnouncementsPage() {
 
                 {/* OPTIONS SECTION */}
                 <Section title="Options" defaultOpen={false}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", flexDirection: "column" }}>
                     <Toggle
                       checked={(msg.flags ?? 0) & 4 ? true : false}
                       onChange={(v) => {
@@ -726,9 +765,9 @@ export default function GuildAnnouncementsPage() {
           </div>
         </div>
 
-        {/* RIGHT PANEL - Preview 50% */}
-        <div style={{ width: "50%", display: "flex", flexDirection: "column", backgroundColor: EMBED_BG, overflow: "hidden" }}>
-          <div style={{ flex: 1, overflowY: "scroll", padding: "12px 14px" }}>
+        {/* RIGHT PANEL - Preview 55% */}
+        <div style={{ width: "55%", display: "flex", flexDirection: "column", backgroundColor: EMBED_BG, overflow: "hidden" }}>
+          <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px" }}>
             {data.messages.length === 0 ? (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 24px", textAlign: "center" }}>
                 <Eye style={{ width: 48, height: 48, color: "#52525b", marginBottom: 16 }} />
