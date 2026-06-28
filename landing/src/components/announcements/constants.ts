@@ -11,7 +11,7 @@ export const C = {
   text: "#dbdee1",
   textMuted: "#6b6b6b",
   discBg: "#313338",
-  discEmbed: "#2b2d31",
+  discEmbed: "#1e1f22",
   discName: "#f2f3f5",
   discMuted: "#b5bac1",
   discBorder: "#2b2d31",

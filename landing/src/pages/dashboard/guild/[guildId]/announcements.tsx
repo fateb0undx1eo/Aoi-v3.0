@@ -15,7 +15,7 @@ import type {
   APIActionRowComponent, APIContainerComponent,
   APIComponentInActionRow, APIV2TextDisplay,
 } from "@/components/announcements/types";
-import { C } from "@/components/announcements/constants";
+import { C, EMBED_BG } from "@/components/announcements/constants";
 import { getBackendApiUrl } from "@/lib/backend";
 import {
   randomId, createMessage, cloneQueryData,
@@ -108,6 +108,85 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
   );
 }
 
+function SendModal({
+  open, channels, selectedChannelIds, onToggleChannel, onSelectAll, onDeselectAll,
+  sendMode, onSendModeChange, onSend, onClose,
+}: {
+  open: boolean; channels: GuildChannel[]; selectedChannelIds: Set<string>;
+  onToggleChannel: (id: string) => void; onSelectAll: () => void; onDeselectAll: () => void;
+  sendMode: "webhook" | "bot" | "edit_webhook" | "edit_bot";
+  onSendModeChange: (mode: "webhook" | "bot" | "edit_webhook" | "edit_bot") => void;
+  onSend: () => void; onClose: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9998,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
+    }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}
+        style={{ backgroundColor: C.surface, borderRadius: 16, border: `1px solid ${C.border}`, padding: 24, width: 420, maxWidth: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, color: C.text }}>Send Announcement</h2>
+          <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer" }}>
+            <X style={{ width: 18, height: 18 }} />
+          </button>
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontSize: 12, fontWeight: 500, color: C.textMuted, marginBottom: 8, display: "block" }}>Send Mode</label>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {([
+              { value: "webhook" as const, label: "Send as Webhook", icon: Globe },
+              { value: "bot" as const, label: "Send as Bot", icon: Bot },
+              { value: "edit_webhook" as const, label: "Edit Message as Webhook", icon: Globe },
+              { value: "edit_bot" as const, label: "Edit Message as Bot", icon: Bot },
+            ]).map(({ value, label, icon: Icon }) => (
+              <button key={value} type="button" onClick={() => onSendModeChange(value)}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, border: `1px solid ${sendMode === value ? C.burg : C.border}`, backgroundColor: sendMode === value ? `${C.burg}15` : "transparent", color: sendMode === value ? C.burg : C.text, cursor: "pointer", fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}>
+                <Icon style={{ width: 16, height: 16 }} />
+                {label}
+                {sendMode === value && <Check style={{ width: 14, height: 14, marginLeft: "auto" }} />}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <label style={{ fontSize: 12, fontWeight: 500, color: C.textMuted }}>
+              <Hash style={{ width: 12, height: 12, display: "inline", marginRight: 4 }} />
+              Channels ({selectedChannelIds.size})
+            </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" onClick={onSelectAll} style={{ fontSize: 10, color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>All</button>
+              <button type="button" onClick={onDeselectAll} style={{ fontSize: 10, color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>None</button>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 160, overflowY: "auto" }}>
+            {channels.length === 0 ? (
+              <p style={{ fontSize: 11, color: C.textMuted }}>No text channels available.</p>
+            ) : channels.map((ch) => {
+              const sel = selectedChannelIds.has(ch.id);
+              return (
+                <button key={ch.id} type="button" onClick={() => onToggleChannel(ch.id)}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 500, border: `1px solid ${sel ? `${C.burg}60` : C.border}`, backgroundColor: sel ? `${C.burg}15` : "transparent", color: sel ? C.burg : C.textMuted, cursor: "pointer", transition: "all 0.15s" }}>
+                  {sel && <Check style={{ width: 10, height: 10 }} />}
+                  # {ch.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <button type="button" onClick={onSend} disabled={selectedChannelIds.size === 0}
+          style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 0", borderRadius: 10, fontSize: 14, fontWeight: 600, color: "#fff", background: selectedChannelIds.size > 0 ? `linear-gradient(135deg, ${C.burg}, #a3153f)` : "#3f3f46", border: "none", cursor: selectedChannelIds.size === 0 ? "not-allowed" : "pointer", opacity: selectedChannelIds.size === 0 ? 0.5 : 1, transition: "all 0.15s" }}>
+          <Send style={{ width: 16, height: 16 }} />
+          Send to {selectedChannelIds.size} channel{selectedChannelIds.size !== 1 ? "s" : ""}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function GuildAnnouncementsPage() {
   const router = useRouter();
   const { guildId } = router.query;
@@ -138,6 +217,7 @@ export default function GuildAnnouncementsPage() {
 
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [sendMode, setSendMode] = useState<"webhook" | "bot" | "edit_webhook" | "edit_bot">("webhook");
+  const [sendModalOpen, setSendModalOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const msgRefs = useRef<Record<number, HTMLDivElement | null>>({});
@@ -393,6 +473,13 @@ export default function GuildAnnouncementsPage() {
       `}</style>
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      <SendModal
+        open={sendModalOpen} channels={channels}
+        selectedChannelIds={selectedChannelIds}
+        onToggleChannel={toggleChannel} onSelectAll={selectAllChannels} onDeselectAll={deselectAllChannels}
+        sendMode={sendMode} onSendModeChange={setSendMode}
+        onSend={handleSend} onClose={() => setSendModalOpen(false)}
+      />
 
       <CodeGenerator messageData={msg || {}} open={codeGenOpen} onClose={() => setCodeGenOpen(false)} />
       <ComponentEditModal open={componentModalOpen} onClose={() => setComponentModalOpen(false)}
@@ -411,49 +498,36 @@ export default function GuildAnnouncementsPage() {
         serverEmojis={serverEmojis} />
 
       <div style={{ flex: 1, display: "flex", overflow: "hidden", height: "calc(100vh - 120px)" }}>
-        {/* LEFT PANEL - 400px */}
-        <div style={{ width: 400, display: "flex", flexDirection: "column", backgroundColor: C.surface, borderRight: `1px solid ${C.border}`, flexShrink: 0 }}>
+        {/* LEFT PANEL - 50% */}
+        <div style={{ width: "50%", display: "flex", flexDirection: "column", backgroundColor: C.surface, borderRight: `1px solid ${C.border}` }}>
 
-          {/* Header */}
-          <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, backgroundColor: C.surface }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Megaphone style={{ width: 16, height: 16, color: C.burg }} />
-                <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Announcement Studio</span>
-              </div>
-              <div style={{ display: "flex", gap: 2 }}>
-                <ToolbarButton icon={<Save style={{ width: 12, height: 12 }} />} tooltip="Presets" onClick={() => setPresetsOpen(!presetsOpen)} />
-                <ToolbarButton icon={<Code style={{ width: 12, height: 12 }} />} tooltip="Generate Code" onClick={() => setCodeGenOpen(true)} />
-                <ToolbarButton icon={<RotateCcw style={{ width: 12, height: 12 }} />} tooltip="Reset" onClick={() => { setD({ version: data.version, messages: [{ _id: randomId(), data: {} }], targets: [] }); addToast("info", "Reset to empty state."); }} />
-              </div>
-            </div>
-
-            {/* Message nav */}
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ fontSize: 10, color: C.textMuted, marginRight: 2 }}>Msg:</span>
-              <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
-                {data.messages.map((_, i) => (
-                  <button key={i} type="button" onClick={() => scrollToMessage(i)} title={`Message ${i + 1}`}
-                    style={{ width: 22, height: 22, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 600, border: `1px solid ${selectedMessageIndex === i ? C.burg : C.border}`, backgroundColor: selectedMessageIndex === i ? `${C.burg}20` : "transparent", color: selectedMessageIndex === i ? C.burg : C.textMuted, cursor: "pointer" }}>
-                    {i + 1}
-                  </button>
-                ))}
-              </div>
-              <div style={{ display: "flex", gap: 2, marginLeft: 4 }}>
-                <button type="button" onClick={() => addMessage(false)} title="Add Standard Message"
-                  style={{ display: "flex", alignItems: "center", gap: 3, padding: "3px 7px", borderRadius: 5, fontSize: 9, fontWeight: 500, border: `1px solid ${C.border}`, backgroundColor: "transparent", color: C.textMuted, cursor: "pointer" }}>
-                  <MessageSquare style={{ width: 9, height: 9 }} />
+          {/* Compact toolbar + message nav */}
+          <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, backgroundColor: C.surface, display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <ToolbarButton icon={<Save style={{ width: 11, height: 11 }} />} tooltip="Presets" onClick={() => setPresetsOpen(!presetsOpen)} />
+            <ToolbarButton icon={<Code style={{ width: 11, height: 11 }} />} tooltip="Generate Code" onClick={() => setCodeGenOpen(true)} />
+            <ToolbarButton icon={<RotateCcw style={{ width: 11, height: 11 }} />} tooltip="Reset" onClick={() => { setD({ version: data.version, messages: [{ _id: randomId(), data: {} }], targets: [] }); addToast("info", "Reset to empty state."); }} />
+            <span style={{ width: 1, height: 16, backgroundColor: C.border, margin: "0 4px" }} />
+            <span style={{ fontSize: 10, color: C.textMuted }}>Msg:</span>
+            <div style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+              {data.messages.map((_, i) => (
+                <button key={i} type="button" onClick={() => scrollToMessage(i)} title={`Message ${i + 1}`}
+                  style={{ width: 20, height: 20, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 600, border: `1px solid ${selectedMessageIndex === i ? C.burg : C.border}`, backgroundColor: selectedMessageIndex === i ? `${C.burg}20` : "transparent", color: selectedMessageIndex === i ? C.burg : C.textMuted, cursor: "pointer" }}>
+                  {i + 1}
                 </button>
-                <button type="button" onClick={() => addMessage(true)} title="Add Components V2 Message"
-                  style={{ display: "flex", alignItems: "center", gap: 3, padding: "3px 7px", borderRadius: 5, fontSize: 9, fontWeight: 500, border: `1px solid ${C.border}`, backgroundColor: "transparent", color: C.textMuted, cursor: "pointer" }}>
-                  <Layers style={{ width: 9, height: 9 }} />
-                </button>
-              </div>
+              ))}
+              <button type="button" onClick={() => addMessage(false)} title="Add Standard Message"
+                style={{ width: 20, height: 20, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, border: `1px solid ${C.border}`, backgroundColor: "transparent", color: C.textMuted, cursor: "pointer" }}>
+                <MessageSquare style={{ width: 9, height: 9 }} />
+              </button>
+              <button type="button" onClick={() => addMessage(true)} title="Add Components V2"
+                style={{ width: 20, height: 20, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, border: `1px solid ${C.border}`, backgroundColor: "transparent", color: C.textMuted, cursor: "pointer" }}>
+                <Layers style={{ width: 9, height: 9 }} />
+              </button>
             </div>
           </div>
 
           {/* Scrollable sections area */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "10px 14px" }} className="scrollbar-thin">
+          <div style={{ flex: 1, overflowY: "auto", padding: "10px 12px" }} className="scrollbar-thin">
             {!msg ? (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 0", textAlign: "center" }}>
                 <MessageSquare style={{ width: 32, height: 32, color: "#52525b", marginBottom: 8 }} />
@@ -626,40 +700,25 @@ export default function GuildAnnouncementsPage() {
 
           {/* SEND BAR */}
           <div style={{
-            padding: "10px 14px", borderTop: `1px solid ${C.border}`,
+            padding: "8px 12px", borderTop: `1px solid ${C.border}`,
             backgroundColor: C.surface, flexShrink: 0,
           }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <div style={{ flex: 1, fontSize: 11, color: C.textMuted }}>
-                {selectedChannelIds.size > 0
-                  ? `${selectedChannelIds.size} channel${selectedChannelIds.size > 1 ? "s" : ""} selected`
-                  : "Select channels in Target"}
-              </div>
-              <button type="button" onClick={handleSend} disabled={selectedChannelIds.size === 0}
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-                  border: "none", cursor: selectedChannelIds.size === 0 ? "not-allowed" : "pointer",
-                  opacity: selectedChannelIds.size === 0 ? 0.5 : 1,
-                  background: selectedChannelIds.size > 0
-                    ? `linear-gradient(135deg, ${C.burg}, #a3153f)`
-                    : "#3f3f46",
-                  color: "#fff", transition: "all 0.15s",
-                }}>
-                <Send style={{ width: 14, height: 14 }} /> Send
-              </button>
-            </div>
+            <button type="button" onClick={() => setSendModalOpen(true)}
+              style={{
+                display: "flex", width: "100%", alignItems: "center", justifyContent: "center", gap: 6,
+                padding: "8px 0", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                border: "none", cursor: "pointer",
+                background: `linear-gradient(135deg, ${C.burg}, #a3153f)`,
+                color: "#fff", transition: "all 0.15s",
+              }}>
+              <Send style={{ width: 14, height: 14 }} /> Send Announcement
+            </button>
           </div>
         </div>
 
-        {/* RIGHT PANEL - Preview (flex) */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", backgroundColor: C.discBg, minWidth: 0 }}>
-          <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.discEmbed}`, display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: C.discBg }}>
-            <span style={{ fontSize: 12, fontWeight: 500, color: C.discMuted }}>
-              <Eye style={{ width: 14, height: 14, display: "inline", marginRight: 6 }} /> Preview
-            </span>
-          </div>
-          <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px" }} className="scrollbar-thin">
+        {/* RIGHT PANEL - Preview 50% */}
+        <div style={{ width: "50%", display: "flex", flexDirection: "column", backgroundColor: EMBED_BG, overflow: "hidden" }}>
+          <div style={{ flex: 1, overflowY: "scroll", padding: "12px 14px" }}>
             {data.messages.length === 0 ? (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 24px", textAlign: "center" }}>
                 <Eye style={{ width: 48, height: 48, color: "#52525b", marginBottom: 16 }} />
@@ -669,12 +728,12 @@ export default function GuildAnnouncementsPage() {
             ) : data.messages.map((m, i) => {
               const pMid = m._id || String(i);
               return (
-                <div key={pMid} onClick={() => scrollToMessage(i)}
-                  style={{ marginBottom: 8, borderRadius: 8, border: selectedMessageIndex === i ? `1px solid ${C.burg}40` : "1px solid transparent", backgroundColor: selectedMessageIndex === i ? `${C.burg}08` : "transparent", cursor: "pointer", padding: 8 }}>
-                  <DiscordPreview message={m.data} isV2={isComponentsV2(m.data.flags)} targets={data.targets}
-                    onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri: ri!, ci: ci! }); setComponentModalOpen(true); }}
-                    files={messageFiles[pMid]} />
-                </div>
+                <DiscordPreview key={`preview-${pMid}`}
+                  message={m.data}
+                  isV2={isComponentsV2(m.data.flags)}
+                  targets={data.targets}
+                  onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri: ri!, ci: ci! }); setComponentModalOpen(true); }}
+                  files={messageFiles[pMid]} />
               );
             })}
           </div>
