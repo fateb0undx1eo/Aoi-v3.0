@@ -536,10 +536,10 @@ export default function GuildAnnouncementsPage() {
     <DashboardLayout guildId={String(guildId || "")} guildName={guild?.name || "Guild"} heading="" modules={modules}>
       <style>{`
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+        .scrollbar-thin::-webkit-scrollbar { width: 7px; }
         .scrollbar-thin::-webkit-scrollbar-track { background: #1a1a1a; }
-        .scrollbar-thin::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
-        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #52525b; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #777; }
       `}</style>
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
@@ -569,7 +569,7 @@ export default function GuildAnnouncementsPage() {
         }}
         serverEmojis={serverEmojis} />
 
-      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", height: "calc(100vh - 120px)" }}>
         {/* LEFT PANEL - 45% */}
         <div style={{ width: "45%", display: "flex", flexDirection: "column", backgroundColor: C.surface, borderRight: `1px solid ${C.border}` }}>
 
