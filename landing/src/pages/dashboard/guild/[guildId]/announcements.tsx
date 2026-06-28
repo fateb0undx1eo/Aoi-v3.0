@@ -463,7 +463,7 @@ export default function GuildAnnouncementsPage() {
   const msg = message?.data;
 
   return (
-    <DashboardLayout guildId={String(guildId || "")} guildName={guild?.name || "Guild"} heading="Announcements" modules={modules}>
+    <DashboardLayout guildId={String(guildId || "")} guildName={guild?.name || "Guild"} modules={modules}>
       <style>{`
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .scrollbar-thin::-webkit-scrollbar { width: 6px; }
