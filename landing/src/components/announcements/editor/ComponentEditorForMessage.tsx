@@ -34,10 +34,10 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
 
   const addV2Container = (itemType: APIV2ChildComponent["type"]) => {
     const item: APIV2ChildComponent = itemType === 10 ? { type: 10, content: "" }
-      : itemType === 11 ? { type: 11, items: [{ media: { url: "" } }] }
+      : itemType === 11 ? { type: 11, media: { url: "" } }
       : itemType === 12 ? { type: 12, items: [{ media: { url: "" } }] }
-      : itemType === 13 ? { type: 13, items: [{ media: { url: "" } }] }
-      : itemType === 14 ? { type: 14, divider: true, spacing: 1 }
+      : itemType === 13 ? { type: 13, file: { url: "" } }
+      : itemType === 14 ? { type: 14, spacing: 1 }
       : { type: 9, components: [{ type: 10, content: "" }] };
     onChange([...components, { type: 17, components: [item] }]);
   };

@@ -1,6 +1,6 @@
 import { ExternalLink, FileText } from "lucide-react";
 import { TEXT_COLOR, C } from "../constants";
-import type { APIButtonComponent, APIComponentInActionRow, APIContainerComponent, APIV2TextDisplay, APIV2Thumbnail, APIV2MediaGallery, APIV2Separator, APIV2File } from "../types";
+import type { APIButtonComponent, APIComponentInActionRow, APIContainerComponent, APIV2Thumbnail } from "../types";
 import { decimalToHex } from "../utils/color";
 import { Markdown } from "../utils/markdown";
 import { getImageUri } from "../utils/files";
@@ -45,7 +45,7 @@ export default function ContainerPreview({
               );
             }
             if (item.type === 11) {
-              const url = item.items?.[0]?.media?.url;
+              const url = item.media?.url;
               return url ? (
                 <img key={ci} src={url} alt="" style={{ maxHeight: 320, width: "100%", borderRadius: 8, objectFit: "cover" }} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
               ) : null;
@@ -57,7 +57,7 @@ export default function ContainerPreview({
               ) : null;
             }
             if (item.type === 13) {
-              const url = item.items?.[0]?.media?.url;
+              const url = item.file?.url;
               if (!url) return null;
               const filename = url.split("/").pop() || "file";
               return (
@@ -71,28 +71,16 @@ export default function ContainerPreview({
               return <hr key={ci} style={{ border: "none", borderTop: "1px solid rgba(128,132,142,0.48)", margin: 0 }} />;
             }
             if (item.type === 9) {
-              const textChild = item.components?.find((c): c is APIV2TextDisplay => c.type === 10);
-              const thumbChild = item.components?.find((c): c is APIV2Thumbnail => c.type === 11);
-              const mediaChild = item.components?.find((c): c is APIV2MediaGallery => c.type === 12);
+              const textChildren = item.components || [];
               const accessory = item.accessory;
               return (
                 <div key={ci} style={{ display: "flex", alignItems: "flex-start", gap: 12, borderRadius: 4, backgroundColor: "rgba(0,0,0,0.3)", padding: "10px 12px" }}>
                   <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-                    {textChild && (
-                      <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.5, color: "#b5bac1" }}>
-                        <Markdown content={textChild.content} />
+                    {textChildren.map((tc, tci) => (
+                      <div key={tci} style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.5, color: "#b5bac1" }}>
+                        <Markdown content={tc.content} />
                       </div>
-                    )}
-                    {thumbChild && (() => {
-                      const url = thumbChild.items?.[0]?.media?.url;
-                      return url ? <img src={url} alt="" style={{ marginTop: 4, maxHeight: 160, width: "100%", borderRadius: 8, objectFit: "cover" }} /> : null;
-                    })()}
-                    {mediaChild && (() => {
-                      const images = mediaChild.items?.filter((i) => i.media?.url) || [];
-                      return images.length > 0 ? (
-                        <Gallery attachments={images.map((i) => ({ id: String(ci), filename: "media", content_type: "image/png", url: i.media.url, proxy_url: "#", size: 0 }))} />
-                      ) : null;
-                    })()}
+                    ))}
                   </div>
                   {accessory?.type === 2 && (() => {
                     const btn = accessory as APIButtonComponent;
@@ -103,7 +91,7 @@ export default function ContainerPreview({
                     );
                   })()}
                   {accessory?.type === 11 && (() => {
-                    const url = (accessory as APIV2Thumbnail).items?.[0]?.media?.url;
+                    const url = (accessory as APIV2Thumbnail).media?.url;
                     return url ? <img src={url} alt="" style={{ width: 85, height: 85, flexShrink: 0, borderRadius: 8, objectFit: "cover" }} /> : null;
                   })()}
                 </div>

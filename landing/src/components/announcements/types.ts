@@ -48,21 +48,27 @@ type APIComponentInActionRow = APIButtonComponent | APIStringSelectComponent
 
 interface APIActionRowComponent { type: 1; components: APIComponentInActionRow[]; }
 
-interface APIV2TextDisplay { type: 10; content: string; }
-interface APIV2Separator { type: 14; divider: boolean; spacing: number; }
-interface APIV2MediaItem { media: { url: string }; }
-interface APIV2MediaGallery { type: 12; items: APIV2MediaItem[]; }
-interface APIV2Thumbnail { type: 11; items: APIV2MediaItem[]; }
-interface APIV2File { type: 13; items: APIV2MediaItem[]; }
+interface UnfurledMediaItem { url: string; }
+interface MediaGalleryItem { media: UnfurledMediaItem; description?: string; spoiler?: boolean; }
+
+interface APIV2TextDisplay { type: 10; id?: number; content: string; }
+interface APIV2Separator { type: 14; id?: number; divider?: boolean; spacing?: number; }
+interface APIV2MediaGallery { type: 12; id?: number; items: MediaGalleryItem[]; }
+interface APIV2Thumbnail { type: 11; id?: number; media: UnfurledMediaItem; description?: string; spoiler?: boolean; }
+interface APIV2File { type: 13; id?: number; file: UnfurledMediaItem; spoiler?: boolean; name?: string; size?: number; }
+
+type SectionAccessory = APIButtonComponent | APIStringSelectComponent | APIUserSelectComponent | APIRoleSelectComponent | APIMentionableSelectComponent | APIChannelSelectComponent | APIV2Thumbnail;
 
 interface APIV2Section {
   type: 9;
-  components: APIV2ChildComponent[];
-  accessory?: APIButtonComponent | APIV2Thumbnail;
+  id?: number;
+  components: APIV2TextDisplay[];
+  accessory?: SectionAccessory;
 }
 
 interface APIContainerComponent {
   type: 17;
+  id?: number;
   components: APIV2ChildComponent[];
   accent_color?: number;
   spoiler?: boolean;
@@ -167,7 +173,7 @@ export type {
   ButtonStyle, ComponentType,
   APIEmoji, APIButtonComponent, APISelectOption, APIStringSelectComponent, APIUserSelectComponent, APIRoleSelectComponent, APIMentionableSelectComponent, APIChannelSelectComponent,
   APIComponentInActionRow, APIActionRowComponent,
-  APIV2TextDisplay, APIV2Separator, APIV2MediaItem, APIV2MediaGallery, APIV2Thumbnail, APIV2File, APIV2Section, APIContainerComponent, APIV2ChildComponent, APITopLevelComponent,
+  UnfurledMediaItem, MediaGalleryItem, APIV2TextDisplay, APIV2Separator, APIV2MediaGallery, APIV2Thumbnail, APIV2File, APIV2Section, APIContainerComponent, APIV2ChildComponent, APITopLevelComponent, SectionAccessory,
   APIEmbedField, APIEmbedFooter, APIEmbedImage, APIEmbedThumbnail, APIEmbedVideo, APIEmbedAuthor, APIEmbed, APIAllowedMentions, APIAttachment,
   DraftFile, QueryDataMessageData, QueryDataMessage, QueryDataTarget, QueryData,
   ModuleRow, GuildChannel, GuildRole, GuildEmoji, SaveState, StatusMsg,

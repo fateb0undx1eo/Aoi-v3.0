@@ -1,13 +1,13 @@
 import { nanoid } from "nanoid";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/router";
-import { DashboardLayout } from "@/components/dashboard-layout";
 import {
   Copy, Trash2, ChevronDown,
   Send, Save, X, Eye, Check, Bot, Globe, Hash,
   MessageSquare, FileText, Code, RotateCcw, Layers,
   AlertTriangle, Zap, Undo2, Redo2, BookMarked,
-  BellOff, Megaphone,
+  BellOff, Megaphone, RefreshCw, CornerUpLeft,
+  CornerUpRight, SendHorizonal,
 } from "lucide-react";
 
 import type {
@@ -31,24 +31,13 @@ import ComponentEditorForMessage from "@/components/announcements/editor/Compone
 import FileAttachmentEditor from "@/components/announcements/editor/FileAttachmentEditor";
 import { Section, Toggle, Label, Input, ChannelTag, EmbedRow, AddButton } from "@/components/announcements/editor/ui";
 
-type Toast = { id: string; state: "idle" | "success" | "error" | "info" | "sending"; text: string };
-
-// ─── Palette extensions ───────────────────────────────────────────────────────
-// We extend C with some richer accent colours used in the new toolbar.
-const ACCENT = {
-  reset:  "#e05252",   // warm red   – destructive / reset
-  undo:   "#5b8dee",   // periwinkle – temporal back
-  redo:   "#52b26e",   // sage green – temporal forward
-  presets:"#c084fc",   // soft violet – save / library
-  send:   "#f59e0b",   // amber       – primary action (moved to toolbar)
-  code:   "#38bdf8",   // sky blue    – code/export
-};
+type Toast = { id: string; state: "idle" | "success" | "error" | "info" | "sending" | "confirm"; text: string; onConfirm?: () => void; onCancel?: () => void };
 
 // ─── ToolbarButton ─────────────────────────────────────────────────────────────
 function ToolbarButton({
-  icon, tooltip, onClick, color, pulse,
+  icon, tooltip, onClick,
 }: {
-  icon: ReactNode; tooltip: string; onClick: () => void; color?: string; pulse?: boolean;
+  icon: ReactNode; tooltip: string; onClick: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -60,42 +49,32 @@ function ToolbarButton({
         onMouseLeave={() => setHovered(false)}
         style={{
           display: "flex", alignItems: "center", justifyContent: "center",
-          width: 30, height: 30, borderRadius: 8,
-          border: `1px solid ${hovered ? (color || C.burg) + "99" : (color || C.burg) + "44"}`,
-          backgroundColor: hovered ? (color || C.burg) + "28" : (color || C.burg) + "10",
-          color: hovered ? (color || C.burg) : (color || C.burg) + "cc",
+          width: 26, height: 26, borderRadius: 6,
+          border: "none",
+          backgroundColor: "transparent",
+          color: hovered ? C.text : C.textMuted,
           cursor: "pointer",
-          transition: "all 0.15s",
-          boxShadow: hovered ? `0 0 8px ${(color || C.burg)}55` : "none",
+          transition: "all 0.12s",
           outline: "none",
-          position: "relative",
+          transform: hovered ? "translateY(-2px)" : "none",
         }}
       >
         {icon}
-        {pulse && (
-          <span style={{
-            position: "absolute", top: 4, right: 4,
-            width: 5, height: 5, borderRadius: "50%",
-            backgroundColor: color || C.burg,
-            boxShadow: `0 0 4px ${color || C.burg}`,
-          }} />
-        )}
       </button>
       {hovered && (
         <div style={{
-          position: "absolute", bottom: "calc(100% + 6px)", left: "50%",
+          position: "absolute", top: "calc(100% + 4px)", left: "50%",
           transform: "translateX(-50%)",
           padding: "4px 10px", borderRadius: 6,
           backgroundColor: "#18181b", color: C.text,
           fontSize: 11, fontWeight: 500, whiteSpace: "nowrap",
           border: `1px solid ${C.border}`,
           zIndex: 200, pointerEvents: "none",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
         }}>
           {tooltip}
-            </div>
-          )}
-          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -119,21 +98,48 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
             pointerEvents: "auto",
             animation: "slideUp 0.3s ease-out",
             display: "flex", alignItems: "center", gap: 10,
-            padding: "12px 20px", borderRadius: 10,
+            padding: toast.state === "confirm" ? "16px 20px" : "12px 20px", borderRadius: 10,
             border: "1px solid rgba(255,255,255,0.06)",
             backgroundColor: c.bg, color: c.text,
             fontSize: 14, fontWeight: 500,
             boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
             backdropFilter: "blur(8px)",
+            flexDirection: toast.state === "confirm" ? "column" : "row",
           }}>
-            {toast.state === "error"   && <AlertTriangle style={{ width: 16, height: 16, flexShrink: 0 }} />}
-            {toast.state === "success" && <Check         style={{ width: 16, height: 16, flexShrink: 0 }} />}
-            {toast.state === "sending" && <Zap           style={{ width: 16, height: 16, flexShrink: 0 }} />}
-            <span>{toast.text}</span>
-            <button type="button" onClick={() => onDismiss(toast.id)}
-              style={{ marginLeft: "auto", background: "none", border: "none", color: "inherit", opacity: 0.6, cursor: "pointer" }}>
-              <X style={{ width: 14, height: 14 }} />
-            </button>
+            {toast.state === "confirm" ? (
+              <>
+                <span style={{ marginBottom: 10 }}>{toast.text}</span>
+                <div style={{ display: "flex", gap: 8, width: "100%" }}>
+                  <button type="button" onClick={() => { toast.onConfirm?.(); onDismiss(toast.id); }}
+                    style={{
+                      flex: 1, padding: "8px 0", borderRadius: 8, border: "none",
+                      backgroundColor: C.burg, color: "#fff", cursor: "pointer",
+                      fontSize: 12, fontWeight: 600,
+                    }}>
+                    Confirm
+                  </button>
+                  <button type="button" onClick={() => { toast.onCancel?.(); onDismiss(toast.id); }}
+                    style={{
+                      flex: 1, padding: "8px 0", borderRadius: 8, border: `1px solid ${C.border}`,
+                      backgroundColor: "transparent", color: C.textMuted, cursor: "pointer",
+                      fontSize: 12, fontWeight: 600,
+                    }}>
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {toast.state === "error"   && <AlertTriangle style={{ width: 16, height: 16, flexShrink: 0 }} />}
+                {toast.state === "success" && <Check         style={{ width: 16, height: 16, flexShrink: 0 }} />}
+                {toast.state === "sending" && <Zap           style={{ width: 16, height: 16, flexShrink: 0 }} />}
+                <span>{toast.text}</span>
+                <button type="button" onClick={() => onDismiss(toast.id)}
+                  style={{ marginLeft: "auto", background: "none", border: "none", color: "inherit", opacity: 0.6, cursor: "pointer" }}>
+                  <X style={{ width: 14, height: 14 }} />
+                </button>
+              </>
+            )}
           </div>
         );
       })}
@@ -159,7 +165,8 @@ function SendModal({
   onSend: () => void; onClose: () => void;
 }) {
   if (!open) return null;
-  const canSend = sendAsBot ? selectedChannelIds.size > 0 : webhookUrl.trim().length > 0;
+  const hasWebhookError = !sendAsBot && webhookUrl.trim().length > 0 && !/^https:\/\/(?:(?:ptb|canary)\.)?discord(?:app)?\.com\/api\/webhooks\/(\d+)\/([\w-]+)\/?$/.test(webhookUrl.trim());
+  const canSend = sendAsBot ? selectedChannelIds.size > 0 : (!hasWebhookError && webhookUrl.trim().length > 0);
   return (
     <div
       style={{
@@ -309,16 +316,25 @@ function SendModal({
               value={webhookUrl}
               onChange={(e) => onWebhookUrlChange(e.target.value)}
               placeholder="https://discord.com/api/webhooks/…"
+              aria-invalid={hasWebhookError}
+              aria-describedby={hasWebhookError ? "webhook-error" : undefined}
               style={{
                 width: "100%", padding: "8px 12px", borderRadius: 8,
-                border: `1px solid ${C.border}`, backgroundColor: C.bg,
+                border: `1px solid ${hasWebhookError ? "#ef4444" : C.border}`, backgroundColor: C.bg,
                 color: C.text, fontSize: 13, outline: "none",
                 boxSizing: "border-box",
               }}
             />
-            <p style={{ fontSize: 10, color: C.textMuted, marginTop: 4 }}>
-              Sends to the webhook's pre-configured channel.
-            </p>
+            {hasWebhookError && (
+              <p id="webhook-error" style={{ fontSize: 10, color: "#ef4444", marginTop: 4 }}>
+                Invalid Discord webhook URL. Must be https://discord.com/api/webhooks/...
+              </p>
+            )}
+            {!hasWebhookError && (
+              <p style={{ fontSize: 10, color: C.textMuted, marginTop: 4 }}>
+                Sends to the webhook's pre-configured channel.
+              </p>
+            )}
           </div>
         )}
 
@@ -420,25 +436,40 @@ export default function GuildAnnouncementsPage() {
   const [messageLink,    setMessageLink]    = useState("");
   // NEW: suppress mentions toggle (lives in modal only)
   const [suppressMentions, setSuppressMentions] = useState(false);
+  const [editEmbedIndex, setEditEmbedIndex] = useState<number | null>(null);
 
   const [history,    setHistory]    = useState<QueryData[]>([cloneQueryData(data)]);
   const [historyIdx, setHistoryIdx] = useState(0);
   const skipHistoryRef = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestDataRef = useRef(data);
+  const historyIdxRef = useRef(historyIdx);
+  latestDataRef.current = data;
+  historyIdxRef.current = historyIdx;
 
   useEffect(() => {
     if (skipHistoryRef.current) { skipHistoryRef.current = false; return; }
-    setHistory((prev) => {
-      const next = prev.slice(0, historyIdx + 1);
-      next.push(cloneQueryData(data));
-      return next;
-    });
-    setHistoryIdx((prev) => prev + 1);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const hidx = historyIdxRef.current;
+      setHistory((prev) => {
+        const next = prev.slice(0, hidx + 1);
+        next.push(cloneQueryData(latestDataRef.current));
+        if (next.length > 50) next.splice(0, next.length - 50);
+        return next;
+      });
+      setHistoryIdx((prev) => prev + 1);
+    }, 400);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [data]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const msgRefs   = useRef<Record<number, HTMLDivElement | null>>({});
 
-  const message = data.messages[selectedMessageIndex];
+  const safeSelectedIndex = Math.min(selectedMessageIndex, Math.max(0, data.messages.length - 1));
+  const safeIdxRef = useRef(safeSelectedIndex);
+  safeIdxRef.current = safeSelectedIndex;
+  const message = data.messages[safeSelectedIndex];
   const isV2    = isComponentsV2(message?.data.flags);
 
   const addToast = useCallback((state: Toast["state"], text: string) => {
@@ -451,6 +482,25 @@ export default function GuildAnnouncementsPage() {
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const confirmAction = useCallback((text: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const id = nanoid(6);
+      setToasts((prev) => [...prev, {
+        id, state: "confirm", text,
+        onConfirm: () => {
+          setToasts((prev) => prev.map((t) => t.id === id ? { ...t, state: "success", text: "Done", onConfirm: undefined, onCancel: undefined } : t));
+          setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 2000);
+          resolve(true);
+        },
+        onCancel: () => {
+          setToasts((prev) => prev.map((t) => t.id === id ? { ...t, state: "info", text: "Canceled", onConfirm: undefined, onCancel: undefined } : t));
+          setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 2000);
+          resolve(false);
+        },
+      }]);
+    });
   }, []);
 
   // ── Data loading ─────────────────────────────────────────────────────────────
@@ -483,30 +533,53 @@ export default function GuildAnnouncementsPage() {
             data: p.data || { version: "d2", messages: [{ _id: randomId(), data: {} }], targets: [] },
           })));
         }
-      } catch { } finally { setLoading(false); }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to load guild data";
+        addToast("error", msg);
+        console.error("Data loading error:", err);
+      } finally { setLoading(false); }
     })();
   }, [guildId, router]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
   const setD = useCallback((next: QueryData) => setData(cloneQueryData(next)), []);
 
+  const flushHistory = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+      const hidx = historyIdxRef.current;
+      setHistory((prev) => {
+        const next = prev.slice(0, hidx + 1);
+        next.push(cloneQueryData(latestDataRef.current));
+        if (next.length > 50) next.splice(0, next.length - 50);
+        return next;
+      });
+      setHistoryIdx((prev) => prev + 1);
+    }
+  }, []);
+
   const undo = useCallback(() => {
+    flushHistory();
     if (historyIdx <= 0) return;
     skipHistoryRef.current = true;
     const newIdx = historyIdx - 1;
     setHistoryIdx(newIdx);
     setD(cloneQueryData(history[newIdx]!));
-  }, [historyIdx, history, setD]);
+  }, [historyIdx, history, setD, flushHistory]);
 
   const redo = useCallback(() => {
+    flushHistory();
     if (historyIdx >= history.length - 1) return;
     skipHistoryRef.current = true;
     const newIdx = historyIdx + 1;
     setHistoryIdx(newIdx);
     setD(cloneQueryData(history[newIdx]!));
-  }, [historyIdx, history, setD]);
+  }, [historyIdx, history, setD, flushHistory]);
 
-  const resetAll = useCallback(() => {
+  const resetAll = useCallback(async () => {
+    const ok = await confirmAction("Reset everything? All messages, files, and history will be cleared.");
+    if (!ok) return;
     setD({ version: data.version, messages: [{ _id: randomId(), data: {} }], targets: [] });
     setMessageFiles({});
     setSelectedChannelIds(new Set());
@@ -521,16 +594,17 @@ export default function GuildAnnouncementsPage() {
     setHistory([cloneQueryData({ version: data.version, messages: [{ _id: randomId(), data: {} }], targets: [] })]);
     setHistoryIdx(0);
     addToast("info", "Reset to empty state.");
-  }, [data.version, setD, addToast]);
+  }, [data.version, setD, addToast, confirmAction]);
 
   const updateMessageData = useCallback((updates: Partial<QueryDataMessageData>) => {
+    const idx = Math.min(safeIdxRef.current, data.messages.length - 1);
     setD({
       ...data,
       messages: data.messages.map((m, i) =>
-        i === selectedMessageIndex ? { ...m, data: { ...m.data, ...updates } } : m,
+        i === idx ? { ...m, data: { ...m.data, ...updates } } : m,
       ),
     });
-  }, [data, selectedMessageIndex, setD]);
+  }, [data, setD]);
 
   const addMessage = useCallback((isComponentsV2Msg?: boolean) => {
     const flags = isComponentsV2Msg ? (1 << 15) : undefined;
@@ -551,6 +625,20 @@ export default function GuildAnnouncementsPage() {
     );
     setD({ ...data, messages: next });
   }, [data, selectedMessageIndex, setD]);
+
+  const duplicateMessage = useCallback((idx: number) => {
+    const original = data.messages[idx];
+    if (!original) return;
+    const clone = cloneQueryData({
+      ...data,
+      messages: [original],
+    }).messages[0]!;
+    clone._id = randomId();
+    const next = [...data.messages];
+    next.splice(idx + 1, 0, clone);
+    setD({ ...data, messages: next });
+    setSelectedMessageIndex(idx + 1);
+  }, [data, setD]);
 
   const scrollToMessage = useCallback((idx: number) => {
     const el = msgRefs.current[idx];
@@ -590,7 +678,10 @@ export default function GuildAnnouncementsPage() {
         }),
       });
       addToast("success", `${kind === "template" ? "Template" : "Draft"} saved.`);
-    } catch { addToast("error", "Failed to save preset."); }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to save preset";
+      addToast("error", msg);
+    }
   }, [presetName, presets, data, modules, guildId, addToast]);
 
   const loadPreset = useCallback((preset: { id: string; name: string; kind: "draft" | "template"; data: QueryData }) => {
@@ -601,6 +692,10 @@ export default function GuildAnnouncementsPage() {
   }, [setData, addToast]);
 
   const deletePreset = useCallback(async (presetId: string) => {
+    const target = presets.find((p) => p.id === presetId);
+    if (!target) return;
+    const ok = await confirmAction(`Delete preset "${target.name}"?`);
+    if (!ok) return;
     const next = presets.filter((p) => p.id !== presetId);
     setPresets(next);
     try {
@@ -613,8 +708,11 @@ export default function GuildAnnouncementsPage() {
         }),
       });
       addToast("success", "Preset deleted.");
-    } catch { addToast("error", "Failed to delete preset."); }
-  }, [presets, modules, guildId, addToast]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to delete preset";
+      addToast("error", msg);
+    }
+  }, [presets, modules, guildId, addToast, confirmAction]);
 
   // ── Send ──────────────────────────────────────────────────────────────────────
   const handleSend = useCallback(async () => {
@@ -634,7 +732,9 @@ export default function GuildAnnouncementsPage() {
           for (const child of children) {
             if (child.type === 10 && child.content) return true;
             if (child.type === 9 && child.components?.some((c) => c.type === 10 && (c as APIV2TextDisplay).content)) return true;
-            if ((child.type === 11 || child.type === 12 || child.type === 13) && child.items?.some((i: any) => i.media?.url)) return true;
+            if (child.type === 11 && child.media?.url) return true;
+            if (child.type === 12 && child.items?.some((i) => i.media?.url)) return true;
+            if (child.type === 13 && child.file?.url) return true;
           }
         }
       }
@@ -651,27 +751,34 @@ export default function GuildAnnouncementsPage() {
     };
 
     try {
-      const msgData = data.messages[0]?.data;
-      const payload = {
-        content:          msgData?.content || undefined,
-        embeds:           msgData?.embeds?.filter((e) => e.title || e.description || (e.fields && e.fields.length > 0) || e.image?.url || e.thumbnail?.url || e.footer?.text || e.author?.name),
-        components:       msgData?.components || undefined,
-        flags:            msgData?.flags || undefined,
-        allowed_mentions: buildAllowedMentions(msgData?.allowed_mentions),
-      };
-
       if (!sendAsBot && webhookUrl.trim()) {
         const isEdit = editMode && messageLink.trim();
-        const url    = isEdit
-          ? `${webhookUrl.replace(/\/$/, "")}/messages/${messageLink.split("/").pop()}`
-          : webhookUrl;
-        const res = await fetch(url, {
-          method: isEdit ? "PATCH" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error(`Webhook ${isEdit ? "edit" : "send"} failed (${res.status})`);
-        addToast("success", "Announcement sent via webhook!");
+        let sent = 0, failed = 0;
+        for (const m of data.messages) {
+          const md = m.data;
+          const p = {
+            content:          md?.content || undefined,
+            embeds:           md?.embeds?.filter((e) => e.title || e.description || (e.fields && e.fields.length > 0) || e.image?.url || e.thumbnail?.url || e.footer?.text || e.author?.name),
+            components:       md?.components || undefined,
+            flags:            md?.flags || undefined,
+            allowed_mentions: buildAllowedMentions(md?.allowed_mentions),
+          };
+          const url = isEdit
+            ? `${webhookUrl.replace(/\/$/, "")}/messages/${messageLink.split("/").pop()}`
+            : webhookUrl;
+          try {
+            const res = await fetch(url, {
+              method: isEdit ? "PATCH" : "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(p),
+            });
+            if (res.ok) sent++;
+            else failed++;
+          } catch { failed++; }
+          if (data.messages.length > 1) await new Promise((r) => setTimeout(r, 500));
+        }
+        if (failed === 0) addToast("success", `Sent ${sent} message${sent !== 1 ? "s" : ""} via webhook!`);
+        else addToast("error", `Sent ${sent}, failed ${failed} message${failed !== 1 ? "s" : ""}`);
       } else {
         const body = {
           channel_ids: Array.from(selectedChannelIds),
@@ -749,23 +856,37 @@ export default function GuildAnnouncementsPage() {
   // ── Local state ───────────────────────────────────────────────────────────────
   const mid          = message?._id || "";
   const currentFiles = messageFiles[mid] || [];
-  const [editEmbedIndex, setEditEmbedIndex] = useState<number | null>(null);
   const msg = message?.data;
 
   // ── Render ────────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", backgroundColor: C.bg }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: "50%",
+            border: `3px solid ${C.border}`,
+            borderTopColor: C.burg,
+            animation: "spin 0.7s linear infinite",
+            margin: "0 auto 16px",
+          }} />
+          <p style={{ fontSize: 14, color: C.textMuted }}>Loading studio...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <DashboardLayout
-      guildId={String(guildId || "")}
-      guildName={guild?.name || "Guild"}
-      heading=""
-      modules={modules}
-      flush
-    >
+    <>
       <style>{`
         /* ── Slide-up animation ────────────────────────────────────── */
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(20px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
 
         /* ── Inter + Syne from Google Fonts ──────────────────────── */
@@ -834,7 +955,7 @@ export default function GuildAnnouncementsPage() {
       />
 
       {/* ── Two-panel layout ────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", height: "calc(100vh - 120px)" }}>
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", height: "100vh" }}>
 
         {/* ── LEFT PANEL ──────────────────────────────────────────────────────── */}
         <div style={{
@@ -845,24 +966,23 @@ export default function GuildAnnouncementsPage() {
 
           {/* ── Fixed header (never scrolls) ──────────────────────────────────── */}
           <div style={{
-            padding: "10px 14px 8px",
+            padding: "8px 12px 6px",
             borderBottom: `1px solid ${C.border}`,
             backgroundColor: C.surface,
             flexShrink: 0,
             zIndex: 10,
           }}>
             {/* Title row */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
 
               {/* Studio wordmark */}
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {/* Tiny discord-esque diamond icon */}
                 <div style={{
                   width: 26, height: 26, borderRadius: 7,
-                  background: `linear-gradient(135deg, ${C.burg} 0%, #a3153f 100%)`,
+                  backgroundColor: C.burg,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   flexShrink: 0,
-                  boxShadow: `0 2px 8px ${C.burg}55`,
                 }}>
                   <Megaphone style={{ width: 13, height: 13, color: "#fff" }} />
                 </div>
@@ -876,7 +996,7 @@ export default function GuildAnnouncementsPage() {
                 }}>
                   Announcement{" "}
                   <span style={{
-                    background: `linear-gradient(90deg, ${C.burg}, #e05295)`,
+                    background: `linear-gradient(135deg, ${C.burg} 40%, #b91c4a 100%)`,
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                   }}>
@@ -886,96 +1006,126 @@ export default function GuildAnnouncementsPage() {
               </div>
 
               {/* Toolbar buttons */}
-              <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
                 <ToolbarButton
-                  icon={<RotateCcw style={{ width: 13, height: 13 }} />}
-                  tooltip="Reset everything"
-                  color={ACCENT.reset}
+                  icon={<RefreshCw style={{ width: 14, height: 14 }} />}
+                  tooltip="Reset"
                   onClick={resetAll}
                 />
                 <ToolbarButton
-                  icon={<Undo2 style={{ width: 13, height: 13 }} />}
+                  icon={<CornerUpLeft style={{ width: 14, height: 14 }} />}
                   tooltip="Undo"
-                  color={ACCENT.undo}
                   onClick={undo}
                 />
                 <ToolbarButton
-                  icon={<Redo2 style={{ width: 13, height: 13 }} />}
+                  icon={<CornerUpRight style={{ width: 14, height: 14 }} />}
                   tooltip="Redo"
-                  color={ACCENT.redo}
                   onClick={redo}
                 />
                 <ToolbarButton
-                  icon={<BookMarked style={{ width: 13, height: 13 }} />}
+                  icon={<Save style={{ width: 14, height: 14 }} />}
                   tooltip="Presets"
-                  color={ACCENT.presets}
                   onClick={() => setPresetsOpen(!presetsOpen)}
                 />
-                {/* Divider */}
-                <div style={{ width: 1, height: 18, backgroundColor: C.border, margin: "0 2px" }} />
-                {/* Send — icon-only, same style, amber accent */}
                 <ToolbarButton
-                  icon={<Send style={{ width: 13, height: 13 }} />}
-                  tooltip="Send announcement"
-                  color={ACCENT.send}
+                  icon={<SendHorizonal style={{ width: 14, height: 14 }} />}
+                  tooltip="Send"
                   onClick={() => setSendModalOpen(true)}
-                  pulse
                 />
               </div>
             </div>
 
-            {/* Message navigator — also fixed */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                Msg
-              </span>
-              <div style={{ display: "flex", gap: 3, flexWrap: "wrap", alignItems: "center" }}>
-                {data.messages.map((_, i) => (
-                  <button
-                    key={i} type="button"
-                    onClick={() => scrollToMessage(i)}
-                    title={`Message ${i + 1}`}
+            {/* ── Message management — Solution 1 ── */}
+            <div style={{
+              borderTop: `1px solid ${C.border}`,
+              padding: "4px 10px",
+            }}>
+              {/* Top row: label + actions */}
+              <div style={{ display: "flex", alignItems: "center", marginBottom: 4 }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: C.textMuted }}>
+                  Messages ({data.messages.length})
+                </span>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 3, alignItems: "center" }}>
+                  <button type="button" onClick={() => addMessage(false)} title="Add message"
                     style={{
-                      width: 22, height: 22, borderRadius: 5,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 10, fontWeight: 700,
-                      border: `1px solid ${selectedMessageIndex === i ? C.burg : C.border}`,
-                      backgroundColor: selectedMessageIndex === i ? `${C.burg}22` : "transparent",
-                      color: selectedMessageIndex === i ? C.burg : C.textMuted,
-                      cursor: "pointer", transition: "all 0.12s",
+                      display: "flex", alignItems: "center", gap: 3,
+                      padding: "0 7px", height: 20, borderRadius: 999,
+                      border: `1px dashed ${C.border}`, backgroundColor: "transparent",
+                      color: C.textMuted, cursor: "pointer", fontSize: 10, fontWeight: 600, transition: "all 0.12s",
                     }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.burg; e.currentTarget.style.color = C.burg; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMuted; }}
                   >
-                    {i + 1}
+                    <MessageSquare style={{ width: 10, height: 10 }} /> Add
                   </button>
-                ))}
-                {/* Add standard */}
-                <button
-                  type="button"
-                  onClick={() => addMessage(false)}
-                  title="Add Standard Message"
-                  style={{
-                    width: 22, height: 22, borderRadius: 5,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    border: `1px dashed ${C.border}`, backgroundColor: "transparent",
-                    color: C.textMuted, cursor: "pointer", transition: "all 0.12s",
-                  }}
-                >
-                  <MessageSquare style={{ width: 10, height: 10 }} />
-                </button>
-                {/* Add V2 */}
-                <button
-                  type="button"
-                  onClick={() => addMessage(true)}
-                  title="Add Components V2 Message"
-                  style={{
-                    width: 22, height: 22, borderRadius: 5,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    border: `1px dashed ${C.border}`, backgroundColor: "transparent",
-                    color: C.textMuted, cursor: "pointer", transition: "all 0.12s",
-                  }}
-                >
-                  <Layers style={{ width: 10, height: 10 }} />
-                </button>
+                  <button type="button" onClick={() => addMessage(true)} title="Add V2"
+                    style={{
+                      display: "flex", alignItems: "center", gap: 3,
+                      padding: "0 7px", height: 20, borderRadius: 999,
+                      border: `1px dashed ${C.border}`, backgroundColor: "transparent",
+                      color: C.textMuted, cursor: "pointer", fontSize: 10, fontWeight: 600, transition: "all 0.12s",
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.burg; e.currentTarget.style.color = C.burg; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMuted; }}
+                  >
+                    <Layers style={{ width: 10, height: 10 }} /> V2
+                  </button>
+                  <div style={{ width: 1, height: 14, backgroundColor: C.border, flexShrink: 0 }} />
+                  <button type="button" onClick={() => duplicateMessage(safeSelectedIndex)} title="Duplicate"
+                    style={{
+                      display: "flex", alignItems: "center", gap: 3,
+                      padding: "0 7px", height: 20, borderRadius: 999,
+                      border: `1px solid ${C.border}`, backgroundColor: "transparent",
+                      color: C.textMuted, cursor: "pointer", fontSize: 10, fontWeight: 600, transition: "all 0.12s",
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = C.text; e.currentTarget.style.borderColor = C.textMuted; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = C.textMuted; e.currentTarget.style.borderColor = C.border; }}
+                  >
+                    <Copy style={{ width: 10, height: 10 }} /> Dup
+                  </button>
+                  {data.messages.length > 1 && (
+                    <button type="button" onClick={() => removeMessage(safeSelectedIndex)} title="Delete"
+                      style={{
+                        display: "flex", alignItems: "center", gap: 3,
+                        padding: "0 7px", height: 20, borderRadius: 999,
+                        border: "1px solid rgba(220,38,38,0.25)", backgroundColor: "transparent",
+                        color: "#ef4444", cursor: "pointer", fontSize: 10, fontWeight: 600, transition: "all 0.12s",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(220,38,38,0.12)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                    >
+                      <Trash2 style={{ width: 10, height: 10 }} /> Del
+                    </button>
+                  )}
+                </div>
+              </div>
+              {/* Bottom row: scrollable pill chips */}
+              <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2 }}>
+                {data.messages.map((_, i) => {
+                  const active = selectedMessageIndex === i;
+                  return (
+                    <button
+                      key={i} type="button"
+                      onClick={() => scrollToMessage(i)}
+                      title={`Message ${i + 1}`}
+                      style={{
+                        height: 22, minWidth: 22, borderRadius: 999,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        padding: "0 8px",
+                        fontSize: 10, fontWeight: 700, lineHeight: 1,
+                        border: `1px solid ${active ? C.burg : C.border}`,
+                        backgroundColor: active ? C.burg : "transparent",
+                        color: active ? "#fff" : C.textMuted,
+                        cursor: "pointer", transition: "all 0.12s",
+                        flexShrink: 0,
+                      }}
+                      onMouseEnter={(e) => { if (!active) { e.currentTarget.style.backgroundColor = "#18181b"; e.currentTarget.style.color = C.text; } }}
+                      onMouseLeave={(e) => { if (!active) { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = C.textMuted; } }}
+                    >
+                      {i + 1}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1149,7 +1299,7 @@ export default function GuildAnnouncementsPage() {
               const pMid = m._id || String(i);
               return (
                 <DiscordPreview
-                  key={`preview-${pMid}`}
+                  key={`preview-${pMid}-${i}-${JSON.stringify(m.data)}`}
                   message={m.data}
                   isV2={isComponentsV2(m.data.flags)}
                   targets={data.targets}
@@ -1166,6 +1316,6 @@ export default function GuildAnnouncementsPage() {
         </div>
 
       </div>
-    </DashboardLayout>
+    </>
   );
 }

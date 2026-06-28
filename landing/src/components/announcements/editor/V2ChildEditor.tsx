@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Image, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { BUTTON_STYLES } from "../constants";
-import type { APIButtonComponent, APIV2ChildComponent, APIV2TextDisplay, APIV2Thumbnail, ButtonStyle } from "../types";
+import type { APIButtonComponent, APIV2ChildComponent, APIV2Thumbnail, ButtonStyle, MediaGalleryItem, UnfurledMediaItem } from "../types";
 import { randomId } from "../utils/message";
 
 export default function V2ChildEditor({ child, onChange, onRemove }: {
@@ -25,17 +25,82 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
     );
   }
 
-  if (child.type === 11 || child.type === 12) {
-    const label = child.type === 11 ? "Thumbnail" : "Media Gallery";
+  if (child.type === 11) {
     return (
       <div className="rounded border border-zinc-700 bg-black p-2">
         <div className="mb-1 flex items-center justify-between">
-          <span className="text-[10px] text-zinc-500">{label}</span>
+          <span className="text-[10px] text-zinc-500">Thumbnail</span>
           <button type="button" onClick={onRemove} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
         </div>
-        <input type="text" value={child.items?.[0]?.media?.url || ""}
-          onChange={(e) => onChange({ ...child, items: [{ media: { url: e.target.value } }] } as any)}
-          placeholder="Image URL..." className="w-full rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
+        <div className="space-y-1">
+          <input type="text" value={child.media?.url || ""}
+            onChange={(e) => onChange({ ...child, media: { url: e.target.value } })}
+            placeholder="Image URL..." className="w-full rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
+          {child.description != null && (
+            <input type="text" value={child.description || ""}
+              onChange={(e) => onChange({ ...child, description: e.target.value || undefined })}
+              placeholder="Description (alt text)..." className="w-full rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
+          )}
+          <label className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+            <input type="checkbox" checked={child.spoiler || false}
+              onChange={(e) => onChange({ ...child, spoiler: e.target.checked || undefined })}
+              className="rounded border-zinc-700 bg-black" />
+            Spoiler
+          </label>
+        </div>
+      </div>
+    );
+  }
+
+  if (child.type === 12) {
+    const items = child.items || [];
+    const updateItem = (ii: number, upd: { media?: UnfurledMediaItem; description?: string; spoiler?: boolean }) => {
+      const next = [...items];
+      next[ii] = { ...next[ii], ...upd } as MediaGalleryItem;
+      onChange({ ...child, items: next });
+    };
+    const removeItem = (ii: number) => {
+      onChange({ ...child, items: items.filter((_, i) => i !== ii) });
+    };
+    const addItem = () => {
+      onChange({ ...child, items: [...items, { media: { url: "" } }] });
+    };
+    return (
+      <div className="rounded border border-zinc-700 bg-black p-2">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-[10px] text-zinc-500">Media Gallery ({items.length}/10)</span>
+          <button type="button" onClick={onRemove} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
+        </div>
+        <div className="space-y-1">
+          {items.map((item, ii) => (
+            <div key={ii} className="flex flex-col gap-1 rounded border border-zinc-800 p-1.5">
+              <div className="flex items-center gap-1">
+                <input type="text" value={item.media?.url || ""}
+                  onChange={(e) => updateItem(ii, { media: { url: e.target.value } })}
+                  placeholder="Image URL..." className="min-w-0 flex-1 rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
+                <button type="button" onClick={() => removeItem(ii)}
+                  className="shrink-0 text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
+              </div>
+              {item.description != null && (
+                <input type="text" value={item.description || ""}
+                  onChange={(e) => updateItem(ii, { description: e.target.value || undefined })}
+                  placeholder="Description..." className="w-full rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
+              )}
+              <label className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+                <input type="checkbox" checked={item.spoiler || false}
+                  onChange={(e) => updateItem(ii, { spoiler: e.target.checked || undefined })}
+                  className="rounded border-zinc-700 bg-black" />
+                Spoiler
+              </label>
+            </div>
+          ))}
+          {items.length < 10 && (
+            <button type="button" onClick={addItem}
+              className="w-full rounded px-1.5 py-0.5 text-[9px] uppercase text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300">
+              <Plus className="mr-0.5 inline h-2.5 w-2.5" />Add Media
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -47,9 +112,17 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
           <span className="text-[10px] text-zinc-500">File</span>
           <button type="button" onClick={onRemove} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
         </div>
-        <input type="text" value={child.items?.[0]?.media?.url || ""}
-          onChange={(e) => onChange({ ...child, items: [{ media: { url: e.target.value } }] } as any)}
-          placeholder="File URL..." className="w-full rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
+        <div className="space-y-1">
+          <input type="text" value={child.file?.url || ""}
+            onChange={(e) => onChange({ ...child, file: { url: e.target.value } })}
+            placeholder="File URL (attachment://filename)..." className="w-full rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
+          <label className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+            <input type="checkbox" checked={child.spoiler || false}
+              onChange={(e) => onChange({ ...child, spoiler: e.target.checked || undefined })}
+              className="rounded border-zinc-700 bg-black" />
+            Spoiler
+          </label>
+        </div>
       </div>
     );
   }
@@ -59,6 +132,12 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
       <div className="flex items-center gap-2 rounded border border-zinc-700 bg-black px-2 py-1">
         <div className="h-px flex-1 bg-zinc-700" />
         <span className="text-[10px] text-zinc-500">Separator</span>
+        <select value={child.spacing ?? 1}
+          onChange={(e) => onChange({ ...child, spacing: Number(e.target.value) as 1 | 2 })}
+          className="rounded border border-zinc-700 bg-black px-1 py-0.5 text-[10px] text-zinc-400 outline-none">
+          <option value={1}>Small</option>
+          <option value={2}>Large</option>
+        </select>
         <div className="h-px flex-1 bg-zinc-700" />
         <button type="button" onClick={onRemove} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
       </div>
@@ -66,29 +145,16 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
   }
 
   if (child.type === 9) {
-    const textChildren = child.components?.filter((c): c is APIV2TextDisplay => c.type === 10) || [];
-    const thumbChild = child.components?.find((c): c is APIV2Thumbnail => c.type === 11);
+    const textChildren = child.components || [];
     const addTextChild = () => {
-      const updated = [...(child.components || []), { type: 10 as const, content: "" }];
-      onChange({ ...child, components: updated } as any);
+      onChange({ ...child, components: [...textChildren, { type: 10 as const, content: "" }] });
     };
     const updateTextChild = (ti: number, content: string) => {
-      const updated = [...(child.components || [])];
-      const textIdx = updated.findIndex((c, i) => {
-        let idx = -1;
-        if (c.type === 10) { idx++; if (idx === ti) return true; }
-        return false;
-      });
-      if (textIdx >= 0) updated[textIdx] = { type: 10, content } as APIV2TextDisplay;
-      onChange({ ...child, components: updated } as any);
+      const updated = textChildren.map((tc, i) => i === ti ? { ...tc, content } : tc);
+      onChange({ ...child, components: updated });
     };
     const removeTextChild = (ti: number) => {
-      let idx = -1;
-      const updated = (child.components || []).filter((c) => {
-        if (c.type === 10) { idx++; if (idx === ti) return false; }
-        return true;
-      });
-      onChange({ ...child, components: updated } as any);
+      onChange({ ...child, components: textChildren.filter((_, i) => i !== ti) });
     };
     return (
       <div className="rounded border border-zinc-700 bg-black p-2">
@@ -112,23 +178,7 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
             <Plus className="mr-0.5 inline h-2.5 w-2.5" />Add Text Block
           </button>
         </div>
-        {thumbChild && (
-          <input type="text" value={thumbChild.items?.[0]?.media?.url || ""}
-            onChange={(e) => {
-              const noThumb = (child.components || []).filter((c) => c.type !== 11);
-              onChange({ ...child, components: [...noThumb, { type: 11, items: [{ media: { url: e.target.value } }] }] } as any);
-            }}
-            placeholder="Thumbnail URL..." className="mt-1 w-full rounded border border-zinc-700 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
-        )}
         <div className="flex gap-1">
-          {!thumbChild && (
-            <button type="button" onClick={() => onChange({ ...child, components: [...(child.components || []), { type: 11, items: [{ media: { url: "" } }] }] } as any)}
-              className="rounded px-1.5 py-0.5 text-[9px] uppercase text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"><Image className="mr-0.5 inline h-2.5 w-2.5" />+Thumbnail</button>
-          )}
-          {thumbChild && (
-            <button type="button" onClick={() => onChange({ ...child, components: child.components.filter((c) => c.type !== 11) } as any)}
-              className="rounded px-1.5 py-0.5 text-[9px] uppercase text-zinc-500 hover:bg-zinc-800 hover:text-red-300">-Thumbnail</button>
-          )}
           <div className="relative">
             <button type="button" onClick={() => setSectionAccessoryOpen(!sectionAccessoryOpen)}
               className="rounded px-1.5 py-0.5 text-[9px] uppercase text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300">
@@ -159,8 +209,8 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
                 {child.accessory?.type === 11 && (
                   <div className="space-y-1">
                     <p className="text-[9px] text-zinc-500">Thumbnail Accessory</p>
-                    <input type="text" value={(child.accessory as APIV2Thumbnail).items?.[0]?.media?.url || ""}
-                      onChange={(e) => onChange({ ...child, accessory: { type: 11, items: [{ media: { url: e.target.value } }] } } as any)}
+                    <input type="text" value={(child.accessory as APIV2Thumbnail).media?.url || ""}
+                      onChange={(e) => onChange({ ...child, accessory: { type: 11, media: { url: e.target.value }, description: (child.accessory as APIV2Thumbnail).description, spoiler: (child.accessory as APIV2Thumbnail).spoiler } } as any)}
                       placeholder="URL..." className="w-full rounded border border-zinc-700 bg-black px-1.5 py-0.5 text-[10px] text-zinc-200 outline-none" />
                   </div>
                 )}
@@ -168,7 +218,7 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
                   <div className="space-y-1">
                     <button type="button" onClick={() => onChange({ ...child, accessory: { type: 2, style: 1, label: "Button", custom_id: `btn_${randomId()}` } } as any)}
                       className="block w-full rounded px-1.5 py-1 text-[10px] text-left text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200">Button</button>
-                    <button type="button" onClick={() => onChange({ ...child, accessory: { type: 11, items: [{ media: { url: "" } }] } } as any)}
+                    <button type="button" onClick={() => onChange({ ...child, accessory: { type: 11, media: { url: "" } } } as any)}
                       className="block w-full rounded px-1.5 py-1 text-[10px] text-left text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200">Thumbnail</button>
                   </div>
                 )}

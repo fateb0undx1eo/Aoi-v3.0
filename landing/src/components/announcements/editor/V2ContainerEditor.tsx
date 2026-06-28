@@ -12,10 +12,10 @@ export default function V2ContainerEditor({ container, onContainerChange, onRemo
 }) {
   const addChild = (type: APIV2ChildComponent["type"]) => {
     const item: APIV2ChildComponent = type === 10 ? { type: 10, content: "" }
-      : type === 11 ? { type: 11, items: [{ media: { url: "" } }] }
+      : type === 11 ? { type: 11, media: { url: "" } }
       : type === 12 ? { type: 12, items: [{ media: { url: "" } }] }
-      : type === 13 ? { type: 13, items: [{ media: { url: "" } }] }
-      : type === 14 ? { type: 14, divider: true, spacing: 1 }
+      : type === 13 ? { type: 13, file: { url: "" } }
+      : type === 14 ? { type: 14, spacing: 1 }
       : { type: 9, components: [{ type: 10, content: "" }] };
     onContainerChange({ ...container, components: [...container.components, item] });
   };
