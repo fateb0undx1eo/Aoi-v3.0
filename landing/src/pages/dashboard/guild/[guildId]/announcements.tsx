@@ -501,28 +501,38 @@ export default function GuildAnnouncementsPage() {
         {/* LEFT PANEL - 50% */}
         <div style={{ width: "50%", display: "flex", flexDirection: "column", backgroundColor: C.surface, borderRight: `1px solid ${C.border}` }}>
 
-          {/* Compact toolbar + message nav */}
-          <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, backgroundColor: C.surface, display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-            <ToolbarButton icon={<Save style={{ width: 11, height: 11 }} />} tooltip="Presets" onClick={() => setPresetsOpen(!presetsOpen)} />
-            <ToolbarButton icon={<Code style={{ width: 11, height: 11 }} />} tooltip="Generate Code" onClick={() => setCodeGenOpen(true)} />
-            <ToolbarButton icon={<RotateCcw style={{ width: 11, height: 11 }} />} tooltip="Reset" onClick={() => { setD({ version: data.version, messages: [{ _id: randomId(), data: {} }], targets: [] }); addToast("info", "Reset to empty state."); }} />
-            <span style={{ width: 1, height: 16, backgroundColor: C.border, margin: "0 4px" }} />
-            <span style={{ fontSize: 10, color: C.textMuted }}>Msg:</span>
-            <div style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-              {data.messages.map((_, i) => (
-                <button key={i} type="button" onClick={() => scrollToMessage(i)} title={`Message ${i + 1}`}
-                  style={{ width: 20, height: 20, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 600, border: `1px solid ${selectedMessageIndex === i ? C.burg : C.border}`, backgroundColor: selectedMessageIndex === i ? `${C.burg}20` : "transparent", color: selectedMessageIndex === i ? C.burg : C.textMuted, cursor: "pointer" }}>
-                  {i + 1}
+          {/* Header */}
+          <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, backgroundColor: C.surface }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Megaphone style={{ width: 16, height: 16, color: C.burg }} />
+                <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Announcement Studio</span>
+              </div>
+              <div style={{ display: "flex", gap: 2 }}>
+                <ToolbarButton icon={<Save style={{ width: 11, height: 11 }} />} tooltip="Presets" onClick={() => setPresetsOpen(!presetsOpen)} />
+                <ToolbarButton icon={<Code style={{ width: 11, height: 11 }} />} tooltip="Generate Code" onClick={() => setCodeGenOpen(true)} />
+                <ToolbarButton icon={<RotateCcw style={{ width: 11, height: 11 }} />} tooltip="Reset" onClick={() => { setD({ version: data.version, messages: [{ _id: randomId(), data: {} }], targets: [] }); addToast("info", "Reset to empty state."); }} />
+              </div>
+            </div>
+            {/* Message nav */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ fontSize: 10, color: C.textMuted }}>Msg:</span>
+              <div style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+                {data.messages.map((_, i) => (
+                  <button key={i} type="button" onClick={() => scrollToMessage(i)} title={`Message ${i + 1}`}
+                    style={{ width: 20, height: 20, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 600, border: `1px solid ${selectedMessageIndex === i ? C.burg : C.border}`, backgroundColor: selectedMessageIndex === i ? `${C.burg}20` : "transparent", color: selectedMessageIndex === i ? C.burg : C.textMuted, cursor: "pointer" }}>
+                    {i + 1}
+                  </button>
+                ))}
+                <button type="button" onClick={() => addMessage(false)} title="Add Standard Message"
+                  style={{ width: 20, height: 20, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, border: `1px solid ${C.border}`, backgroundColor: "transparent", color: C.textMuted, cursor: "pointer" }}>
+                  <MessageSquare style={{ width: 9, height: 9 }} />
                 </button>
-              ))}
-              <button type="button" onClick={() => addMessage(false)} title="Add Standard Message"
-                style={{ width: 20, height: 20, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, border: `1px solid ${C.border}`, backgroundColor: "transparent", color: C.textMuted, cursor: "pointer" }}>
-                <MessageSquare style={{ width: 9, height: 9 }} />
-              </button>
-              <button type="button" onClick={() => addMessage(true)} title="Add Components V2"
-                style={{ width: 20, height: 20, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, border: `1px solid ${C.border}`, backgroundColor: "transparent", color: C.textMuted, cursor: "pointer" }}>
-                <Layers style={{ width: 9, height: 9 }} />
-              </button>
+                <button type="button" onClick={() => addMessage(true)} title="Add Components V2"
+                  style={{ width: 20, height: 20, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, border: `1px solid ${C.border}`, backgroundColor: "transparent", color: C.textMuted, cursor: "pointer" }}>
+                  <Layers style={{ width: 9, height: 9 }} />
+                </button>
+              </div>
             </div>
           </div>
 
