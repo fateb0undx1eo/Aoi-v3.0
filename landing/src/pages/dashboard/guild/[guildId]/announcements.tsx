@@ -114,7 +114,7 @@ export default function GuildAnnouncementsPage() {
 
   const [loading, setLoading] = useState(true);
   const [guild, setGuild] = useState<Record<string, any> | null>(null);
-  const [modules, setModules] = useState<Record<string, any>[]>([]);
+  const [modules, setModules] = useState<{ name: string; display_name?: string; enabled?: boolean }[]>([]);
   const [channels, setChannels] = useState<GuildChannel[]>([]);
   const [serverEmojis, setServerEmojis] = useState<GuildEmoji[]>([]);
 
