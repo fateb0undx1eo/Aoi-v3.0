@@ -93,9 +93,9 @@ function ToolbarButton({
           boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
         }}>
           {tooltip}
-        </div>
-      )}
-    </div>
+            </div>
+          )}
+          </div>
   );
 }
 
@@ -981,7 +981,6 @@ export default function GuildAnnouncementsPage() {
           </div>
 
           {/* ── Scrollable content area ────────────────────────────────────────── */}
-          {/* Scrollbar on the RIGHT edge of left panel */}
           <div
             className="left-scroll"
             style={{
@@ -989,7 +988,6 @@ export default function GuildAnnouncementsPage() {
               overflowY: "scroll",
               overflowX: "hidden",
               padding: "12px 14px",
-              // The slim scrollbar appears on the right edge naturally
             }}
           >
             {!msg ? (
