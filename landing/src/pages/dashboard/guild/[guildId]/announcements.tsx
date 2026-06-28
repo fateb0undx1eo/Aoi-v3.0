@@ -1,13 +1,12 @@
 import { nanoid } from "nanoid";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import {
   Megaphone, Plus, Copy, Trash2, ChevronDown, ChevronUp,
-  Send, Save, X, Palette, Eye, ExternalLink, Check, Bot, Globe, Webhook,
-  Search, Hash, Folder, Flag, Activity, CloudSun, Gift, Clock, ArrowUpDown,
-  Smile, MessageSquare, FileText, Image, Music, Video, Minus,
-  Zap, Layers, ToggleLeft, Upload, Paperclip, Lock, AlertTriangle, Code, Share2, RotateCcw,
+  Send, Save, X, Eye, Check, Bot, Globe, Hash,
+  MessageSquare, FileText, Code, Share2, RotateCcw, Layers,
+  AlertTriangle, Zap, Ban,
 } from "lucide-react";
 
 import type {
@@ -16,7 +15,7 @@ import type {
   ButtonStyle, APITopLevelComponent, APIActionRowComponent, APIContainerComponent,
   APIComponentInActionRow, APIEmbed, APIV2TextDisplay, APIAllowedMentions, ModuleRow,
 } from "@/components/announcements/types";
-import { ACCENT, EMBED_BG } from "@/components/announcements/constants";
+import { ACCENT, EMBED_BG, C } from "@/components/announcements/constants";
 import { TargetType } from "@/components/announcements/types";
 import { getBackendApiUrl } from "@/lib/backend";
 import {
@@ -24,11 +23,177 @@ import {
   isComponentsV2, getMessageDisplayName, formatTimestamp,
 } from "@/components/announcements/utils/message";
 
-import StatusBanner from "@/components/announcements/StatusBanner";
 import MessageEditorCard from "@/components/announcements/editor/MessageEditorCard";
 import CodeGenerator from "@/components/announcements/modals/CodeGenerator";
 import ComponentEditModal from "@/components/announcements/modals/ComponentEditModal";
 import DiscordPreview from "@/components/announcements/preview/DiscordPreview";
+
+type Toast = { id: string; state: "idle" | "success" | "error" | "info" | "sending"; text: string };
+
+const THEME = {
+  bg: "#090909",
+  surface: "#111111",
+  card: "#1a1a1a",
+  burg: "#8B1538",
+  border: "#1a1a1a",
+  text: "#dbdee1",
+  textMuted: "#6b6b6b",
+};
+
+function ToolbarButton({ icon, tooltip, onClick }: { icon: ReactNode; tooltip: string; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div style={{ position: "relative", display: "inline-flex" }}>
+      <button type="button" onClick={onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          width: 32, height: 32, borderRadius: 8,
+          border: `1px solid ${hovered ? "#3f3f46" : THEME.border}`,
+          backgroundColor: "transparent",
+          color: hovered ? THEME.text : THEME.textMuted,
+          cursor: "pointer", transition: "all 0.15s",
+        }}>
+        {icon}
+      </button>
+      {hovered && (
+        <div style={{
+          position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)",
+          marginBottom: 6, padding: "4px 10px", borderRadius: 6,
+          backgroundColor: "#18181b", color: THEME.text,
+          fontSize: 11, fontWeight: 500, whiteSpace: "nowrap",
+          border: `1px solid ${THEME.border}`,
+          zIndex: 100, pointerEvents: "none",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+        }}>
+          {tooltip}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: string) => void }) {
+  return (
+    <div style={{
+      position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+      zIndex: 9999, display: "flex", flexDirection: "column", gap: 8, pointerEvents: "none",
+    }}>
+      {toasts.map((toast) => {
+        const colors: Record<string, { bg: string; text: string }> = {
+          success: { bg: "rgba(5,150,105,0.15)", text: "#34d399" },
+          error: { bg: "rgba(239,68,68,0.15)", text: "#f87171" },
+          info: { bg: "rgba(14,165,233,0.15)", text: "#38bdf8" },
+          sending: { bg: "rgba(245,158,11,0.15)", text: "#fbbf24" },
+        };
+        const c = colors[toast.state] || colors.info!;
+        return (
+          <div key={toast.id} style={{
+            pointerEvents: "auto",
+            animation: "slideUp 0.3s ease-out",
+            display: "flex", alignItems: "center", gap: 10,
+            padding: "12px 20px", borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.06)",
+            backgroundColor: c.bg,
+            color: c.text,
+            fontSize: 14, fontWeight: 500,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+            backdropFilter: "blur(8px)",
+          }}>
+            {toast.state === "error" && <AlertTriangle style={{ width: 16, height: 16, flexShrink: 0 }} />}
+            {toast.state === "success" && <Check style={{ width: 16, height: 16, flexShrink: 0 }} />}
+            {toast.state === "sending" && <Zap style={{ width: 16, height: 16, flexShrink: 0 }} />}
+            <span>{toast.text}</span>
+            <button type="button" onClick={() => onDismiss(toast.id)}
+              style={{ marginLeft: "auto", background: "none", border: "none", color: "inherit", opacity: 0.6, cursor: "pointer" }}>
+              <X style={{ width: 14, height: 14 }} />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SendModal({
+  open, channels, selectedChannelIds, onToggleChannel, onSelectAll, onDeselectAll,
+  sendMode, onSendModeChange, onSend, onClose,
+}: {
+  open: boolean; channels: GuildChannel[]; selectedChannelIds: Set<string>;
+  onToggleChannel: (id: string) => void; onSelectAll: () => void; onDeselectAll: () => void;
+  sendMode: "webhook" | "bot" | "edit_webhook" | "edit_bot";
+  onSendModeChange: (mode: "webhook" | "bot" | "edit_webhook" | "edit_bot") => void;
+  onSend: () => void; onClose: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9998,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
+    }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}
+        style={{ backgroundColor: THEME.surface, borderRadius: 16, border: `1px solid ${THEME.border}`, padding: 24, width: 420, maxWidth: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, color: THEME.text }}>Send Announcement</h2>
+          <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: THEME.textMuted, cursor: "pointer" }}>
+            <X style={{ width: 18, height: 18 }} />
+          </button>
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontSize: 12, fontWeight: 500, color: THEME.textMuted, marginBottom: 8, display: "block" }}>Send Mode</label>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {[
+              { value: "webhook" as const, label: "Send as Webhook", icon: Globe },
+              { value: "bot" as const, label: "Send as Bot", icon: Bot },
+              { value: "edit_webhook" as const, label: "Edit Message as Webhook", icon: Globe },
+              { value: "edit_bot" as const, label: "Edit Message as Bot", icon: Bot },
+            ].map(({ value, label, icon: Icon }) => (
+              <button key={value} type="button" onClick={() => onSendModeChange(value)}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, border: `1px solid ${sendMode === value ? THEME.burg : THEME.border}`, backgroundColor: sendMode === value ? `${THEME.burg}15` : "transparent", color: sendMode === value ? THEME.burg : THEME.text, cursor: "pointer", fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}>
+                <Icon style={{ width: 16, height: 16 }} />
+                {label}
+                {sendMode === value && <Check style={{ width: 14, height: 14, marginLeft: "auto" }} />}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <label style={{ fontSize: 12, fontWeight: 500, color: THEME.textMuted }}>
+              <Hash style={{ width: 12, height: 12, display: "inline", marginRight: 4 }} />
+              Channels ({selectedChannelIds.size})
+            </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" onClick={onSelectAll} style={{ fontSize: 10, color: THEME.textMuted, background: "none", border: "none", cursor: "pointer" }}>All</button>
+              <button type="button" onClick={onDeselectAll} style={{ fontSize: 10, color: THEME.textMuted, background: "none", border: "none", cursor: "pointer" }}>None</button>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 160, overflowY: "auto" }}>
+            {channels.length === 0 ? (
+              <p style={{ fontSize: 11, color: THEME.textMuted }}>No text channels available.</p>
+            ) : channels.map((ch) => {
+              const sel = selectedChannelIds.has(ch.id);
+              return (
+                <button key={ch.id} type="button" onClick={() => onToggleChannel(ch.id)}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 500, border: `1px solid ${sel ? `${THEME.burg}60` : THEME.border}`, backgroundColor: sel ? `${THEME.burg}15` : "transparent", color: sel ? THEME.burg : THEME.textMuted, cursor: "pointer", transition: "all 0.15s" }}>
+                  {sel && <Check style={{ width: 10, height: 10 }} />}
+                  # {ch.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <button type="button" onClick={onSend} disabled={selectedChannelIds.size === 0}
+          style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 0", borderRadius: 10, fontSize: 14, fontWeight: 600, color: "#fff", backgroundColor: THEME.burg, border: "none", cursor: selectedChannelIds.size === 0 ? "not-allowed" : "pointer", opacity: selectedChannelIds.size === 0 ? 0.5 : 1, transition: "all 0.15s" }}>
+          <Send style={{ width: 16, height: 16 }} />
+          Send to {selectedChannelIds.size} channel{selectedChannelIds.size !== 1 ? "s" : ""}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function GuildAnnouncementsPage() {
   const router = useRouter();
@@ -46,13 +211,10 @@ export default function GuildAnnouncementsPage() {
     targets: [],
   }));
   const [selectedMessageIndex, setSelectedMessageIndex] = useState(0);
-  const [status, setStatus] = useState<StatusMsg>(null);
-  const [editTab, setEditTab] = useState<"content" | "embed" | "files" | "components" | "json">("content");
   const [messageFiles, setMessageFiles] = useState<Record<string, DraftFile[]>>({});
   const [editingComponent, setEditingComponent] = useState<APIComponentInActionRow | null>(null);
   const [editingComponentPos, setEditingComponentPos] = useState<{ ri: number; ci: number } | null>(null);
   const [componentModalOpen, setComponentModalOpen] = useState(false);
-  const [newMsgFlags, setNewMsgFlags] = useState<number | undefined>(undefined);
   const [addMsgOpen, setAddMsgOpen] = useState(false);
   const [selectedChannelIds, setSelectedChannelIds] = useState<Set<string>>(new Set());
   const [codeGenOpen, setCodeGenOpen] = useState(false);
@@ -61,8 +223,28 @@ export default function GuildAnnouncementsPage() {
   const [presetName, setPresetName] = useState("");
   const [presetsOpen, setPresetsOpen] = useState(false);
 
+  const [editTab, setEditTab] = useState<"content" | "embed" | "files" | "components" | "json">("content");
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [sendMode, setSendMode] = useState<"webhook" | "bot" | "edit_webhook" | "edit_bot">("webhook");
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const msgRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
   const message = data.messages[selectedMessageIndex];
   const isV2 = isComponentsV2(message?.data.flags);
+
+  const addToast = useCallback((state: Toast["state"], text: string) => {
+    const id = nanoid(6);
+    setToasts((prev) => [...prev, { id, state, text }]);
+    if (state !== "sending") {
+      setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
+    }
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   useEffect(() => {
     if (!guildId || typeof guildId !== "string") return;
@@ -135,36 +317,11 @@ export default function GuildAnnouncementsPage() {
     setSelectedMessageIndex(t);
   }, [data, setD]);
 
-  const addEmbed = useCallback(() => {
-    const embeds = [...(data.messages[selectedMessageIndex]?.data.embeds || [])];
-    if (embeds.length >= 10) return;
-    embeds.push({});
-    updateMessageData({ embeds });
-  }, [data, selectedMessageIndex, updateMessageData]);
-
-  const removeEmbed = useCallback((ei: number) => {
-    const embeds = data.messages[selectedMessageIndex]?.data.embeds?.filter((_, i) => i !== ei) || [];
-    updateMessageData({ embeds: embeds.length > 0 ? embeds : undefined });
-  }, [data, selectedMessageIndex, updateMessageData]);
-
-  const updateEmbed = useCallback((ei: number, updates: Partial<APIEmbed>) => {
-    const embeds = [...(data.messages[selectedMessageIndex]?.data.embeds || [])];
-    if (!embeds[ei]) return;
-    embeds[ei] = { ...embeds[ei], ...updates };
-    updateMessageData({ embeds });
-  }, [data, selectedMessageIndex, updateMessageData]);
-
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const addTarget = useCallback(() => {
-    if (!webhookUrl) return;
-    const targets = [...(data.targets || [])];
-    targets.push({ type: TargetType.Webhook, url: webhookUrl });
-    setD({ ...data, targets });
-    setWebhookUrl("");
-  }, [data, webhookUrl, setD]);
-  const removeTarget = useCallback((ti: number) => {
-    setD({ ...data, targets: data.targets?.filter((_, i) => i !== ti) });
-  }, [data, setD]);
+  const scrollToMessage = useCallback((idx: number) => {
+    const el = msgRefs.current[idx];
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setSelectedMessageIndex(idx);
+  }, []);
 
   const toggleChannel = useCallback((channelId: string) => {
     setSelectedChannelIds((prev) => {
@@ -185,7 +342,7 @@ export default function GuildAnnouncementsPage() {
 
   const savePreset = useCallback(async (kind: "draft" | "template") => {
     const name = presetName.trim().slice(0, 80);
-    if (!name) { setStatus({ state: "error", text: "Enter a name before saving." }); return; }
+    if (!name) { addToast("error", "Enter a name before saving."); return; }
     const existingIdx = presets.findIndex((p) => p.kind === kind && p.name.toLowerCase() === name.toLowerCase());
     const next = [...presets];
     const preset = { id: existingIdx >= 0 ? next[existingIdx]!.id : `preset-${nanoid()}`, name, kind, data: cloneQueryData(data) };
@@ -196,21 +353,18 @@ export default function GuildAnnouncementsPage() {
       const announcementsModule = modules.find((m) => m.name === "announcements");
       await fetch(`/api/backend/modules/${guildId}/announcements`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enabled: announcementsModule?.enabled ?? true,
-          config: { presets: next.map((p) => ({ id: p.id, name: p.name, kind: p.kind, data: p.data })) },
-        }),
+        body: JSON.stringify({ enabled: announcementsModule?.enabled ?? true, config: { presets: next.map((p) => ({ id: p.id, name: p.name, kind: p.kind, data: p.data })) } }),
       });
-      setStatus({ state: "success", text: `${kind === "template" ? "Template" : "Draft"} saved.` });
-    } catch { setStatus({ state: "error", text: "Failed to save preset." }); }
-  }, [presetName, presets, data, modules, guildId]);
+      addToast("success", `${kind === "template" ? "Template" : "Draft"} saved.`);
+    } catch { addToast("error", "Failed to save preset."); }
+  }, [presetName, presets, data, modules, guildId, addToast]);
 
   const loadPreset = useCallback((preset: { id: string; name: string; kind: "draft" | "template"; data: QueryData }) => {
     setData(cloneQueryData(preset.data));
     setPresetName(preset.name);
     setSelectedMessageIndex(0);
-    setStatus({ state: "info", text: `Loaded ${preset.kind} "${preset.name}".` });
-  }, [setData]);
+    addToast("info", `Loaded ${preset.kind} "${preset.name}".`);
+  }, [setData, addToast]);
 
   const deletePreset = useCallback(async (presetId: string) => {
     const next = presets.filter((p) => p.id !== presetId);
@@ -219,20 +373,15 @@ export default function GuildAnnouncementsPage() {
       const announcementsModule = modules.find((m) => m.name === "announcements");
       await fetch(`/api/backend/modules/${guildId}/announcements`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enabled: announcementsModule?.enabled ?? true,
-          config: { presets: next.map((p) => ({ id: p.id, name: p.name, kind: p.kind, data: p.data })) },
-        }),
+        body: JSON.stringify({ enabled: announcementsModule?.enabled ?? true, config: { presets: next.map((p) => ({ id: p.id, name: p.name, kind: p.kind, data: p.data })) } }),
       });
-      setStatus({ state: "success", text: "Preset deleted." });
-    } catch { setStatus({ state: "error", text: "Failed to delete preset." }); }
-  }, [presets, modules, guildId]);
+      addToast("success", "Preset deleted.");
+    } catch { addToast("error", "Failed to delete preset."); }
+  }, [presets, modules, guildId, addToast]);
 
   const handleSend = useCallback(async () => {
     if (!guildId || typeof guildId !== "string") return;
-    if (selectedChannelIds.size === 0) {
-      setStatus({ state: "error", text: "Select at least one channel to send to." }); return;
-    }
+    if (selectedChannelIds.size === 0) { addToast("error", "Select at least one channel to send to."); return; }
     const hasContent = (m: QueryDataMessage) => {
       if (m.data.content) return true;
       if (m.data.embeds?.length) return true;
@@ -243,101 +392,101 @@ export default function GuildAnnouncementsPage() {
           const children = (row as APIContainerComponent).components || [];
           for (const child of children) {
             if (child.type === 10 && child.content) return true;
-            if (child.type === 9) {
-              if (child.components?.some((c) => c.type === 10 && (c as APIV2TextDisplay).content)) return true;
-            }
-            if (child.type === 11 || child.type === 12 || child.type === 13) {
-              if (child.items?.some((i: any) => i.media?.url)) return true;
-            }
+            if (child.type === 9 && child.components?.some((c) => c.type === 10 && (c as APIV2TextDisplay).content)) return true;
+            if ((child.type === 11 || child.type === 12 || child.type === 13) && child.items?.some((i: any) => i.media?.url)) return true;
           }
         }
       }
       return false;
     };
-    if (!data.messages.some(hasContent)) {
-      setStatus({ state: "error", text: "Add content to at least one message." }); return;
-    }
-      setStatus({ state: "sending", text: "Sending announcement..." });
-      try {
-        const hasFiles = data.messages.some((m) => (messageFiles[m._id || ""] || []).length > 0);
-        const body = {
-          channel_ids: Array.from(selectedChannelIds),
-          entries: data.messages.map((m) => {
-            const flows: FlowActionPayload[] = [];
-            const cleanComponents = (m.data.components || []).map((row, ri) => {
-              if (row.type === 1) {
-                const children = (row as APIActionRowComponent).components.map((comp, ci) => {
-                  const f = (comp as any)._flows as FlowAction[] | undefined;
-                  if (f) { f.forEach((a) => flows.push({ ...a, ri, ci })); }
-                  const { _flows, ...clean } = comp as any;
-                  return clean;
-                });
-                return { type: 1, components: children };
-              }
-              if (row.type === 17) {
-                const children = (row as any).components?.map((comp: any, ci: number) => {
-                  const f = comp._flows as FlowAction[] | undefined;
-                  if (f) { f.forEach((a) => flows.push({ ...a, ri, ci })); }
-                  const { _flows, ...clean } = comp;
-                  return clean;
-                }) || [];
-                return { ...row, components: children };
-              }
-              return row;
-            });
-            return {
-              id: m._id,
-              content: m.data.content || undefined,
-              embeds: m.data.embeds?.filter((e) => e.title || e.description || (e.fields && e.fields.length > 0) || e.image?.url || e.thumbnail?.url || e.footer?.text || e.author?.name),
-              components: cleanComponents,
-              flags: m.data.flags,
-              edit_existing: !!m.reference,
-              message_link: m.reference || undefined,
-              thread_name: m.data.thread_name || undefined,
-              allowed_mentions: m.data.allowed_mentions || undefined,
-              flows: flows.length > 0 ? flows : undefined,
-            };
-          }),
-        };
-        let res: Response;
-        if (hasFiles) {
-          const fd = new FormData();
-          fd.append("payload", JSON.stringify(body));
-          data.messages.forEach((m) => {
-            const files = messageFiles[m._id || ""] || [];
-            const metas = files.map((f) => ({ name: f.name, spoiler: f.spoiler, description: f.description }));
-            fd.append(`filemeta_${m._id || "unknown"}`, JSON.stringify(metas));
-            files.forEach((f) => {
-              if (f.file) fd.append(`file_${m._id || "unknown"}`, f.file, f.name);
-            });
+    if (!data.messages.some(hasContent)) { addToast("error", "Add content to at least one message."); return; }
+    addToast("sending", "Sending announcement...");
+    try {
+      const hasFiles = data.messages.some((m) => (messageFiles[m._id || ""] || []).length > 0);
+      const body = {
+        channel_ids: Array.from(selectedChannelIds),
+        entries: data.messages.map((m) => {
+          const flows: FlowActionPayload[] = [];
+          const cleanComponents = (m.data.components || []).map((row, ri) => {
+            if (row.type === 1) {
+              const children = (row as APIActionRowComponent).components.map((comp, ci) => {
+                const f = (comp as any)._flows as FlowAction[] | undefined;
+                if (f) f.forEach((a) => flows.push({ ...a, ri, ci }));
+                const { _flows, ...clean } = comp as any;
+                return clean;
+              });
+              return { type: 1, components: children };
+            }
+            if (row.type === 17) {
+              const children = ((row as any).components || []).map((comp: any, ci: number) => {
+                const f = comp._flows as FlowAction[] | undefined;
+                if (f) f.forEach((a) => flows.push({ ...a, ri, ci }));
+                const { _flows, ...clean } = comp;
+                return clean;
+              });
+              return { ...row, components: children };
+            }
+            return row;
           });
-          const url = `${getBackendApiUrl()}/api/guilds/${guildId}/announcements`;
-          console.log('[announcement] sending with files to', url, 'payload keys:', Object.keys(body), 'files:', data.messages.reduce((a, m) => a + (messageFiles[m._id || ""] || []).length, 0));
-          res = await fetch(url, { method: "POST", body: fd, credentials: "include" });
-          console.log('[announcement] file upload response', res.status, res.statusText);
-        } else {
-          console.log('[announcement] sending without files');
-          res = await fetch(`/api/backend/guilds/${guildId}/announcements`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-          console.log('[announcement] json response', res.status, res.statusText);
-        }
-        const responseData = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(responseData?.error || "Failed to send");
-        setStatus({ state: "success", text: "Announcement sent successfully!" });
-      } catch (err) {
-        console.error('[announcement] send error', err);
-        setStatus({ state: "error", text: err instanceof Error ? err.message : "Failed to send" });
+          return {
+            id: m._id,
+            content: m.data.content || undefined,
+            embeds: m.data.embeds?.filter((e) => e.title || e.description || (e.fields && e.fields.length > 0) || e.image?.url || e.thumbnail?.url || e.footer?.text || e.author?.name),
+            components: cleanComponents,
+            flags: m.data.flags,
+            edit_existing: !!m.reference,
+            message_link: m.reference || undefined,
+            thread_name: m.data.thread_name || undefined,
+            allowed_mentions: m.data.allowed_mentions || undefined,
+            flows: flows.length > 0 ? flows : undefined,
+          };
+        }),
+      };
+      let res: Response;
+      if (hasFiles) {
+        const fd = new FormData();
+        fd.append("payload", JSON.stringify(body));
+        data.messages.forEach((m) => {
+          const files = messageFiles[m._id || ""] || [];
+          const metas = files.map((f) => ({ name: f.name, spoiler: f.spoiler, description: f.description }));
+          fd.append(`filemeta_${m._id || "unknown"}`, JSON.stringify(metas));
+          files.forEach((f) => { if (f.file) fd.append(`file_${m._id || "unknown"}`, f.file, f.name); });
+        });
+        res = await fetch(`${getBackendApiUrl()}/api/guilds/${guildId}/announcements`, { method: "POST", body: fd, credentials: "include" });
+      } else {
+        res = await fetch(`/api/backend/guilds/${guildId}/announcements`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       }
-  }, [guildId, data, selectedChannelIds]);
+      const responseData = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(responseData?.error || "Failed to send");
+      addToast("success", "Announcement sent successfully!");
+      setSendModalOpen(false);
+    } catch (err) {
+      addToast("error", err instanceof Error ? err.message : "Failed to send");
+    }
+  }, [guildId, data, selectedChannelIds, messageFiles, addToast]);
 
   const msg = message?.data;
 
   return (
     <DashboardLayout guildId={String(guildId || "")} guildName={guild?.name || "Guild"} heading="Announcements" modules={modules}>
-      <CodeGenerator messageData={msg || {}} open={codeGenOpen} onClose={() => setCodeGenOpen(false)} />
+      <style>{`
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #52525b; }
+      `}</style>
 
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      <SendModal
+        open={sendModalOpen} channels={channels}
+        selectedChannelIds={selectedChannelIds}
+        onToggleChannel={toggleChannel} onSelectAll={selectAllChannels} onDeselectAll={deselectAllChannels}
+        sendMode={sendMode} onSendModeChange={setSendMode}
+        onSend={handleSend} onClose={() => setSendModalOpen(false)}
+      />
+
+      <CodeGenerator messageData={msg || {}} open={codeGenOpen} onClose={() => setCodeGenOpen(false)} />
       <ComponentEditModal open={componentModalOpen} onClose={() => setComponentModalOpen(false)}
         component={editingComponent}
         onChange={(comp) => {
@@ -353,217 +502,152 @@ export default function GuildAnnouncementsPage() {
         }}
         serverEmojis={serverEmojis} />
 
-      <div className="h-[calc(100%_-_3rem)] flex">
-        <div className="py-4 h-full overflow-y-scroll w-1/2">
-          <div className="px-4 space-y-3">
-            <StatusBanner status={status} />
-
-            <div className="flex flex-wrap gap-x-2 gap-y-1">
-              <button type="button" onClick={() => {}}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-black px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors">
-                <Share2 className="h-3.5 w-3.5" /> Share
-              </button>
-              <button type="button" onClick={() => setPresetsOpen(!presetsOpen)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-black px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors">
-                <Save className="h-3.5 w-3.5" /> Presets
-              </button>
-              <button type="button" onClick={() => setCodeGenOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-black px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors">
-                <Code className="h-3.5 w-3.5" /> Generate
-              </button>
-              <button type="button" onClick={() => {
-                setD({ version: data.version, messages: [{ data: getNewMessageData(1, false) }] });
-              }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-black px-3 py-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 transition-colors">
-                <RotateCcw className="h-3.5 w-3.5" /> Reset
-              </button>
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", height: "calc(100vh - 120px)" }}>
+        {/* LEFT PANE */}
+        <div style={{ width: "50%", display: "flex", flexDirection: "column", backgroundColor: THEME.surface, borderRight: `1px solid ${THEME.border}` }}>
+          {/* Fixed header */}
+          <div style={{ padding: "12px 16px", borderBottom: `1px solid ${THEME.border}`, backgroundColor: THEME.surface }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Megaphone style={{ width: 18, height: 18, color: THEME.burg }} />
+                <span style={{ fontSize: 16, fontWeight: 600, color: THEME.text }}>Announcement Studio</span>
+              </div>
+              <div style={{ display: "flex", gap: 4 }}>
+                <ToolbarButton icon={<Share2 style={{ width: 14, height: 14 }} />} tooltip="Share" onClick={() => {}} />
+                <ToolbarButton icon={<Save style={{ width: 14, height: 14 }} />} tooltip="Presets" onClick={() => setPresetsOpen(!presetsOpen)} />
+                <ToolbarButton icon={<Code style={{ width: 14, height: 14 }} />} tooltip="Generate Code" onClick={() => setCodeGenOpen(true)} />
+                <ToolbarButton icon={<RotateCcw style={{ width: 14, height: 14 }} />} tooltip="Reset" onClick={() => { setD({ version: data.version, messages: [{ _id: randomId(), data: {} }], targets: [] }); addToast("info", "Reset to empty state."); }} />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              {Object.values(data.targets || []).map((t, ti) => (
-                <div key={ti} className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-black px-3 py-2">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-800">
-                    <Bot className="h-4 w-4 text-zinc-400" />
-                  </div>
-                  <div className="min-w-0 flex-1 truncate">
-                    <p className="text-sm font-medium text-zinc-200 truncate">{t.type === TargetType.Webhook ? t.url?.split("/").pop() || "Webhook" : `Bot: ${t.channel_id}`}</p>
-                  </div>
-                  <button type="button" onClick={() => removeTarget(ti)} className="text-zinc-600 hover:text-red-400"><X className="h-4 w-4" /></button>
-                </div>
-              ))}
-              <div className="flex gap-2">
-                <input type="text" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)}
-                  placeholder="https://discord.com/api/webhooks/..."
-                  className="min-w-0 flex-1 rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-600" />
-                <button type="button" onClick={addTarget}
-                  className="shrink-0 rounded-lg bg-primary/20 px-3 py-2 text-xs font-medium text-primary hover:bg-primary/30">
-                  <Plus className="h-3.5 w-3.5" />
+            {/* Message nav numbers */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 11, color: THEME.textMuted, marginRight: 4 }}>Messages:</span>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {data.messages.map((_, i) => (
+                  <button key={i} type="button" onClick={() => scrollToMessage(i)} title={`Message ${i + 1}`}
+                    style={{ width: 24, height: 24, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 600, border: `1px solid ${selectedMessageIndex === i ? THEME.burg : THEME.border}`, backgroundColor: selectedMessageIndex === i ? `${THEME.burg}20` : "transparent", color: selectedMessageIndex === i ? THEME.burg : THEME.textMuted, cursor: "pointer", transition: "all 0.15s" }}>
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+                <button type="button" onClick={() => addMessage(false)} title="Add Standard Message"
+                  style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 500, border: `1px solid ${THEME.border}`, backgroundColor: "transparent", color: THEME.textMuted, cursor: "pointer" }}>
+                  <MessageSquare style={{ width: 10, height: 10 }} /> Msg
+                </button>
+                <button type="button" onClick={() => addMessage(true)} title="Add Components V2 Message"
+                  style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 500, border: `1px solid ${THEME.border}`, backgroundColor: "transparent", color: THEME.textMuted, cursor: "pointer" }}>
+                  <Layers style={{ width: 10, height: 10 }} /> V2
                 </button>
               </div>
             </div>
+          </div>
 
-            <div className="rounded-lg border border-zinc-800 bg-black p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-400"><Hash className="mr-1 inline h-3 w-3" />Channels ({selectedChannelIds.size})</span>
-                <div className="flex gap-2">
-                  <button type="button" onClick={selectAllChannels} className="text-[10px] text-zinc-500 hover:text-zinc-300">All</button>
-                  <button type="button" onClick={deselectAllChannels} className="text-[10px] text-zinc-500 hover:text-zinc-300">None</button>
-                </div>
+          {/* Scrollable message list */}
+          <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }} className="scrollbar-thin">
+            {data.messages.length === 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 0", textAlign: "center" }}>
+                <MessageSquare style={{ width: 40, height: 40, color: "#52525b", marginBottom: 12 }} />
+                <p style={{ fontSize: 13, color: THEME.textMuted }}>No messages yet</p>
+                <p style={{ fontSize: 11, color: "#52525b" }}>Click Msg or V2 above to add one</p>
               </div>
-              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                {channels.length === 0 ? (
-                  <p className="text-[10px] text-zinc-600">No text channels available.</p>
-                ) : channels.map((ch) => {
-                  const sel = selectedChannelIds.has(ch.id);
-                  return (
-                    <button key={ch.id} type="button" onClick={() => toggleChannel(ch.id)}
-                      className={`rounded border px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                        sel ? "border-primary/50 bg-primary/10 text-primary" : "border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
-                      }`}>
-                      {sel && <Check className="mr-0.5 inline h-2.5 w-2.5" />}# {ch.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button type="button" onClick={handleSend} disabled={status?.state === "sending"}
-                className="flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white transition-all disabled:opacity-50"
-                style={{ backgroundColor: ACCENT }}>
-                {status?.state === "sending" ? <><span className="animate-pulse">Sending...</span></> : <><Send className="h-4 w-4" /> Send</>}
-              </button>
-              <button type="button" onClick={() => {}}
-                className="flex items-center justify-center gap-1 rounded-lg border border-zinc-800 bg-black px-3 py-2.5 text-xs font-medium text-zinc-400 hover:text-zinc-200">
-                <MessageSquare className="h-3.5 w-3.5" /> {data.messages.length} msgs
-              </button>
-            </div>
-
-            {data.messages.map((m, i) => {
+            ) : data.messages.map((m, i) => {
               const isSelected = selectedMessageIndex === i;
-              const mid = m._id || String(i);
-              const files = messageFiles[mid] || [];
               return (
-                <MessageEditorCard key={mid}
-                  message={m}
-                  index={i}
-                  isSelected={isSelected}
-                  isV2={isComponentsV2(m.data.flags)}
-                  onSelect={() => setSelectedMessageIndex(i)}
-                  onMoveUp={() => moveMessage(i, "up")}
-                  onMoveDown={() => moveMessage(i, "down")}
-                  canMoveUp={i > 0}
-                  canMoveDown={i < data.messages.length - 1}
-                  onDuplicate={() => duplicateMessage(i)}
-                  onRemove={() => removeMessage(i)}
-                  updateMessageData={(upd) => {
-                    const next = [...data.messages];
-                    next[i] = { ...next[i]!, data: { ...next[i]!.data, ...upd } };
-                    setD({ ...data, messages: next });
-                  }}
-                  files={files}
-                  setFiles={(f) => setMessageFiles((prev) => ({ ...prev, [mid]: f }))}
-                  editTab={isSelected ? editTab : "content"}
-                  setEditTab={isSelected ? setEditTab : undefined}
-                  serverEmojis={serverEmojis}
-                  onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri: ri!, ci: ci! }); setComponentModalOpen(true); }}
-                />
-              );
-            })}
-
-            <div className="relative">
-              <button type="button" onClick={() => setAddMsgOpen(!addMsgOpen)}
-                disabled={data.messages.length >= 10}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-zinc-800 py-3 text-sm font-medium text-zinc-500 hover:border-zinc-600 hover:text-zinc-300 transition-colors disabled:opacity-40">
-                <Plus className="h-4 w-4" /> Add Message
-              </button>
-              {addMsgOpen && (
-                <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-lg border border-zinc-800 bg-black shadow-xl overflow-hidden">
-                  <button type="button" onClick={() => { addMessage(false); setAddMsgOpen(false); }}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-sm text-zinc-300 hover:bg-zinc-800">
-                    <MessageSquare className="h-5 w-5 text-zinc-500" />
-                    <div className="text-left">
-                      <p className="font-medium">Standard Message</p>
-                      <p className="text-[10px] text-zinc-500">Content with embeds and action rows</p>
+                <div key={m._id} ref={(el) => { msgRefs.current[i] = el; }}
+                  style={{ marginBottom: 8, borderRadius: 10, border: `1px solid ${isSelected ? `${THEME.burg}50` : THEME.border}`, backgroundColor: isSelected ? `${THEME.burg}08` : THEME.card, overflow: "hidden", transition: "all 0.15s" }}>
+                  {/* Message header row */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      <button type="button" onClick={() => moveMessage(i, "up")} disabled={i === 0}
+                        style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>
+                        <ChevronUp style={{ width: 10, height: 10 }} />
+                      </button>
+                      <button type="button" onClick={() => moveMessage(i, "down")} disabled={i === data.messages.length - 1}
+                        style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>
+                        <ChevronDown style={{ width: 10, height: 10 }} />
+                      </button>
                     </div>
-                  </button>
-                  <button type="button" onClick={() => { addMessage(true); setAddMsgOpen(false); }}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-sm text-zinc-300 hover:bg-zinc-800 border-t border-zinc-800">
-                    <Layers className="h-5 w-5 text-zinc-500" />
-                    <div className="text-left">
-                      <p className="font-medium">Components V2 Message</p>
-                      <p className="text-[10px] text-zinc-500">Containers with text, media, sections</p>
+                    <button type="button" onClick={() => scrollToMessage(i)}
+                      style={{ flex: 1, textAlign: "left", background: "none", border: "none", cursor: "pointer", minWidth: 0 }}>
+                      <span style={{ fontSize: 12, fontWeight: 500, color: isSelected ? THEME.burg : THEME.text, display: "block" }}>
+                        {isV2 && <span style={{ fontSize: 9, color: "#a78bfa", marginRight: 4 }}>[V2]</span>}
+                        {m.name || m.data.content?.slice(0, 40) || (m.data.embeds?.[0]?.title?.slice(0, 40)) || `Message ${i + 1}`}
+                      </span>
+                    </button>
+                    <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+                      <button type="button" onClick={() => duplicateMessage(i)} title="Duplicate" style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: 4 }}>
+                        <Copy style={{ width: 12, height: 12 }} />
+                      </button>
+                      <button type="button" onClick={() => removeMessage(i)} title="Remove" style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: 4 }}>
+                        <Trash2 style={{ width: 12, height: 12 }} />
+                      </button>
                     </div>
-                    <span className="ml-auto rounded-full px-2 py-0.5 text-[9px] font-bold text-white uppercase" style={{ backgroundColor: ACCENT }}>New</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-lg border border-zinc-800 bg-black p-3">
-              <button type="button" onClick={() => setPresetsOpen(!presetsOpen)}
-                className="flex w-full items-center justify-between">
-                <span className="text-xs font-medium text-zinc-400"><Save className="mr-1 inline h-3.5 w-3.5" /> Presets ({presets.length})</span>
-                <ChevronDown className={`h-3 w-3 text-zinc-500 transition-transform ${presetsOpen ? "rotate-180" : ""}`} />
-              </button>
-              {presetsOpen && (
-                <div className="mt-3 space-y-2">
-                  <div className="flex gap-2">
-                    <input type="text" value={presetName} onChange={(e) => setPresetName(e.target.value)}
-                      placeholder="Preset name..." maxLength={80}
-                      className="min-w-0 flex-1 rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
-                    <button type="button" onClick={() => savePreset("draft")}
-                      className="rounded px-2 py-1 text-[9px] font-medium bg-amber-500/10 text-amber-400 hover:bg-amber-500/20">Draft</button>
-                    <button type="button" onClick={() => savePreset("template")}
-                      className="rounded px-2 py-1 text-[9px] font-medium bg-violet-500/10 text-violet-400 hover:bg-violet-500/20">Template</button>
                   </div>
-                  {presets.length > 0 && (
-                    <div className="max-h-28 space-y-1 overflow-y-auto">
-                      {presets.map((p) => (
-                        <div key={p.id} className="flex items-center gap-2 rounded border border-zinc-800 bg-black px-2.5 py-1.5 text-xs">
-                          <button type="button" onClick={() => loadPreset(p)}
-                            className="min-w-0 flex-1 truncate text-left text-zinc-400 hover:text-zinc-200">{p.name}</button>
-                          <span className={`shrink-0 text-[9px] uppercase ${p.kind === "template" ? "text-violet-400" : "text-amber-400"}`}>{p.kind === "template" ? "T" : "D"}</span>
-                          <button type="button" onClick={() => deletePreset(p.id)} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
-                        </div>
-                      ))}
-                    </div>
+
+                  {/* Expandable editor */}
+                  {isSelected && (
+                    <MessageEditorCard
+                      message={m}
+                      index={i}
+                      isSelected={isSelected}
+                      isV2={isV2}
+                      onSelect={() => setSelectedMessageIndex(i)}
+                      onMoveUp={() => moveMessage(i, "up")}
+                      onMoveDown={() => moveMessage(i, "down")}
+                      canMoveUp={i > 0}
+                      canMoveDown={i < data.messages.length - 1}
+                      onDuplicate={() => duplicateMessage(i)}
+                      onRemove={() => removeMessage(i)}
+                      updateMessageData={(upd) => {
+                        const next = [...data.messages];
+                        next[i] = { ...next[i]!, data: { ...next[i]!.data, ...upd } };
+                        setD({ ...data, messages: next });
+                      }}
+                      files={messageFiles[m._id || ""] || []}
+                      setFiles={(f) => setMessageFiles((prev) => ({ ...prev, [m._id || ""]: f }))}
+                      editTab={editTab}
+                      setEditTab={setEditTab}
+                      serverEmojis={serverEmojis}
+                      onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri: ri!, ci: ci! }); setComponentModalOpen(true); }}
+                    />
                   )}
                 </div>
-              )}
-            </div>
-
-            <hr className="border-zinc-800" />
-            <div className="flex items-center gap-3 pb-4 text-[10px] text-zinc-600">
-              <Megaphone className="h-3.5 w-3.5 text-zinc-700" />
-              <p>Announcements Studio</p>
-              <span className="text-zinc-800">&middot;</span>
-              <span>{data.messages.length} message{data.messages.length !== 1 ? "s" : ""}</span>
-              {data.targets?.length ? <><span className="text-zinc-800">&middot;</span><span>{data.targets.length} target{data.targets.length !== 1 ? "s" : ""}</span></> : null}
-            </div>
+              );
+            })}
           </div>
         </div>
 
-        <div className="flex flex-col w-1/2" style={{ backgroundColor: EMBED_BG }}>
-          <div className="overflow-y-scroll grow px-4 py-4 pb-8">
-            {data.messages.map((m, i) => {
+        {/* RIGHT PANE - Preview */}
+        <div style={{ width: "50%", display: "flex", flexDirection: "column", backgroundColor: C.discBg }}>
+          <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.discEmbed}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: THEME.textMuted }}>
+              <Eye style={{ width: 14, height: 14, display: "inline", marginRight: 6 }} /> Preview
+            </span>
+            <button type="button" onClick={() => setSendModalOpen(true)}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, backgroundColor: THEME.burg, color: "#fff", border: "none", cursor: "pointer" }}>
+              <Send style={{ width: 14, height: 14 }} /> Send
+            </button>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }} className="scrollbar-thin">
+            {data.messages.length === 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 24px", textAlign: "center" }}>
+                <Eye style={{ width: 48, height: 48, color: "#52525b", marginBottom: 16 }} />
+                <p style={{ fontSize: 14, color: "#71717a" }}>No messages yet</p>
+                <p style={{ fontSize: 12, color: "#52525b" }}>Add a message to see the preview</p>
+              </div>
+            ) : data.messages.map((m, i) => {
               const mid = m._id || String(i);
               return (
-                <DiscordPreview key={`preview-${mid}`}
-                  message={m.data}
-                  isV2={isComponentsV2(m.data.flags)}
-                  targets={data.targets}
-                  onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri: ri!, ci: ci! }); setComponentModalOpen(true); }}
-                  files={messageFiles[mid]} />
+                <div key={mid} onClick={() => setSelectedMessageIndex(i)}
+                  style={{ marginBottom: 8, borderRadius: 8, border: selectedMessageIndex === i ? `1px solid ${THEME.burg}40` : "1px solid transparent", backgroundColor: selectedMessageIndex === i ? `${THEME.burg}08` : "transparent", cursor: "pointer", padding: 8 }}>
+                  <DiscordPreview message={m.data} isV2={isComponentsV2(m.data.flags)} targets={data.targets}
+                    onEditComponent={(comp, ri, ci) => { setEditingComponent(comp); setEditingComponentPos({ ri: ri!, ci: ci! }); setComponentModalOpen(true); }}
+                    files={messageFiles[mid]} />
+                </div>
               );
             })}
-            {data.messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <Eye className="mb-4 h-12 w-12 text-zinc-700" />
-                <p className="text-sm text-zinc-500">No messages yet</p>
-                <p className="mt-1 text-xs text-zinc-600">Add a message to see the preview</p>
-              </div>
-            )}
           </div>
         </div>
       </div>
