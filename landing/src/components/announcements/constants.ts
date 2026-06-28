@@ -1,5 +1,5 @@
 export const ACCENT = "#8B1538";
-export const EMBED_BG = "#2b2d31";
+export const EMBED_BG = "#313338";
 export const TEXT_COLOR = "#dbdee1";
 
 export const C = {

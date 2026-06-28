@@ -15,8 +15,8 @@ export function Input({ value, onChange, placeholder, multiline, rows, style }: 
   multiline?: boolean; rows?: number; style?: React.CSSProperties;
 }) {
   const cls: React.CSSProperties = {
-    width: "100%", borderRadius: 8, border: `1px solid ${C.border}`,
-    backgroundColor: "transparent", color: C.text, fontSize: 13, outline: "none",
+    width: "100%", borderRadius: 8, border: "none",
+    backgroundColor: "#1A1A1A", color: C.text, fontSize: 13, outline: "none",
     padding: multiline ? "8px 12px" : "6px 10px", fontFamily: "inherit",
     ...style,
   };
