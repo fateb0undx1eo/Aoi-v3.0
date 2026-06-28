@@ -269,9 +269,11 @@ export function DashboardLayout({
         )}
 
         <main className="flex min-w-0 flex-1 flex-col">
-          <div className="mb-6">
-            <h1 className="text-2xl font-semibold text-foreground">{heading}</h1>
-          </div>
+          {heading && (
+            <div className="mb-6">
+              <h1 className="text-2xl font-semibold text-foreground">{heading}</h1>
+            </div>
+          )}
 
           {children}
         </main>
