@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { formatDate } from "@/lib/date";
-import type { QueryDataMessage, QueryDataMessageData, QueryData, APIButtonComponent } from "../types";
-import { DISCORD_LIMITS } from "../constants";
+import type { QueryDataMessage, QueryDataMessageData, QueryData, APIButtonComponent, APIEmbed, APIEmbedField } from "../types";
+import { DISCORD_LIMITS } from "../types";
 
 export function randomId(): string { return nanoid(8); }
 
@@ -25,6 +25,93 @@ export function hasFlag(flags: number | undefined | null, bit: number): boolean 
   return !!(flags && (flags & bit));
 }
 
+// ── Discohook-style embed helpers ───────────────────────────────────────────
+
+/** Check if an embed is effectively empty (no content to display). */
+export function isEmbedEmpty(embed: APIEmbed): boolean {
+  if (embed.title) return false;
+  if (embed.description) return false;
+  if (embed.url) return false;
+  if (embed.color !== undefined && embed.color !== null) return false;
+  if (embed.footer?.text) return false;
+  if (embed.image?.url) return false;
+  if (embed.thumbnail?.url) return false;
+  if (embed.author?.name) return false;
+  if (embed.fields && embed.fields.length > 0) return false;
+  if (embed.timestamp) return false;
+  return true;
+}
+
+/** Get combined text content from an embed for length checking. */
+export function getEmbedText(embed: APIEmbed): string {
+  let text = "";
+  text += embed.title || "";
+  text += embed.description || "";
+  text += embed.author?.name || "";
+  text += embed.footer?.text || "";
+  if (embed.fields) {
+    for (const field of embed.fields) {
+      text += field.name;
+      text += field.value;
+    }
+  }
+  return text;
+}
+
+/** Get the total character length of an embed. */
+export function getEmbedLength(embed: APIEmbed): number {
+  return getEmbedText(embed).length;
+}
+
+/** Check if an embed has displayable content beyond just timestamp or color. */
+export function embedHasDisplayContent(embed: APIEmbed): boolean {
+  if (embed.title) return true;
+  if (embed.description) return true;
+  if (embed.fields && embed.fields.length > 0) return true;
+  if (embed.image?.url) return true;
+  if (embed.thumbnail?.url) return true;
+  if (embed.footer?.text) return true;
+  if (embed.author?.name) return true;
+  return false;
+}
+
+/** Get an array of validation error messages for an embed. */
+export function getEmbedErrors(embed: APIEmbed): string[] {
+  const errors: string[] = [];
+  if ((embed.title?.length ?? 0) > DISCORD_LIMITS.EMBED_TITLE) {
+    errors.push(`Embed title too long (${embed.title!.length}/${DISCORD_LIMITS.EMBED_TITLE})`);
+  }
+  if ((embed.description?.length ?? 0) > DISCORD_LIMITS.EMBED_DESCRIPTION) {
+    errors.push(`Embed description too long (${embed.description!.length}/${DISCORD_LIMITS.EMBED_DESCRIPTION})`);
+  }
+  if ((embed.footer?.text?.length ?? 0) > DISCORD_LIMITS.FOOTER_TEXT) {
+    errors.push(`Embed footer too long (${embed.footer!.text.length}/${DISCORD_LIMITS.FOOTER_TEXT})`);
+  }
+  if ((embed.author?.name?.length ?? 0) > DISCORD_LIMITS.AUTHOR_NAME) {
+    errors.push(`Embed author name too long (${embed.author!.name.length}/${DISCORD_LIMITS.AUTHOR_NAME})`);
+  }
+  if ((embed.fields?.length ?? 0) > DISCORD_LIMITS.EMBED_FIELDS) {
+    errors.push(`Too many embed fields (${embed.fields!.length}/${DISCORD_LIMITS.EMBED_FIELDS})`);
+  }
+  for (const field of embed.fields ?? []) {
+    if ((field.name?.length ?? 0) > DISCORD_LIMITS.FIELD_NAME) {
+      errors.push(`Field name too long (${field.name.length}/${DISCORD_LIMITS.FIELD_NAME})`);
+    }
+    if ((field.value?.length ?? 0) > DISCORD_LIMITS.FIELD_VALUE) {
+      errors.push(`Field value too long (${field.value.length}/${DISCORD_LIMITS.FIELD_VALUE})`);
+    }
+  }
+  return errors;
+}
+
+/** Get total embed characters across all embeds in a message. */
+export function getTotalEmbedLength(embeds: APIEmbed[] | null | undefined): number {
+  if (!embeds) return 0;
+  return embeds.reduce((sum, e) => sum + getEmbedLength(e), 0);
+}
+
+// ── Existing helpers ────────────────────────────────────────────────────────
+
 export function getMessageLimitWarnings(msg: QueryDataMessageData): string[] {
   const warnings: string[] = [];
   const c = msg.content || "";
@@ -35,18 +122,8 @@ export function getMessageLimitWarnings(msg: QueryDataMessageData): string[] {
 
   let totalEmbedChars = 0;
   for (const e of embeds) {
-    if ((e.title?.length || 0) > DISCORD_LIMITS.EMBED_TITLE) warnings.push(`Embed title too long (max ${DISCORD_LIMITS.EMBED_TITLE} chars)`);
-    if ((e.description?.length || 0) > DISCORD_LIMITS.EMBED_DESCRIPTION) warnings.push(`Embed description too long (max ${DISCORD_LIMITS.EMBED_DESCRIPTION.toLocaleString()} chars)`);
-    if ((e.footer?.text?.length || 0) > DISCORD_LIMITS.FOOTER_TEXT) warnings.push(`Embed footer too long (max ${DISCORD_LIMITS.FOOTER_TEXT.toLocaleString()} chars)`);
-    if ((e.author?.name?.length || 0) > DISCORD_LIMITS.AUTHOR_NAME) warnings.push(`Embed author name too long (max ${DISCORD_LIMITS.AUTHOR_NAME} chars)`);
-    const fields = e.fields || [];
-    if (fields.length > DISCORD_LIMITS.EMBED_FIELDS) warnings.push(`Too many embed fields (${fields.length} max: ${DISCORD_LIMITS.EMBED_FIELDS})`);
-    for (const f of fields) {
-      if ((f.name?.length || 0) > DISCORD_LIMITS.FIELD_NAME) warnings.push(`Field name too long (max ${DISCORD_LIMITS.FIELD_NAME} chars)`);
-      if ((f.value?.length || 0) > DISCORD_LIMITS.FIELD_VALUE) warnings.push(`Field value too long (max ${DISCORD_LIMITS.FIELD_VALUE.toLocaleString()} chars)`);
-    }
-    totalEmbedChars += (e.title?.length || 0) + (e.description?.length || 0) + (e.author?.name?.length || 0) + (e.footer?.text?.length || 0);
-    totalEmbedChars += fields.reduce((a, f) => a + (f.name?.length || 0) + (f.value?.length || 0), 0);
+    warnings.push(...getEmbedErrors(e));
+    totalEmbedChars += getEmbedLength(e);
   }
   if (totalEmbedChars > DISCORD_LIMITS.TOTAL_EMBED_CHARS) warnings.push(`All embed content too long (${totalEmbedChars.toLocaleString()}/${DISCORD_LIMITS.TOTAL_EMBED_CHARS.toLocaleString()} chars)`);
 

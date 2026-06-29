@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useRef, type ReactNode } from "react";
 import { ChevronDown, Plus, Hash } from "lucide-react";
 import { C } from "../constants";
 
@@ -10,43 +10,67 @@ export function Label({ children, muted, style }: { children: ReactNode; muted?:
   );
 }
 
-export function Input({ value, onChange, placeholder, multiline, rows, style }: {
+export function Input({ value, onChange, placeholder, multiline, rows, style, inputRef, disabled }: {
   value: string; onChange: (v: string) => void; placeholder?: string;
   multiline?: boolean; rows?: number; style?: React.CSSProperties;
+  inputRef?: React.Ref<HTMLTextAreaElement | HTMLInputElement>;
+  disabled?: boolean;
 }) {
   const cls: React.CSSProperties = {
     width: "100%", borderRadius: 8, border: "none",
     backgroundColor: "#1A1A1A", color: C.text, fontSize: 13, outline: "none",
     padding: multiline ? "8px 12px" : "6px 10px", fontFamily: "inherit",
+    opacity: disabled ? 0.5 : 1,
     ...style,
+  };
+  const setRef = (node: HTMLTextAreaElement | HTMLInputElement | null) => {
+    if (typeof inputRef === "function") inputRef(node);
+    else if (inputRef && "current" in inputRef) (inputRef as React.MutableRefObject<HTMLTextAreaElement | HTMLInputElement | null>).current = node;
   };
   if (multiline) {
     return (
-      <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+      <textarea ref={setRef as any} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+        disabled={disabled}
         rows={rows || 4} style={{ ...cls, resize: "vertical" }} />
     );
   }
   return (
-    <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={cls} />
+    <input ref={setRef as any} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} disabled={disabled} style={cls} />
   );
 }
 
-export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
+export function Toggle({ checked, onChange, label, disabled }: {
+  checked: boolean; onChange: (v: boolean) => void; label?: string; disabled?: boolean;
+}) {
   return (
-    <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-      <div onClick={(e) => { e.preventDefault(); onChange(!checked); }}
-        style={{
-          width: 32, height: 18, borderRadius: 10, position: "relative",
-          backgroundColor: checked ? C.burg : "#3f3f46",
-          transition: "background 0.2s", cursor: "pointer", flexShrink: 0,
-        }}>
+    <label
+      onClick={() => { if (!disabled) onChange(!checked); }}
+      onKeyDown={(e) => {
+        if (!disabled && (e.key === " " || e.key === "Enter")) {
+          e.preventDefault();
+          onChange(!checked);
+        }
+      }}
+      role="switch"
+      aria-checked={checked}
+      tabIndex={disabled ? -1 : 0}
+      style={{
+        display: "flex", alignItems: "center", gap: 8,
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.5 : 1,
+      }}>
+      <div style={{
+        width: 32, height: 18, borderRadius: 10, position: "relative",
+        backgroundColor: checked ? C.burg : "#3f3f46",
+        transition: "background 0.2s", flexShrink: 0, pointerEvents: "none",
+      }}>
         <div style={{
           width: 14, height: 14, borderRadius: "50%", backgroundColor: "#fff",
           position: "absolute", top: 2, left: checked ? 16 : 2,
           transition: "left 0.2s",
         }} />
       </div>
-      {label && <span style={{ fontSize: 12, color: C.text }}>{label}</span>}
+      {label && <span style={{ fontSize: 12, color: C.text, userSelect: "none" }}>{label}</span>}
     </label>
   );
 }
@@ -57,7 +81,7 @@ export function Section({ title, badge, defaultOpen, children }: {
   const [open, setOpen] = useState(defaultOpen !== false);
   return (
     <div style={{ borderBottom: `1px solid #181818` }}>
-      <button type="button" onClick={() => setOpen(!open)}
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
         style={{
           display: "flex", alignItems: "center", gap: 8, width: "100%",
           padding: "10px 12px", background: "none", border: "none", color: C.text,
@@ -71,8 +95,8 @@ export function Section({ title, badge, defaultOpen, children }: {
         <span style={{ flex: 1 }}>{title}</span>
         {badge && (
           <span style={{
-            fontSize: 10, fontWeight: 600, padding: "1px 8px", borderRadius: 10,
-            backgroundColor: `${C.burg}20`, color: C.burg, flexShrink: 0,
+            fontSize: 10, fontWeight: 500, padding: "1px 8px", borderRadius: 10,
+            backgroundColor: "transparent", color: C.textMuted, flexShrink: 0,
           }}>{badge}</span>
         )}
       </button>
@@ -92,7 +116,7 @@ export function ChannelTag({ name, selected, onClick }: { name: string; selected
         color: selected ? C.burg : C.textMuted, cursor: "pointer",
         transition: "all 0.15s",
       }}>
-      <Hash style={{ width: 10, height: 10 }} /> {name}
+      <Hash style={{ width: 10, height: 10 }} />{name}
     </button>
   );
 }

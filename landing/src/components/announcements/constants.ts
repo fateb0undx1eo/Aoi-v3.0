@@ -1,6 +1,9 @@
 export const ACCENT = "#8B1538";
-export const EMBED_BG = "#313338";
+export const EMBED_BG = "#36393f";
 export const TEXT_COLOR = "#dbdee1";
+
+export const FONT = `"gg sans", "Helvetica Neue", Helvetica, Arial, "Segoe UI", "Noto Sans", sans-serif`;
+export const FONT_MONO = `"gg mono", "Source Code Pro", Consolas, "Andale Mono WT", "Andale Mono", "Lucida Console", "Lucida Sans Typewriter", "DejaVu Sans Mono", "Bitstream Vera Sans Mono", "Liberation Mono", "Nimbus Mono L", Monaco, "Courier New", Courier, monospace`;
 
 export const C = {
   bg: "#090909",
@@ -10,20 +13,100 @@ export const C = {
   border: "#1a1a1a",
   text: "#dbdee1",
   textMuted: "#6b6b6b",
-  discBg: "#313338",
-  discEmbed: "#1e1f22",
+  discBg: "#2f3136",
+  discEmbed: "#2f3136",
   discName: "#f2f3f5",
-  discMuted: "#b5bac1",
+  discMuted: "#949ba4",
   discBorder: "#2b2d31",
 };
 
-export const BUTTON_STYLES: Record<number, { label: string; color: string; bg: string; border: string; discordClass: string }> = {
-  1: { label: "Primary", color: "#fff", bg: "#5865f2", border: "#5865f2", discordClass: "bg-[#5865f2] text-white border-[#5865f2]" },
-  2: { label: "Secondary", color: "#dbdee1", bg: "#4e5058", border: "#4e5058", discordClass: "bg-[#4e5058] text-[#dbdee1] border-[#4e5058]" },
-  3: { label: "Success", color: "#fff", bg: "#248046", border: "#248046", discordClass: "bg-[#248046] text-white border-[#248046]" },
-  4: { label: "Danger", color: "#fff", bg: "#da373c", border: "#da373c", discordClass: "bg-[#da373c] text-white border-[#da373c]" },
-  5: { label: "Link", color: "#00a8fc", bg: "transparent", border: "#00a8fc", discordClass: "bg-transparent text-[#00a8fc] border-[#00a8fc]" },
-  6: { label: "Premium", color: "#fff", bg: "#9b59b6", border: "#9b59b6", discordClass: "bg-[#9b59b6] text-white border-[#9b59b6]" },
+export const DISCORD = {
+  bg: "#36393f",
+  bgAlt: "#2f3136",
+  embedBg: "#2f3136",
+  surface: "#111214",
+  textNormal: "#dbdee1",
+  textMuted: "#949ba4",
+  textLink: "#00a8fc",
+  textPositive: "#23a55a",
+  textWarning: "#f0b232",
+  textDanger: "#f23f42",
+  headerPrimary: "#f2f3f5",
+  channelArea: "#36393f",
+  messageHover: "rgba(255,255,255,0.03)",
+  mentionBg: "rgba(88,101,242,0.15)",
+  mentionFg: "#5865F2",
+  mentionBgHover: "rgba(88,101,242,0.3)",
+  blurple: "#5865F2",
+  blurpleHover: "#4752c4",
+  blurpleActive: "#3c45a5",
+  green: "#23a55a",
+  greenHover: "#1c8b4a",
+  red: "#f23f42",
+  redHover: "#d8363a",
+  grey: "#4e5058",
+  greyHover: "#5f616a",
+  greyActive: "#6d6f78",
+  premium: "#9b59b6",
+  premiumGradient: "linear-gradient(90deg, #9b59b6, #e91e90)",
+  embedBorder: "rgba(255,255,255,0.06)",
+  embedDivider: "rgba(128,132,142,0.48)",
+  embedTitle: "#f2f3f5",
+  embedBody: "#b9bbbe",
+  embedFooter: "#949ba4",
+  spoilerBg: "#202225",
+  timestamp: "#949ba4",
+  username: "#f2f3f5",
+  divider: "rgba(255,255,255,0.06)",
+  dividerText: "#949ba4",
+  threadBg: "#2f3136",
+  appBadge: "#5865F2",
+  appBadgeText: "#fff",
+  v2Badge: "#4e5058",
+  v2BadgeText: "#dbdee1",
+  attachmentBg: "#2f3136",
+  attachmentBorder: "rgba(227,229,232,0.5)",
+  fileCardBg: "#2f3136",
+  fileCardIcon: "#5865f2",
+  selectBg: "#2f3136",
+  selectBorder: "rgba(255,255,255,0.06)",
+  selectPlaceholder: "#949ba4",
+  selectOptionBg: "#2f3136",
+  selectOptionHover: "#4e5058",
+  selectOptionDesc: "#949ba4",
+  buttonDisabled: "rgba(255,255,255,0.08)",
+  buttonDisabledText: "rgba(255,255,255,0.3)",
+  codeBg: "#202225",
+  codeBorder: "#202225",
+  codeText: "#dbdee1",
+  inlineCodeBg: "#2f3136",
+  blockquoteBar: "#4e5058",
+  blockquoteText: "#dbdee1",
+  voiceWaveform: "rgba(255,255,255,0.25)",
+  voicePlayBtn: "#5865F2",
+  voiceTimer: "#949ba4",
+  voiceSpeedBtn: "#4e5058",
+  containerBg: "#1e1f22",
+  sectionBg: "#1e1f22",
+  accentStrip: "#8B1538",
+  messageGroupGap: "18px",
+  messageGap: "2px",
+  avatarSize: "40px",
+  avatarGap: "16px",
+  indentLeft: "72px",
+  compactIndent: "56px",
+  embedRadius: "4px",
+  buttonRadius: "3px",
+  selectRadius: "4px",
+};
+
+export const BUTTON_STYLES: Record<number, { label: string; color: string; bg: string; border: string; discordClass: string; hoverBg?: string; activeBg?: string }> = {
+  1: { label: "Primary", color: "#fff", bg: "#5865f2", border: "#5865f2", discordClass: "bg-[#5865f2] text-white border-[#5865f2]", hoverBg: "#4752c4", activeBg: "#3c45a5" },
+  2: { label: "Secondary", color: "#dbdee1", bg: "#4e5058", border: "#4e5058", discordClass: "bg-[#4e5058] text-[#dbdee1] border-[#4e5058]", hoverBg: "#5f616a", activeBg: "#6d6f78" },
+  3: { label: "Success", color: "#fff", bg: "#23a55a", border: "#23a55a", discordClass: "bg-[#23a55a] text-white border-[#23a55a]", hoverBg: "#1c8b4a", activeBg: "#15733e" },
+  4: { label: "Danger", color: "#fff", bg: "#f23f42", border: "#f23f42", discordClass: "bg-[#f23f42] text-white border-[#f23f42]", hoverBg: "#d8363a", activeBg: "#bd2d30" },
+  5: { label: "Link", color: "#00a8fc", bg: "transparent", border: "#00a8fc", discordClass: "bg-transparent text-[#00a8fc] border-[#00a8fc]", hoverBg: "transparent", activeBg: "transparent" },
+  6: { label: "Premium", color: "#fff", bg: "#9b59b6", border: "#9b59b6", discordClass: "bg-[#9b59b6] text-white border-[#9b59b6]", hoverBg: "#824EA0", activeBg: "#6F4290" },
 };
 
 export const EMBED_PRESETS = [
@@ -53,28 +136,12 @@ export const UNICODE_EMOJIS: Record<string, string[]> = {
   travel: ["🚗","🚙","🚕","🚌","🚎","🏎️","🚓","🚑","🚒","🚐","🛻","🚚","🚛","🚜","🏍️","🛵","🛺","🚲","🛴","🛹","🚏","🛣️","🛤️","⛽","🛳️","⛵","🛶","🚤","🛥️","🚢","✈️","🛩️","🛫","🛬","🪂","💺","🚁","🚟","🚠","🚡","🛰️","🚀","🛸","🏠","🏡","🏘️","🏚️","🏗️","🏢","🏭","🏣","🏤","🏥","🏦","🏨","🏩","🏪","🏫","🏬","🏯","🏰","💒","🗼","🗽","⛪","🕌","🕍","⛩️","🕋","⛲","⛺","🌁","🌃","🏙️","🌄","🌅","🌆","🌇","🌉","🗾","🏔️","⛰️","🌋","🗻","🏕️","🏖️","🏜️","🏝️","🏞️"],
   objects: ["⌚","📱","💻","⌨️","🖥️","🖨️","🖱️","🖲️","🕹️","🗜️","💽","💾","💿","📀","📼","📷","📸","📹","🎥","📽️","🎞️","📞","☎️","📟","📠","📺","📻","🎙️","🎚️","🎛️","🧭","⏱️","⏲️","⏰","🕰️","⌛","⏳","📡","🔋","🪫","🔌","💡","🔦","🕯️","🪔","🧯","🗑️","🛢️","💸","💵","💴","💶","💷","🪙","💰","💳","💎","⚖️","🪜","🧰","🪛","🔧","🔨","⚒️","🛠️","⛏️","🪚","🔩","⚙️","🧱","⛓️","🧲","🔫","💣","🧨","🪓","🔪","🗡️","⚔️","🛡️","🚬","⚰️","🪦","⚱️","🏺","🔮","📿","🧿","🪬","💈","⚗️","🔭","🔬","🕳️","🩻","🩹","🩺","💊","💉","🩸","🧬","🦠","🧫","🧪","🌡️","🧹","🪠","🧺","🧻","🚽","🚰","🚿","🛁","🛀","🧼","🪥","🪒","🧽","🪣","🧴","🛎️","🔑","🗝️","🚪","🪑","🛋️","🛏️","🛌","🧸","🪆","🖼️","🪞","🪟","🛍️","🛒","🎁","🎈","🎏","🎀","🪄","🪅","🎊","🎉","🎎","🏮","🎐","🧧","✉️","📩","📨","📧","💌","📥","📤","📦","🏷️","📪","📫","📬","📭","📮","📯","📜","📃","📄","📑","🧾","📊","📈","📉","🗒️","🗓️","📆","📅","📇","🗃️","🗳️","🗄️","📋","📁","📂","🗂️","🗞️","📰","📓","📔","📒","📕","📗","📘","📙","📚","📖","🔖","🧷","🔗","📎","🖇️","📐","📏","🧮","📌","📍","✂️","🖊️","🖋️","✒️","🖌️","🖍️","📝","✏️","🔍","🔎","🔏","🔐","🔒","🔓"],
   symbols: ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💟","☮️","✝️","☪️","🕉️","☸️","✡️","🔯","🕎","☯️","☦️","🛐","⛎","♈","♉","♊","♋","♌","♍","♎","♏","♐","♑","♒","♓","🆔","⚧️","✴️","🉐","🈹","🆚","🈲","🉑","🈸","🈴","🈳","㊗️","㊙️","🈺","🈵","🔴","🟠","🟡","🟢","🔵","🟣","🟤","⚫","⚪","🟥","🟧","🟨","🟩","🟦","🟪","🟫","⬛","⬜","◼️","◻️","◾","◽","▪️","▫️","🔶","🔷","🔸","🔹","🔺","🔻","💠","🔘","🔲","🔳","🈁","🈂️","🈷️","🈶","🈚","🈸","🈺","🉐","🈹","🆚","🈲","🉑","🈴","🈳","㊗️","㊙️","🈺","🈵","🔠","🔡","🔤","🔢","🔣","🔟","🆖","🆗","🆙","🆒","🆕","🆓","🆑","🆎","🆔","🚹","🚺","🚻","🚼","🚾","🛂","🛃","🛄","🛅","⚠️","🚸","⛔","🚫","🚳","🚭","🚯","🚱","📵","🔞","☢️","☣️","💢","💬","💭","🗯️","♨️","💤","🕳️","♿️","🅿️","🛗","🈳","🈹","🈲","🈴","🈵","🈶","🈸","🈺","🈁","🆚","🉑","🆖","🆗","🆙","🆒","🆕","🆓","🆖","🆗"],
-  flags: ["🏳️","🏴","🏁","🚩","🎌","🏴‍☠️","🇺🇳","🇦🇫","🇦🇱","🇩🇿","🇦🇸","🇦🇩","🇦🇴","🇦🇮","🇦🇶","🇦🇬","🇦🇷","🇦🇲","🇦🇼","🇦🇺","🇦🇹","🇦🇿","🇧🇸","🇧🇭","🇧🇩","🇧🇧","🇧🇾","🇧🇪","🇧🇿","🇧🇯","🇧🇲","🇧🇹","🇧🇴","🇧🇦","🇧🇼","🇧🇷","🇮🇴","🇻🇬","🇧🇳","🇧🇬","🇧🇫","🇧🇮","🇰🇭","🇨🇲","🇨🇦","🇮🇨","🇨🇻","🇧🇶","🇰🇾","🇨🇫","🇹🇩","🇨🇱","🇨🇳","🇨🇽","🇨🇨","🇨🇴","🇰🇲","🇨🇬","🇨🇩","🇨🇰","🇨🇷","🇭🇷","🇨🇺","🇨🇼","🇨🇾","🇨🇿","🇩🇰","🇩🇯","🇩🇲","🇩🇴","🇪🇨","🇪🇬","🇸🇻","🇬🇶","🇪🇷","🇪🇪","🇸🇿","🇪🇹","🇫🇰","🇫🇴","🇫🇯","🇫🇮","🇫🇷","🇬🇫","🇵🇫","🇹🇫","🇬🇦","🇬🇲","🇬🇪","🇩🇪","🇬🇭","🇬🇮","🇬🇷","🇬🇱","🇬🇩","🇬🇵","🇬🇺","🇬🇹","🇬🇬","🇬🇳","🇬🇼","🇬🇾","🇭🇹","🇭🇳","🇭🇰","🇭🇺","🇮🇸","🇮🇳","🇮🇩","🇮🇷","🇮🇶","🇮🇪","🇮🇲","🇮🇱","🇮🇹","🇨🇮","🇯🇲","🇯🇵","🇯🇪","🇯🇴","🇰🇿","🇰🇪","🇰🇮","🇽🇰","🇰🇼","🇰🇬","🇱🇦","🇱🇻","🇱🇧","🇱🇷","🇱🇾","🇱🇮","🇱🇹","🇱🇺","🇲🇴","🇲🇬","🇲🇼","🇲🇾","🇲🇻","🇲🇱","🇲🇹","🇲🇭","🇲🇶","🇲🇷","🇲🇺","🇾🇹","🇲🇽","🇫🇲","🇲🇩","🇲🇨","🇲🇳","🇲🇪","🇲🇸","🇲🇦","🇲🇿","🇲🇲","🇳🇦","🇳🇷","🇳🇵","🇳🇱","🇳🇨","🇳🇿","🇳🇮","🇳🇪","🇳🇺","🇳🇫","🇰🇵","🇲🇰","🇲🇵","🇳🇴","🇴🇲","🇵🇰","🇵🇼","🇵🇸","🇵🇦","🇵🇬","🇵🇾","🇵🇪","🇵🇭","🇵🇳","🇵🇱","🇵🇹","🇵🇷","🇶🇦","🇷🇪","🇷🇴","🇷🇺","🇷🇼","🇼🇸","🇸🇲","🇸🇹","🇸🇦","🇸🇳","🇷🇸","🇸🇨","🇸🇱","🇸🇬","🇸🇽","🇸🇰","🇸🇮","🇸🇧","🇸🇴","🇿🇦","🇬🇸","🇰🇷","🇸🇸","🇪🇸","🇱🇰","🇧🇱","🇸🇭","🇰🇳","🇱🇨","🇵🇲","🇻🇨","🇸🇩","🇸🇷","🇸🇪","🇨🇭","🇸🇾","🇹🇼","🇹🇯","🇹🇿","🇹🇭","🇹🇱","🇹🇬","🇹🇰","🇹🇴","🇹🇹","🇹🇳","🇹🇷","🇹🇲","🇹🇨","🇹🇻","🇻🇮","🇺🇬","🇺🇦","🇦🇪","🇬🇧","🇺🇸","🇺🇾","🇺🇿","🇻🇺","🇻🇦","🇻🇪","🇻🇳","🇼🇫","🇪🇭","🇾🇪","🇿🇲","🇿🇼"],
+  flags: ["🏳️","🏴","🏁","🚩","🎌","🏴‍☠️","🇺🇳","🇦🇫","🇦🇱","🇩🇿","🇦🇸","🇦🇩","🇦🇴","🇦🇮","🇦🇶","🇦🇬","🇦🇷","🇦🇲","🇦🇼","🇦🇺","🇦🇹","🇦🇿","🇧🇸","🇧🇭","🇧🇩","🇧🇧","🇧🇾","🇧🇪","🇧🇿","🇧🇯","🇧🇲","🇧🇹","🇧🇧","🇧🇦","🇧🇼","🇧🇷","🇮🇴","🇻🇬","🇧🇳","🇧🇬","🇧🇫","🇧🇮","🇰🇭","🇨🇲","🇨🇦","🇮🇨","🇨🇻","🇧🇶","🇰🇾","🇨🇫","🇹🇩","🇨🇱","🇨🇳","🇨🇽","🇨🇨","🇨🇴","🇰🇲","🇨🇬","🇨🇩","🇨🇰","🇨🇷","🇭🇷","🇨🇺","🇨🇼","🇨🇾","🇨🇿","🇩🇰","🇩🇯","🇩🇲","🇩🇴","🇪🇨","🇪🇬","🇸🇻","🇬🇶","🇪🇷","🇪🇪","🇸🇿","🇪🇹","🇫🇰","🇫🇴","🇫🇯","🇫🇮","🇫🇷","🇬🇫","🇵🇫","🇹🇫","🇬🇦","🇬🇲","🇬🇪","🇩🇪","🇬🇭","🇬🇮","🇬🇷","🇬🇱","🇬🇩","🇬🇵","🇬🇺","🇬🇹","🇭🇳","🇭🇰","🇭🇺","🇮🇸","🇮🇳","🇮🇩","🇮🇷","🇮🇶","🇮🇪","🇮🇲","🇮🇱","🇮🇹","🇨🇮","🇯🇲","🇯🇵","🇯🇪","🇯🇴","🇰🇿","🇰🇪","🇰🇮","🇽🇰","🇰🇼","🇰🇬","🇱🇦","🇱🇻","🇱🇧","🇱🇷","🇱🇾","🇱🇮","🇱🇹","🇱🇺","🇲🇴","🇲🇬","🇲🇼","🇲🇾","🇲🇻","🇲🇱","🇲🇹","🇲🇭","🇲🇶","🇲🇷","🇲🇺","🇾🇹","🇲🇽","🇫🇲","🇲🇩","🇲🇨","🇲🇳","🇲🇪","🇲🇸","🇲🇦","🇲🇿","🇲🇲","🇳🇦","🇳🇷","🇳🇵","🇳🇱","🇳🇨","🇳🇿","🇳🇮","🇳🇪","🇳🇺","🇳🇫","🇰🇵","🇲🇰","🇲🇵","🇳🇴","🇴🇲","🇵🇰","🇵🇼","🇵🇸","🇵🇦","🇵🇬","🇵🇾","🇵🇪","🇵🇭","🇵🇳","🇵🇱","🇵🇹","🇵🇷","🇶🇦","🇷🇪","🇷🇴","🇷🇺","🇷🇼","🇼🇸","🇸🇲","🇸🇹","🇸🇦","🇸🇳","🇷🇸","🇸🇨","🇸🇱","🇸🇬","🇸🇽","🇸🇰","🇸🇮","🇸🇧","🇸🇴","🇿🇦","🇬🇸","🇰🇷","🇸🇸","🇪🇸","🇱🇰","🇧🇱","🇸🇭","🇰🇳","🇱🇨","🇵🇲","🇻🇨","🇸🇩","🇸🇷","🇸🇪","🇨🇭","🇸🇾","🇹🇼","🇹🇯","🇹🇿","🇹🇭","🇹🇱","🇹🇬","🇹🇰","🇹🇴","🇹🇹","🇹🇳","🇹🇷","🇹🇲","🇹🇨","🇹🇻","🇻🇮","🇺🇬","🇺🇦","🇦🇪","🇬🇧","🇺🇸","🇺🇾","🇺🇿","🇻🇺","🇻🇦","🇻🇪","🇻🇳","🇼🇫","🇪🇭","🇾🇪","🇿🇲","🇿🇼"],
 };
 
 export const MessageFlagsEnum = { IsComponentsV2: 1 << 15, SuppressEmbeds: 1 << 2, SuppressNotifications: 1 << 12 };
 
-export const DISCORD_LIMITS = {
-  CONTENT: 2000,
-  EMBEDS_PER_MESSAGE: 10,
-  EMBED_TITLE: 256,
-  EMBED_DESCRIPTION: 4096,
-  EMBED_FIELDS: 25,
-  FIELD_NAME: 256,
-  FIELD_VALUE: 1024,
-  FOOTER_TEXT: 2048,
-  AUTHOR_NAME: 256,
-  TOTAL_EMBED_CHARS: 6000,
-  V1_ROWS: 5,
-  V1_COMPONENTS_PER_ROW: 5,
-  V2_TOTAL_COMPONENTS: 40,
-  V2_COMPONENT_CHARS: 4000,
-} as const;
-
 export const TIMESTAMP_STYLES: Record<string, string> = { t: "Short Time", T: "Long Time", d: "Short Date", D: "Long Date", f: "Short Date/Time", F: "Long Date/Time", R: "Relative" };
 
 export const DISCORD_BLUE = "#5865F2";
+export { DISCORD_LIMITS } from "./types";

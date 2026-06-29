@@ -62,6 +62,7 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
         <div className="space-y-4">
           {isButton && (
             <>
+              {draft.style !== 6 ? (
               <div className="flex items-start gap-3">
                 <div className="flex flex-col items-center gap-1">
                   <span className="text-[10px] text-zinc-500">Emoji</span>
@@ -95,28 +96,46 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
                     className="h-3.5 w-3.5 rounded border-zinc-700 bg-zinc-800" />
                 </div>
               </div>
-
-              {draft.style !== 5 ? (
+              ) : (
                 <div>
                   <Label className="text-xs text-zinc-400">
-                    Style <span className="text-zinc-600 font-normal">&mdash; controls the button&apos;s color</span>
+                    SKU ID <span className="text-zinc-600 font-normal">&mdash; premium subscription SKU for this button</span>
                   </Label>
-                  <div className="mt-1 grid grid-cols-4 gap-1">
-                    {[1, 2, 3, 4].map((s) => {
-                      const bs = BUTTON_STYLES[s];
-                      return (
-                        <button key={s} type="button" onClick={() => update({ style: s as ButtonStyle })}
-                          className={`flex items-center justify-center gap-1 rounded-lg px-2 py-2 text-xs font-medium transition-all ${
-                            draft.style === s ? "ring-2 ring-white/40" : ""
-                          } ${bs?.discordClass}`}>
-                          {draft.style === s && <Check className="h-3 w-3" />}
-                          {bs?.label}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <input type="text" value={(draft as any).sku_id || ""} onChange={(e) => update({ sku_id: e.target.value } as any)}
+                    placeholder="sku_1234567890"
+                    className="mt-1 w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-600" />
                 </div>
-              ) : null}
+              )}
+
+              <div>
+                <Label className="text-xs text-zinc-400">
+                  Style <span className="text-zinc-600 font-normal">&mdash; controls the button&apos;s color</span>
+                </Label>
+                <div className="mt-1 grid grid-cols-4 gap-1">
+                  {[1, 2, 3, 4].map((s) => {
+                    const bs = BUTTON_STYLES[s];
+                    return (
+                      <button key={s} type="button" onClick={() => update({ style: s as ButtonStyle })}
+                        className={`flex items-center justify-center gap-1 rounded-lg px-2 py-2 text-xs font-medium transition-all ${
+                          (draft as any).style === s ? "ring-2 ring-white/40" : ""
+                        } ${bs?.discordClass}`}>
+                        {(draft as any).style === s && <Check className="h-3 w-3" />}
+                        {bs?.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 flex gap-1">
+                  <button type="button" onClick={() => update({ style: 5 as ButtonStyle })}
+                    className={`flex-1 rounded-lg px-2 py-2 text-xs font-medium ${(draft as any).style === 5 ? "ring-2 ring-white/40" : ""} ${BUTTON_STYLES[5]?.discordClass || ""}`}>
+                    Link
+                  </button>
+                  <button type="button" onClick={() => update({ style: 6 as ButtonStyle })}
+                    className={`flex-1 rounded-lg px-2 py-2 text-xs font-medium ${(draft as any).style === 6 ? "ring-2 ring-white/40" : ""} bg-zinc-800 text-zinc-300`}>
+                    Premium
+                  </button>
+                </div>
+              </div>
 
               {draft.style === 5 ? (
                 <div>
@@ -128,7 +147,7 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
                     placeholder="https://discord.com"
                     className="mt-1 w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-600" />
                 </div>
-              ) : (
+              ) : draft.style === 6 ? null : (
                 <div>
                   <Label className="text-xs text-zinc-400">
                     Custom ID <span className="text-zinc-600 font-normal">&mdash; unique identifier your bot listens for</span>
@@ -222,6 +241,14 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
                             update({ options: opts } as Partial<APIStringSelectComponent>);
                           }} placeholder="Label" maxLength={100}
                             className="min-w-0 flex-1 rounded border border-zinc-800 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
+                          <input type="text" value={opt.emoji ? (opt.emoji.name || opt.emoji.id || "") : ""}
+                            onChange={(e) => {
+                              const opts = [...(draft as APIStringSelectComponent).options];
+                              opts[oi] = { ...opts[oi]!, emoji: e.target.value ? { name: e.target.value } : undefined };
+                              update({ options: opts } as Partial<APIStringSelectComponent>);
+                            }}
+                            placeholder="Emoji" maxLength={100}
+                            className="w-20 rounded border border-zinc-800 bg-black px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none" />
                           <label className="flex items-center gap-1 text-[10px] text-zinc-500">
                             <input type="checkbox" checked={opt.default || false}
                               onChange={(e) => {
@@ -258,25 +285,105 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
                   </div>
                 </div>
               )}
+
+              {/* Non‑String selects — default_values */}
+              {draft.type === 8 && (
+                <div>
+                  <Label className="text-xs text-zinc-400">
+                    Channel Types <span className="text-zinc-600 font-normal">&mdash; restricts which channel types users can pick</span>
+                  </Label>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {[
+                      { v: 0, l: "Text" },
+                      { v: 2, l: "Voice" },
+                      { v: 4, l: "Category" },
+                      { v: 5, l: "Announcement" },
+                      { v: 10, l: "Announcement Thread" },
+                      { v: 11, l: "Public Thread" },
+                      { v: 12, l: "Private Thread" },
+                      { v: 13, l: "Stage" },
+                      { v: 15, l: "Forum" },
+                      { v: 16, l: "Media" },
+                    ].map(({ v, l }) => {
+                      const selected = ((draft as any).channel_types || []).includes(v);
+                      return (
+                        <button key={v} type="button" onClick={() => {
+                          const cur: number[] = (draft as any).channel_types || [];
+                          update({ channel_types: selected ? cur.filter((x: number) => x !== v) : [...cur, v] } as any);
+                        }}
+                          className={`rounded px-2 py-1 text-[10px] font-medium ${selected ? "bg-zinc-700 text-zinc-200" : "bg-zinc-900 text-zinc-500 hover:bg-zinc-800"}`}>
+                          {l}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {!isStringSelect && draft.type >= 5 && draft.type <= 8 && (
+                <div>
+                  <Label className="text-xs text-zinc-400">Default Values</Label>
+                  <div className="mt-1 space-y-1">
+                    {((draft as any).default_values || []).map((dv: any, di: number) => (
+                      <div key={di} className="flex items-center gap-2">
+                        <input type="text" value={dv.id || ""}
+                          onChange={(e) => {
+                            const dvs = [...((draft as any).default_values || [])]; dvs[di] = { ...dvs[di], id: e.target.value };
+                            update({ default_values: dvs } as any);
+                          }}
+                          placeholder="ID" className="flex-1 rounded border border-zinc-800 bg-black px-2 py-1 text-xs text-zinc-200 outline-none" />
+                        <select value={dv.type || "user"}
+                          onChange={(e) => {
+                            const dvs = [...((draft as any).default_values || [])]; dvs[di] = { ...dvs[di], type: e.target.value };
+                            update({ default_values: dvs } as any);
+                          }}
+                          className="w-20 rounded border border-zinc-800 bg-black px-2 py-1 text-xs text-zinc-200 outline-none">
+                          <option value="user">User</option>
+                          <option value="role">Role</option>
+                          <option value="channel">Channel</option>
+                        </select>
+                        <button type="button" onClick={() => {
+                          const dvs = ((draft as any).default_values || []).filter((_: any, i: number) => i !== di);
+                          update({ default_values: dvs.length > 0 ? dvs : undefined } as any);
+                        }} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => {
+                      const dvs = [...((draft as any).default_values || []), { id: "", type: "user" }];
+                      update({ default_values: dvs } as any);
+                    }} className="flex w-full items-center justify-center gap-1 rounded border border-dashed border-zinc-700 py-1 text-xs text-zinc-500 hover:border-zinc-500 hover:text-zinc-300">
+                      <Plus className="h-3 w-3" /> Add Default
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
-          {isStringSelect && (
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs text-zinc-400">Min Values <span className="text-zinc-600 font-normal">(0 = optional)</span></Label>
-                <input type="number" value={(draft as APIStringSelectComponent).min_values ?? 1}
-                  onChange={(e) => update({ min_values: Math.max(0, Number(e.target.value)) } as Partial<APIStringSelectComponent>)}
-                  min={0} max={(draft as APIStringSelectComponent).max_values ?? 1}
-                  className="mt-1 w-full rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 outline-none" />
+          {isSelect && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs text-zinc-400">Min Values <span className="text-zinc-600 font-normal">(0 = optional)</span></Label>
+                  <input type="number" value={(draft as any).min_values ?? 1}
+                    onChange={(e) => update({ min_values: Math.max(0, Number(e.target.value)) } as any)}
+                    min={0} max={(draft as any).max_values ?? 25}
+                    className="mt-1 w-full rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 outline-none" />
+                </div>
+                <div>
+                  <Label className="text-xs text-zinc-400">Max Values <span className="text-zinc-600 font-normal">(how many they can select)</span></Label>
+                  <input type="number" value={(draft as any).max_values ?? 1}
+                    onChange={(e) => update({ max_values: Math.max(1, Number(e.target.value)) } as any)}
+                    min={1} max={25}
+                    className="mt-1 w-full rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 outline-none" />
+                </div>
               </div>
-              <div>
-                <Label className="text-xs text-zinc-400">Max Values <span className="text-zinc-600 font-normal">(how many they can select)</span></Label>
-                <input type="number" value={(draft as APIStringSelectComponent).max_values ?? 1}
-                  onChange={(e) => update({ max_values: Math.max(1, Number(e.target.value)) } as Partial<APIStringSelectComponent>)}
-                  min={1} max={25}
-                  className="mt-1 w-full rounded border border-zinc-800 bg-black px-2 py-1.5 text-xs text-zinc-200 outline-none" />
-              </div>
+              <label className="flex items-center gap-2 text-xs text-zinc-400">
+                <input type="checkbox" checked={(draft as any).required ?? false}
+                  onChange={(e) => update({ required: e.target.checked || undefined } as any)}
+                  className="h-3.5 w-3.5 rounded border-zinc-700 bg-zinc-800" />
+                Required <span className="text-zinc-600 font-normal">(modals only)</span>
+              </label>
             </div>
           )}
         </div>

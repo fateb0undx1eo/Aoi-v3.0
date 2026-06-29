@@ -23,7 +23,7 @@ import type {
   QueryDataMessageData,
 } from "../types";
 import { getMessageLimitWarnings, hasFlag } from "../utils/message";
-import { DISCORD_LIMITS } from "../constants";
+import { DISCORD_LIMITS } from "../types";
 import FileAttachmentEditor from "./FileAttachmentEditor";
 import ComponentEditorForMessage from "./ComponentEditorForMessage";
 import EmbedEditor from "./EmbedEditor";
@@ -61,7 +61,7 @@ function JsonEditorInline({
       <textarea
         value={text}
         onChange={(e) => handleChange(e.target.value)}
-        className="h-32 w-full resize-none rounded border border-zinc-700 bg-black px-2 py-1.5 font-mono text-[11px] text-zinc-200 outline-none focus:border-zinc-500"
+        className="h-32 w-full resize-none rounded bg-black px-2 py-1.5 font-mono text-[11px] text-zinc-200 outline-none focus:border-zinc-500"
         spellCheck={false}
       />
       {error && <p className="text-[9px] text-red-400">{error}</p>}
@@ -160,10 +160,10 @@ export default function MessageEditorCard({
 
   return (
     <div
-      className={`rounded-lg border transition-colors ${
+      className={`rounded-lg transition-colors ${
         isSelected
-          ? "border-primary/40 bg-primary/5"
-          : "border-zinc-800 bg-black hover:border-zinc-700"
+          ? "bg-primary/5"
+          : "bg-black hover:bg-zinc-900/50"
       }`}
     >
       {/* Header */}
@@ -236,14 +236,14 @@ export default function MessageEditorCard({
 
       {/* Body */}
       {!collapsed && (
-        <div className="border-t border-zinc-800 px-3 py-3 space-y-3">
+        <div className="px-3 py-3 space-y-3">
           {/* Warnings */}
           {warnings.length > 0 && (
             <div className="space-y-1">
               {warnings.map((w, i) => (
                 <div
                   key={i}
-                  className="flex items-start gap-1.5 rounded border border-red-700/40 bg-red-500/10 px-2.5 py-1.5 text-[10px] text-red-300"
+                  className="flex items-start gap-1.5 rounded bg-red-500/10 px-2.5 py-1.5 text-[10px] text-red-300"
                 >
                   <span>&#9888;</span>
                   <span>{w}</span>
@@ -253,10 +253,10 @@ export default function MessageEditorCard({
           )}
 
           {/* Tab bar */}
-          <div className="flex gap-1 rounded-lg border border-zinc-800 bg-black p-0.5">
+          <div className="flex gap-1 rounded-lg bg-black p-0.5">
             {(
               ["content", "embed", "files", "components", "json"] as const
-            ).map((tab) => {
+            ).filter(tab => !(isV2 && tab === "embed")).map((tab) => {
               const labels: Record<string, string> = {
                 content: `Content${contentLen > 0 ? ` (${contentLen})` : ""}`,
                 embed: `Embeds${msg.embeds ? ` (${msg.embeds.length})` : " (0)"}`,
@@ -306,6 +306,12 @@ export default function MessageEditorCard({
           {/* Content Tab */}
           {activeTab === "content" && (
             <div>
+              {isV2 && (
+                <div className="mb-2 flex items-start gap-1.5 rounded border border-yellow-700/40 bg-yellow-500/10 px-2.5 py-1.5 text-[10px] text-yellow-300">
+                  <span>&#9888;</span>
+                  <span>V2 messages: content field is ignored by Discord. Use Text Display components instead.</span>
+                </div>
+              )}
               <textarea
                 value={msg.content ?? ""}
                 onChange={(e) =>
@@ -316,7 +322,7 @@ export default function MessageEditorCard({
                 placeholder="Message content (supports Discord markdown)"
                 rows={5}
                 maxLength={2000}
-                className="w-full resize-none rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500"
+                className="w-full resize-none rounded-lg bg-black px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500"
               />
               <div className="mt-1 text-right text-[10px] text-zinc-600">
                 <span
@@ -337,9 +343,15 @@ export default function MessageEditorCard({
           {/* Embeds Tab */}
           {activeTab === "embed" && (
             <div className="space-y-2">
+              {isV2 && (
+                <div className="flex items-start gap-1.5 rounded bg-yellow-500/10 px-2.5 py-1.5 text-[10px] text-yellow-300">
+                  <span>&#9888;</span>
+                  <span>V2 messages: embeds are ignored by Discord. Remove the V2 flag or use embed-free components.</span>
+                </div>
+              )}
               {/* Total embed length warning */}
               {embedLength > 6000 && (
-                <div className="flex items-start gap-1.5 rounded border border-red-700/40 bg-red-500/10 px-2.5 py-1.5 text-[10px] text-red-300">
+                <div className="flex items-start gap-1.5 rounded bg-red-500/10 px-2.5 py-1.5 text-[10px] text-red-300">
                   <span>&#9888;</span>
                   <span>
                     Total embed characters exceed {embedLength.toLocaleString()}
@@ -349,7 +361,7 @@ export default function MessageEditorCard({
               )}
 
               {(msg.embeds ?? []).length === 0 && (
-                <div className="rounded-lg border border-dashed border-zinc-700 p-4 text-center">
+                <div className="rounded-lg bg-zinc-800/10 p-4 text-center">
                   <FileText className="mx-auto mb-1 h-6 w-6 text-zinc-600" />
                   <p className="text-xs text-zinc-500">
                     No embeds yet. Click below to add one.
@@ -400,7 +412,7 @@ export default function MessageEditorCard({
                   updateMessageData({ embeds });
                 }}
                 disabled={(msg.embeds?.length ?? 0) >= 10}
-                className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-700 py-2.5 text-xs text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 disabled:opacity-40"
+                className="flex w-full items-center justify-center gap-1 rounded-lg bg-zinc-800/30 py-2.5 text-xs text-zinc-500 hover:bg-zinc-700/30 hover:text-zinc-300 disabled:opacity-40"
               >
                 <Plus className="h-3.5 w-3.5" /> Add Embed (
                 {msg.embeds?.length ?? 0}/10)
@@ -432,13 +444,12 @@ export default function MessageEditorCard({
               components={msg.components ?? []}
               onChange={(comps) => updateMessageData({ components: comps })}
               onEditComponent={onEditComponent}
-              serverEmojis={serverEmojis}
               isV2={isV2}
             />
           )}
 
           {/* Message flags row */}
-          <div className="flex flex-wrap gap-2 pt-1 border-t border-zinc-800">
+          <div className="flex flex-wrap gap-2 pt-1">
             <label className="flex items-center gap-1 text-[9px] text-zinc-500">
               <input
                 type="checkbox"

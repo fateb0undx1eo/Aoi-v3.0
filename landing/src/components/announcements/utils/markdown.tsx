@@ -1,4 +1,5 @@
 import { type ReactElement, useState } from "react";
+import { FONT, FONT_MONO, DISCORD } from "../constants";
 
 type Renderable = string | ReactElement;
 
@@ -60,10 +61,9 @@ const headingRule: Rule = {
     return { size: m[0]!.length, content: parse(m[2]?.trim() ?? ""), level: m[1]!.length };
   },
   render(c, r) {
-    const cls = "mx-0 mb-1.5 mt-2 font-semibold leading-snug text-zinc-100";
-    if (c.level === 1) return <h4 className={`${cls} text-lg`}>{r(c.content)}</h4>;
-    if (c.level === 2) return <h5 className={`${cls} text-base`}>{r(c.content)}</h5>;
-    return <h6 className={`${cls} text-sm`}>{r(c.content)}</h6>;
+    const sizes: Record<number, string> = { 1: "20px", 2: "16px", 3: "14px" };
+    const lineHeights: Record<number, string> = { 1: "28px", 2: "22px", 3: "20px" };
+    return <div style={{ fontSize: sizes[c.level] || "14px", fontWeight: 700, lineHeight: lineHeights[c.level] || "20px", margin: "8px 0", color: DISCORD.headerPrimary, fontFamily: FONT }}>{r(c.content)}</div>;
   },
 };
 
@@ -75,7 +75,7 @@ const footingRule: Rule = {
     return { size: m[0]!.length, content: parse((m[1] ?? "").trim()) };
   },
   render(c, r) {
-    return <span className="block text-xs text-zinc-500">{r(c.content)}</span>;
+    return <span style={{ display: "block", fontSize: 12, color: DISCORD.textMuted, fontFamily: FONT }}>{r(c.content)}</span>;
   },
 };
 
@@ -87,9 +87,23 @@ const codeBlockRule: Rule = {
   },
   render(c) {
     return (
-      <pre className="mt-1 max-w-[90%] overflow-x-auto rounded border border-zinc-700 bg-black p-3">
-        <code className="font-mono text-inherit text-zinc-200">{c.content}</code>
-      </pre>
+      <div style={{ marginTop: 6, border: `1px solid ${DISCORD.codeBorder}`, borderRadius: 4, backgroundColor: DISCORD.codeBg, overflow: "hidden" }}>
+        {c.language && (
+          <div style={{
+            fontSize: 12, fontWeight: 500, lineHeight: "16px", color: DISCORD.textMuted, fontFamily: FONT,
+            padding: "4px 12px", borderBottom: `1px solid ${DISCORD.codeBorder}`,
+          }}>
+            {c.language}
+          </div>
+        )}
+        <pre style={{
+          overflowX: "auto", margin: 0,
+          padding: "8px 12px",
+          fontFamily: FONT_MONO, fontSize: "0.875rem", lineHeight: "1.125rem", color: DISCORD.codeText,
+        }}>
+          <code>{c.content}</code>
+        </pre>
+      </div>
     );
   },
 };
@@ -107,10 +121,7 @@ const blockQuoteRule: Rule = {
   },
   render(c, r) {
     return (
-      <div className="my-1 flex">
-        <div className="w-1 shrink-0 rounded bg-zinc-600" />
-        <blockquote className="ml-2 max-w-[90%] text-zinc-300">{r(c.content)}</blockquote>
-      </div>
+      <blockquote style={{ margin: "4px 0", paddingLeft: 12, borderLeft: `4px solid ${DISCORD.blockquoteBar}`, color: DISCORD.blockquoteText, lineHeight: "20px", fontFamily: FONT }}>{r(c.content)}</blockquote>
     );
   },
 };
@@ -148,17 +159,16 @@ const listRule: Rule = {
   },
   render(c, r) {
     const items = c.content.map((item: MarkdownNode[], i: number) => (
-      <li key={i} className="mb-1 whitespace-break-spaces">{r(item)}</li>
+      <li key={i} style={{ margin: 0 }}>{r(item)}</li>
     ));
     if (c.ordered) {
       const max = c.start + c.content.length - 1;
       return (
-        <ol className="ml-[calc(0.4em+var(--max-digits)*0.6em)] mt-1 list-outside list-decimal"
-          style={{ "--max-digits": String(max).length } as React.CSSProperties}
-          start={c.start}>{items}</ol>
+        <ol start={c.start}
+          style={{ margin: "0 0 0 24px", paddingLeft: 0, fontFamily: FONT }}>{items}</ol>
       );
     }
-    return <ul className={`ml-4 mt-1 list-outside ${c.depth > 1 ? "list-[circle]" : "list-disc"}`}>{items}</ul>;
+    return <ul style={{ margin: "0 0 0 24px", paddingLeft: 0, listStyle: c.depth > 1 ? "circle" : "disc", fontFamily: FONT }}>{items}</ul>;
   },
 };
 
@@ -173,7 +183,7 @@ const paragraphRule: Rule = {
     return { size: m[0].length, content };
   },
   render(c, r) {
-    return <p>{r(c.content)}</p>;
+    return <p style={{ margin: 0 }}>{r(c.content)}</p>;
   },
 };
 
@@ -194,7 +204,7 @@ const linkRule: Rule = {
     return { size: m[0].length, url: new URL(m[1]!).href };
   },
   render(c) {
-    return <a href={c.url} target="_blank" rel="noreferrer noopener nofollow ugc" className="text-[#5865F2] hover:underline break-words">{c.url}</a>;
+    return <a href={c.url} target="_blank" rel="noreferrer noopener nofollow ugc" style={{ color: DISCORD.textLink, textDecoration: "none", wordBreak: "break-word", fontFamily: FONT }} onMouseEnter={e => { e.currentTarget.style.textDecoration = "underline"; e.currentTarget.style.color = "#33b5ff"; }} onMouseLeave={e => { e.currentTarget.style.textDecoration = "none"; e.currentTarget.style.color = DISCORD.textLink; }}>{c.url}</a>;
   },
 };
 
@@ -213,7 +223,7 @@ const autoLinkRule: Rule = {
     return { size: url.length, url };
   },
   render(c) {
-    return <a href={c.url} target="_blank" rel="noreferrer noopener nofollow ugc" className="text-[#5865F2] hover:underline break-words">{c.url}</a>;
+    return <a href={c.url} target="_blank" rel="noreferrer noopener nofollow ugc" style={{ color: DISCORD.textLink, textDecoration: "none", wordBreak: "break-word", fontFamily: FONT }} onMouseEnter={e => { e.currentTarget.style.textDecoration = "underline"; e.currentTarget.style.color = "#33b5ff"; }} onMouseLeave={e => { e.currentTarget.style.textDecoration = "none"; e.currentTarget.style.color = DISCORD.textLink; }}>{c.url}</a>;
   },
 };
 
@@ -229,9 +239,9 @@ const maskedLinkRule: Rule = {
   },
   render(c, r) {
     if (c.valid) {
-      return <a href={c.url} title={c.title} target="_blank" rel="noreferrer noopener nofollow ugc" className="text-[#5865F2] hover:underline">{r(c.content)}</a>;
+      return <a href={c.url} title={c.title} target="_blank" rel="noreferrer noopener nofollow ugc" style={{ color: DISCORD.textLink, textDecoration: "none", fontFamily: FONT }} onMouseEnter={e => { e.currentTarget.style.textDecoration = "underline"; e.currentTarget.style.color = "#33b5ff"; }} onMouseLeave={e => { e.currentTarget.style.textDecoration = "none"; e.currentTarget.style.color = DISCORD.textLink; }}>{r(c.content)}</a>;
     }
-    return <span>{c.raw}</span>;
+    return <span style={{ fontFamily: FONT }}>{c.raw}</span>;
   },
 };
 
@@ -241,7 +251,7 @@ const emphasisRule: Rule = {
     if (!m) return;
     return { size: m[0].length, content: parse(m[2] || m[1]!) };
   },
-  render(c, r) { return <em className="italic">{r(c.content)}</em>; },
+  render(c, r) { return <em style={{ fontStyle: "italic", fontFamily: FONT }}>{r(c.content)}</em>; },
 };
 
 const strongRule: Rule = {
@@ -250,34 +260,16 @@ const strongRule: Rule = {
     if (!m) return;
     return { size: m[0].length, content: parse(m[1]!) };
   },
-  render(c, r) { return <strong className="font-bold">{r(c.content)}</strong>; },
-};
-
-const superStrongRule: Rule = {
-  capture(source, _, parse) {
-    const m = /^\*{4}((?:\\.|[^*])+?)\*{4}(?!\*)/.exec(source);
-    if (!m) return;
-    return { size: m[0].length, content: parse(m[1]!) };
-  },
-  render(c, r) { return <strong className="font-black">{r(c.content)}</strong>; },
-};
-
-const superStrongItalicRule: Rule = {
-  capture(source, _, parse) {
-    const m = /^\*{5}((?:\\.|[^*])+?)\*{5}(?!\*)/.exec(source);
-    if (!m) return;
-    return { size: m[0].length, content: parse(m[1]!) };
-  },
-  render(c, r) { return <em className="font-black italic">{r(c.content)}</em>; },
+  render(c, r) { return <strong style={{ fontWeight: 700, fontFamily: FONT }}>{r(c.content)}</strong>; },
 };
 
 const underlineRule: Rule = {
   capture(source, _, parse) {
-    const m = /^__((?:\\.|[^\\])+?)__(?!_)/.exec(source);
+    const m = /^__((?:\\.|[^\\])+?)__/.exec(source);
     if (!m) return;
     return { size: m[0].length, content: parse(m[1]!) };
   },
-  render(c, r) { return <u>{r(c.content)}</u>; },
+  render(c, r) { return <u style={{ fontFamily: FONT }}>{r(c.content)}</u>; },
 };
 
 const strikethroughRule: Rule = {
@@ -286,7 +278,7 @@ const strikethroughRule: Rule = {
     if (!m) return;
     return { size: m[0].length, content: parse(m[1]!) };
   },
-  render(c, r) { return <s>{r(c.content)}</s>; },
+  render(c, r) { return <s style={{ fontFamily: FONT }}>{r(c.content)}</s>; },
 };
 
 const codeRule: Rule = {
@@ -296,33 +288,33 @@ const codeRule: Rule = {
     return { size: m[0].length, content: m[2]! };
   },
   render(c) {
-    return <code className="rounded bg-zinc-800 px-1 py-px font-mono text-inherit text-zinc-200">{c.content}</code>;
+    return <code style={{ borderRadius: 4, backgroundColor: DISCORD.inlineCodeBg, padding: "0 4px", fontFamily: FONT_MONO, fontSize: 12, color: DISCORD.codeText, display: "inline-block", verticalAlign: "baseline", transform: "translateY(-1px)" }}>{c.content}</code>;
   },
-};
-
-const breakRule: Rule = {
-  capture(source) {
-    const m = /^ {2,}\n/.exec(source);
-    if (!m) return;
-    return { size: m[0].length };
-  },
-  render() { return <br />; },
 };
 
 function Spoiler({ children }: { children: React.ReactNode }) {
   const [revealed, setRevealed] = useState(false);
+  const [hovered, setHovered] = useState(false);
   return (
     <span
-      onClick={() => setRevealed(true)}
-      className="relative inline-flex cursor-pointer rounded"
+      onClick={() => { if (!revealed) setRevealed(true); }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
-        backgroundColor: revealed ? 'transparent' : 'rgba(32, 34, 37, 0.9)',
-        transition: 'background-color 0.25s ease',
+        borderRadius: 3,
+        cursor: revealed ? undefined : "pointer",
+        backgroundColor: revealed
+          ? "rgba(32,34,37,0.35)"
+          : hovered
+            ? "#2e3035"
+            : DISCORD.spoilerBg,
+        transition: "background-color 0.1s ease",
       }}
     >
       <span style={{
-        color: revealed ? undefined : 'transparent',
-        transition: 'color 0.25s ease',
+        color: revealed ? undefined : "transparent",
+        userSelect: revealed ? undefined : "none",
+        transition: "color 0.1s ease",
       }}>
         {children}
       </span>
@@ -339,9 +331,29 @@ const spoilerRule: Rule = {
   render(c, r) { return <Spoiler>{r(c.content)}</Spoiler>; },
 };
 
-const mentionBlurple = "font-medium text-[#5865F2]";
-const mentionBurg = "font-medium text-[#8B1538]";
-const mentionOrange = "font-medium text-[#FE9A00]";
+function Mention({ children, color: fgOverride, background: bgOverride }: { children: React.ReactNode; color?: string; background?: string }) {
+  const [hovered, setHovered] = useState(false);
+  const isChannel = fgOverride === DISCORD.blurple;
+  const bg = bgOverride ?? DISCORD.mentionBg;
+  return (
+    <span
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        fontWeight: 500,
+        fontFamily: FONT,
+        borderRadius: 3,
+        padding: "0 3px",
+        cursor: "pointer",
+        transition: "background-color 0.1s, color 0.1s",
+        color: hovered ? "#fff" : isChannel ? DISCORD.blurple : "#c9cdfb",
+        background: hovered ? DISCORD.blurple : bg,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
 
 const globalMentionRule: Rule = {
   capture(source) {
@@ -349,7 +361,7 @@ const globalMentionRule: Rule = {
     if (!m) return;
     return { size: m[0].length, content: m[0] };
   },
-  render(c) { return <span className={mentionBlurple}>{c.content}</span>; },
+  render(c) { return <Mention>{c.content}</Mention>; },
 };
 
 const channelMentionRule: Rule = {
@@ -358,7 +370,7 @@ const channelMentionRule: Rule = {
     if (!m) return;
     return { size: m[0].length, id: m[1] };
   },
-  render() { return <span className={mentionOrange}>#channel</span>; },
+  render() { return <Mention color={DISCORD.blurple} background="rgba(88,101,242,0.15)">#channel</Mention>; },
 };
 
 const memberMentionRule: Rule = {
@@ -367,7 +379,7 @@ const memberMentionRule: Rule = {
     if (!m) return;
     return { size: m[0].length, id: m[1] };
   },
-  render() { return <span className={mentionBurg}>@user</span>; },
+  render() { return <Mention>@user</Mention>; },
 };
 
 const roleMentionRule: Rule = {
@@ -376,7 +388,7 @@ const roleMentionRule: Rule = {
     if (!m) return;
     return { size: m[0].length, id: m[1] };
   },
-  render() { return <span className={mentionBurg}>@role</span>; },
+  render() { return <Mention>@role</Mention>; },
 };
 
 const commandMentionRule: Rule = {
@@ -385,7 +397,7 @@ const commandMentionRule: Rule = {
     if (!m) return;
     return { size: m[0].length, name: m[1], id: m[2] };
   },
-  render(c) { return <span className={mentionBlurple}>/{c.name}</span>; },
+  render(c) { return <Mention>/{c.name}</Mention>; },
 };
 
 const timestampRule: Rule = {
@@ -399,25 +411,31 @@ const timestampRule: Rule = {
   render(c) {
     const d: Date = c.date;
     const fmt = c.format;
-    const formatted = fmt === "t" ? d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-      : fmt === "T" ? d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" })
-      : fmt === "d" ? d.toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" })
-      : fmt === "D" ? d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })
-      : fmt === "F" ? `${d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })} ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`
+    const locale = "en-US";
+    const timeOpts: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit", hour12: true };
+    const formatted = fmt === "t" ? d.toLocaleTimeString(locale, timeOpts)
+      : fmt === "T" ? d.toLocaleTimeString(locale, { ...timeOpts, second: "2-digit" })
+      : fmt === "d" ? d.toLocaleDateString(locale, { month: "numeric", day: "numeric", year: "numeric" })
+      : fmt === "D" ? d.toLocaleDateString(locale, { month: "long", day: "numeric", year: "numeric" })
+      : fmt === "F" ? `${d.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric", year: "numeric" })} ${d.toLocaleTimeString(locale, timeOpts)}`
       : fmt === "R" ? dateToRelative(d)
-      : `${d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
-    return <span className="rounded bg-zinc-700/30 px-1 text-zinc-400" title={d.toLocaleString()}>{formatted}</span>;
+      : `${d.toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" })} ${d.toLocaleTimeString(locale, timeOpts)}`;
+    return <span style={{ color: DISCORD.timestamp, fontFamily: FONT, fontSize: 13 }} title={d.toLocaleString(locale)}>{formatted}</span>;
   },
 };
 
+const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
 function dateToRelative(d: Date) {
-  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
-  if (diff < 31536000) return `${Math.floor(diff / 2592000)}mo ago`;
-  return `${Math.floor(diff / 31536000)}y ago`;
+  const diff = d.getTime() - Date.now();
+  const abs = Math.abs(diff);
+  const sec = Math.floor(diff / 1000);
+  if (abs < 60_000) return rtf.format(sec, "second");
+  if (abs < 3_600_000) return rtf.format(Math.floor(sec / 60), "minute");
+  if (abs < 86_400_000) return rtf.format(Math.floor(sec / 3600), "hour");
+  if (abs < 2_592_000_000) return rtf.format(Math.floor(sec / 86400), "day");
+  if (abs < 31_536_000_000) return rtf.format(Math.floor(sec / 2592000), "month");
+  return rtf.format(Math.floor(sec / 31536000), "year");
 }
 
 const customEmojiRule: Rule = {
@@ -432,7 +450,7 @@ const customEmojiRule: Rule = {
         src={`https://cdn.discordapp.com/emojis/${c.id}.${c.animated ? "gif" : "webp"}?size=48`}
         alt={`:${c.name}:`}
         title={c.name}
-        className="inline h-[1.375em] w-[1.375em] align-bottom object-contain"
+        style={{ display: "inline", height: "1.25em", width: "1.25em", objectFit: "contain", verticalAlign: "-0.2em", cursor: "pointer" }}
       />
     );
   },
@@ -450,8 +468,8 @@ const textRule: Rule = {
 type RuleOptionKey =
   | "headings" | "footings" | "codeBlocks" | "inlineCode" | "blockQuotes"
   | "lists" | "paragraphs" | "escapes" | "links" | "autoLinks"
-  | "maskedLinks" | "italic" | "superBoldItalic" | "superBold" | "bold" | "underline" | "strikethrough"
-  | "breaks" | "spoilers" | "timestamps" | "globalMentions"
+  | "maskedLinks" | "italic" | "bold" | "underline" | "strikethrough"
+  | "spoilers" | "timestamps" | "globalMentions"
   | "channelMentions" | "memberMentions" | "roleMentions" | "commandMentions"
   | "customEmojis" | "text";
 
@@ -467,13 +485,10 @@ const ruleOptions: Record<RuleOptionKey, { rule: Rule; title?: boolean; full?: b
   links: { rule: linkRule, title: true, full: true },
   autoLinks: { rule: autoLinkRule, title: true, full: true },
   maskedLinks: { rule: maskedLinkRule, full: true },
-  superBoldItalic: { rule: superStrongItalicRule, full: true },
-  superBold: { rule: superStrongRule, full: true },
   italic: { rule: emphasisRule, title: true, full: true },
   bold: { rule: strongRule, title: true, full: true },
   underline: { rule: underlineRule, title: true, full: true },
   strikethrough: { rule: strikethroughRule, title: true, full: true },
-  breaks: { rule: breakRule, title: true, full: true },
   spoilers: { rule: spoilerRule, full: true },
   timestamps: { rule: timestampRule, title: true, full: true },
   globalMentions: { rule: globalMentionRule, full: true },
@@ -503,10 +518,25 @@ function getRules(features: FeatureConfig): Rule[] {
   return Object.entries(ruleOptions).filter((p) => enabledKeys.includes(p[0])).map((p) => p[1].rule);
 }
 
+function isEmojiOnly(source: string): number {
+  const trimmed = source.trim();
+  if (!trimmed) return 0;
+  const emojis = trimmed.match(/<(a)?:\w+:\d+>/g);
+  if (!emojis) return 0;
+  const emojiOnlyPattern = /^(\s*<(a)?:\w+:\d+>\s*)+$/;
+  if (!emojiOnlyPattern.test(trimmed)) return 0;
+  return emojis.length;
+}
+
 export function Markdown({ content, features = "full" }: { content: string; features?: FeatureConfig }) {
   if (!content) return null;
   const parse = createMarkdownParser(getRules(features));
-  return <>{renderMarkdownNodes(parse(content.trim()))}</>;
+  const rendered = renderMarkdownNodes(parse(content));
+  const emojiCount = isEmojiOnly(content);
+  if (emojiCount > 0 && emojiCount <= 3) {
+    return <span style={{ fontSize: 38, lineHeight: "48px" }}>{rendered}</span>;
+  }
+  return <>{rendered}</>;
 }
 
 export function renderDiscordText(text: string | null | undefined, features?: FeatureConfig) {

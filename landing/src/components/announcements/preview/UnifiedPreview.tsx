@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Eye } from "lucide-react";
-import { EMBED_BG } from "../constants";
+import { EMBED_BG, DISCORD, FONT } from "../constants";
 import type { APIComponentInActionRow, DraftFile, QueryDataMessage, QueryDataTarget } from "../types";
 import { isComponentsV2 } from "../utils/message";
 import DiscordPreview from "./DiscordPreview";
@@ -15,12 +15,12 @@ export default function UnifiedPreview({ messages, targets, selectedId, onSelect
 }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   return (
-    <div className="rounded-lg" style={{ backgroundColor: EMBED_BG }}>
+    <div style={{ borderRadius: 8, backgroundColor: EMBED_BG, fontFamily: FONT }}>
       {messages.length === 0 ? (
-        <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-          <Eye className="mb-3 h-10 w-10 text-zinc-600" />
-          <p className="text-sm text-zinc-500">No messages yet</p>
-          <p className="mt-1 text-xs text-zinc-600">Add a message to start composing</p>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "64px 24px", textAlign: "center" }}>
+          <Eye style={{ width: 40, height: 40, color: DISCORD.textMuted, marginBottom: 12 }} />
+          <p style={{ fontSize: 14, color: DISCORD.textMuted, fontFamily: FONT, margin: 0 }}>No messages yet</p>
+          <p style={{ marginTop: 4, fontSize: 12, color: "#52525b", fontFamily: FONT }}>Add a message to start composing</p>
         </div>
       ) : (
         messages.map((m, i) => {
@@ -29,10 +29,15 @@ export default function UnifiedPreview({ messages, targets, selectedId, onSelect
           return (
             <div key={m._id} onClick={() => onSelect(i)}
               onMouseEnter={() => setHoveredIdx(i)} onMouseLeave={() => setHoveredIdx(null)}
-              className={`transition-colors cursor-pointer ${i > 0 ? "border-t border-zinc-700/60" : ""} ${isSelected ? "bg-primary/[0.04]" : isHovered ? "bg-white/[0.03]" : ""}`}>
-              <div className="flex">
-                {isSelected && <div className="w-0.5 shrink-0 rounded-full bg-primary/60" />}
-                <div className="min-w-0 flex-1 px-4 py-2">
+              style={{
+                cursor: "pointer",
+                transition: "background-color 0.1s",
+                backgroundColor: isSelected ? "rgba(88,101,242,0.04)" : isHovered ? DISCORD.messageHover : "transparent",
+                ...(i > 0 ? { borderTop: "1px solid rgba(255,255,255,0.06)" } : {}),
+              }}>
+              <div style={{ display: "flex" }}>
+                {isSelected && <div style={{ width: 3, flexShrink: 0, borderRadius: 4, backgroundColor: "rgba(88,101,242,0.6)" }} />}
+                <div style={{ minWidth: 0, flex: 1, padding: "8px 16px" }}>
                   <DiscordPreview message={m.data} isV2={isComponentsV2(m.data.flags)} targets={targets}
                     onEditComponent={onEditComponent} noBg files={messageFiles?.[m._id || ""]} />
                 </div>
