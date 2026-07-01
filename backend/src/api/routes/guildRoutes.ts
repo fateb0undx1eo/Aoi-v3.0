@@ -11,17 +11,19 @@ import type { AccessControlService } from '../../services/accessControlService.j
 import type { GuildService } from '../../services/guildService.js';
 import type { DmBroadcastService } from '../../services/dmBroadcastService.js';
 import type { AnnouncementService } from '../../services/announcementService.js';
+import type { UploadService } from '../../services/upload/uploadService.js';
 import { logger } from '../../utils/logger.js';
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } });
 
-export function createGuildRoutes({ guildService, accessControlService, client, authService, dmBroadcastService, announcementService }: {
+export function createGuildRoutes({ guildService, accessControlService, client, authService, dmBroadcastService, announcementService, uploadService }: {
   guildService: GuildService;
   accessControlService: AccessControlService;
   client: Client;
   authService: AuthService;
   dmBroadcastService: DmBroadcastService;
   announcementService: AnnouncementService;
+  uploadService: UploadService;
 }): Router {
   const router = Router();
   router.use(requireAuth(authService));
@@ -198,9 +200,34 @@ export function createGuildRoutes({ guildService, accessControlService, client, 
     }
   });
 
+  router.post('/:guildId/upload', upload.single('file'), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const file = req.file as any;
+      if (!file) {
+        res.status(400).json({ error: 'No file provided' });
+        return;
+      }
+
+      const url = await uploadService.processFile({
+        buffer: file.buffer,
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+      });
+
+      res.status(200).json({ url });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || 'Upload failed' });
+    }
+  });
+
   router.post('/:guildId/announcements', upload.any(), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const guildId = req.params.guildId as string;
+      if (Array.isArray(req.files) && req.files.length > 10) {
+        res.status(400).json({ error: 'Maximum 10 files per announcement' });
+        return;
+      }
       logger.info({ guildId, filesCount: (req.files as any[])?.length ?? 0, bodyKeys: Object.keys(req.body ?? {}) }, 'announcement upload received');
       let payload: Record<string, any> = req.body ?? {};
       if ((req.body as Record<string, any>)?.payload) {

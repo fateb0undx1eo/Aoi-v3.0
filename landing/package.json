@@ -8,7 +8,8 @@
     "start": "bun server.js",
     "export": "bun next build && bun next export",
     "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix"
+    "lint:fix": "eslint src/ --fix",
+    "lint:strict": "eslint --config eslint.strict.config.ts --no-config-lookup src/"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.3",

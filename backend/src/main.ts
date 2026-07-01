@@ -35,6 +35,8 @@ import { DashboardOverviewService } from './services/dashboardOverviewService.js
 import { ModerationService } from './services/moderationService.js';
 import { SettingsService } from './services/settingsService.js';
 import { AnnouncementService } from './services/announcementService.js';
+import { UploadService } from './services/upload/uploadService.js';
+import { loadUploadConfig } from './services/upload/config.js';
 import { DmBroadcastService } from './services/dmBroadcastService.js';
 import { RoleColorRotationService } from './services/roleColorRotationService.js';
 import { MemeService } from './services/memeService.js';
@@ -148,7 +150,13 @@ async function main(): Promise<void> {
     logger.info(`✓ Loaded ${registry.listDefinitions().length} modules`);
 
     // ─────────────────────────────────────────────────────────────
-    // 5. Initialize Async Modules (like tickets)
+    // 5. Upload Service
+    // ─────────────────────────────────────────────────────────────
+    const uploadConfig = loadUploadConfig();
+    const uploadService = new UploadService(uploadConfig);
+
+    // ─────────────────────────────────────────────────────────────
+    // 6. Initialize Async Modules (like tickets)
     // ─────────────────────────────────────────────────────────────
     logger.info('Initializing async modules...');
     await registry.initializeAsyncModules({
@@ -180,7 +188,7 @@ async function main(): Promise<void> {
     const dashboardOverviewService = new DashboardOverviewService({ client: discordClient, moduleService, analyticsService });
     const moderationService = new ModerationService(configService);
     const settingsService = new SettingsService(configService);
-    const announcementService = new AnnouncementService({ client: discordClient });
+    const announcementService = new AnnouncementService({ client: discordClient, uploadService });
     const placeholderEngine = new PlaceholderEngine();
     let dmBroadcastService: DmBroadcastService | null = null;
     const operationalQueue = new JobQueue({
@@ -249,6 +257,7 @@ async function main(): Promise<void> {
       announcementService,
       dmBroadcastService,
       roleColorRotationService,
+      uploadService,
       memeService,
       botLooksService,
       staffListService,

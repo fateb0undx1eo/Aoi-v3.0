@@ -2,6 +2,8 @@ import type { DraftFile } from "../types";
 
 export const ATTACHMENT_URI_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 
+// Mirrors backend sanitizeFilename() in services/upload/validation.ts.
+// Both MUST match — attachment:// URIs are built from this output.
 export function transformFileName(name: string): string {
   return name.replace(/ /g, "_").replace(/[^a-zA-Z0-9._-]/g, "").trim() || "unknown";
 }

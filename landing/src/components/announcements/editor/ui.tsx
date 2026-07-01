@@ -75,32 +75,41 @@ export function Toggle({ checked, onChange, label, disabled }: {
   );
 }
 
-export function Section({ title, badge, defaultOpen, children }: {
-  title: string; badge?: string; defaultOpen?: boolean; children: ReactNode;
+export function Section({ title, badge, defaultOpen, titleStyle, collapsible, children }: {
+  title: string; badge?: string; defaultOpen?: boolean; titleStyle?: React.CSSProperties; collapsible?: boolean; children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen !== false);
+  const show = collapsible === false ? true : open;
   return (
     <div style={{ borderBottom: `1px solid #181818` }}>
-      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
-        style={{
-          display: "flex", alignItems: "center", gap: 8, width: "100%",
-          padding: "10px 12px", background: "none", border: "none", color: C.text,
-          cursor: "pointer", fontSize: 13, fontWeight: 600, textAlign: "left",
-        }}>
-        <ChevronDown style={{
-          width: 14, height: 14, color: C.textMuted, flexShrink: 0,
-          transform: open ? "rotate(0deg)" : "rotate(-90deg)",
-          transition: "transform 0.15s",
-        }} />
-        <span style={{ flex: 1 }}>{title}</span>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8, width: "100%",
+        padding: "10px 12px", color: C.text,
+        fontSize: 13, fontWeight: 600, textAlign: "left",
+        ...(collapsible !== false ? { cursor: "pointer", background: "none", border: "none" } : {}),
+      }}
+        onClick={() => { if (collapsible !== false) setOpen(!open); }}
+        role={collapsible !== false ? "button" : undefined}
+        aria-expanded={collapsible !== false ? open : undefined}
+        tabIndex={collapsible !== false ? 0 : undefined}
+        onKeyDown={collapsible !== false ? (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(!open); } } : undefined}
+      >
+        {collapsible !== false && (
+          <ChevronDown style={{
+            width: 14, height: 14, color: C.textMuted, flexShrink: 0,
+            transform: open ? "rotate(0deg)" : "rotate(-90deg)",
+            transition: "transform 0.15s",
+          }} />
+        )}
+        <span style={{ flex: 1, ...titleStyle }}>{title}</span>
         {badge && (
           <span style={{
             fontSize: 10, fontWeight: 500, padding: "1px 8px", borderRadius: 10,
             backgroundColor: "transparent", color: C.textMuted, flexShrink: 0,
           }}>{badge}</span>
         )}
-      </button>
-      {open && <div style={{ padding: "0 12px 12px 12px" }}>{children}</div>}
+      </div>
+      {show && <div style={{ padding: "0 12px 12px 12px" }}>{children}</div>}
     </div>
   );
 }

@@ -16,7 +16,7 @@ import type {
   APIActionRowComponent, APIContainerComponent,
   APIComponentInActionRow, APIV2TextDisplay,
 } from "@/components/announcements/types";
-import { C, EMBED_BG } from "@/components/announcements/constants";
+import { C, CDN, EMBED_BG } from "@/components/announcements/constants";
 import { getBackendApiUrl } from "@/lib/backend";
 import {
   randomId, createMessage, cloneQueryData,
@@ -26,6 +26,7 @@ import { buildDiscordPayload, executeWebhook, updateWebhookMessage, getWebhook, 
 
 import CodeGenerator from "@/components/announcements/modals/CodeGenerator";
 import ComponentEditModal from "@/components/announcements/modals/ComponentEditModal";
+import { ImageModal } from "@/components/announcements/modals/ImageModal";
 import DiscordPreview, { EmptyPreviewPlaceholder } from "@/components/announcements/preview/DiscordPreview";
 import EmbedEditor from "@/components/announcements/editor/EmbedEditor";
 import ComponentEditorForMessage from "@/components/announcements/editor/ComponentEditorForMessage";
@@ -359,7 +360,7 @@ function ToolbarButton({
           width: 26, height: 26, borderRadius: 6,
           border: "none",
           backgroundColor: "transparent",
-          color: hovered ? C.text : C.textMuted,
+          color: "#fff",
           cursor: "pointer",
           transition: "all 0.12s",
           outline: "none",
@@ -505,7 +506,7 @@ function SendModal({
         }}
       >
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{
               width: 34, height: 34, borderRadius: 10,
@@ -592,7 +593,7 @@ function SendModal({
         {/* Bot: channel picker */}
         {sendAsBot && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.07em" }}>
                 Channels ({selectedChannelIds.size})
               </label>
@@ -792,6 +793,7 @@ export default function GuildAnnouncementsPage() {
   const [componentModalOpen,   setComponentModalOpen]   = useState(false);
   const [selectedChannelIds,   setSelectedChannelIds]   = useState<Set<string>>(new Set());
   const [codeGenOpen,          setCodeGenOpen]          = useState(false);
+  const [imageModalData,       setImageModalData]       = useState<import("@/components/announcements/types").ImageModalProps>();
 
   const [presets,      setPresets]      = useState<{ id: string; name: string; kind: "draft" | "template"; data: QueryData }[]>([]);
   const [presetName,   setPresetName]   = useState("");
@@ -805,7 +807,7 @@ export default function GuildAnnouncementsPage() {
   const [messageLink,    setMessageLink]    = useState("");
   // NEW: suppress mentions toggle (lives in modal only)
   const [suppressMentions, setSuppressMentions] = useState(false);
-  const [editEmbedIndex, setEditEmbedIndex] = useState<number | null>(null);
+
   const [starredMessages, setStarredMessages] = useState<Set<string>>(new Set());
   const [starAnimatingOut, setStarAnimatingOut] = useState<Set<string>>(new Set());
 
@@ -989,7 +991,6 @@ export default function GuildAnnouncementsPage() {
     setWebhookUrl("");
     setMessageLink("");
     setEditMode(false);
-    setEditEmbedIndex(null);
     setPresetName("");
     setComponentModalOpen(false);
     setEditingComponent(null);
@@ -1296,6 +1297,26 @@ export default function GuildAnnouncementsPage() {
     sendAsBot, webhookUrl, editMode, messageLink, suppressMentions,
   ]);
 
+  // ── Embed attachment upload ──────────────────────────────────────────────────
+  const handleAddAttachment = useCallback(async (file: File): Promise<string> => {
+    if (process.env.NODE_ENV === "development") {
+      return URL.createObjectURL(file);
+    }
+    const gid = typeof guildId === "string" ? guildId : "";
+    if (!gid) throw new Error("No guild ID");
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`${getBackendApiUrl()}/api/guilds/${gid}/upload`, {
+      method: "POST", body: fd, credentials: "include",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Upload failed" }));
+      throw new Error(err.error || "Upload failed");
+    }
+    const data = await res.json();
+    return data.url;
+  }, [guildId]);
+
   // ── Local state ───────────────────────────────────────────────────────────────
   const mid          = message?._id || "";
   const currentFiles = messageFiles[mid] || [];
@@ -1435,6 +1456,8 @@ export default function GuildAnnouncementsPage() {
         serverEmojis={serverEmojis}
       />
 
+      <ImageModal {...imageModalData} clear={() => setImageModalData(undefined)} />
+
       {/* ── Two-panel layout ────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden", height: "100vh" }}>
 
@@ -1447,14 +1470,14 @@ export default function GuildAnnouncementsPage() {
 
           {/* ── Fixed header (never scrolls) ──────────────────────────────────── */}
           <div style={{
-            padding: "8px 12px 6px",
+            padding: "16px 12px 6px",
             borderBottom: `1px solid ${C.border}`,
             backgroundColor: C.surface,
             flexShrink: 0,
             zIndex: 10,
           }}>
             {/* Title row */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 6 }}>
 
               {/* Studio wordmark */}
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1486,39 +1509,10 @@ export default function GuildAnnouncementsPage() {
                 </span>
               </div>
 
-              {/* Toolbar buttons */}
-              <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
-                <ToolbarButton
-                  icon={<RefreshCw style={{ width: 14, height: 14 }} />}
-                  tooltip="Reset"
-                  onClick={resetAll}
-                />
-                <ToolbarButton
-                  icon={<CornerUpLeft style={{ width: 14, height: 14 }} />}
-                  tooltip="Undo"
-                  onClick={undo}
-                />
-                <ToolbarButton
-                  icon={<CornerUpRight style={{ width: 14, height: 14 }} />}
-                  tooltip="Redo"
-                  onClick={redo}
-                />
-                <ToolbarButton
-                  icon={<Save style={{ width: 14, height: 14 }} />}
-                  tooltip="Presets"
-                  onClick={() => setPresetsOpen(!presetsOpen)}
-                />
-                <ToolbarButton
-                  icon={<SendHorizonal style={{ width: 14, height: 14 }} />}
-                  tooltip="Send"
-                  onClick={() => setSendModalOpen(true)}
-                />
-              </div>
             </div>
 
             {/* ── Message management ── */}
             <div style={{
-              borderTop: `1px solid ${C.border}`,
               padding: "4px 10px",
             }}>
               <div style={{ display: "flex", alignItems: "center", marginBottom: 4 }}>
@@ -1616,13 +1610,13 @@ export default function GuildAnnouncementsPage() {
             ) : isV2 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {/* CONTENT with 4000 char limit */}
-                <Section title="Content">
+                <Section title="MESSAGE" titleStyle={{ color: "#fff", textTransform: "uppercase" }} collapsible={false}>
                   <div style={{ position: "relative" }}>
                     <Input
                       multiline rows={5}
                       value={msg.content || ""}
                       onChange={(v) => updateMessageData({ content: v || undefined })}
-                      placeholder="Message content (Discord markdown supported)"
+                      placeholder=""
                       inputRef={v2ContentRef}
                     />
                     <div style={{
@@ -1722,7 +1716,7 @@ export default function GuildAnnouncementsPage() {
                       if (comp.type === 1) {
                         return (
                           <div key={ci} style={{ position: "relative", borderRadius: 8, border: `1px solid ${C.border}`, padding: 8, backgroundColor: "#000" }}>
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 6 }}>
                               <span style={{ fontSize: 10, fontWeight: 600, color: C.textMuted }}>Row ({ci + 1})</span>
                               <div style={{ display: "flex", gap: 4 }}>
                                 <button type="button" onClick={() => {
@@ -1832,14 +1826,14 @@ export default function GuildAnnouncementsPage() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {/* CONTENT + Add button */}
-                <Section title="Content">
+                <Section title="MESSAGE" titleStyle={{ color: "#fff", textTransform: "uppercase" }} collapsible={false}>
                   <div style={{ position: "relative" }}>
                     <Input
                       multiline rows={5}
                       value={msg.content || ""}
                       onChange={(v) => updateMessageData({ content: v || undefined })}
-                      placeholder="Message content (Discord markdown supported)"
-                      inputRef={stdContentRef}
+                      placeholder=""
+                      inputRef={v2ContentRef}
                     />
                     <div style={{
                       position: "absolute", top: 2, right: 6,
@@ -1869,53 +1863,42 @@ export default function GuildAnnouncementsPage() {
                     </div>
                   </div>
                 </Section>
-                {/* EMBEDS — collapsed rows */}
+                {/* EMBEDS — collapsible via EmbedEditor header */}
                 {(msg.embeds ?? []).length > 0 && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     {(msg.embeds ?? []).map((embed, ei) => (
-                      <div key={ei} style={{
-                        borderRadius: 8, border: `1px solid #1a1a1a`,
-                        overflow: "hidden",
-                      }}>
-                        <button type="button" onClick={() => setEditEmbedIndex(editEmbedIndex === ei ? null : ei)}
-                          style={{
-                            display: "flex", alignItems: "center", gap: 8, width: "100%",
-                            padding: "7px 10px", background: "none", border: "none", cursor: "pointer",
-                            color: C.text, fontSize: 12,
-                          }}>
-                          <span style={{
-                            fontSize: 10, color: C.textMuted, fontFamily: "monospace",
-                            transform: editEmbedIndex === ei ? "rotate(90deg)" : "rotate(0deg)",
-                            transition: "transform 0.15s",
-                          }}>{`>`}</span>
-                          <div style={{ width: 3, height: 20, borderRadius: 2, backgroundColor: C.burg, flexShrink: 0 }} />
-                          <span style={{ flex: 1, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {embed.title || embed.description?.slice(0, 50) || `${ei + 1}`}
-                          </span>
-                          {ei > 0 && (
-                            <button type="button" onClick={(e) => { e.stopPropagation(); const embeds = [...(msg.embeds ?? [])]; [embeds[ei], embeds[ei - 1]] = [embeds[ei - 1]!, embeds[ei]!]; updateMessageData({ embeds }); }}
-                              style={{ background: "none", border: "none", color: "#52525b", cursor: "pointer", padding: 2, fontSize: 10 }}>▲</button>
-                          )}
-                          {ei < (msg.embeds?.length ?? 0) - 1 && (
-                            <button type="button" onClick={(e) => { e.stopPropagation(); const embeds = [...(msg.embeds ?? [])]; [embeds[ei], embeds[ei + 1]] = [embeds[ei + 1]!, embeds[ei]!]; updateMessageData({ embeds }); }}
-                              style={{ background: "none", border: "none", color: "#52525b", cursor: "pointer", padding: 2, fontSize: 10 }}>▼</button>
-                          )}
-                          <button type="button" onClick={(e) => { e.stopPropagation(); const embeds = msg.embeds?.filter((_, i) => i !== ei); updateMessageData({ embeds: embeds?.length ? embeds : undefined }); }}
-                            style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 2, fontSize: 10 }}>✕</button>
-                        </button>
-                        {editEmbedIndex === ei && (
-                          <div style={{ padding: "6px 10px 10px" }}>
-                            <EmbedEditor
-                              embed={embed}
-                              onChange={(updated) => {
-                                const embeds = [...(msg.embeds ?? [])];
-                                embeds[ei] = updated;
-                                updateMessageData({ embeds });
-                              }}
-                            />
-                          </div>
-                        )}
-                      </div>
+                      <EmbedEditor
+                        key={ei}
+                        embed={embed}
+                        embedIndex={ei}
+                        maxEmbeds={msg.embeds?.length ?? 0}
+                        onChange={(updated) => {
+                          const embeds = [...(msg.embeds ?? [])];
+                          embeds[ei] = updated;
+                          updateMessageData({ embeds });
+                        }}
+                        onRemove={() => {
+                          const embeds = msg.embeds?.filter((_, i) => i !== ei);
+                          updateMessageData({ embeds: embeds?.length ? embeds : undefined });
+                        }}
+                        onMoveUp={() => {
+                          if (ei === 0) return;
+                          const embeds = [...(msg.embeds ?? [])];
+                          [embeds[ei], embeds[ei - 1]] = [embeds[ei - 1]!, embeds[ei]!];
+                          updateMessageData({ embeds });
+                        }}
+                        onMoveDown={() => {
+                          const embeds = [...(msg.embeds ?? [])];
+                          if (ei >= embeds.length - 1) return;
+                          [embeds[ei], embeds[ei + 1]] = [embeds[ei + 1]!, embeds[ei]!];
+                          updateMessageData({ embeds });
+                        }}
+                        canMoveUp={ei > 0}
+                        canMoveDown={ei < (msg.embeds?.length ?? 0) - 1}
+                        serverEmojis={serverEmojis}
+                        onAddAttachment={handleAddAttachment}
+                        onAttachmentError={(msg) => addToast("error", msg)}
+                      />
                     ))}
                   </div>
                 )}
@@ -1944,7 +1927,6 @@ export default function GuildAnnouncementsPage() {
                       const embeds = [...(msg.embeds ?? [])];
                       embeds.push({ color: 0x8B1538 });
                       updateMessageData({ embeds });
-                      setEditEmbedIndex(embeds.length - 1);
                     }}
                     onAddComponent={() => {
                       const comps: any[] = [...(msg.components ?? [])];
@@ -1977,6 +1959,39 @@ export default function GuildAnnouncementsPage() {
           width: "55%", display: "flex", flexDirection: "column",
           backgroundColor: EMBED_BG, overflow: "hidden",
         }}>
+          {/* Toolbar */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "flex-end",
+            padding: "8px 12px 6px", flexShrink: 0,
+          }}>
+            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              <ToolbarButton
+                icon={<RefreshCw style={{ width: 16, height: 16 }} />}
+                tooltip="Reset"
+                onClick={resetAll}
+              />
+              <ToolbarButton
+                icon={<CornerUpLeft style={{ width: 16, height: 16 }} />}
+                tooltip="Undo"
+                onClick={undo}
+              />
+              <ToolbarButton
+                icon={<CornerUpRight style={{ width: 16, height: 16 }} />}
+                tooltip="Redo"
+                onClick={redo}
+              />
+              <ToolbarButton
+                icon={<Save style={{ width: 16, height: 16 }} />}
+                tooltip="Presets"
+                onClick={() => setPresetsOpen(!presetsOpen)}
+              />
+              <ToolbarButton
+                icon={<SendHorizonal style={{ width: 16, height: 16 }} />}
+                tooltip="Send"
+                onClick={() => setSendModalOpen(true)}
+              />
+            </div>
+          </div>
           <div
             className="preview-scroll"
             style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "14px 16px" }}
@@ -1999,6 +2014,8 @@ export default function GuildAnnouncementsPage() {
                         setComponentModalOpen(true);
                       }}
                       files={messageFiles[pMid]}
+                      setImageModalData={setImageModalData}
+                      cdn={CDN}
                     />
                   );
                 })}

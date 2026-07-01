@@ -5,6 +5,7 @@ import type { APIEmbed, APIEmbedImage, APIComponentInActionRow, DraftFile, Query
 import { TargetType } from "../types";
 import { isComponentsV2 } from "../utils/message";
 import { Markdown } from "../utils/markdown";
+import type { SetImageModalData } from "../types";
 import EmbedPreview from "./Embed";
 import ContainerPreview from "./Container";
 import Gallery from "./Gallery";
@@ -110,7 +111,7 @@ export function EmptyPreviewPlaceholder({ isV2, noBg }: { isV2?: boolean; noBg?:
 }
 
 export default function DiscordPreview({
-  message, isV2, targets, onEditComponent, noBg, files, compact, forceSeparateAuthor, threadName, threadThumbnail
+  message, isV2, targets, onEditComponent, noBg, files, compact, forceSeparateAuthor, threadName, threadThumbnail, setImageModalData, cdn
 }: {
   message: QueryDataMessageData;
   isV2?: boolean;
@@ -122,6 +123,8 @@ export default function DiscordPreview({
   forceSeparateAuthor?: boolean;
   threadName?: string;
   threadThumbnail?: DraftFile;
+  setImageModalData?: SetImageModalData;
+  cdn?: string;
 }) {
   const hasContent = !!message.content;
   const hasEmbeds = !!(message.embeds && message.embeds.length > 0);
@@ -226,7 +229,7 @@ export default function DiscordPreview({
       {embeds.length > 0 && !suppressEmbeds && (
         <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 4 }}>
           {embeds.map((ed, i) => (
-            <EmbedPreview key={i} embed={ed.embed} extraImages={ed.extraImages} files={files} />
+            <EmbedPreview key={i} embed={ed.embed} extraImages={ed.extraImages} files={files} setImageModalData={setImageModalData} cdn={cdn} />
           ))}
         </div>
       )}

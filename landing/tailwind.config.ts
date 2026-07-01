@@ -18,6 +18,8 @@ const config: Config = {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          230: "#dbdee1",
+          600: "#949ba4",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -42,6 +44,11 @@ const config: Config = {
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
+        },
+        "background-secondary-dark": "#2b2d31",
+        blue: {
+          345: "#00a8fc",
+          430: "#00a8fc",
         },
       },
       backgroundImage: {

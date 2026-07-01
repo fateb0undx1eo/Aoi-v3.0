@@ -144,4 +144,5 @@ export const MessageFlagsEnum = { IsComponentsV2: 1 << 15, SuppressEmbeds: 1 << 
 export const TIMESTAMP_STYLES: Record<string, string> = { t: "Short Time", T: "Long Time", d: "Short Date", D: "Long Date", f: "Short Date/Time", F: "Long Date/Time", R: "Relative" };
 
 export const DISCORD_BLUE = "#5865F2";
+export const CDN = "https://cdn.discordapp.com";
 export { DISCORD_LIMITS } from "./types";

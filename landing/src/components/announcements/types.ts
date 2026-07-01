@@ -159,7 +159,7 @@ interface APIEmbed {
 }
 
 interface APIAllowedMentions { parse?: string[]; roles?: string[]; users?: string[]; replied_user?: boolean; }
-interface APIAttachment { id: string; filename: string; size: number; url: string; proxy_url: string; width?: number; height?: number; content_type?: string; duration_secs?: number; }
+interface APIAttachment { id: string; filename: string; description?: string; size: number; url: string; proxy_url: string; width?: number; height?: number; content_type?: string; duration_secs?: number; }
 
 interface DraftFile {
   id: string;
@@ -340,6 +340,20 @@ export const EMBED_MEDIA_FLAGS = {
 } as const;
 
 // ── Limit constants from discohook ──────────────────────────────────────────
+export enum LinkEmbedStrategy {
+  Link = "link",
+  Mastodon = "mastodon",
+}
+
+type SetImageModalData = React.Dispatch<
+  React.SetStateAction<ImageModalProps | undefined>
+>;
+
+interface ImageModalProps {
+  images?: { url: string; alt?: string }[];
+  startIndex?: number;
+}
+
 export const DISCORD_LIMITS = {
   CONTENT: 2000,
   EMBEDS_PER_MESSAGE: 10,
@@ -368,5 +382,6 @@ export type {
   Token,
   FlowAction, FlowActionPayload,
   DraftFlow, DraftFlowAction,
+  SetImageModalData, ImageModalProps,
 };
 export { TargetType };

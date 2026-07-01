@@ -120,13 +120,7 @@ function FileEditModal({
   );
 }
 
-const IMG_HOST_MIMETYPES = [
-  'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/bmp',
-  'image/tiff', 'image/webp', 'image/heic', 'image/heif',
-  'image/vnd.microsoft.icon', 'image/x-icon', 'image/ico',
-];
-
-const IMG_HOST_MAX_SIZE = 32 * 1024 * 1024;
+const UPLOAD_MAX_SIZE = 200 * 1024 * 1024;
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -197,8 +191,8 @@ export default function FileAttachmentEditor({
     f.content_type?.startsWith("image/") ||
     /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name);
 
-  const isImgbbImage = (f: DraftFile) =>
-    !!f.content_type && IMG_HOST_MIMETYPES.includes(f.content_type);
+  const isUploadEligible = (f: DraftFile) =>
+    f.size > 0 && f.size <= UPLOAD_MAX_SIZE;
 
   return (
     <div className="space-y-3">
@@ -292,16 +286,14 @@ export default function FileAttachmentEditor({
                   <span className="ml-1.5 text-[10px] text-zinc-600">
                     {formatFileSize(f.size)}
                   </span>
-                  {isImgbbImage(f) && (
-                    f.size <= IMG_HOST_MAX_SIZE ? (
-                      <span className="ml-1 inline-flex items-center gap-0.5 text-[9px] text-green-400" title="This image will be hosted permanently on imgbb">
-                        <CheckCircle className="h-2.5 w-2.5" />imgbb
-                      </span>
-                    ) : (
-                      <span className="ml-1" title="Image exceeds imgbb 32MB limit, will be attached normally">
-                        <AlertTriangle className="inline h-2.5 w-2.5 text-yellow-500" />
-                      </span>
-                    )
+                  {isUploadEligible(f) ? (
+                    <span className="ml-1 inline-flex items-center gap-0.5 text-[9px] text-green-400" title="This file will be hosted permanently on Catbox">
+                      <CheckCircle className="h-2.5 w-2.5" />Catbox
+                    </span>
+                  ) : (
+                    <span className="ml-1" title="File exceeds 200MB upload limit, will be attached normally">
+                      <AlertTriangle className="inline h-2.5 w-2.5 text-yellow-500" />
+                    </span>
                   )}
                   {usedInEmbed && (
                     <span className="ml-1.5 text-[9px] text-primary">

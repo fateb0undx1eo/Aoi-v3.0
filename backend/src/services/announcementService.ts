@@ -1,22 +1,8 @@
-import { createHash } from 'node:crypto';
 import type { Client, Guild, TextBasedChannel } from 'discord.js';
 import { AttachmentBuilder, EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, StringSelectMenuBuilder, ButtonStyle } from 'discord.js';
 import { logger } from '../utils/logger.js';
-
-const IMG_HOST_MIMETYPES = [
-  'image/png',
-  'image/jpeg',
-  'image/jpg',
-  'image/gif',
-  'image/bmp',
-  'image/tiff',
-  'image/webp',
-  'image/heic',
-  'image/heif',
-  'image/vnd.microsoft.icon',
-  'image/x-icon',
-  'image/ico',
-];
+import type { UploadService } from './upload/uploadService.js';
+import { replaceAttachmentUris } from './upload/urlReplacer.js';
 
 interface FlatEmbed {
   title: string;
@@ -124,6 +110,7 @@ interface SendResult {
 
 interface AnnouncementServiceOptions {
   client: Client;
+  uploadService: UploadService;
 }
 
 // ─── Helper Functions ──────────────────────────────────────────
@@ -423,93 +410,6 @@ function normalizeEntry(rawEntry: Record<string, any> = {}): NormalizedEntry {
   } as NewEntry;
 }
 
-/**
- * Uploads an image buffer to imgbb and returns the permanent CDN URL.
- * On failure, returns null and logs the error (the announcement still proceeds with normal attachment).
- */
-async function uploadToImgbb(buffer: Buffer, filename: string): Promise<string | null> {
-  try {
-    const apiKey = process.env.IMG_HOST;
-    if (!apiKey) {
-      logger.warn({ filename }, 'IMG_HOST env var not set, skipping imgbb upload');
-      return null;
-    }
-    logger.info({ filename, sizeBytes: buffer.length }, 'uploading to imgbb');
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-
-    const url = `https://api.imgbb.com/1/upload?key=${encodeURIComponent(apiKey)}`;
-    const form = new FormData();
-    form.append('image', buffer, filename);
-    form.append('name', filename);
-
-    let res;
-    const start = performance.now();
-    try {
-      res = await fetch(url, {
-        method: 'POST',
-        body: form,
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    if (!res.ok) {
-      const body = await res.text();
-      logger.error({ filename, status: res.status, body }, 'imgbb HTTP error');
-      return null;
-    }
-
-    const bodyText = await res.text();
-    let json: any;
-    try {
-      json = JSON.parse(bodyText);
-    } catch {
-      logger.error({ filename, body: bodyText }, 'imgbb invalid JSON response');
-      return null;
-    }
-
-    if (!json.success) {
-      logger.error({ filename, response: json }, 'imgbb API error');
-      return null;
-    }
-
-    logger.info({ filename, url: json.data.url, durationMs: performance.now() - start }, 'imgbb upload succeeded');
-    return json.data.url as string;
-  } catch (err) {
-    console.error(err);
-    logger.error({
-      message: err instanceof Error ? err.message : err,
-      stack: err instanceof Error ? err.stack : undefined,
-    }, 'imgbb upload threw');
-    return null;
-  }
-}
-
-function replaceAttachmentUrlsInComponents(components: any[], searchUri: string, replaceUrl: string): void {
-  for (const comp of components) {
-    if (!comp || typeof comp.type === 'undefined') continue;
-    if ((comp.type === 11 || comp.type === 12 || comp.type === 13) && comp.items) {
-      for (const item of comp.items) {
-        if (item.media?.url === searchUri) item.media.url = replaceUrl;
-      }
-    }
-    if (comp.type === 9) {
-      if (comp.components) replaceAttachmentUrlsInComponents(comp.components, searchUri, replaceUrl);
-      if (comp.accessory?.type === 11 && comp.accessory.items) {
-        for (const item of comp.accessory.items) {
-          if (item.media?.url === searchUri) item.media.url = replaceUrl;
-        }
-      }
-    }
-    if (comp.type === 17 && comp.components) {
-      replaceAttachmentUrlsInComponents(comp.components, searchUri, replaceUrl);
-    }
-  }
-}
-
 function normalizePayload(rawPayload: Record<string, any> = {}): NormalizedPayload {
   const channelIds = Array.isArray(rawPayload?.channel_ids)
     ? Array.from(new Set(rawPayload.channel_ids.map((value: any) => trimString(value, 32)).filter(Boolean)))
@@ -681,9 +581,11 @@ function buildComponentsV2EntryPayload(entry: NormalizedEntry): Record<string, a
 
 export class AnnouncementService {
   private client: Client;
+  private uploadService: UploadService;
 
-  constructor({ client }: AnnouncementServiceOptions) {
+  constructor({ client, uploadService }: AnnouncementServiceOptions) {
     this.client = client;
+    this.uploadService = uploadService;
   }
 
   async resolveGuild(guildId: string): Promise<Guild | null> {
@@ -750,55 +652,21 @@ export class AnnouncementService {
     const payload = normalizePayload(rawPayload);
     logger.info({ channelCount: payload.channel_ids.length, entryCount: payload.entries.length }, 'payload normalized');
 
-    const imgbbCache = new Map<string, string>();
-    for (const entry of payload.entries) {
-      const rawFiles: any[] = (entry as any)._rawFiles || [];
-      if (rawFiles.length === 0) continue;
-      logger.info({ entryId: entry.id, fileCount: rawFiles.length }, 'processing entry files for imgbb');
-      const rawComponents = (entry as any)._rawComponents as NormalizedComponent[] | undefined;
-      const isV2 = !!(rawComponents && rawComponents.length > 0);
-      for (const f of rawFiles) {
-        const safeName = f.originalname.replace(/ /g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-        const uri = `attachment://${safeName}`;
-        let usedImgbb = false;
-        if (IMG_HOST_MIMETYPES.includes(f.mimetype)) {
-          logger.debug({ filename: f.originalname, mimetype: f.mimetype, size: f.size }, 'attempting imgbb upload for file');
-          const hash = createHash('md5').update(f.buffer).digest('hex');
-          let imgbbUrl = imgbbCache.get(hash);
-          if (imgbbUrl === undefined) {
-            const uploadResult = await uploadToImgbb(f.buffer, f.originalname);
-            if (uploadResult) {
-              imgbbCache.set(hash, uploadResult);
-              imgbbUrl = uploadResult;
-            } else {
-              logger.warn({ filename: f.originalname }, 'imgbb upload failed, falling back to attachment');
-            }
-          }
-          if (imgbbUrl) {
-            logger.info({ filename: f.originalname, url: imgbbUrl }, 'imgbb url applied');
-            if (isV2) {
-              replaceAttachmentUrlsInComponents(rawComponents!, uri, imgbbUrl);
-            } else {
-              for (const embed of (entry.embeds || [])) {
-                if (embed.image_url === uri) embed.image_url = imgbbUrl;
-                if (embed.thumbnail_url === uri) embed.thumbnail_url = imgbbUrl;
-                if (embed.author_icon_url === uri) embed.author_icon_url = imgbbUrl;
-                if (embed.footer_icon_url === uri) embed.footer_icon_url = imgbbUrl;
-              }
-            }
-            usedImgbb = true;
-          }
-        }
-        if (!usedImgbb) {
-          if (!entry._files) entry._files = [];
-          entry._files.push(new AttachmentBuilder(f.buffer, {
-            name: f.originalname,
-            description: f.description,
-            spoiler: f.spoiler,
-          } as any));
-        }
-      }
+    const uploadResult = await this.uploadService.processEntries(payload.entries);
+    replaceAttachmentUris(payload.entries, uploadResult.urlMap);
+
+    for (const fb of uploadResult.fallbacks) {
+      const entry = payload.entries.find(e => e.id === fb.entryId);
+      if (!entry) continue;
+      if (!entry._files) entry._files = [];
+      entry._files.push(new AttachmentBuilder(fb.buffer, {
+        name: fb.originalname,
+        description: fb.description,
+        spoiler: fb.spoiler,
+      } as any));
     }
+
+    logger.info({ stats: uploadResult.stats }, 'upload: batch complete');
     const newEntries = payload.entries.filter((entry) => !entry.edit_existing);
     const editEntries = payload.entries.filter((entry) => entry.edit_existing);
     const requestedChannels = newEntries.length > 0 ? payload.channel_ids.length : 0;

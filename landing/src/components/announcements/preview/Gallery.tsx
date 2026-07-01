@@ -1,4 +1,5 @@
 import type { APIAttachment } from "../types";
+import type { SetImageModalData } from "../types";
 import { isGifVideoUrl } from "../utils/files";
 
 const YOUTUBE_RE = /^https?:\/\/(?:www\.|m\.)?(?:youtube(?:-nocookie)?\.com|youtu\.be)\/((?:shorts\/|embed\/|v\/|live\/)?([\w-]{5,}))/i;
@@ -23,83 +24,117 @@ function getVimeoThumb(url: string): string | null {
 }
 
 function GalleryItem({
-  attachments, index, style,
+  attachments,
+  index,
+  className,
+  itemClassName,
+  setImageModalData,
+  cdn,
 }: {
   attachments: APIAttachment[];
   index: number;
-  style?: React.CSSProperties;
+  className?: string;
+  itemClassName?: string;
+  setImageModalData?: SetImageModalData;
+  cdn?: string;
 }) {
   const att = attachments[index]!;
   const { content_type: ct, url } = att;
-  const cdnVideo = isGifVideoUrl(url);
+  const cdnVideo = isGifVideoUrl(url, cdn);
 
-  const imgBase: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover", display: "block" };
+  const yt = ct?.startsWith("video/") ? getYtThumb(url) : null;
+  const vm = ct?.startsWith("video/") ? getVimeoThumb(url) : null;
+
+  const handleClick = () => {
+    if (setImageModalData) {
+      setImageModalData({
+        images: attachments.map((a) => ({ url: a.url, alt: a.description })),
+        startIndex: index,
+      });
+    }
+  };
 
   if (ct?.startsWith("video/")) {
-    const yt = getYtThumb(url);
-    const vm = getVimeoThumb(url);
     return (
-      <div style={style}>
-        {yt ? <img src={yt} style={imgBase} alt="YouTube" />
-        : vm ? <img src={vm} style={imgBase} alt="Vimeo" />
-        : <video src={url} style={imgBase} controls />}
+      <div className={className}>
+        {yt ? (
+          <img src={yt} className={itemClassName ?? "w-full h-full object-cover"} alt="YouTube" />
+        ) : vm ? (
+          <img src={vm} className={itemClassName ?? "w-full h-full object-cover"} alt="Vimeo" />
+        ) : (
+          <video src={url} className={itemClassName ?? "w-full h-full object-cover"} controls />
+        )}
       </div>
     );
   }
 
+  if (!url) return null;
+
   if (cdnVideo) {
     return (
-      <div style={{ position: "relative", ...style }}>
-        <video src={cdnVideo} style={imgBase} autoPlay muted loop />
-        <span style={{ position: "absolute", left: 4, top: 4, borderRadius: 4, background: "rgba(0,0,0,0.6)", padding: "2px 6px", fontSize: 10, fontWeight: 600, color: "#fff", fontFamily: '"gg sans", sans-serif' }}>GIF</span>
-      </div>
+      <button type="button" className={`relative group/gallery-item ${className ?? ""}`} onClick={handleClick}>
+        <video
+          src={cdnVideo}
+          className={itemClassName ?? "w-full h-full object-cover"}
+          autoPlay
+          muted
+          loop
+        />
+        <span className="absolute top-1 left-1 rounded px-1 py-0.5 text-sm text-white bg-black/60 font-semibold group-hover/gallery-item:hidden">
+          GIF
+        </span>
+      </button>
     );
   }
 
   return (
-    <div style={style}>
-      <img src={url} style={imgBase} alt="" />
-    </div>
+    <button type="button" className={className ?? "block"} onClick={handleClick}>
+      <img src={url} className={itemClassName ?? "block object-cover w-full h-full"} alt="" />
+    </button>
   );
 }
 
-const ROUNDED = (i: number, total: number, pos: "tl" | "tr" | "bl" | "br"): boolean => {
-  const k = pos === "tl" ? (i === 0 ? 1 : 0) : pos === "tr" ? ((() => {
-    if (total === 3 && i === 1) return 1;
-    if (total === 5 && i === 1) return 1;
-    if (total === 4 && i === 1) return 1;
-    if (total === 2 && i === 1) return 1;
-    return 0;
-  })()) : pos === "bl" ? ((() => {
-    if (total === 5 && i === 3) return 1;
-    return 0;
-  })()) : pos === "br" ? (i === total - 1 ? 1 : 0) : false;
-  return false;
-};
-
-export default function Gallery({ attachments }: { attachments: APIAttachment[] }) {
+export default function Gallery({
+  attachments,
+  setImageModalData,
+  cdn,
+}: {
+  attachments: APIAttachment[];
+  setImageModalData?: SetImageModalData;
+  cdn?: string;
+}) {
   const n = attachments.length;
   if (n === 0) return null;
 
-  const maxH = 300;
-  const rounded = "4px";
-  const gap = 4;
-
-  const sharedItem = (i: number, addStyle?: React.CSSProperties) => (
-    <GalleryItem key={i} attachments={attachments} index={i} style={{ overflow: "hidden", borderRadius: rounded, ...addStyle }} />
+  const sharedItem = (i: number, addCn?: string) => (
+    <GalleryItem
+      key={i}
+      attachments={attachments}
+      index={i}
+      className={`overflow-hidden rounded ${addCn ?? ""}`}
+      setImageModalData={setImageModalData}
+      cdn={cdn}
+    />
   );
 
   if (n === 1) {
     return (
-      <div style={{ width: "100%", maxHeight: maxH, borderRadius: rounded, overflow: "hidden" }}>
-        <GalleryItem attachments={attachments} index={0} style={{ maxHeight: maxH, width: "100%" }} />
+      <div className="w-full max-h-[300px] rounded overflow-hidden">
+        <GalleryItem
+          attachments={attachments}
+          index={0}
+          className="max-h-[300px] w-full"
+          itemClassName="w-full max-h-[300px] object-cover"
+          setImageModalData={setImageModalData}
+          cdn={cdn}
+        />
       </div>
     );
   }
 
   if (n === 2) {
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap, maxHeight: maxH, borderRadius: rounded, overflow: "hidden" }}>
+      <div className="grid grid-cols-2 gap-1 max-h-[300px] rounded overflow-hidden">
         {sharedItem(0)}
         {sharedItem(1)}
       </div>
@@ -108,13 +143,20 @@ export default function Gallery({ attachments }: { attachments: APIAttachment[] 
 
   if (n === 3) {
     return (
-      <div style={{ display: "flex", gap, maxHeight: maxH, borderRadius: rounded, overflow: "hidden" }}>
-        <div style={{ width: "66.67%", height: maxH }}>
-          {sharedItem(0, { width: "100%", height: "100%" })}
+      <div className="flex gap-1 max-h-[300px] rounded overflow-hidden">
+        <div className="w-2/3 h-[300px]">
+          <GalleryItem
+            attachments={attachments}
+            index={0}
+            className="w-full h-full"
+            itemClassName="w-full h-full object-cover"
+            setImageModalData={setImageModalData}
+            cdn={cdn}
+          />
         </div>
-        <div style={{ width: "33.33%", display: "flex", flexDirection: "column", gap }}>
-          {sharedItem(1, { width: "100%", height: "50%" })}
-          {sharedItem(2, { width: "100%", height: "50%" })}
+        <div className="w-1/3 flex flex-col gap-1">
+          {sharedItem(1, "h-1/2")}
+          {sharedItem(2, "h-1/2")}
         </div>
       </div>
     );
@@ -122,7 +164,7 @@ export default function Gallery({ attachments }: { attachments: APIAttachment[] 
 
   if (n === 4) {
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap, maxHeight: maxH, borderRadius: rounded, overflow: "hidden" }}>
+      <div className="grid grid-cols-2 grid-rows-2 gap-1 max-h-[300px] rounded overflow-hidden">
         {sharedItem(0)}
         {sharedItem(1)}
         {sharedItem(2)}
@@ -133,12 +175,12 @@ export default function Gallery({ attachments }: { attachments: APIAttachment[] 
 
   if (n === 5) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap, borderRadius: rounded, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap }}>
+      <div className="flex flex-col gap-1 rounded overflow-hidden">
+        <div className="grid grid-cols-2 gap-1">
           {sharedItem(0)}
           {sharedItem(1)}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap }}>
+        <div className="grid grid-cols-3 gap-1">
           {sharedItem(2)}
           {sharedItem(3)}
           {sharedItem(4)}
@@ -149,7 +191,7 @@ export default function Gallery({ attachments }: { attachments: APIAttachment[] 
 
   if (n === 6) {
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gridTemplateRows: "1fr 1fr", gap, borderRadius: rounded, overflow: "hidden" }}>
+      <div className="grid grid-cols-3 grid-rows-2 gap-1 rounded overflow-hidden">
         {attachments.map((_, i) => sharedItem(i))}
       </div>
     );
@@ -157,11 +199,18 @@ export default function Gallery({ attachments }: { attachments: APIAttachment[] 
 
   if (n === 7) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap, borderRadius: rounded, overflow: "hidden" }}>
-        <div style={{ maxHeight: 250, overflow: "hidden", borderRadius: rounded }}>
-          {sharedItem(0, { width: "100%", maxHeight: 250 })}
+      <div className="flex flex-col gap-1 rounded overflow-hidden">
+        <div className="max-h-[250px] overflow-hidden rounded">
+          <GalleryItem
+            attachments={attachments}
+            index={0}
+            className="w-full max-h-[250px]"
+            itemClassName="w-full max-h-[250px] object-cover"
+            setImageModalData={setImageModalData}
+            cdn={cdn}
+          />
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gridTemplateRows: "1fr 1fr", gap }}>
+        <div className="grid grid-cols-3 grid-rows-2 gap-1">
           {attachments.slice(1).map((_, i) => sharedItem(i + 1))}
         </div>
       </div>
@@ -170,12 +219,12 @@ export default function Gallery({ attachments }: { attachments: APIAttachment[] 
 
   if (n === 8) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap, borderRadius: rounded, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap }}>
+      <div className="flex flex-col gap-1 rounded overflow-hidden">
+        <div className="grid grid-cols-2 gap-1">
           {sharedItem(0)}
           {sharedItem(1)}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gridTemplateRows: "1fr 1fr", gap }}>
+        <div className="grid grid-cols-3 grid-rows-2 gap-1">
           {attachments.slice(2).map((_, i) => sharedItem(i + 2))}
         </div>
       </div>
@@ -184,7 +233,7 @@ export default function Gallery({ attachments }: { attachments: APIAttachment[] 
 
   if (n === 9) {
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gridTemplateRows: "1fr 1fr 1fr", gap, borderRadius: rounded, overflow: "hidden" }}>
+      <div className="grid grid-cols-3 grid-rows-3 gap-1 rounded overflow-hidden">
         {attachments.map((_, i) => sharedItem(i))}
       </div>
     );
@@ -192,11 +241,18 @@ export default function Gallery({ attachments }: { attachments: APIAttachment[] 
 
   if (n >= 10) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap, borderRadius: rounded, overflow: "hidden" }}>
-        <div style={{ borderRadius: rounded, overflow: "hidden" }}>
-          {sharedItem(0, { width: "100%", maxHeight: 250 })}
+      <div className="flex flex-col gap-1 rounded overflow-hidden">
+        <div className="rounded overflow-hidden">
+          <GalleryItem
+            attachments={attachments}
+            index={0}
+            className="w-full max-h-[250px]"
+            itemClassName="w-full max-h-[250px] object-cover"
+            setImageModalData={setImageModalData}
+            cdn={cdn}
+          />
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gridTemplateRows: "1fr 1fr 1fr", gap }}>
+        <div className="grid grid-cols-3 grid-rows-3 gap-1">
           {attachments.slice(1, 10).map((_, i) => sharedItem(i + 1))}
         </div>
       </div>

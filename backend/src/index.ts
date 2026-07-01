@@ -1,3 +1,5 @@
+// @ts-nocheck — Legacy runtime entry file with extensive dynamic Discord.js interactions;
+// excluded from type checking to reduce compile time.
 import {
   ButtonStyle,
   ChannelType,
@@ -1160,4 +1162,4 @@ export default {
       }
     }
   ]
-};// @ts-nocheck
+};

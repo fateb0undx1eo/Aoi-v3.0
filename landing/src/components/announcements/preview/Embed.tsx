@@ -1,10 +1,17 @@
-import type { ReactNode } from "react";
-import type { APIEmbed, APIEmbedField, APIEmbedImage } from "../types";
-import { FONT, DISCORD } from "../constants";
+import type {
+  APIEmbed,
+  APIEmbedField,
+  APIEmbedImage,
+  DraftFile,
+  LinkEmbedStrategy,
+  SetImageModalData,
+} from "../types";
+import { DISCORD } from "../constants";
+import { isGifVideoUrl, getImageUri } from "../utils/files";
 import { decimalToHex } from "../utils/color";
+import { twJoin } from "tailwind-merge";
 import { Markdown, type FeatureConfig } from "../utils/markdown";
 import { formatTimestamp } from "../utils/message";
-import { resolveAttachmentUri } from "../utils/files";
 import Gallery from "./Gallery";
 
 function formatEmbedTimestamp(iso: string): string {
@@ -14,212 +21,336 @@ function formatEmbedTimestamp(iso: string): string {
     const now = new Date();
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
-    const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    const time = d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
     if (d.toDateString() === now.toDateString()) return `Today at ${time}`;
-    if (d.toDateString() === yesterday.toDateString()) return `Yesterday at ${time}`;
+    if (d.toDateString() === yesterday.toDateString())
+      return `Yesterday at ${time}`;
     return formatTimestamp(iso);
-  } catch { return iso; }
-}
-
-function EmbedFields({ fields }: { fields: APIEmbedField[] }) {
-  const fieldLines: APIEmbedField[][] = [];
-  for (const field of fields) {
-    const currentLine = fieldLines[fieldLines.length - 1];
-    if (!currentLine) { fieldLines.push([field]); continue; }
-    const lastField = currentLine[currentLine.length - 1];
-    if (field.inline && lastField?.inline && currentLine.length < 3) {
-      currentLine.push(field);
-    } else {
-      fieldLines.push([field]);
-    }
+  } catch {
+    return iso;
   }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14, lineHeight: "20px", color: DISCORD.embedBody }}>
-      {fieldLines.map((line, li) =>
-        <div key={li} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {line.map((f, fi) => {
-            const basis = f.inline ? (line.length === 3 ? "30%" : "48%") : "100%";
-            return (
-              <div key={fi} style={{ flex: `1 1 ${basis}`, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: DISCORD.embedTitle }}>
-                  <Markdown content={f.name} features="title" />
-                </div>
-                <div style={{ marginTop: 2, whiteSpace: "pre-wrap", fontSize: 14, fontWeight: 400, color: DISCORD.embedBody }}>
-                  <Markdown content={f.value} features={{ extend: "full", headings: false } as FeatureConfig} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function resolveEmbedUrl(uri: string, files?: { url?: string; content_type?: string; name: string }[]): string {
-  if (uri.startsWith("attachment://")) {
-    const file = resolveAttachmentUri(uri, files as any);
-    if (file?.url) return file.url;
-    if (file?.file) return URL.createObjectURL(file.file);
-    return "";
-  }
-  return uri;
 }
 
 export default function EmbedPreview({
   embed,
   extraImages,
   files,
+  setImageModalData,
+  isLinkEmbed,
+  linkEmbedStrategy,
+  cdn,
 }: {
   embed: APIEmbed;
   extraImages?: APIEmbedImage[];
-  files?: { url?: string; content_type?: string; name: string }[];
+  files?: DraftFile[];
+  setImageModalData?: SetImageModalData;
+  isLinkEmbed?: boolean;
+  linkEmbedStrategy?: LinkEmbedStrategy;
+  cdn?: string;
 }) {
-  const embedColor = embed.color != null ? decimalToHex(embed.color) : DISCORD.accentStrip;
+  const footer: APIEmbed["footer"] =
+    linkEmbedStrategy === "mastodon"
+      ? embed.provider
+        ? { text: embed.provider.name ?? "" }
+        : embed.footer
+      : embed.footer;
 
-  const showAuthor = !!embed.author?.name;
-  const showTitle = !!embed.title;
-  const showDesc = !!embed.description;
-  const showFields = !!(embed.fields && embed.fields.length > 0);
-  const showImage = !!embed.image?.url;
-  const showExtraImages = !!(extraImages && extraImages.length > 0);
-  const showVideo = !!embed.video?.url;
-  const showFooter = !!(embed.footer?.text || embed.timestamp);
-  const showProvider = !!embed.provider?.name;
+  const images: APIEmbedImage[] = [];
+  if (embed.image?.url) images.push(embed.image);
+  if (extraImages) images.push(...extraImages);
 
-  let hasAbove = false;
-  function section(spacing: number, key: string, children: ReactNode) {
-    const mt = hasAbove ? spacing : 0;
-    hasAbove = true;
-    return <div key={key} style={{ marginTop: mt }}>{children}</div>;
+  const cdnGifVideoUrl = (url: string) => isGifVideoUrl(url, cdn) ?? undefined;
+
+  const fieldLines: APIEmbedField[][] = [];
+  for (const field of embed.fields ?? []) {
+    const currentLine = fieldLines[fieldLines.length - 1];
+    if (!currentLine) {
+      fieldLines.push([field]);
+    } else {
+      const lastField = currentLine[currentLine.length - 1];
+      if (field.inline && lastField?.inline && currentLine.length < 3) {
+        currentLine.push(field);
+      } else {
+        fieldLines.push([field]);
+      }
+    }
   }
 
   return (
-    <div style={{
-      borderLeft: `4px solid ${embedColor}`,
-      background: DISCORD.embedBg,
-      color: DISCORD.embedBody,
-      fontSize: 14,
-      fontFamily: FONT,
-      borderRadius: DISCORD.embedRadius,
-      overflow: "hidden",
-      maxWidth: 520,
-      width: "fit-content",
-      minWidth: 0,
-      WebkitFontSmoothing: "antialiased",
-      MozOsxFontSmoothing: "grayscale",
-    }}>
-      <div style={{ padding: "8px 16px 16px 12px", display: "flex", alignItems: "flex-start" }}>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          {showProvider && section(4, "provider", (
-            <div style={{ fontSize: 12, fontWeight: 400, color: DISCORD.embedBody }}>
-              {embed.provider!.url ? (
-                <a href={embed.provider!.url} target="_blank" rel="noreferrer noopener" style={{ color: DISCORD.textLink, textDecoration: "none" }}>{embed.provider!.name}</a>
+    <div>
+      <div
+        className={twJoin(
+          "rounded dark:text-[#dbdee1] inline-grid pr-4 pb-4 pl-3 pt-[2px]",
+          "bg-white dark:bg-[#2f3136] border border-l-4 border-[#E2E2E4] border-l-[#D9D9DC] dark:border-[#434349] dark:border-l-[#4A4A50]",
+        )}
+        style={{
+          ...(typeof embed.color === "number"
+            ? { borderLeftColor: decimalToHex(embed.color) }
+            : undefined),
+          maxWidth: 520,
+        }}
+      >
+        {(!linkEmbedStrategy || linkEmbedStrategy === "link") && embed.provider?.name ? (
+          <div className="min-w-0 mt-2 font-normal text-xs whitespace-break-spaces break-words text-background-secondary-dark dark:text-primary-230">
+            {embed.provider.url ? (
+              <a
+                className="hover:underline"
+                style={{ color: DISCORD.textLink, textDecoration: "none" }}
+                href={embed.provider.url}
+                target="_blank"
+                rel="noreferrer nofollow ugc"
+              >
+                {embed.provider.name}
+              </a>
+            ) : (
+              <span>{embed.provider.name}</span>
+            )}
+          </div>
+        ) : null}
+
+        {embed.author?.name && (
+          <div className="min-w-0 flex mt-2">
+            {embed.author.icon_url && !isLinkEmbed && (
+              cdnGifVideoUrl(embed.author.icon_url) ? (
+                <video
+                  src={cdnGifVideoUrl(embed.author.icon_url)}
+                  className="h-6 w-6 mr-2 object-contain rounded-full"
+                  autoPlay
+                  muted
+                  loop
+                />
               ) : (
-                embed.provider!.name
-              )}
-            </div>
-          ))}
-          {showAuthor && section(2, "author", (
-            <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
-              {embed.author!.icon_url && (() => {
-                const url = resolveEmbedUrl(embed.author!.icon_url, files as any);
-                    return url ? <img src={url} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "contain", marginRight: 8, flexShrink: 0 }} /> : null;
-              })()}
-              <div style={{ fontSize: 12, fontWeight: 600, color: DISCORD.embedTitle }}>
-                {embed.author!.url ? (
-                  <a href={embed.author!.url} target="_blank" rel="noreferrer noopener" style={{ color: DISCORD.textLink, textDecoration: "none" }}>{embed.author!.name}</a>
-                ) : (
-                  embed.author!.name
-                )}
-              </div>
-            </div>
-          ))}
-          {showTitle && section(2, "title", (
-            <div style={{ fontSize: 14, fontWeight: 600, lineHeight: "20px", color: DISCORD.embedTitle, wordBreak: "break-word" }}>
-              {embed.url ? (
-                <a href={embed.url} target="_blank" rel="noreferrer noopener" style={{ color: DISCORD.textLink, textDecoration: "none" }}>
-                  <Markdown content={embed.title!} features="title" />
+                <img
+                  className="h-6 w-6 mr-2 object-contain rounded-full"
+                  src={getImageUri(embed.author.icon_url, files)}
+                  alt="Author"
+                />
+              )
+            )}
+            <p className="font-medium text-sm whitespace-pre-wrap break-words my-auto">
+              {embed.author.url ? (
+                <a
+                  className="hover:underline"
+                  style={{ color: DISCORD.textLink, textDecoration: "none" }}
+                  href={embed.author.url}
+                  target="_blank"
+                  rel="noreferrer nofollow ugc"
+                >
+                  {embed.author.name}
                 </a>
               ) : (
-                <Markdown content={embed.title!} features="title" />
+                <span>{embed.author.name}</span>
+              )}
+            </p>
+          </div>
+        )}
+
+        {embed.title && (
+          <div className="min-w-0 text-base leading-[1.375] font-semibold mt-2 break-words">
+            {embed.url ? (
+              <a
+                href={embed.url}
+                className="text-blue-430 dark:text-blue-345 hover:underline underline-offset-1"
+                target="_blank"
+                rel="noreferrer nofollow ugc"
+              >
+                {isLinkEmbed ? (
+                  <p>{embed.title}</p>
+                ) : (
+                  <Markdown content={embed.title} features="title" />
+                )}
+              </a>
+            ) : isLinkEmbed ? (
+              <p>{embed.title}</p>
+            ) : (
+              <Markdown content={embed.title} features="title" />
+            )}
+          </div>
+        )}
+
+        {embed.description &&
+          !(
+            isLinkEmbed &&
+            linkEmbedStrategy === "link" &&
+            embed.video
+          ) && (
+            <div className="text-sm font-normal mt-2 whitespace-pre-line min-w-0 break-words">
+              {isLinkEmbed ? (
+                <p>{embed.description}</p>
+              ) : (
+                <Markdown content={embed.description} features="full" />
               )}
             </div>
-          ))}
-          {showDesc && section(8, "desc", (
-            <div style={{ fontSize: 14, fontWeight: 400, lineHeight: "20px", color: DISCORD.embedBody, whiteSpace: "pre-line" }}>
-              <Markdown content={embed.description!} />
-            </div>
-          ))}
-          {showFields && section(8, "fields", <EmbedFields fields={embed.fields!} />)}
-          {showImage && section(8, "image", (() => {
-            const imgUrl = resolveEmbedUrl(embed.image!.url, files as any);
-            if (!imgUrl) return null;
-            return (
-              <img
-                src={imgUrl}
-                alt=""
-                style={{ maxWidth: "100%", maxHeight: 300, width: "auto", height: "auto", display: "block", borderRadius: 4 }}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-              />
-            );
-          })())}
-          {showExtraImages && section(8, "gallery", (
+          )}
+
+        {fieldLines.length > 0 && (
+          <div className="text-sm leading-[1.125rem] grid col-start-1 col-end-2 gap-2 mt-2 min-w-0">
+            {fieldLines.map((line, i) => (
+              <div
+                key={`message-preview-embed-fields-row-${i}`}
+                className="contents"
+                data-field-row-index={i}
+              >
+                {line.map((field, colIndex) => {
+                  let inlineBound = [1, 13];
+                  if (field.inline) {
+                    if (line.length === 3) {
+                      if (colIndex === 2) {
+                        inlineBound = [9, 13];
+                      } else if (colIndex === 1) {
+                        inlineBound = [5, 9];
+                      } else {
+                        inlineBound = [1, 5];
+                      }
+                    } else if (line.length === 2) {
+                      if (colIndex === 1) {
+                        inlineBound = [7, 13];
+                      } else {
+                        inlineBound = [1, 7];
+                      }
+                    }
+                  }
+
+                  return (
+                    <div
+                      key={`message-preview-embed-fields-row-${i}-field-${colIndex}`}
+                      data-field-subrow-index={i}
+                      style={{
+                        gridColumn: `${inlineBound[0]} / ${inlineBound[1]}`,
+                      }}
+                    >
+                      <div className="font-semibold mb-px break-words">
+                        <Markdown content={field.name ?? ""} features="title" />
+                      </div>
+                      <div
+                        className="font-normal whitespace-pre-line break-words"
+                        style={{
+                          // @ts-expect-error
+                          "--font-size": "1rem",
+                        }}
+                      >
+                        <Markdown
+                          content={field.value ?? ""}
+                          features={
+                            { extend: "full", headings: false } as FeatureConfig
+                          }
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {images.length > 0 && (
+          <div className="mt-2 min-w-0">
             <Gallery
-              attachments={extraImages!.map((img) => ({
-                id: "0",
-                filename: "image",
-                content_type: (img.url ?? "").endsWith(".gif") ? "image/gif" : "image/png",
-                url: resolveEmbedUrl(img.url, files as any),
-                proxy_url: "#",
-                size: 0,
-              }))}
+              attachments={images.map(
+                (image) =>
+                  ({
+                    content_type: image.url.endsWith(".gif")
+                      ? "image/gif"
+                      : "image/png",
+                    url: getImageUri(image.url, files),
+                  }) as any,
+              )}
+              setImageModalData={setImageModalData}
+              cdn={cdn}
             />
-          ))}
-          {showVideo && section(8, "video", (
+          </div>
+        )}
+
+        {embed.video?.url && (
+          <div className="mt-2 min-w-0">
             <Gallery
-              attachments={[{
-                id: "0",
-                filename: "video",
-                content_type: "video/mp4",
-                url: embed.video!.url!,
-                proxy_url: "#",
-                size: 0,
-              }]}
+              attachments={
+                [
+                  {
+                    content_type: "video/mp4",
+                    url: embed.video.url,
+                  },
+                ] as any
+              }
+              setImageModalData={setImageModalData}
             />
-          ))}
-          {showFooter && section(8, "footer", (
-            <div style={{ display: "flex", alignItems: "center", fontSize: 12, fontWeight: 400, color: DISCORD.embedFooter }}>
-              {embed.footer?.text && (
-                <>
-                  {embed.footer.icon_url && (() => {
-                    const url = resolveEmbedUrl(embed.footer.icon_url, files as any);
-                return url ? <img src={url} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "contain", marginRight: 8, flexShrink: 0 }} /> : null;
-                  })()}
-                  <span style={{ whiteSpace: "pre-wrap" }}>{embed.footer.text}</span>
-                </>
-              )}
-              {embed.timestamp && (
-                <>
-                  {embed.footer?.text && <span style={{ margin: "0 4px" }}>·</span>}
-                  <span style={{ whiteSpace: "pre-wrap" }}>{formatEmbedTimestamp(embed.timestamp)}</span>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
+          </div>
+        )}
+
         {embed.thumbnail?.url && (
-          <div style={{ marginLeft: 16, flexShrink: 0, marginTop: 2 }}>
-            <img
-              src={resolveEmbedUrl(embed.thumbnail.url, files as any)}
-              alt=""
-              style={{ maxHeight: 80, maxWidth: 80, borderRadius: DISCORD.embedRadius, objectFit: "cover", display: "block" }}
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-                (e.currentTarget.parentElement as HTMLElement).style.display = "none";
-              }}
-            />
+          <button
+            type="button"
+            className="flex mt-2 ml-4 justify-self-end h-fit"
+            style={{ gridArea: "1 / 2 / 8 / 3" }}
+            onClick={() => {
+              if (setImageModalData) {
+                setImageModalData({
+                  images: [
+                    { url: getImageUri(embed.thumbnail?.url ?? "", files) },
+                  ],
+                  startIndex: 0,
+                });
+              }
+            }}
+          >
+            {cdnGifVideoUrl(embed.thumbnail.url) ? (
+              <video
+                src={cdnGifVideoUrl(embed.thumbnail.url)}
+                className="rounded max-w-[80px] max-h-20"
+                autoPlay
+                muted
+                loop
+              />
+            ) : (
+              <img
+                src={getImageUri(embed.thumbnail.url, files)}
+                className="rounded max-w-[80px] max-h-20"
+                alt="Thumbnail"
+              />
+            )}
+          </button>
+        )}
+
+        {(footer?.text ||
+          (embed.timestamp && linkEmbedStrategy === "mastodon")) && (
+          <div className="min-w-0 flex mt-2 font-medium text-xs text-primary-600 dark:text-primary-230">
+            {footer?.text && (
+              <>
+                {footer.icon_url && (
+                  cdnGifVideoUrl(footer.icon_url) ? (
+                    <video
+                      src={cdnGifVideoUrl(footer.icon_url)}
+                      className="h-5 w-5 mr-2 object-contain rounded-full"
+                      autoPlay
+                      muted
+                      loop
+                    />
+                  ) : (
+                    <img
+                      className="h-5 w-5 mr-2 object-contain rounded-full"
+                      src={getImageUri(footer.icon_url, files)}
+                      alt="Footer"
+                    />
+                  )
+                )}
+                <p className="whitespace-pre-wrap break-words my-auto">
+                  {footer.text}
+                </p>
+              </>
+            )}
+            {embed.timestamp && (
+              <>
+                {footer?.text && <p className="mx-1">•</p>}
+                <p className="whitespace-pre-wrap break-words my-auto">
+                  {formatEmbedTimestamp(embed.timestamp)}
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>
