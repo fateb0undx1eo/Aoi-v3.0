@@ -60,7 +60,7 @@ export class UploadService {
       {
         retries: this.config.maxRetries,
         onFailedAttempt: (error) => {
-          logger.warn({ batchId, attempt: error.attemptNumber, error: error.message }, 'upload: attempt failed');
+          logger.warn({ batchId, attempt: error.attemptNumber, error: error.error.message }, 'upload: attempt failed');
         },
       },
     );

@@ -11,7 +11,7 @@ export const catboxProvider = {
   ): Promise<string> {
     const form = new FormData();
     form.append('reqtype', 'fileupload');
-    form.append('fileToUpload', new Blob([buffer]), filename);
+    form.append('fileToUpload', new Blob([buffer as BlobPart]), filename);
     if (options?.userHash) {
       form.append('userhash', options.userHash);
     }
