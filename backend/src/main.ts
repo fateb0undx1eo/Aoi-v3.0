@@ -37,6 +37,7 @@ import { ModerationService } from './services/moderationService.js';
 import { SettingsService } from './services/settingsService.js';
 import { AnnouncementService } from './services/announcementService.js';
 import { UploadService } from './services/upload/uploadService.js';
+import { PresetService } from './services/presetService.js';
 import { loadUploadConfig } from './services/upload/config.js';
 import { DmBroadcastService } from './services/dmBroadcastService.js';
 import { RoleColorRotationService } from './services/roleColorRotationService.js';
@@ -190,6 +191,7 @@ async function main(): Promise<void> {
     const moderationService = new ModerationService(configService);
     const settingsService = new SettingsService(configService);
     const announcementService = new AnnouncementService({ client: discordClient, uploadService });
+    const presetService = new PresetService();
     const placeholderEngine = new PlaceholderEngine();
     let dmBroadcastService: DmBroadcastService | null = null;
     const operationalQueue = new JobQueue({
@@ -222,6 +224,7 @@ async function main(): Promise<void> {
       moderationService,
       settingsService,
       announcementService,
+      presetService,
       dmBroadcastService,
       roleColorRotationService,
       memeService,
@@ -256,6 +259,7 @@ async function main(): Promise<void> {
       moderationService,
       settingsService,
       announcementService,
+      presetService,
       dmBroadcastService,
       roleColorRotationService,
       uploadService,

@@ -1,24 +1,21 @@
 import { nanoid } from "nanoid";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import {
-  Bot, Zap, Megaphone, Smile,
-} from "lucide-react";
 import { CoolIcon } from "@/components/icons/CoolIcon";
 
 import type {
   QueryData, QueryDataMessage, QueryDataMessageData,
-  GuildChannel, GuildEmoji, APIEmoji, DraftFile, FlowActionPayload, FlowAction,
+  GuildChannel, GuildEmoji, DraftFile, FlowActionPayload, FlowAction,
   APIActionRowComponent, APIContainerComponent,
   APIComponentInActionRow, APIV2TextDisplay,
 } from "@/components/announcements/types";
-import { C, CDN, EMBED_BG } from "@/components/announcements/constants";
+import { C, CDN } from "@/components/announcements/constants";
 import { getBackendApiUrl } from "@/lib/backend";
 import {
   randomId, createMessage, cloneQueryData,
-  isComponentsV2, getTotalEmbedLength, embedHasDisplayContent,
+  isComponentsV2, embedHasDisplayContent,
 } from "@/components/announcements/utils/message";
-import { buildDiscordPayload, executeWebhook, updateWebhookMessage, getWebhook, parseMessageLink, WEBHOOK_URL_RE } from "@/components/announcements/utils/discord";
+import { buildDiscordPayload, executeWebhook, updateWebhookMessage, parseMessageLink, WEBHOOK_URL_RE } from "@/components/announcements/utils/discord";
 
 import CodeGenerator from "@/components/announcements/modals/CodeGenerator";
 import ComponentEditModal from "@/components/announcements/modals/ComponentEditModal";
@@ -30,731 +27,20 @@ import V2ChildEditor from "@/components/announcements/editor/V2ChildEditor";
 import V2ContainerEditor from "@/components/announcements/editor/V2ContainerEditor";
 import { TextDisplayEditor } from "@/components/announcements/editor/TextDisplayEditor";
 import { SectionEditor } from "@/components/announcements/editor/SectionEditor";
-import EmojiPickerPopover from "@/components/announcements/pickers/EmojiPickerPopover";
 import { Section, Input } from "@/components/announcements/editor/ui";
-import { getPlacement } from "@/components/announcements/utils/placement";
 
-type Toast = { id: string; state: "idle" | "success" | "error" | "info" | "sending" | "confirm"; text: string; onConfirm?: () => void; onCancel?: () => void };
+import { ToastContainer, useToasts } from "@/components/announcements/ToastContainer";
+import { SendModal } from "@/components/announcements/SendModal";
+import { AddDropdown } from "@/components/announcements/AddDropdown";
+import { MessageActionBtn, AddMessagePopover, AddContentPopover } from "@/components/announcements/MessageHeader";
+import { ToolbarButton } from "@/components/announcements/ToolbarButton";
+import { EmojiBtn } from "@/components/announcements/EmojiBtn";
+import { AccessoryBtn } from "@/components/announcements/AccessoryBtn";
+import { useUndoHistory } from "@/components/announcements/hooks/useUndoHistory";
 
-// ─── AddDropdown ──────────────────────────────────────────────────────────────
-function AddDropdown({ isV2, canAddEmbed, canAddRow, onAddEmbed, onAddRow, onAddV2Component }: {
-  isV2: boolean; canAddEmbed: boolean; canAddRow: boolean;
-  onAddEmbed: () => void; onAddRow: () => void;
-  onAddV2Component: (type: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [placement, setPlacement] = useState<"below" | "above">("below");
-  const ref = useRef<HTMLDivElement>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const toggle = () => {
-    if (!open) {
-      if (btnRef.current) setPlacement(getPlacement(btnRef.current));
-    }
-    setOpen(!open);
-  };
-
-  const v2Items = [
-    { label: "Content", value: "text" },
-    { label: "Container", value: "container" },
-    { label: "Media Gallery", value: "media" },
-    { label: "File", value: "file" },
-    { label: "Separator", value: "divider" },
-    { label: "Row", value: "row" },
-  ];
-
-  const close = () => setOpen(false);
-
-  return (
-    <div ref={ref} style={{ position: "relative" }}>
-      <button ref={btnRef} type="button" onClick={toggle}
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "center",
-          width: 32, height: 32, borderRadius: 8, border: "none",
-          backgroundColor: "transparent", color: C.textMuted, cursor: "pointer",
-          transition: "all 0.12s",
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.color = C.burg; }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = C.textMuted; }}
-      >
-        <CoolIcon icon="Add_Plus_Circle" size={20} />
-      </button>
-      {open && (
-        <div style={{
-          position: "absolute", left: 0, zIndex: 50, marginTop: placement === "below" ? 4 : undefined, marginBottom: placement === "above" ? 4 : undefined,
-          bottom: placement === "above" ? "100%" : undefined, top: placement === "below" ? "100%" : undefined,
-          minWidth: 140, borderRadius: 6, border: `1px solid ${C.border}`,
-          backgroundColor: "#18181b", boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-          padding: 4,
-        }}>
-          {!isV2 ? (
-            <>
-              <DropItem label="Embed" disabled={!canAddEmbed} onClick={() => { onAddEmbed(); close(); }} />
-              <DropItem label="Action Row" disabled={!canAddRow} onClick={() => { onAddRow(); close(); }} />
-            </>
-          ) : v2Items.map((item) => (
-            <DropItem key={item.value} label={item.label} onClick={() => { onAddV2Component(item.value); close(); }} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DropItem({ label, disabled, onClick }: { label: string; disabled?: boolean; onClick: () => void }) {
-  const [h, sH] = useState(false);
-  return (
-    <button type="button" disabled={disabled} onClick={onClick}
-      onMouseEnter={() => sH(true)} onMouseLeave={() => sH(false)}
-      style={{
-        display: "block", width: "100%", textAlign: "left",
-        padding: "5px 8px", borderRadius: 4, border: "none",
-        backgroundColor: h ? `${C.burg}20` : "transparent",
-        color: h ? C.burg : C.textMuted, cursor: disabled ? "default" : "pointer",
-        fontSize: 10, fontWeight: 500, transition: "all 0.1s",
-        opacity: disabled ? 0.35 : 1,
-      }}>
-      {label}
-    </button>
-  );
-}
-
-// ─── MessageActionBtn ──────────────────────────────────────────────
-function MessageActionBtn({ icon, tooltip, onClick, popover }: {
-  icon: ReactNode; tooltip: string; onClick: () => void; popover?: (close: () => void) => ReactNode;
-}) {
-  const [h, sH] = useState(false);
-  if (popover) {
-    return <MessageAddBtn icon={icon} tooltip={tooltip} renderPopover={popover} />;
-  }
-  return (
-    <button type="button" onClick={onClick} title={tooltip}
-      onMouseEnter={() => sH(true)} onMouseLeave={() => sH(false)}
-      style={{
-        display: "flex", alignItems: "center", justifyContent: "center",
-        width: 22, height: 22, borderRadius: 6, border: "none",
-        backgroundColor: h ? "#1a1a1a" : "transparent",
-        color: h ? C.text : "#52525b", cursor: "pointer",
-        fontSize: 10, fontWeight: 600, transition: "all 0.12s", flexShrink: 0,
-      }}>
-      {icon}
-    </button>
-  );
-}
-
-// ─── MessageAddBtn (with popover) ──────────────────────────────────
-function MessageAddBtn({ icon, tooltip, renderPopover }: {
-  icon: ReactNode; tooltip: string; renderPopover: (close: () => void) => ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const [placement, setPlacement] = useState<"below" | "above">("below");
-  const [h, sH] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const toggle = () => {
-    if (!open) {
-      if (btnRef.current) setPlacement(getPlacement(btnRef.current));
-    }
-    setOpen(!open);
-  };
-
-  const close = () => setOpen(false);
-
-  return (
-    <div ref={ref} style={{ position: "relative", display: "inline-flex" }}>
-      <button ref={btnRef} type="button" onClick={toggle} title={tooltip}
-        onMouseEnter={() => sH(true)} onMouseLeave={() => sH(false)}
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "center",
-          width: 22, height: 22, borderRadius: 6, border: "none",
-          backgroundColor: h ? "#1a1a1a" : "transparent",
-          color: h ? C.text : "#52525b", cursor: "pointer",
-          fontSize: 10, fontWeight: 600, transition: "background-color 0.12s, color 0.12s", flexShrink: 0,
-        }}>
-        <span style={{
-          display: "inline-block",
-          transform: open ? "rotate(135deg)" : "rotate(0deg)",
-          transition: "transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
-        }}>
-          {icon}
-        </span>
-      </button>
-      <div style={{
-        position: "absolute", right: 0, zIndex: 200,
-        top: placement === "below" ? "calc(100% + 4px)" : undefined,
-        bottom: placement === "above" ? "calc(100% + 4px)" : undefined,
-        minWidth: 260, maxWidth: 300,
-        borderRadius: 8, border: `1px solid ${C.border}`,
-        backgroundColor: C.surface,
-        boxShadow: "0 0 0 100vmax rgba(0,0,0,0.55)",
-        padding: 4,
-        opacity: open ? 1 : 0,
-        transform: `translateY(${open ? 0 : placement === "below" ? -4 : 4}px)`,
-        pointerEvents: open ? "auto" : "none",
-        transition: "opacity 0.15s ease, transform 0.15s ease",
-      }}>
-        {renderPopover(close)}
-      </div>
-    </div>
-  );
-}
-
-// ─── AddContentPopover (for standard message content) ──────────────
-function AddContentPopover({
-  maxedOut, onAddEmbed, onAddComponent,
-}: {
-  maxedOut: boolean;
-  onAddEmbed: () => void;
-  onAddComponent: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [placement, setPlacement] = useState<"below" | "above">("below");
-  const ref = useRef<HTMLDivElement>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    if (open) document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const toggle = () => {
-    if (!open) {
-      if (btnRef.current) setPlacement(getPlacement(btnRef.current));
-    }
-    setOpen(!open);
-  };
-
-  return (
-    <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
-      <button ref={btnRef} type="button" onClick={toggle}
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "center",
-          width: 32, height: 32, borderRadius: 8, border: "none",
-          backgroundColor: "transparent", color: C.textMuted, cursor: "pointer",
-          transition: "color 0.12s",
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.color = C.text; }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = C.textMuted; }}>
-        <CoolIcon icon="Add_Plus_Circle" size={22} />
-      </button>
-      {open && (
-        <div style={{
-          position: "absolute", left: "50%", zIndex: 200,
-          top: placement === "below" ? "calc(100% + 4px)" : undefined,
-          bottom: placement === "above" ? "calc(100% + 4px)" : undefined,
-          transform: `translateX(-50%)${placement === "above" ? " translateY(0)" : ""}`,
-          minWidth: 160, borderRadius: 8, border: `1px solid #1a1a1a`,
-          backgroundColor: "#111111", padding: 4,
-          boxShadow: "0 0 0 100vmax rgba(0,0,0,0.55)",
-        }}>
-          <button type="button" disabled={maxedOut} onClick={() => { onAddEmbed(); setOpen(false); }}
-            style={{
-              display: "block", width: "100%", textAlign: "left",
-              padding: "8px 12px", borderRadius: 6, border: "none",
-              backgroundColor: "transparent", cursor: maxedOut ? "not-allowed" : "pointer",
-              opacity: maxedOut ? 0.4 : 1, fontSize: 12, color: C.text,
-            }}
-            onMouseEnter={(e) => { if (!maxedOut) e.currentTarget.style.backgroundColor = "#18181b"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}>
-            Embed
-          </button>
-          <button type="button" onClick={() => { onAddComponent(); setOpen(false); }}
-            style={{
-              display: "block", width: "100%", textAlign: "left",
-              padding: "8px 12px", borderRadius: 6, border: "none",
-              backgroundColor: "transparent", cursor: "pointer",
-              fontSize: 12, color: C.text,
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#18181b"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}>
-            Component
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── AddMessagePopover (for + button) ──────────────────────────────
-function AddMessagePopover({ onAddStandard, onAddV2 }: { onAddStandard: () => void; onAddV2: () => void }) {
-  return (
-    <>
-      <button type="button" onClick={onAddStandard}
-        style={{
-          display: "block", width: "100%", textAlign: "left",
-          padding: "8px 10px", borderRadius: 6, border: "none",
-          backgroundColor: "transparent", color: C.text, cursor: "pointer",
-          fontSize: 11, fontWeight: 600, transition: "all 0.1s",
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${C.burg}20`; }}
-        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
-      >
-        Standard Message
-        <div style={{ fontSize: 9, color: C.textMuted, fontWeight: 400, marginTop: 2, lineHeight: 1.4, opacity: 0.65 }}>
-          Can display text, then attachments, then embeds. If you aren't sure, choose this.
-        </div>
-      </button>
-      <button type="button" onClick={onAddV2}
-        style={{
-          display: "block", width: "100%", textAlign: "left",
-          padding: "8px 10px", borderRadius: 6, border: "none",
-          backgroundColor: "transparent", color: C.text, cursor: "pointer",
-          fontSize: 11, fontWeight: 600, transition: "all 0.1s",
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${C.burg}20`; }}
-        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
-      >
-        Components-based Message
-        <div style={{ fontSize: 9, color: C.textMuted, fontWeight: 400, marginTop: 2, lineHeight: 1.4, opacity: 0.65 }}>
-          Can display text, media, files, and containers (similar to embeds) in any order! This is more customizable than a standard message.
-        </div>
-      </button>
-    </>
-  );
-}
-
-// ─── ToolbarButton ─────────────────────────────────────────────────────────────
-function ToolbarButton({
-  icon, tooltip, onClick,
-}: {
-  icon: ReactNode; tooltip: string; onClick: () => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <div style={{ position: "relative", display: "inline-flex" }}>
-      <button
-        type="button"
-        onClick={onClick}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "center",
-          width: 26, height: 26, borderRadius: 6,
-          border: "none",
-          backgroundColor: "transparent",
-          color: "#fff",
-          cursor: "pointer",
-          transition: "all 0.12s",
-          outline: "none",
-          transform: hovered ? "translateY(-2px)" : "none",
-        }}
-      >
-        {icon}
-      </button>
-      {hovered && (
-        <div style={{
-          position: "absolute", top: "calc(100% + 4px)", left: "50%",
-          transform: "translateX(-50%)",
-          padding: "4px 10px", borderRadius: 6,
-          backgroundColor: "#18181b", color: C.text,
-          fontSize: 11, fontWeight: 500, whiteSpace: "nowrap",
-          border: `1px solid ${C.border}`,
-          zIndex: 200, pointerEvents: "none",
-        }}>
-          {tooltip}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── ToastContainer ────────────────────────────────────────────────────────────
-function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: string) => void }) {
-  const confirmToast = toasts.find((t) => t.state === "confirm");
-  const regularToasts = toasts.filter((t) => t.state !== "confirm");
-  return (
-    <>
-      {confirmToast && (
-        <div key={confirmToast.id} onClick={() => { confirmToast.onCancel?.(); onDismiss(confirmToast.id); }} style={{
-          position: "fixed", inset: 0, zIndex: 9999,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          backgroundColor: "rgba(0,0,0,0.55)",
-        }}>
-          <div onClick={(e) => e.stopPropagation()} style={{
-            animation: "slideUp 0.3s ease-out",
-            display: "flex", alignItems: "center", borderRadius: 10,
-            border: "1px solid rgba(255,255,255,0.08)",
-            backgroundColor: "#111111", color: "#fff",
-            fontSize: 14, fontWeight: 500,
-            overflow: "hidden", maxWidth: 420, width: "100%",
-          }}>
-            <div style={{ width: 4, backgroundColor: "#ef4444", flexShrink: 0, alignSelf: "stretch" }} />
-            <div style={{ flex: 1, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <CoolIcon icon="Triangle_Warning" size={18} style={{ color: "#ef4444", flexShrink: 0 }} />
-                <span style={{ fontSize: 12, color: "#a1a1aa", lineHeight: 1.4 }}>{confirmToast.text}</span>
-              </div>
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button type="button" onClick={() => { confirmToast.onConfirm?.(); onDismiss(confirmToast.id); }}
-                  style={{
-                    padding: "7px 16px", borderRadius: 6, border: "none",
-                    backgroundColor: "#ef4444", color: "#fff", cursor: "pointer",
-                    fontSize: 12, fontWeight: 600,
-                  }}>
-                  Confirm
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      <div style={{
-        position: "fixed", bottom: 24, left: 0, right: 0,
-        zIndex: 9999, display: "flex", flexDirection: "column", gap: 8, pointerEvents: "none",
-        alignItems: "center",
-      }}>
-        {regularToasts.map((toast) => {
-          const colors: Record<string, { bg: string; text: string }> = {
-            success: { bg: "rgba(5,150,105,0.15)", text: "#34d399" },
-            error:   { bg: "rgba(239,68,68,0.15)",  text: "#f87171" },
-            info:    { bg: "rgba(14,165,233,0.15)",  text: "#38bdf8" },
-            sending: { bg: "rgba(245,158,11,0.15)",  text: "#fbbf24" },
-          };
-          const c = colors[toast.state] || colors.info!;
-          return (
-            <div key={toast.id} style={{
-              pointerEvents: "auto",
-              animation: "slideUp 0.3s ease-out",
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "12px 20px", borderRadius: 10,
-              border: "1px solid rgba(255,255,255,0.06)",
-              backgroundColor: c.bg, color: c.text,
-              fontSize: 14, fontWeight: 500,
-              boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-            }}>
-              {toast.state === "error"   && <CoolIcon icon="Triangle_Warning" size={16} style={{ flexShrink: 0 }} />}
-              {toast.state === "success" && <CoolIcon icon="Check" size={16} style={{ flexShrink: 0 }} />}
-              {toast.state === "sending" && <Zap style={{ width: 16, height: 16, flexShrink: 0 }} />}
-              <span>{toast.text}</span>
-              <button type="button" onClick={() => onDismiss(toast.id)}
-                style={{ marginLeft: "auto", background: "none", border: "none", color: "inherit", opacity: 0.6, cursor: "pointer" }}>
-                <CoolIcon icon="Close_MD" size={14} />
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
-    </>
-  );
-}
-
-// ─── SendModal ─────────────────────────────────────────────────────────────────
-function SendModal({
-  open, channels, selectedChannelIds, onToggleChannel, onSelectAll, onDeselectAll,
-  sendAsBot, editMode, webhookUrl, messageLink, suppressMentions,
-  onSendAsBotChange, onEditModeChange, onWebhookUrlChange, onMessageLinkChange,
-  onSuppressMentionsChange,
-  onSend, onClose,
-}: {
-  open: boolean; channels: GuildChannel[]; selectedChannelIds: Set<string>;
-  onToggleChannel: (id: string) => void; onSelectAll: () => void; onDeselectAll: () => void;
-  sendAsBot: boolean; editMode: boolean; webhookUrl: string; messageLink: string;
-  suppressMentions: boolean;
-  onSendAsBotChange: (v: boolean) => void; onEditModeChange: (v: boolean) => void;
-  onWebhookUrlChange: (v: string) => void; onMessageLinkChange: (v: string) => void;
-  onSuppressMentionsChange: (v: boolean) => void;
-  onSend: () => void; onClose: () => void;
-}) {
-  if (!open) return null;
-  const hasWebhookError = !sendAsBot && webhookUrl.trim().length > 0 && !WEBHOOK_URL_RE.test(webhookUrl.trim());
-  const canSend = sendAsBot ? selectedChannelIds.size > 0 : (!hasWebhookError && webhookUrl.trim().length > 0);
-  return (
-    <div
-      style={{
-        position: "fixed", inset: 0, zIndex: 9998,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        backgroundColor: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)",
-      }}
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          backgroundColor: C.surface, borderRadius: 18,
-          border: `1px solid ${C.border}`, padding: 26,
-          width: 440, maxWidth: "92vw",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
-        }}
-      >
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 10,
-              background: `linear-gradient(135deg, ${C.burg}, #a3153f)`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <Megaphone style={{ width: 16, height: 16, color: "#fff" }} />
-            </div>
-            <h2 style={{ fontSize: 17, fontWeight: 700, color: C.text, letterSpacing: "-0.02em" }}>
-              Send Announcement
-            </h2>
-          </div>
-          <button type="button" onClick={onClose}
-            style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", padding: 4 }}>
-            <CoolIcon icon="Close_MD" size={18} />
-          </button>
-        </div>
-
-        {/* Send Method */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, marginBottom: 8, display: "block", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-            Send Method
-          </label>
-          <div style={{ display: "flex", gap: 8 }}>
-            {[
-              { val: true,  label: "Bot",     icon: "Bot"   },
-              { val: false, label: "Webhook", icon: "Globe" },
-            ].map(({ val, label, icon }) => {
-              const active = sendAsBot === val;
-              return (
-                <button key={label} type="button" onClick={() => onSendAsBotChange(val)}
-                  style={{
-                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-                    gap: 7, padding: "10px 14px", borderRadius: 10,
-                    border: `1px solid ${active ? C.burg : C.border}`,
-                    backgroundColor: active ? `${C.burg}18` : "transparent",
-                    color: active ? C.burg : C.textMuted,
-                    cursor: "pointer", fontSize: 13, fontWeight: 600,
-                    transition: "all 0.15s",
-                  }}>
-                  {icon === "Bot" ? <Bot style={{ width: 14, height: 14 }} /> : <CoolIcon icon="Globe" size={14} />} {label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Edit existing toggle */}
-        <ModalToggle
-          label="Edit existing message"
-          checked={editMode}
-          onChange={onEditModeChange}
-        />
-
-        {/* Suppress mentions toggle */}
-        <ModalToggle
-          label="Don't mention anyone"
-          description="Silences @here, @everyone and role pings"
-          checked={suppressMentions}
-          onChange={onSuppressMentionsChange}
-          icon={<CoolIcon icon="Bell_Off" size={13} />}
-        />
-
-        {/* Message Link */}
-        {editMode && (
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, marginBottom: 6, display: "block", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-              Message Link
-            </label>
-            <input
-              value={messageLink}
-              onChange={(e) => onMessageLinkChange(e.target.value)}
-              placeholder="https://discord.com/channels/…"
-              style={{
-                width: "100%", padding: "8px 12px", borderRadius: 8,
-                border: `1px solid ${C.border}`, backgroundColor: C.bg,
-                color: C.text, fontSize: 13, outline: "none",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-        )}
-
-        {/* Bot: channel picker */}
-        {sendAsBot && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                Channels ({selectedChannelIds.size})
-              </label>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button type="button" onClick={onSelectAll}  style={{ fontSize: 10, color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>All</button>
-                <button type="button" onClick={onDeselectAll} style={{ fontSize: 10, color: C.textMuted, background: "none", border: "none", cursor: "pointer" }}>None</button>
-              </div>
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 160, overflowY: "auto" }}>
-              {channels.length === 0
-                ? <p style={{ fontSize: 11, color: C.textMuted }}>No text channels available.</p>
-                : channels.map((ch) => {
-                  const sel = selectedChannelIds.has(ch.id);
-                  return (
-                    <button key={ch.id} type="button" onClick={() => onToggleChannel(ch.id)}
-                      style={{
-                        display: "inline-flex", alignItems: "center", gap: 4,
-                        padding: "4px 10px", borderRadius: 6,
-                        fontSize: 11, fontWeight: 500,
-                        border: `1px solid ${sel ? `${C.burg}60` : C.border}`,
-                        backgroundColor: sel ? `${C.burg}15` : "transparent",
-                        color: sel ? C.burg : C.textMuted,
-                        cursor: "pointer", transition: "all 0.12s",
-                      }}>
-                      {sel && <CoolIcon icon="Check" size={10} />}# {ch.name}
-                    </button>
-                  );
-                })}
-            </div>
-          </div>
-        )}
-
-        {/* Webhook URL */}
-        {!sendAsBot && (
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, marginBottom: 6, display: "block", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-              Webhook URL
-            </label>
-            <input
-              value={webhookUrl}
-              onChange={(e) => onWebhookUrlChange(e.target.value)}
-              placeholder="https://discord.com/api/webhooks/…"
-              aria-invalid={hasWebhookError}
-              aria-describedby={hasWebhookError ? "webhook-error" : undefined}
-              style={{
-                width: "100%", padding: "8px 12px", borderRadius: 8,
-                border: `1px solid ${hasWebhookError ? "#ef4444" : C.border}`, backgroundColor: C.bg,
-                color: C.text, fontSize: 13, outline: "none",
-                boxSizing: "border-box",
-              }}
-            />
-            {hasWebhookError && (
-              <p id="webhook-error" style={{ fontSize: 10, color: "#ef4444", marginTop: 4 }}>
-                Invalid Discord webhook URL. Must be https://discord.com/api/webhooks/...
-              </p>
-            )}
-            {!hasWebhookError && (
-              <p style={{ fontSize: 10, color: C.textMuted, marginTop: 4 }}>
-                Sends to the webhook's pre-configured channel.
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Send button */}
-        <button
-          type="button" onClick={onSend} disabled={!canSend}
-          style={{
-            display: "flex", width: "100%", alignItems: "center",
-            justifyContent: "center", gap: 8,
-            padding: "13px 0", borderRadius: 10,
-            fontSize: 14, fontWeight: 700, color: "#fff",
-            background: canSend ? `linear-gradient(135deg, ${C.burg}, #a3153f)` : "#3f3f46",
-            border: "none", cursor: canSend ? "pointer" : "not-allowed",
-            opacity: canSend ? 1 : 0.5, transition: "all 0.15s",
-            letterSpacing: "0.01em",
-          }}>
-          <CoolIcon icon="Paper_Plane" size={15} />
-          {sendAsBot
-            ? `Send to ${selectedChannelIds.size} channel${selectedChannelIds.size !== 1 ? "s" : ""}`
-            : "Send via Webhook"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// Small helper for the modal toggles
-function ModalToggle({
-  label, description, checked, onChange, icon,
-}: {
-  label: string; description?: string; checked: boolean; onChange: (v: boolean) => void; icon?: ReactNode;
-}) {
-  return (
-    <div style={{ marginBottom: 14 }}>
-      <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
-        <div
-          onClick={(e) => { e.preventDefault(); onChange(!checked); }}
-          style={{
-            width: 34, height: 20, borderRadius: 12, position: "relative", flexShrink: 0,
-            backgroundColor: checked ? C.burg : "#3f3f46",
-            transition: "background 0.2s", cursor: "pointer", marginTop: 1,
-          }}
-        >
-          <div style={{
-            width: 14, height: 14, borderRadius: "50%", backgroundColor: "#fff",
-            position: "absolute", top: 3,
-            left: checked ? 17 : 3,
-            transition: "left 0.2s",
-          }} />
-        </div>
-        <div>
-          <span style={{ fontSize: 13, color: C.text, fontWeight: 500, display: "flex", alignItems: "center", gap: 5 }}>
-            {icon}{label}
-          </span>
-          {description && (
-            <span style={{ fontSize: 11, color: C.textMuted, display: "block", marginTop: 1 }}>
-              {description}
-            </span>
-          )}
-        </div>
-      </label>
-    </div>
-  );
-}
+import "@/styles/announcements.css";
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
-function EmojiBtn({ onEmoji, serverEmojis }: { onEmoji: (text: string) => void; serverEmojis: GuildEmoji[] }) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div style={{ position: "relative", display: "inline-flex" }}>
-      <button type="button" onClick={() => setOpen(true)} title="Insert emoji"
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "center",
-          width: 18, height: 18, borderRadius: 4, border: "none",
-          background: "transparent", color: "#52525b", cursor: "pointer",
-          fontSize: 11, padding: 0, lineHeight: 1,
-        }}>
-        <Smile style={{ width: 13, height: 13 }} />
-      </button>
-      <EmojiPickerPopover
-        open={open}
-        onClose={() => setOpen(false)}
-        onEmojiSelect={(emoji: APIEmoji) => {
-          const text = emoji.name
-            ? emoji.id
-              ? emoji.animated
-                ? `<a:${emoji.name}:${emoji.id}>`
-                : `<:${emoji.name}:${emoji.id}>`
-              : emoji.name
-            : "";
-          onEmoji(text);
-          setOpen(false);
-        }}
-        serverEmojis={serverEmojis}
-      />
-    </div>
-  );
-}
-
-function AccessoryBtn({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick}
-      style={{
-        display: "inline-flex", alignItems: "center", gap: 3,
-        padding: "2px 8px", borderRadius: 4, fontSize: 9, fontWeight: 500,
-        border: `1px solid ${C.border}`, backgroundColor: "transparent",
-        color: C.textMuted, cursor: "pointer", transition: "all 0.12s",
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.color = C.text; e.currentTarget.style.borderColor = C.textMuted; }}
-      onMouseLeave={(e) => { e.currentTarget.style.color = C.textMuted; e.currentTarget.style.borderColor = C.border; }}>
-      {label}
-    </button>
-  );
-}
 
 export default function GuildAnnouncementsPage() {
   const router = useRouter();
@@ -784,41 +70,17 @@ export default function GuildAnnouncementsPage() {
   const [presetName,   setPresetName]   = useState("");
   const [presetsOpen,  setPresetsOpen]  = useState(false);
 
-  const [toasts,         setToasts]         = useState<Toast[]>([]);
+  const { toasts, addToast, dismissToast, confirmAction } = useToasts();
+  const { undo: rawUndo, redo: rawRedo, resetHistory, skipHistoryRef } = useUndoHistory(data);
+
   const [sendModalOpen,  setSendModalOpen]  = useState(false);
   const [sendAsBot,      setSendAsBot]      = useState(true);
   const [editMode,       setEditMode]       = useState(false);
   const [webhookUrl,     setWebhookUrl]     = useState("");
   const [messageLink,    setMessageLink]    = useState("");
-  // NEW: suppress mentions toggle (lives in modal only)
   const [suppressMentions, setSuppressMentions] = useState(false);
   const [starredMessages, setStarredMessages] = useState<Set<string>>(new Set());
   const [starAnimatingOut, setStarAnimatingOut] = useState<Set<string>>(new Set());
-
-  const [history,    setHistory]    = useState<QueryData[]>([cloneQueryData(data)]);
-  const [historyIdx, setHistoryIdx] = useState(0);
-  const skipHistoryRef = useRef(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latestDataRef = useRef(data);
-  const historyIdxRef = useRef(historyIdx);
-  latestDataRef.current = data;
-  historyIdxRef.current = historyIdx;
-
-  useEffect(() => {
-    if (skipHistoryRef.current) { skipHistoryRef.current = false; return; }
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      const hidx = historyIdxRef.current;
-      setHistory((prev) => {
-        const next = prev.slice(0, hidx + 1);
-        next.push(cloneQueryData(latestDataRef.current));
-        if (next.length > 50) next.splice(0, next.length - 50);
-        return next;
-      });
-      setHistoryIdx((prev) => prev + 1);
-    }, 400);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [data]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const msgRefs   = useRef<Record<number, HTMLDivElement | null>>({});
@@ -859,37 +121,6 @@ export default function GuildAnnouncementsPage() {
     });
   }, [data, messageFiles]);
 
-  const addToast = useCallback((state: Toast["state"], text: string) => {
-    const id = nanoid(6);
-    setToasts((prev) => [...prev, { id, state, text }]);
-    if (state !== "sending") {
-      setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
-    }
-  }, []);
-
-  const dismissToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
-
-  const confirmAction = useCallback((text: string): Promise<boolean> => {
-    return new Promise((resolve) => {
-      const id = nanoid(6);
-      setToasts((prev) => [...prev, {
-        id, state: "confirm", text,
-        onConfirm: () => {
-          setToasts((prev) => prev.map((t) => t.id === id ? { ...t, state: "success", text: "Done", onConfirm: undefined, onCancel: undefined } : t));
-          setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 2000);
-          resolve(true);
-        },
-        onCancel: () => {
-          setToasts((prev) => prev.map((t) => t.id === id ? { ...t, state: "info", text: "Canceled", onConfirm: undefined, onCancel: undefined } : t));
-          setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 2000);
-          resolve(false);
-        },
-      }]);
-    });
-  }, []);
-
   // ── Data loading ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const gid = typeof guildId === "string" ? guildId : undefined;
@@ -904,10 +135,11 @@ export default function GuildAnnouncementsPage() {
     if (!gid) return;
     (async () => {
       try {
-        const [ovRes, chRes, emRes] = await Promise.all([
+        const [ovRes, chRes, emRes, prRes] = await Promise.all([
           fetch(`/api/backend/dashboard/guild/${gid}/overview`),
           fetch(`/api/backend/guilds/${gid}/channels`),
           fetch(`/api/backend/guilds/${gid}/emojis`),
+          fetch(`/api/backend/modules/${gid}/announcements/presets`),
         ]);
         if ([ovRes.status, chRes.status, emRes.status].some((s) => s === 401)) {
           router.replace("/api/auth/discord"); return;
@@ -919,15 +151,17 @@ export default function GuildAnnouncementsPage() {
         setModules(ov.modules || []);
         setChannels(Array.isArray(ch.channels) ? ch.channels.filter((c: GuildChannel) => c.type === 0) : []);
         setServerEmojis(Array.isArray(em.emojis) ? em.emojis : []);
-        const announcementsModule = (ov.modules || []).find((m: any) => m.name === "announcements");
-        const savedPresets = announcementsModule?.config?.presets;
-        if (Array.isArray(savedPresets) && savedPresets.length > 0) {
-          setPresets(savedPresets.map((p: any) => ({
-            id:   p.id   || `preset-${nanoid()}`,
-            name: String(p.name || "").slice(0, 80),
-            kind: p.kind === "template" ? "template" as const : "draft" as const,
-            data: p.data || { version: "d2", messages: [{ _id: randomId(), data: {} }], targets: [] },
-          })));
+        // Load presets from new table, fall back to legacy config
+        if (prRes.ok) {
+          const prData = await prRes.json();
+          if (Array.isArray(prData.presets) && prData.presets.length > 0) {
+            setPresets(prData.presets.map((p: any) => ({
+              id:   p.id,
+              name: String(p.name || "").slice(0, 80),
+              kind: p.kind === "template" ? "template" as const : "draft" as const,
+              data: p.data || { version: "d2", messages: [{ _id: randomId(), data: {} }], targets: [] },
+            })));
+          }
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to load guild data";
@@ -940,38 +174,15 @@ export default function GuildAnnouncementsPage() {
   // ── Helpers ───────────────────────────────────────────────────────────────────
   const setD = useCallback((next: QueryData) => setData(cloneQueryData(next)), []);
 
-  const flushHistory = useCallback(() => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-      const hidx = historyIdxRef.current;
-      setHistory((prev) => {
-        const next = prev.slice(0, hidx + 1);
-        next.push(cloneQueryData(latestDataRef.current));
-        if (next.length > 50) next.splice(0, next.length - 50);
-        return next;
-      });
-      setHistoryIdx((prev) => prev + 1);
-    }
-  }, []);
-
   const undo = useCallback(() => {
-    flushHistory();
-    if (historyIdx <= 0) return;
-    skipHistoryRef.current = true;
-    const newIdx = historyIdx - 1;
-    setHistoryIdx(newIdx);
-    setD(cloneQueryData(history[newIdx]!));
-  }, [historyIdx, history, setD, flushHistory]);
+    const snapshot = rawUndo();
+    if (snapshot) { skipHistoryRef.current = true; setD(snapshot); }
+  }, [rawUndo, setD, skipHistoryRef]);
 
   const redo = useCallback(() => {
-    flushHistory();
-    if (historyIdx >= history.length - 1) return;
-    skipHistoryRef.current = true;
-    const newIdx = historyIdx + 1;
-    setHistoryIdx(newIdx);
-    setD(cloneQueryData(history[newIdx]!));
-  }, [historyIdx, history, setD, flushHistory]);
+    const snapshot = rawRedo();
+    if (snapshot) { skipHistoryRef.current = true; setD(snapshot); }
+  }, [rawRedo, setD, skipHistoryRef]);
 
   const resetAll = useCallback(async () => {
     const ok = await confirmAction("Reset everything? All messages, files, and history will be cleared.");
@@ -986,8 +197,7 @@ export default function GuildAnnouncementsPage() {
     setComponentModalOpen(false);
     setEditingComponent(null);
     setEditingComponentPos(null);
-    setHistory([cloneQueryData({ version: data.version, messages: [{ _id: randomId(), data: {} }], targets: [] })]);
-    setHistoryIdx(0);
+    resetHistory({ version: data.version, messages: [{ _id: randomId(), data: {} }], targets: [] });
     addToast("info", "Reset to empty state.");
   }, [data.version, setD, addToast, confirmAction]);
 
@@ -1090,29 +300,35 @@ export default function GuildAnnouncementsPage() {
     const name = presetName.trim().slice(0, 80);
     if (!name) { addToast("error", "Enter a name before saving."); return; }
     const existingIdx = presets.findIndex((p) => p.kind === kind && p.name.toLowerCase() === name.toLowerCase());
-    const next = [...presets];
-    const preset = {
-      id:   existingIdx >= 0 ? next[existingIdx]!.id : `preset-${nanoid()}`,
-      name, kind, data: cloneQueryData(data),
-    };
-    if (existingIdx >= 0) next[existingIdx]! = preset;
-    else next.unshift(preset);
-    setPresets(next);
     try {
-      const announcementsModule = modules.find((m) => m.name === "announcements");
-      await fetch(`/api/backend/modules/${guildId}/announcements`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enabled: announcementsModule?.enabled ?? true,
-          config: { presets: next.map((p) => ({ id: p.id, name: p.name, kind: p.kind, data: p.data })) },
-        }),
-      });
+      if (existingIdx >= 0) {
+        const existing = presets[existingIdx]!;
+        const body = { name, kind, data: cloneQueryData(data) };
+        await fetch(`/api/backend/modules/${guildId}/announcements/presets/${existing.id}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        });
+      } else {
+        const body = { name, kind, data: cloneQueryData(data) };
+        const res = await fetch(`/api/backend/modules/${guildId}/announcements/presets`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Failed to save preset");
+        // Use server-assigned id
+        const next = [{ ...body, id: data.preset.id }, ...presets];
+        setPresets(next);
+        addToast("success", `${kind === "template" ? "Template" : "Draft"} saved.`);
+        return;
+      }
+      const next = [...presets];
+      next[existingIdx]! = { ...next[existingIdx]!, name, data: cloneQueryData(data) };
+      setPresets(next);
       addToast("success", `${kind === "template" ? "Template" : "Draft"} saved.`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to save preset";
       addToast("error", msg);
     }
-  }, [presetName, presets, data, modules, guildId, addToast]);
+  }, [presetName, presets, data, guildId, addToast]);
 
   const loadPreset = useCallback((preset: { id: string; name: string; kind: "draft" | "template"; data: QueryData }) => {
     setData(cloneQueryData(preset.data));
@@ -1126,23 +342,15 @@ export default function GuildAnnouncementsPage() {
     if (!target) return;
     const ok = await confirmAction(`Delete preset "${target.name}"?`);
     if (!ok) return;
-    const next = presets.filter((p) => p.id !== presetId);
-    setPresets(next);
     try {
-      const announcementsModule = modules.find((m) => m.name === "announcements");
-      await fetch(`/api/backend/modules/${guildId}/announcements`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enabled: announcementsModule?.enabled ?? true,
-          config: { presets: next.map((p) => ({ id: p.id, name: p.name, kind: p.kind, data: p.data })) },
-        }),
-      });
+      await fetch(`/api/backend/modules/${guildId}/announcements/presets/${presetId}`, { method: "DELETE" });
+      setPresets((prev: any) => prev.filter((p: any) => p.id !== presetId));
       addToast("success", "Preset deleted.");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to delete preset";
       addToast("error", msg);
     }
-  }, [presets, modules, guildId, addToast, confirmAction]);
+  }, [guildId, addToast, confirmAction, presets]);
 
   // ── Send ──────────────────────────────────────────────────────────────────────
   const handleSend = useCallback(async () => {
@@ -1257,6 +465,7 @@ export default function GuildAnnouncementsPage() {
 
         const hasFiles = data.messages.some((m) => (messageFiles[m._id || ""] || []).length > 0);
         let res: Response;
+        const url = `${getBackendApiUrl()}/api/guilds/${guildId}/announcements`;
         if (hasFiles) {
           const fd = new FormData();
           fd.append("payload", JSON.stringify(body));
@@ -1266,13 +475,11 @@ export default function GuildAnnouncementsPage() {
             fd.append(`filemeta_${m._id || "unknown"}`, JSON.stringify(metas));
             files.forEach((f) => { if (f.file) fd.append(`file_${m._id || "unknown"}`, f.file, f.name); });
           });
-          res = await fetch(`${getBackendApiUrl()}/api/guilds/${guildId}/announcements`, {
-            method: "POST", body: fd, credentials: "include",
-          });
+          res = await fetch(url, { method: "POST", body: fd, credentials: "include" });
         } else {
-          res = await fetch(`/api/backend/guilds/${guildId}/announcements`, {
+          res = await fetch(url, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
+            body: JSON.stringify(body), credentials: "include",
           });
         }
         const responseData = await res.json().catch(() => ({}));
@@ -1333,81 +540,6 @@ export default function GuildAnnouncementsPage() {
 
   return (
     <>
-      <style>{`
-        /* ── Slide-up animation ────────────────────────────────────── */
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
-        @keyframes starPop {
-          0%   { transform: scale(0); opacity: 0; }
-          60%  { transform: scale(1.35); opacity: 1; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-
-        @keyframes starBounce {
-          0%   { transform: scale(1); }
-          25%  { transform: scale(1.3); }
-          50%  { transform: scale(0.9); }
-          75%  { transform: scale(1.1); }
-          100% { transform: scale(1); }
-        }
-
-        @keyframes dupFlip {
-          0%   { transform: rotateY(0deg); }
-          25%  { transform: rotateY(90deg); }
-          50%  { transform: rotateY(180deg); }
-          75%  { transform: rotateY(90deg); }
-          100% { transform: rotateY(0deg); }
-        }
-
-        @keyframes codeCapture {
-          0%   { opacity: 1; transform: scale(1); }
-          20%  { opacity: 0.3; transform: scale(0.8); }
-          40%  { opacity: 1; transform: scale(1.2); }
-          70%  { opacity: 0.8; transform: scale(0.95); }
-          100% { opacity: 1; transform: scale(1); }
-        }
-
-        @keyframes trashTip {
-          0%   { transform: rotate(0deg); }
-          25%  { transform: rotate(-20deg); }
-          50%  { transform: rotate(10deg); }
-          75%  { transform: rotate(-5deg); }
-          100% { transform: rotate(0deg); }
-        }
-
-        /* ── Inter + Syne from Google Fonts ──────────────────────── */
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600;700&display=swap');
-
-        /* ── Left-pane slim scrollbar ─────────────────────────────── */
-        .left-scroll::-webkit-scrollbar        { width: 6px; }
-        .left-scroll::-webkit-scrollbar-track  { background: #1a1a1a; }
-        .left-scroll::-webkit-scrollbar-thumb  {
-          background: #555;
-          border-radius: 10px;
-        }
-        .left-scroll::-webkit-scrollbar-thumb:hover {
-          background: #777;
-        }
-
-        /* ── Preview scrollbar ────────────────────────────────────── */
-        .preview-scroll::-webkit-scrollbar        { width: 5px; }
-        .preview-scroll::-webkit-scrollbar-track  { background: transparent; }
-        .preview-scroll::-webkit-scrollbar-thumb  {
-          background: rgba(255,255,255,0.08);
-          border-radius: 10px;
-        }
-
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
-      `}</style>
-
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       <SendModal

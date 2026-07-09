@@ -691,9 +691,11 @@ export class AnnouncementService {
         editedMessages += 1;
       } catch (error: any) {
         failedEdits += 1;
+        const errMsg = error instanceof Error ? error.message : 'Failed to edit the linked announcement message.';
+        logger.error({ guildId, entryId: entry.id, error: errMsg }, 'announcement: edit failed');
         errors.push({
           entry_id: entry.id,
-          error: error instanceof Error ? error.message : 'Failed to edit the linked announcement message.',
+          error: errMsg,
         });
       }
     }
@@ -708,9 +710,11 @@ export class AnnouncementService {
           deliveredChannels += 1;
         } catch (error: any) {
           failedChannels += 1;
+          const errMsg = error instanceof Error ? error.message : 'Failed to send the announcement.';
+          logger.error({ guildId, channelId: (channel as any).id, error: errMsg }, 'announcement: send failed');
           errors.push({
             channel_id: (channel as any).id,
-            error: error instanceof Error ? error.message : 'Failed to send the announcement.',
+            error: errMsg,
           });
         }
         await sleep(500);

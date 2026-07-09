@@ -1,0 +1,69 @@
+/* ── Slide-up animation ────────────────────────────────────── */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes starPop {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.35); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes starBounce {
+  0%   { transform: scale(1); }
+  25%  { transform: scale(1.3); }
+  50%  { transform: scale(0.9); }
+  75%  { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+@keyframes dupFlip {
+  0%   { transform: rotateY(0deg); }
+  25%  { transform: rotateY(90deg); }
+  50%  { transform: rotateY(180deg); }
+  75%  { transform: rotateY(90deg); }
+  100% { transform: rotateY(0deg); }
+}
+
+@keyframes codeCapture {
+  0%   { opacity: 1; transform: scale(1); }
+  20%  { opacity: 0.3; transform: scale(0.8); }
+  40%  { opacity: 1; transform: scale(1.2); }
+  70%  { opacity: 0.8; transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes trashTip {
+  0%   { transform: rotate(0deg); }
+  25%  { transform: rotate(-20deg); }
+  50%  { transform: rotate(10deg); }
+  75%  { transform: rotate(-5deg); }
+  100% { transform: rotate(0deg); }
+}
+
+/* ── Left-pane slim scrollbar ─────────────────────────────── */
+.left-scroll::-webkit-scrollbar        { width: 6px; }
+.left-scroll::-webkit-scrollbar-track  { background: #1a1a1a; }
+.left-scroll::-webkit-scrollbar-thumb  {
+  background: #555;
+  border-radius: 10px;
+}
+.left-scroll::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}
+
+/* ── Preview scrollbar ────────────────────────────────────── */
+.preview-scroll::-webkit-scrollbar        { width: 6px; }
+.preview-scroll::-webkit-scrollbar-track  { background: transparent; }
+.preview-scroll::-webkit-scrollbar-thumb  {
+  background: rgba(255,255,255,0.08);
+  border-radius: 10px;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }

@@ -121,7 +121,7 @@ export class UploadService {
             const url = await this.processFile(fd);
             return { outcome: 'uploaded' as const, uri, url, entryId, fileIndex };
           } catch (error: any) {
-            logger.warn({ batchId, entryId, fileIndex, error: error.message }, 'upload: all retries failed, falling back');
+            logger.error({ batchId, entryId, fileIndex, originalname, error: error.message }, 'upload: all retries failed, falling back to inline attachment');
             return {
               outcome: 'fallback' as const,
               fallback: {

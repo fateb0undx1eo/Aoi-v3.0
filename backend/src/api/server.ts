@@ -20,6 +20,7 @@ import { moduleRoutes } from './routes/moduleRoutes.js';
 import { analyticsRoutes } from './routes/analyticsRoutes.js';
 import { settingsRoutes } from './routes/settingsRoutes.js';
 import { moderationRoutes } from './routes/moderationRoutes.js';
+import { presetRoutes } from './routes/presetRoutes.js';
 
 interface ApiServerDependencies {
   authService: any;
@@ -187,6 +188,7 @@ export function buildApiServer(deps: any): BuildResult {
   registerGroup('/api/analytics', analyticsRoutes);
   registerGroup('/api/settings', settingsRoutes);
   registerGroup('/api/moderation', moderationRoutes, [requireAuth(deps.authService)]);
+  registerGroup('/api/modules', presetRoutes);
 
   return { fastify, server };
 }

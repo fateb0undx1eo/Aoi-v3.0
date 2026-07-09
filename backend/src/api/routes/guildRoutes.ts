@@ -223,7 +223,7 @@ export async function guildRoutes(instance: FastifyInstance, opts: { deps: Deps 
         }
       }
 
-      if ((entryBuffers as any).length > 10) {
+      if (Object.keys(entryBuffers).length > 10) {
         return reply.status(400).send({ error: 'Maximum 10 files per announcement' });
       }
 
