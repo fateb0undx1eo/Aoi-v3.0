@@ -508,8 +508,9 @@ export default function GuildAnnouncementsPage() {
       method: "POST", body: fd, credentials: "include",
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: "Upload failed" }));
-      throw new Error(err.error || "Upload failed");
+      let msg = "Upload failed";
+      try { const body = await res.json(); msg = body.error || msg; } catch {}
+      throw new Error(msg);
     }
     const data = await res.json();
     return data.url;
