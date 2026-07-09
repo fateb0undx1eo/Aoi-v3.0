@@ -297,8 +297,8 @@ export default function EmbedEditor({
      else if (target === "image") update({ image: { url } });
      else if (target === "authorIcon") update({ author: { name: embed.author?.name ?? "", icon_url: url, url: embed.author?.url } });
      else if (target === "footerIcon") update({ footer: { text: embed.footer?.text ?? "", icon_url: url } });
-    } catch {
-     onAttachmentError?.("Upload failed");
+    } catch (err) {
+     onAttachmentError?.(err instanceof Error ? err.message : "Upload failed");
     }
    };
    input.click();

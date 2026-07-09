@@ -501,12 +501,17 @@ export default function GuildAnnouncementsPage() {
     if (!gid) throw new Error("No guild ID");
     const fd = new FormData();
     fd.append("file", file);
-    const res = await fetch(`${getBackendApiUrl()}/api/guilds/${gid}/upload`, {
-      method: "POST", body: fd, credentials: "include",
-    });
+    let res;
+    try {
+      res = await fetch(`${getBackendApiUrl()}/api/guilds/${gid}/upload`, {
+        method: "POST", body: fd, credentials: "include",
+      });
+    } catch (err) {
+      throw new Error(`Network error reaching upload server: ${err instanceof Error ? err.message : 'unknown'}`);
+    }
     if (!res.ok) {
       let msg = "Upload failed";
-      try { const body = await res.json(); msg = body.error || msg; } catch {}
+      try { const body = await res.json(); msg = body.error || msg; } catch { msg = `HTTP ${res.status}: ${res.statusText}`; }
       throw new Error(msg);
     }
     const data = await res.json();
