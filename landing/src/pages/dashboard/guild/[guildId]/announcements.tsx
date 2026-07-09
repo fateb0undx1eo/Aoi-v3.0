@@ -312,10 +312,10 @@ export default function GuildAnnouncementsPage() {
         const res = await fetch(`/api/backend/modules/${guildId}/announcements/presets`, {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Failed to save preset");
+        const result = await res.json();
+        if (!res.ok) throw new Error(result?.error || "Failed to save preset");
         // Use server-assigned id
-        const next = [{ ...body, id: data.preset.id }, ...presets];
+        const next = [{ ...body, id: result.preset.id }, ...presets];
         setPresets(next);
         addToast("success", `${kind === "template" ? "Template" : "Draft"} saved.`);
         return;
