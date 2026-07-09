@@ -499,15 +499,11 @@ export default function GuildAnnouncementsPage() {
     }
     const gid = typeof guildId === "string" ? guildId : "";
     if (!gid) throw new Error("No guild ID");
-    const buffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
-    const base64 = btoa(binary);
+    const fd = new FormData();
+    fd.append("file", file);
     const res = await fetch(`/api/backend/guilds/${gid}/upload`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename: file.name, mimetype: file.type, size: buffer.byteLength, data: base64 }),
+      body: fd,
     });
     if (!res.ok) {
       let msg = "Upload failed";
