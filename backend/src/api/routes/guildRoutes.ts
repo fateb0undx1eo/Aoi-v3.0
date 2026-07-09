@@ -192,58 +192,66 @@ export async function guildRoutes(instance: FastifyInstance, opts: { deps: Deps 
       const params = request.params as Record<string, string>;
       const guildId = params.guildId!;
 
-      const body: Record<string, any> = {};
-      const entryMetas: Record<string, any> = {};
+      let body: Record<string, any>;
+      let entryMetas: Record<string, any> = {};
       const entryBuffers: Record<string, { buffer: Buffer; filename: string; mimetype: string; size: number }[]> = {};
 
-      const parts = request.parts();
-      for await (const part of parts) {
-        if (part.type === 'file') {
-          const fieldMatch = part.fieldname?.match(/^file_(.+)$/);
-          if (fieldMatch) {
-            const entryId = fieldMatch[1]!;
-            if (!entryBuffers[entryId]) entryBuffers[entryId] = [];
-            const buffer = await part.toBuffer();
-            entryBuffers[entryId].push({
-              buffer,
-              filename: part.filename,
-              mimetype: part.mimetype,
-              size: buffer.length,
-            });
-          }
-        } else {
-          const metaMatch = part.fieldname.match(/^filemeta_(.+)$/);
-          if (metaMatch) {
-            try { entryMetas[metaMatch[1]!] = JSON.parse(part.value as string); } catch {}
-          } else if (part.fieldname === 'payload') {
-            try { Object.assign(body, JSON.parse(part.value as string)); } catch {}
+      const contentType = (request.headers['content-type'] || '').toLowerCase();
+
+      if (contentType.includes('multipart/form-data')) {
+        body = {};
+        const parts = request.parts();
+        for await (const part of parts) {
+          if (part.type === 'file') {
+            const fieldMatch = part.fieldname?.match(/^file_(.+)$/);
+            if (fieldMatch) {
+              const entryId = fieldMatch[1]!;
+              if (!entryBuffers[entryId]) entryBuffers[entryId] = [];
+              const buffer = await part.toBuffer();
+              entryBuffers[entryId].push({
+                buffer,
+                filename: part.filename,
+                mimetype: part.mimetype,
+                size: buffer.length,
+              });
+            }
           } else {
-            body[part.fieldname] = part.value;
+            const metaMatch = part.fieldname.match(/^filemeta_(.+)$/);
+            if (metaMatch) {
+              try { entryMetas[metaMatch[1]!] = JSON.parse(part.value as string); } catch {}
+            } else if (part.fieldname === 'payload') {
+              try { Object.assign(body, JSON.parse(part.value as string)); } catch {}
+            } else {
+              body[part.fieldname] = part.value;
+            }
           }
         }
+
+        if (Object.keys(entryBuffers).length > 10) {
+          return reply.status(400).send({ error: 'Maximum 10 files per announcement' });
+        }
+
+        logger.info({ guildId, filesCount: Object.keys(entryBuffers).length, bodyKeys: Object.keys(body) }, 'announcement upload received');
+
+        body._entryFiles = {};
+        for (const [entryId, metas] of Object.entries(entryMetas)) {
+          const files = entryBuffers[entryId] || [];
+          const metaArr = Array.isArray(metas) ? metas : [metas];
+          body._entryFiles[entryId] = files.map((f, i) => ({
+            buffer: f.buffer,
+            originalname: (metaArr[i] as any)?.name || f.filename,
+            mimetype: f.mimetype,
+            size: f.size,
+            spoiler: (metaArr[i] as any)?.spoiler || false,
+            description: (metaArr[i] as any)?.description || undefined,
+          }));
+        }
+      } else {
+        body = request.body as Record<string, any>;
       }
 
-      if (Object.keys(entryBuffers).length > 10) {
-        return reply.status(400).send({ error: 'Maximum 10 files per announcement' });
-      }
-
-      logger.info({ guildId, filesCount: Object.keys(entryBuffers).length, bodyKeys: Object.keys(body) }, 'announcement upload received');
-
-      body._entryFiles = {};
-      for (const [entryId, metas] of Object.entries(entryMetas)) {
-        const files = entryBuffers[entryId] || [];
-        const metaArr = Array.isArray(metas) ? metas : [metas];
-        body._entryFiles[entryId] = files.map((f, i) => ({
-          buffer: f.buffer,
-          originalname: (metaArr[i] as any)?.name || f.filename,
-          mimetype: f.mimetype,
-          size: f.size,
-          spoiler: (metaArr[i] as any)?.spoiler || false,
-          description: (metaArr[i] as any)?.description || undefined,
-        }));
-      }
-
-      logger.info({ entryCount: Object.keys(body._entryFiles).length, channelCount: body.channel_ids?.length }, 'announcement payload assembled');
+      const entryFiles = body._entryFiles || {};
+      logger.info({ entryCount: Object.keys(entryFiles).length, channelCount: body.channel_ids?.length }, 'announcement payload assembled');
       const result = await announcementService.send(guildId, body);
       logger.info({ result }, 'announcement sent successfully');
       return reply.status(200).send({ ok: true, result });
