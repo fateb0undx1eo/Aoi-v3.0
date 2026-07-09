@@ -1,8 +1,7 @@
-import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
+import { CoolIcon } from "@/components/icons/CoolIcon";
 import type { APIContainerComponent, APIV2ChildComponent } from "../types";
-
 import { intToHex, decimalToRgb } from "../utils/color";
-import ColorSwatch from "../pickers/ColorSwatch";
+import ColorPickerPopover from "../pickers/ColorPickerPopover";
 import V2ChildEditor from "./V2ChildEditor";
 
 const CONTAINER_CHILD_TYPES: { type: APIV2ChildComponent["type"]; label: string }[] = [
@@ -49,78 +48,82 @@ export default function V2ContainerEditor({ container, onContainerChange, onRemo
     onContainerChange({ ...container, components: next });
   };
 
+  const borderColor = hasAccent
+    ? `rgba(${decimalToRgb(accentColorVal!).r},${decimalToRgb(accentColorVal!).g},${decimalToRgb(accentColorVal!).b},0.25)`
+    : "#27272a";
+  const leftBorderColor = hasAccent ? intToHex(accentColorVal!) : "transparent";
+
   return (
-    <div style={{
-      borderRadius: 8, border: hasAccent ? `1px solid rgba(${decimalToRgb(accentColorVal!).r},${decimalToRgb(accentColorVal!).g},${decimalToRgb(accentColorVal!).b},0.25)` : "1px solid #27272a",
-      backgroundColor: "#000",
-      padding: 10,
-      borderLeft: hasAccent ? `4px solid ${intToHex(accentColorVal!)}` : "4px solid transparent",
-    }}>
+    <div
+      className="rounded-lg p-2.5"
+      style={{
+        backgroundColor: "#151515",
+        border: `1px solid ${borderColor}`,
+        borderLeft: `4px solid ${leftBorderColor}`,
+      }}
+    >
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa" }}>
-            Container <span style={{ color: "#52525b", fontWeight: 400 }}>({container.components.length} items)</span>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold text-zinc-400">
+            Container <span className="text-zinc-600 font-normal">({container.components.length} items)</span>
           </span>
-          <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 9, color: "#71717a", cursor: "pointer" }}>
+          <label className="flex items-center gap-1 text-[9px] text-zinc-500 cursor-pointer">
             <input type="checkbox" checked={container.spoiler ?? false}
               onChange={(e) => onContainerChange({ ...container, spoiler: e.target.checked || undefined })}
-              style={{ width: 11, height: 11 }} />
+              className="h-2.5 w-2.5 rounded border-zinc-700 bg-zinc-800" />
             Spoiler
           </label>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          {/* Accent */}
+        <div className="flex items-center gap-1">
+          {/* Accent color */}
           {hasAccent ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 3, borderRadius: 4, border: "1px solid #27272a", padding: "2px 6px", backgroundColor: "#09090b" }}>
-              <div style={{ width: 10, height: 10, borderRadius: 2, border: "1px solid #3f3f46", backgroundColor: intToHex(accentColorVal!) }} />
-              <ColorSwatch value={accentColorVal!} onChange={(v) => { if (v != null) onContainerChange({ ...container, accent_color: v }); }} />
+            <div className="flex items-center gap-1 rounded border border-zinc-800 px-1.5 py-0.5" style={{ backgroundColor: "#09090b" }}>
+              <div
+                className="h-2.5 w-2.5 rounded border border-zinc-700"
+                style={{ backgroundColor: intToHex(accentColorVal!) }}
+              />
+              <ColorPickerPopover value={accentColorVal!} onChange={(v) => { onContainerChange({ ...container, accent_color: v }); }} />
               <button type="button" onClick={() => onContainerChange({ ...container, accent_color: undefined })}
-                style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", lineHeight: 1 }}
+                className="text-zinc-600 hover:text-zinc-300 flex items-center p-0 border-none bg-none cursor-pointer"
                 title="Remove accent">
-                <X size={10} />
+                <CoolIcon icon="Close_MD" size={10} />
               </button>
             </div>
           ) : (
             <button type="button" onClick={() => onContainerChange({ ...container, accent_color: 0x5865F2 })}
-              style={{
-                fontSize: 9, padding: "2px 6px", borderRadius: 4,
-                border: "1px solid #27272a", backgroundColor: "#111",
-                color: "#71717a", cursor: "pointer",
-              }}>
+              className="text-[9px] px-1.5 py-0.5 rounded border border-zinc-800 bg-[#111] text-zinc-500 hover:text-zinc-300 cursor-pointer">
               + Accent
             </button>
           )}
           <button type="button" onClick={onRemove}
-            style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex" }}>
-            <X size={12} />
+            className="text-zinc-600 hover:text-red-400 flex items-center p-0 border-none bg-none cursor-pointer">
+            <CoolIcon icon="Close_MD" size={12} />
           </button>
         </div>
       </div>
 
       {/* Children */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 6 }}>
+      <div className="space-y-1 mb-2">
         {container.components.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "8px 0", fontSize: 10, color: "#52525b" }}>
-            Container is empty — add children below
+          <div className="text-center py-3 text-[10px] text-zinc-600">
+            Container is empty &mdash; add children below
           </div>
         ) : (
           container.components.map((child, ci) => (
-            <div key={ci} style={{ position: "relative" }}>
+            <div key={ci} className="relative">
               {/* Move buttons */}
-              <div style={{
-                position: "absolute", left: -14, top: "50%", transform: "translateY(-50%)",
-                display: "flex", flexDirection: "column", gap: 1, opacity: 0.6,
-              }}
+              <div
+                className="absolute left-[-14px] top-1/2 -translate-y-1/2 flex flex-col gap-0.5 opacity-60 hover:opacity-100 transition-opacity"
                 onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
                 onMouseLeave={(e) => e.currentTarget.style.opacity = "0.6"}>
                 <button type="button" onClick={() => moveChild(ci, "up")} disabled={ci === 0}
-                  style={{ color: "#71717a", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", lineHeight: 1, opacity: ci === 0 ? 0.3 : 1 }}>
-                  <ChevronUp size={10} />
+                  className={`flex items-center p-0 border-none bg-none cursor-pointer ${ci === 0 ? "opacity-30" : "text-zinc-500 hover:text-zinc-300"}`}>
+                  <CoolIcon icon="Chevron_Up" size={10} />
                 </button>
                 <button type="button" onClick={() => moveChild(ci, "down")} disabled={ci === container.components.length - 1}
-                  style={{ color: "#71717a", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", lineHeight: 1, opacity: ci === container.components.length - 1 ? 0.3 : 1 }}>
-                  <ChevronDown size={10} />
+                  className={`flex items-center p-0 border-none bg-none cursor-pointer ${ci === container.components.length - 1 ? "opacity-30" : "text-zinc-500 hover:text-zinc-300"}`}>
+                  <CoolIcon icon="Chevron_Down" size={10} />
                 </button>
               </div>
               <V2ChildEditor child={child} onChange={(c) => updateChild(ci, c)} onRemove={() => removeChild(ci)} />
@@ -130,16 +133,11 @@ export default function V2ContainerEditor({ container, onContainerChange, onRemo
       </div>
 
       {/* Add buttons */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+      <div className="flex flex-wrap gap-1">
         {CONTAINER_CHILD_TYPES.map(({ type, label }) => (
           <button key={type} type="button" onClick={() => addChild(type)}
-            style={{
-              display: "flex", alignItems: "center", gap: 3, padding: "3px 8px",
-              fontSize: 9, textTransform: "uppercase", letterSpacing: "0.04em",
-              borderRadius: 4, border: "1px solid #27272a", backgroundColor: "#111",
-              color: "#71717a", cursor: "pointer",
-            }}>
-            <Plus size={9} /> {label}
+            className="flex items-center gap-1 px-2 py-1 text-[9px] uppercase tracking-wider rounded border border-zinc-800 bg-[#111] text-zinc-500 hover:text-zinc-300 cursor-pointer">
+            <CoolIcon icon="Add_Plus" size={11} /> {label}
           </button>
         ))}
       </div>

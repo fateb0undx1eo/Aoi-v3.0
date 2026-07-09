@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Copy, Plus, X } from "lucide-react";
+import { CoolIcon } from "@/components/icons/CoolIcon";
 import { BUTTON_STYLES, DISCORD_LIMITS } from "../constants";
 import type { APIButtonComponent, APIComponentInActionRow, APIContainerComponent, APITopLevelComponent, APIV2ChildComponent } from "../types";
 import { randomId } from "../utils/message";
@@ -112,20 +112,18 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
     const hasSelect = row.components.some(c => c.type !== 2);
     const hasButton = row.components.some(c => c.type === 2);
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
-        {/* Buttons — only if no select present */}
+      <div className="flex items-center gap-1 flex-wrap">
         {!hasSelect && row.components.length < DISCORD_LIMITS.V1_COMPONENTS_PER_ROW && (
           <>
             <button type="button" onClick={() => addButton(ri, 1)}
-              style={{ fontSize: 9, padding: "2px 6px", borderRadius: 3, border: "1px solid #27272a", background: "#111", color: "#71717a", cursor: "pointer", textTransform: "uppercase" }}>+Btn</button>
+              className="text-[9px] px-1.5 py-0.5 rounded border border-zinc-800 bg-[#111] text-zinc-500 hover:text-zinc-300 cursor-pointer uppercase">+Btn</button>
             <button type="button" onClick={() => addButton(ri, 5)}
-              style={{ fontSize: 9, padding: "2px 6px", borderRadius: 3, border: "1px solid #27272a", background: "#111", color: "#71717a", cursor: "pointer", textTransform: "uppercase" }}>+Link</button>
+              className="text-[9px] px-1.5 py-0.5 rounded border border-zinc-800 bg-[#111] text-zinc-500 hover:text-zinc-300 cursor-pointer uppercase">+Link</button>
           </>
         )}
-        {/* Select — only if row is empty */}
         {row.components.length === 0 && (
           <select defaultValue="" onChange={(e) => { const v = e.target.value; if (v) { addSelectToRow(ri, Number(v)); } }}
-            style={{ fontSize: 9, padding: "2px 4px", borderRadius: 3, border: "1px solid #27272a", background: "#111", color: "#71717a", outline: "none" }}>
+            className="text-[9px] px-1 py-0.5 rounded border border-zinc-800 bg-[#111] text-zinc-500 outline-none">
             <option value="" disabled>+Select...</option>
             <option value={3}>String</option>
             <option value={5}>User</option>
@@ -135,151 +133,147 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
           </select>
         )}
         <button type="button" onClick={() => duplicate(ri)}
-          style={{ fontSize: 9, padding: "2px 6px", borderRadius: 3, border: "1px solid #27272a", background: "#111", color: "#71717a", cursor: "pointer" }}>
-          <Copy size={10} />
+          className="text-[9px] px-1.5 py-0.5 rounded border border-zinc-800 bg-[#111] text-zinc-500 hover:text-zinc-300 cursor-pointer flex items-center">
+          <CoolIcon icon="Copy" size={10} />
         </button>
         {components.length > 1 && (
           <button type="button" onClick={() => removeTop(ri)}
-            style={{ color: "#52525b", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex" }}>
-            <X size={12} />
+            className="text-zinc-600 hover:text-red-400 flex items-center p-0 border-none bg-none cursor-pointer">
+            <CoolIcon icon="Close_MD" size={12} />
           </button>
         )}
       </div>
     );
   }
 
+  const addBtnClass = "flex items-center justify-center w-7 h-7 rounded text-zinc-500 hover:text-zinc-300 cursor-pointer";
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: 10, color: "#71717a" }}>
+    <div className="flex flex-col gap-2">
+      {/* Header + V2 add buttons */}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-zinc-500">
           {isV2 ? `Components (${total}/${DISCORD_LIMITS.V2_TOTAL_COMPONENTS})` : `Action Rows (${components.length}/${DISCORD_LIMITS.V1_ROWS})`}
         </span>
         {isV2 && (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          <div className="flex gap-1 flex-wrap">
             {v2BareLabels.map(({ type, label }) => (
               <button key={type} type="button" onClick={() => addV2Bare(type)}
-                style={{ fontSize: 9, padding: "3px 7px", borderRadius: 4, border: "1px solid #27272a", background: "#111", color: "#71717a", cursor: "pointer", textTransform: "uppercase" }}>
-                <Plus size={9} style={{ display: "inline", marginRight: 2 }} />{label}
+                className={addBtnClass}>
+                <CoolIcon icon="Add_Plus" size={16} />
               </button>
             ))}
             <button type="button" onClick={addV2Container}
-              style={{ fontSize: 9, padding: "3px 7px", borderRadius: 4, border: "1px solid #a855f7", background: "#1a0a2e", color: "#a855f7", cursor: "pointer", textTransform: "uppercase", fontWeight: 600 }}>
-              <Plus size={9} style={{ display: "inline", marginRight: 2 }} />Container
+              className="flex items-center justify-center w-7 h-7 rounded text-purple-400 hover:text-purple-300 cursor-pointer">
+              <CoolIcon icon="Add_Plus" size={16} />
             </button>
           </div>
         )}
       </div>
 
       {/* Component list */}
-      {components.map((row, ri) => {
-        // V1 Action Row
-        if (row.type === 1) {
-          return (
-            <div key={ri} style={{ position: "relative", borderRadius: 8, border: "1px solid #27272a", backgroundColor: "#000", padding: 8 }}>
-              <div style={{
-                position: "absolute", left: -14, top: "50%", transform: "translateY(-50%)",
-                display: "flex", flexDirection: "column", gap: 1, opacity: 0.3,
-              }}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = "0.3"}>
-                <button type="button" onClick={() => moveComponent(ri, "up")} disabled={ri === 0}
-                  style={{ color: "#71717a", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", lineHeight: 1, opacity: ri === 0 ? 0.3 : 1 }}>
-                  <ChevronUp size={10} />
-                </button>
-                <button type="button" onClick={() => moveComponent(ri, "down")} disabled={ri === components.length - 1}
-                  style={{ color: "#71717a", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", lineHeight: 1, opacity: ri === components.length - 1 ? 0.3 : 1 }}>
-                  <ChevronDown size={10} />
-                </button>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: "#a1a1aa" }}>
-                  Row {ri + 1} <span style={{ color: "#52525b", fontWeight: 400 }}>({row.components.length}/{DISCORD_LIMITS.V1_COMPONENTS_PER_ROW})</span>
-                </span>
-                {v1RowAdders(row, ri)}
-              </div>
-              {row.components.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "8px 0", fontSize: 10, color: "#52525b" }}>Empty — add buttons or a select menu</div>
-              ) : (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {row.components.map((comp, ci) => (
-                    <button key={ci} type="button" onClick={() => onEditComponent(comp, ri, ci)}
-                      style={{ position: "relative", padding: "4px 8px", borderRadius: 6, border: "1px solid #27272a", backgroundColor: "#111", color: "#a1a1aa", fontSize: 10, cursor: "pointer" }}>
-                      {comp.type === 2 ? (
-                        <span>{comp.label || "Button"} <span style={{ color: "#52525b" }}>({BUTTON_STYLES[comp.style]?.label || "?"})</span></span>
-                      ) : (
-                        <span>{["String","","","User","Role","Mentionable","Channel"][comp.type - 3] || "Select"} Select</span>
-                      )}
-                      <span style={{ position: "absolute", top: -5, right: -5, width: 12, height: 12, borderRadius: "50%", backgroundColor: "#ef4444", color: "#fff", fontSize: 8, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
-                        onClick={(e) => { e.stopPropagation(); removeComp(ri, ci); }}>x</span>
-                    </button>
-                  ))}
+      <div className="space-y-1">
+        {components.map((row, ri) => {
+          // V1 Action Row
+          if (row.type === 1) {
+            return (
+              <div key={ri} className="relative rounded-lg border border-zinc-800 p-2" style={{ backgroundColor: "#151515" }}>
+                {/* Move buttons */}
+                <div
+                  className="absolute left-[-14px] top-1/2 -translate-y-1/2 flex flex-col gap-0.5 opacity-30 hover:opacity-100 transition-opacity"
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = "0.3"}>
+                  <button type="button" onClick={() => moveComponent(ri, "up")} disabled={ri === 0}
+                    className={`flex items-center p-0 border-none bg-none cursor-pointer ${ri === 0 ? "opacity-30" : "text-zinc-500 hover:text-zinc-300"}`}>
+                    <CoolIcon icon="Chevron_Up" size={10} />
+                  </button>
+                  <button type="button" onClick={() => moveComponent(ri, "down")} disabled={ri === components.length - 1}
+                    className={`flex items-center p-0 border-none bg-none cursor-pointer ${ri === components.length - 1 ? "opacity-30" : "text-zinc-500 hover:text-zinc-300"}`}>
+                    <CoolIcon icon="Chevron_Down" size={10} />
+                  </button>
                 </div>
-              )}
-            </div>
-          );
-        }
-
-        // V2 Container
-        if (row.type === 17) {
-          return (
-            <div key={ri} style={{ position: "relative" }}>
-              <div style={{
-                position: "absolute", left: -14, top: "50%", transform: "translateY(-50%)",
-                display: "flex", flexDirection: "column", gap: 1, opacity: 0.3,
-              }}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = "0.3"}>
-                <button type="button" onClick={() => moveComponent(ri, "up")} disabled={ri === 0}
-                  style={{ color: "#71717a", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", lineHeight: 1, opacity: ri === 0 ? 0.3 : 1 }}>
-                  <ChevronUp size={10} />
-                </button>
-                <button type="button" onClick={() => moveComponent(ri, "down")} disabled={ri === components.length - 1}
-                  style={{ color: "#71717a", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", lineHeight: 1, opacity: ri === components.length - 1 ? 0.3 : 1 }}>
-                  <ChevronDown size={10} />
-                </button>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-semibold text-zinc-400">
+                    Row {ri + 1} <span className="text-zinc-600 font-normal">({row.components.length}/{DISCORD_LIMITS.V1_COMPONENTS_PER_ROW})</span>
+                  </span>
+                  {v1RowAdders(row, ri)}
+                </div>
+                {row.components.length === 0 ? (
+                  <div className="text-center py-2 text-[10px] text-zinc-600">Empty &mdash; add buttons or a select menu</div>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {row.components.map((comp, ci) => (
+                      <button key={ci} type="button" onClick={() => onEditComponent(comp, ri, ci)}
+                        className="relative px-2 py-1 rounded border border-zinc-800 bg-[#111] text-zinc-400 text-[10px] cursor-pointer hover:border-zinc-700">
+                        {comp.type === 2 ? (
+                          <span>{comp.label || "Button"} <span className="text-zinc-600">({BUTTON_STYLES[comp.style]?.label || "?"})</span></span>
+                        ) : (
+                          <span>{["String","","User","Role","Mentionable","Channel"][comp.type - 3] || "Select"} Select</span>
+                        )}
+                        <span
+                          className="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center cursor-pointer"
+                          onClick={(e) => { e.stopPropagation(); removeComp(ri, ci); }}>x</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <V2ContainerEditor container={row} onContainerChange={(c) => updateContainer(ri, c)} onRemove={() => removeTop(ri)} totalComponentCount={total} />
-            </div>
-          );
-        }
+            );
+          }
 
-        // V2 bare component (Text Display, Separator, Media Gallery, File, Section)
-        if (row.type === 10 || row.type === 12 || row.type === 13 || row.type === 14 || row.type === 9) {
-          return (
-            <div key={ri} style={{ position: "relative" }}>
-              <div style={{
-                position: "absolute", left: -14, top: "50%", transform: "translateY(-50%)",
-                display: "flex", flexDirection: "column", gap: 1, opacity: 0.3,
-              }}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = "0.3"}>
-                <button type="button" onClick={() => moveComponent(ri, "up")} disabled={ri === 0}
-                  style={{ color: "#71717a", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", lineHeight: 1, opacity: ri === 0 ? 0.3 : 1 }}>
-                  <ChevronUp size={10} />
-                </button>
-                <button type="button" onClick={() => moveComponent(ri, "down")} disabled={ri === components.length - 1}
-                  style={{ color: "#71717a", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", lineHeight: 1, opacity: ri === components.length - 1 ? 0.3 : 1 }}>
-                  <ChevronDown size={10} />
-                </button>
+          // V2 Container
+          if (row.type === 17) {
+            return (
+              <div key={ri} className="relative">
+                <div
+                  className="absolute left-[-14px] top-1/2 -translate-y-1/2 flex flex-col gap-0.5 opacity-30 hover:opacity-100 transition-opacity"
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = "0.3"}>
+                  <button type="button" onClick={() => moveComponent(ri, "up")} disabled={ri === 0}
+                    className={`flex items-center p-0 border-none bg-none cursor-pointer ${ri === 0 ? "opacity-30" : "text-zinc-500 hover:text-zinc-300"}`}>
+                    <CoolIcon icon="Chevron_Up" size={10} />
+                  </button>
+                  <button type="button" onClick={() => moveComponent(ri, "down")} disabled={ri === components.length - 1}
+                    className={`flex items-center p-0 border-none bg-none cursor-pointer ${ri === components.length - 1 ? "opacity-30" : "text-zinc-500 hover:text-zinc-300"}`}>
+                    <CoolIcon icon="Chevron_Down" size={10} />
+                  </button>
+                </div>
+                <V2ContainerEditor container={row} onContainerChange={(c) => updateContainer(ri, c)} onRemove={() => removeTop(ri)} totalComponentCount={total} />
               </div>
-              <V2ChildEditor child={row} onChange={(c) => updateBare(ri, c)} onRemove={() => removeTop(ri)} />
-            </div>
-          );
-        }
+            );
+          }
 
-        return null;
-      })}
+          // V2 bare component
+          if (row.type === 10 || row.type === 12 || row.type === 13 || row.type === 14 || row.type === 9) {
+            return (
+              <div key={ri} className="relative">
+                <div
+                  className="absolute left-[-14px] top-1/2 -translate-y-1/2 flex flex-col gap-0.5 opacity-30 hover:opacity-100 transition-opacity"
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = "0.3"}>
+                  <button type="button" onClick={() => moveComponent(ri, "up")} disabled={ri === 0}
+                    className={`flex items-center p-0 border-none bg-none cursor-pointer ${ri === 0 ? "opacity-30" : "text-zinc-500 hover:text-zinc-300"}`}>
+                    <CoolIcon icon="Chevron_Up" size={10} />
+                  </button>
+                  <button type="button" onClick={() => moveComponent(ri, "down")} disabled={ri === components.length - 1}
+                    className={`flex items-center p-0 border-none bg-none cursor-pointer ${ri === components.length - 1 ? "opacity-30" : "text-zinc-500 hover:text-zinc-300"}`}>
+                    <CoolIcon icon="Chevron_Down" size={10} />
+                  </button>
+                </div>
+                <V2ChildEditor child={row} onChange={(c) => updateBare(ri, c)} onRemove={() => removeTop(ri)} />
+              </div>
+            );
+          }
+
+          return null;
+        })}
+      </div>
 
       {/* V1 add row button */}
       {!isV2 && (
         <button type="button" onClick={addRow} disabled={components.length >= DISCORD_LIMITS.V1_ROWS}
-          style={{
-            width: "100%", padding: "6px 0", fontSize: 10, borderRadius: 8,
-            border: "1px dashed #27272a", background: "transparent", color: "#71717a",
-            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
-          }}>
-          <Plus size={12} /> Add Row
+          className="w-full py-1.5 text-zinc-500 hover:text-zinc-300 cursor-pointer disabled:opacity-40 flex items-center justify-center">
+          <CoolIcon icon="Add_Plus" size={16} />
         </button>
       )}
     </div>

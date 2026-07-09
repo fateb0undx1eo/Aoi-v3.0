@@ -17,7 +17,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from 'discord.js';
-import { createCanvas, loadImage, registerFont } from 'canvas';
+import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import chroma from 'chroma-js';
 import { existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
@@ -49,7 +49,7 @@ function loadFonts(): void {
     const fontPath = join(fontDir, FONT_FILES[i]!);
     if (existsSync(fontPath)) {
       try {
-        registerFont(fontPath, { family: FONT_NAMES[i]! });
+        GlobalFonts.registerFromPath(fontPath, FONT_NAMES[i]!);
       } catch {
         // font already registered or unavailable
       }

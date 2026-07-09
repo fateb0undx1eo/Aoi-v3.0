@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { formatDate } from "@/lib/date";
 import type { QueryDataMessage, QueryDataMessageData, QueryData, APIButtonComponent, APIEmbed, APIEmbedField } from "../types";
 import { DISCORD_LIMITS } from "../types";
+export { isComponentsV2 } from "./discord";
 
 export function randomId(): string { return nanoid(8); }
 
@@ -15,10 +16,6 @@ export function createDefaultComponent(): APIButtonComponent {
 
 export function cloneQueryData(data: QueryData): QueryData {
   return JSON.parse(JSON.stringify(data));
-}
-
-export function isComponentsV2(flags?: number): boolean {
-  return !!(flags && (flags & (1 << 15)));
 }
 
 export function hasFlag(flags: number | undefined | null, bit: number): boolean {

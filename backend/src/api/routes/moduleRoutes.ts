@@ -1,9 +1,7 @@
-import { Router } from 'express';
-import type { Request, Response, NextFunction } from 'express';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { requireGuildAccess } from '../middleware/requireGuildAccess.js';
 import { debounce } from '../../core/cache/layeredCache.js';
-import type { BotContext } from '../../types/index.js';
 import type { ConfigCache } from '../../types/index.js';
 import type { AuthService } from '../../services/authService.js';
 import type { AccessControlService } from '../../services/accessControlService.js';
@@ -22,11 +20,7 @@ interface BotLooksServiceLike {
   syncGuild(guildId: string): Promise<void>;
 }
 
-export function createModuleRoutes({
-  moduleService, configService, configCache, accessControlService, authService,
-  roleColorRotationService, memeService, botLooksService, staffListService,
-  dashboardOverviewService, profileStyleService
-}: {
+interface Deps {
   moduleService: ModuleService;
   configService: ConfigService;
   configCache: ConfigCache;
@@ -38,10 +32,19 @@ export function createModuleRoutes({
   staffListService?: StaffListService;
   dashboardOverviewService?: DashboardOverviewService;
   profileStyleService?: ProfileStyleService;
-}): Router {
-  const router = Router();
-  router.use(requireAuth(authService));
-  router.use('/:guildId', requireGuildAccess(accessControlService));
+}
+
+export async function moduleRoutes(instance: FastifyInstance, opts: { deps: Deps }): Promise<void> {
+  const {
+    moduleService, configService, configCache, accessControlService, authService,
+    roleColorRotationService, memeService, botLooksService, staffListService,
+    dashboardOverviewService, profileStyleService
+  } = opts.deps;
+  const authHook = requireAuth(authService);
+  const guildAccessHook = requireGuildAccess(accessControlService);
+
+  instance.addHook('preHandler', authHook);
+  instance.addHook('preHandler', guildAccessHook);
 
   const refreshFns = new Map<string, (...args: any[]) => void>();
   function getRefresh(guildId: string): (...args: any[]) => void {
@@ -53,70 +56,59 @@ export function createModuleRoutes({
     return fn;
   }
 
-  router.get('/:guildId', async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const guildId = req.params.guildId as string;
-      const modules = moduleService.listModules(guildId);
-      res.status(200).json({ modules });
-    } catch (error) {
-      next(error);
-    }
+  instance.get('/:guildId', async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as Record<string, string>;
+    const guildId = params.guildId!;
+    const modules = moduleService.listModules(guildId);
+    return reply.status(200).send({ modules });
   });
 
-  router.get('/:guildId/:moduleName', async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const guildId = req.params.guildId as string;
-      const moduleName = req.params.moduleName as string;
-      const moduleConfig = await configService.getModuleConfig(guildId, moduleName).catch(() => null);
-      res.status(200).json({
-        module: moduleConfig ?? {
-          guild_id: guildId,
-          module_name: moduleName,
-          enabled: true,
-          config: {}
-        }
-      });
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  router.put('/:guildId/:moduleName', async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const guildId = req.params.guildId as string;
-      const moduleName = req.params.moduleName as string;
-      const body = req.body as Record<string, any>;
-      await configService.upsertModuleConfig({
+  instance.get('/:guildId/:moduleName', async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as Record<string, string>;
+    const guildId = params.guildId!;
+    const moduleName = params.moduleName!;
+    const moduleConfig = await configService.getModuleConfig(guildId, moduleName).catch(() => null);
+    return reply.status(200).send({
+      module: moduleConfig ?? {
         guild_id: guildId,
         module_name: moduleName,
-        enabled: body.enabled ?? true,
-        config: body.config ?? {}
-      });
-      getRefresh(guildId)();
-      dashboardOverviewService?.invalidateGuild(guildId);
-      if (moduleName === 'community' && roleColorRotationService) {
-        await roleColorRotationService.syncGuild(guildId);
+        enabled: true,
+        config: {}
       }
-      if (moduleName === 'community' && memeService) {
-        await memeService.syncGuild(guildId);
-      }
-      if (moduleName === 'community' && botLooksService) {
-        await botLooksService.syncGuild(guildId);
-      }
-      if (moduleName === 'community' && profileStyleService) {
-        await profileStyleService.syncGuild(guildId);
-      }
-      if (moduleName === 'tools' && staffListService && body?.config?.staff_list) {
-        await staffListService.syncGuild(guildId, {
-          publishNow: true,
-          forceNewMessage: body.config.staff_list.update_mode !== 'edit_existing'
-        });
-      }
-      res.status(200).json({ ok: true });
-    } catch (error) {
-      next(error);
-    }
+    });
   });
 
-  return router;
+  instance.put('/:guildId/:moduleName', async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as Record<string, string>;
+    const guildId = params.guildId!;
+    const moduleName = params.moduleName!;
+    const body = request.body as Record<string, any>;
+    await configService.upsertModuleConfig({
+      guild_id: guildId,
+      module_name: moduleName,
+      enabled: body.enabled ?? true,
+      config: body.config ?? {}
+    });
+    getRefresh(guildId)();
+    dashboardOverviewService?.invalidateGuild(guildId);
+    if (moduleName === 'community' && roleColorRotationService) {
+      await roleColorRotationService.syncGuild(guildId);
+    }
+    if (moduleName === 'community' && memeService) {
+      await memeService.syncGuild(guildId);
+    }
+    if (moduleName === 'community' && botLooksService) {
+      await botLooksService.syncGuild(guildId);
+    }
+    if (moduleName === 'community' && profileStyleService) {
+      await profileStyleService.syncGuild(guildId);
+    }
+    if (moduleName === 'tools' && staffListService && body?.config?.staff_list) {
+      await staffListService.syncGuild(guildId, {
+        publishNow: true,
+        forceNewMessage: body.config.staff_list.update_mode !== 'edit_existing'
+      });
+    }
+    return reply.status(200).send({ ok: true });
+  });
 }

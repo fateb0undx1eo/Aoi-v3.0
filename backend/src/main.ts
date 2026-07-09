@@ -25,6 +25,7 @@ import { ConfigService } from './services/configService.js';
 import { PermissionService } from './core/permissions/permissionService.js';
 import { DynamicRateLimiter } from './core/rateLimiter/dynamicRateLimiter.js';
 import { RateLimitService } from './services/rateLimitService.js';
+import type { BuildResult } from './api/server.js';
 import { DiscordCommandSyncService } from './services/discordCommandSyncService.js';
 import { AuthService } from './services/authService.js';
 import { GuildService } from './services/guildService.js';
@@ -337,19 +338,11 @@ async function main(): Promise<void> {
     });
 
     // ─────────────────────────────────────────────────────────────
-    // 8. Build & Start Express API Server
+    // 8. Build & Start Fastify API Server
     // ─────────────────────────────────────────────────────────────
-    logger.info('Building Express server...');
-    const app = buildApiServer(context);
+    logger.info('Building Fastify server...');
+    const { fastify, server } = buildApiServer(context) as BuildResult;
 
-    const server = app.listen(PORT, () => {
-      logger.info(`✓ Express server listening on port ${PORT}`);
-      logger.info(`📡 API available at http://localhost:${PORT}`);
-    });
-
-    // ─────────────────────────────────────────────────────────────
-    // 9. Login Discord Bot
-    // ─────────────────────────────────────────────────────────────
     overviewSocketServer = attachOverviewSocketServer({
       server,
       authService,
@@ -358,6 +351,14 @@ async function main(): Promise<void> {
       metrics
     });
     attachLogsSocketServer({ server, authService });
+
+    await fastify.listen({ port: PORT, host: '0.0.0.0' });
+    logger.info(`✓ Fastify server listening on port ${PORT}`);
+    logger.info(`📡 API available at http://localhost:${PORT}`);
+
+    // ─────────────────────────────────────────────────────────────
+    // 9. Login Discord Bot
+    // ─────────────────────────────────────────────────────────────
     operationalQueue.start();
     const supervisor = new RuntimeSupervisor({
       runtimeState,

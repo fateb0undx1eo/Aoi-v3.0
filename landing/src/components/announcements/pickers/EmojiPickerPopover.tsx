@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Search } from "lucide-react";
+import { CoolIcon } from "@/components/icons/CoolIcon";
 import { ACCENT, UNICODE_EMOJI_CATEGORIES, UNICODE_EMOJIS } from "../constants";
 import type { APIEmoji, GuildEmoji } from "../types";
 
@@ -32,7 +32,7 @@ export default function EmojiPickerPopover({ open, onClose, onEmojiSelect, serve
     <div ref={ref} className="fixed left-1/2 top-1/2 z-[100] w-[352px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-zinc-700 bg-black shadow-2xl">
       <div className="border-b border-zinc-800 p-2">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+          <CoolIcon icon="Search_Magnifying_Glass" size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500" />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Search emojis..."
             className="w-full rounded-lg border border-zinc-700 bg-black py-1.5 pl-8 pr-3 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-zinc-500" />

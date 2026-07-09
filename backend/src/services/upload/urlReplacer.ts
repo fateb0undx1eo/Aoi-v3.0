@@ -12,6 +12,10 @@ function replaceInComponents(components: any[], urlMap: UrlMap): void {
       }
     }
 
+    if (comp.type === 13 && comp.file?.url && urlMap.has(comp.file.url as AttachmentUri)) {
+      comp.file.url = urlMap.get(comp.file.url as AttachmentUri)!;
+    }
+
     if (comp.type === 9) {
       if (comp.components) replaceInComponents(comp.components, urlMap);
       if (comp.accessory?.type === 11 && comp.accessory.items) {
@@ -20,6 +24,19 @@ function replaceInComponents(components: any[], urlMap: UrlMap): void {
             item.media.url = urlMap.get(item.media.url as AttachmentUri)!;
           }
         }
+      }
+      if (comp.accessory?.type === 2 && comp.accessory.emoji?.id && comp.accessory.emoji?.animated != null) {
+        const emojiUrl = `https://cdn.discordapp.com/emojis/${comp.accessory.emoji.id}.${comp.accessory.emoji.animated ? 'gif' : 'webp'}`;
+        if (urlMap.has(emojiUrl as AttachmentUri)) {
+          comp.accessory.emoji.id = urlMap.get(emojiUrl as AttachmentUri)!.replace(/^https:\/\/cdn\.discordapp\.com\/emojis\//, '').replace(/\.(webp|gif|png)$/, '') || comp.accessory.emoji.id;
+        }
+      }
+    }
+
+    if (comp.type === 2 && comp.emoji?.id && comp.emoji?.animated != null) {
+      const emojiUrl = `https://cdn.discordapp.com/emojis/${comp.emoji.id}.${comp.emoji.animated ? 'gif' : 'webp'}`;
+      if (urlMap.has(emojiUrl as AttachmentUri)) {
+        comp.emoji.id = urlMap.get(emojiUrl as AttachmentUri)!.replace(/^https:\/\/cdn\.discordapp\.com\/emojis\//, '').replace(/\.(webp|gif|png)$/, '') || comp.emoji.id;
       }
     }
 

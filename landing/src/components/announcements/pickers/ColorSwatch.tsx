@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown } from "lucide-react";
+import { CoolIcon } from "@/components/icons/CoolIcon";
 import { ACCENT } from "../constants";
 import { intToHex, hsvToHex, hexToHsv } from "../utils/color";
 
@@ -92,7 +92,7 @@ export default function ColorSwatch({ value, onChange }: { value: number | null;
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={() => setOpen(!open)} className="flex h-8 w-12 items-center justify-center rounded border border-zinc-700" style={{ backgroundColor: hex }}>
-        <ChevronDown className="h-3 w-3 text-white/70" />
+        <CoolIcon icon="Chevron_Down" size={12} className="text-white/70" />
       </button>
       {open && createPortal(
         <div ref={portalRef}>

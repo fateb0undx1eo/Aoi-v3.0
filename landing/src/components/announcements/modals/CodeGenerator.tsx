@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Code, Copy } from "lucide-react";
+import { CoolIcon } from "@/components/icons/CoolIcon";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ACCENT } from "../constants";
 import type { QueryDataMessageData } from "../types";
@@ -23,7 +23,7 @@ export default function CodeGenerator({ messageData, open, onClose }: { messageD
       <DialogContent className="max-w-2xl border-border/70 bg-black text-zinc-100">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Code className="h-5 w-5" style={{ color: ACCENT }} />
+            <CoolIcon icon="Code" size={20} style={{ color: ACCENT }} />
             Generate Code
           </DialogTitle>
           <DialogDescription className="text-zinc-400">discord.js or discord.py code snippet from current message.</DialogDescription>
@@ -45,7 +45,7 @@ export default function CodeGenerator({ messageData, open, onClose }: { messageD
             </pre>
             <button type="button" onClick={handleCopy}
               className="absolute right-2 top-2 rounded-md border border-zinc-800 bg-black px-2.5 py-1 text-[10px] font-medium text-zinc-400 hover:text-zinc-200 transition-colors">
-              {copied ? <><Check className="mr-1 inline h-3 w-3 text-green-400" />Copied!</> : <><Copy className="mr-1 inline h-3 w-3" />Copy</>}
+              {copied ? <><CoolIcon icon="Check" size={12} className="mr-1 inline text-green-400" />Copied!</> : <><CoolIcon icon="Copy" size={12} className="mr-1 inline" />Copy</>}
             </button>
           </div>
         </div>

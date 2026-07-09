@@ -99,6 +99,12 @@ interface NormalizedPayload {
   entries: NormalizedEntry[];
 }
 
+interface DeliveryError {
+  channel_id?: string;
+  entry_id?: string;
+  error: string;
+}
+
 interface SendResult {
   requested_channels: number;
   delivered_channels: number;
@@ -106,6 +112,7 @@ interface SendResult {
   message_count: number;
   edited_messages: number;
   failed_edits: number;
+  errors: DeliveryError[];
 }
 
 interface AnnouncementServiceOptions {
@@ -124,10 +131,17 @@ function trimString(value: any, maxLength: number = 1000): string {
 }
 
 function normalizeColor(value: any): number | null {
-  const raw = trimString(value, 16).replace(/^#/, '');
-  if (!/^[0-9a-f]{6}$/i.test(raw)) {
+  if (typeof value === 'number') {
+    if (Number.isInteger(value) && value >= 0 && value <= 0xFFFFFF) {
+      return value;
+    }
     return null;
   }
+  if (typeof value !== 'string') return null;
+  let raw = value.trim();
+  if (raw.startsWith('#')) raw = raw.slice(1);
+  else if (raw.startsWith('0x') || raw.startsWith('0X')) raw = raw.slice(2);
+  if (!/^[0-9a-f]{6}$/i.test(raw)) return null;
   return Number.parseInt(raw, 16);
 }
 
@@ -143,7 +157,7 @@ function normalizeFields(fields: any): { name: string; value: string; inline: bo
 function normalizeComponentItem(comp: any): NormalizedComponent | null {
   if (!comp || !comp.type) return null;
   const type = comp.type === 2 ? 'button' : comp.type === 3 ? 'select' : comp.type;
-  if (type === 'button' || comp.type === 'button') {
+  if (type === 'button') {
     return {
       type: 'button',
       style: Math.min(Math.max(Number(comp.style) || 1, 1), 5),
@@ -162,9 +176,9 @@ function normalizeComponentItem(comp: any): NormalizedComponent | null {
       min_values: Math.max(Number(comp.min_values) || 1, 0),
       max_values: Math.max(Number(comp.max_values) || 1, 1),
       disabled: Boolean(comp.disabled),
-      options: (comp.options || []).slice(0, 25).map((opt: any) => ({
+      options: (comp.options || []).slice(0, 25).map((opt: any, optIdx: number) => ({
         label: trimString(opt.label, 100) || 'Option',
-        value: trimString(opt.value, 100) || `opt_${Date.now()}`,
+        value: trimString(opt.value, 100) || `opt_${Date.now()}_${optIdx}`,
         description: opt.description ? trimString(opt.description, 100) : undefined,
         emoji: opt.emoji || undefined,
       })),
@@ -507,8 +521,6 @@ function buildEntryPayload(entry: NormalizedEntry): Record<string, any> | null {
     const payload: Record<string, any> = { allowedMentions: { parse: [] } };
     if (entry.type === 'normal') {
       payload.content = entry.content;
-      payload.embeds = [];
-      payload.components = [];
       return payload;
     }
     if (entry.type === 'embed') {
@@ -520,7 +532,6 @@ function buildEntryPayload(entry: NormalizedEntry): Record<string, any> | null {
       if (entry.embed.image_url) embed.setImage(entry.embed.image_url);
       payload.content = '';
       payload.embeds = [embed];
-      payload.components = [];
       return payload;
     }
     const components = buildContainerComponents(entry.container_blocks);
@@ -544,37 +555,20 @@ function buildEntryPayload(entry: NormalizedEntry): Record<string, any> | null {
     payload.components = buildDiscordComponents(entry.components);
   }
   if (entry.flags) {
-    payload.flags = (payload.flags || 0) | entry.flags;
+    const merged = (payload.flags || 0) | entry.flags;
+    if (merged) payload.flags = merged;
   }
   if (entry.thread_name) {
-    payload.thread_name = entry.thread_name;
+    payload.thread_name = trimString(entry.thread_name, 100);
   }
   if (entry.allowed_mentions) {
-    payload.allowedMentions = entry.allowed_mentions;
+    payload.allowedMentions = {
+      parse: Array.isArray(entry.allowed_mentions.parse) ? entry.allowed_mentions.parse.filter((p: any) => typeof p === 'string') : [],
+      roles: Array.isArray(entry.allowed_mentions.roles) ? entry.allowed_mentions.roles.filter((r: any) => typeof r === 'string') : undefined,
+      users: Array.isArray(entry.allowed_mentions.users) ? entry.allowed_mentions.users.filter((u: any) => typeof u === 'string') : undefined,
+    };
   }
   return payload;
-}
-
-function buildComponentsV2EntryPayload(entry: NormalizedEntry): Record<string, any> | null {
-  if (hasLegacyType(entry)) {
-    const components: NormalizedComponent[] = [];
-    if (entry.type === 'normal') {
-      if (entry.content) components.push({ type: 10, content: entry.content });
-    } else if (entry.type === 'embed') {
-      if (entry.embed.title) components.push({ type: 10, content: `## ${entry.embed.title}` });
-      if (entry.embed.description) components.push({ type: 10, content: entry.embed.description });
-      if (entry.embed.image_url) components.push({ type: 12, items: [{ media: { url: entry.embed.image_url } }] });
-      if (entry.embed.footer_text) {
-        if (components.length > 0) components.push({ type: 14, divider: true, spacing: 1 });
-        components.push({ type: 10, content: `*${entry.embed.footer_text}*` });
-      }
-    } else {
-      return buildEntryPayload(entry);
-    }
-    if (!components.length) return null;
-    return { flags: MessageFlags.IsComponentsV2, components: [{ type: 17, components }], allowedMentions: { parse: [] } };
-  }
-  return buildEntryPayload(entry);
 }
 
 // ─── Service Class ─────────────────────────────────────────────
@@ -630,9 +624,7 @@ export class AnnouncementService {
     if (message.author?.id !== this.client.user?.id) {
       throw new Error('Only messages sent by this bot can be edited.');
     }
-    const payload = message.flags?.has?.(MessageFlags.IsComponentsV2)
-      ? buildComponentsV2EntryPayload(entry)
-      : buildEntryPayload(entry);
+    const payload = buildEntryPayload(entry);
     if (!payload && entry._files?.length) {
       const filePayload: Record<string, any> = { files: entry._files, allowedMentions: { parse: [] } };
       await (message as any).edit(filePayload);
@@ -691,7 +683,7 @@ export class AnnouncementService {
     }
 
     let editedMessages = 0, deliveredChannels = 0, failedChannels = 0, failedEdits = 0;
-    let firstFailureMessage = '';
+    const errors: DeliveryError[] = [];
 
     for (const entry of editEntries) {
       try {
@@ -699,9 +691,10 @@ export class AnnouncementService {
         editedMessages += 1;
       } catch (error: any) {
         failedEdits += 1;
-        if (!firstFailureMessage) {
-          firstFailureMessage = error instanceof Error ? error.message : 'Failed to edit the linked announcement message.';
-        }
+        errors.push({
+          entry_id: entry.id,
+          error: error instanceof Error ? error.message : 'Failed to edit the linked announcement message.',
+        });
       }
     }
 
@@ -715,14 +708,16 @@ export class AnnouncementService {
           deliveredChannels += 1;
         } catch (error: any) {
           failedChannels += 1;
-          if (!firstFailureMessage) {
-            firstFailureMessage = error instanceof Error ? error.message : 'Failed to send the announcement.';
-          }
+          errors.push({
+            channel_id: (channel as any).id,
+            error: error instanceof Error ? error.message : 'Failed to send the announcement.',
+          });
         }
         await sleep(500);
       }
     }
 
+    const firstFailureMessage = errors[0]?.error || '';
     if (editedMessages === 0 && deliveredChannels === 0 && (failedEdits > 0 || failedChannels > 0)) {
       throw new Error(firstFailureMessage || 'Announcement delivery failed.');
     }
@@ -734,6 +729,7 @@ export class AnnouncementService {
       message_count: newEntries.length,
       edited_messages: editedMessages,
       failed_edits: failedEdits,
+      errors,
     };
   }
 }

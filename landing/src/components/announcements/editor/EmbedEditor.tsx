@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { AlertTriangle, ChevronDown, ChevronUp, Copy, Link, Plus, Smile, Trash2, Upload, X } from "lucide-react";
-import { HexColorPicker } from "react-colorful";
+import { Smile } from "lucide-react";
+import { CoolIcon } from "@/components/icons/CoolIcon";
 import EmojiPickerPopover from "../pickers/EmojiPickerPopover";
+import ColorPickerPopover from "../pickers/ColorPickerPopover";
 import type { APIEmbed, APIEmbedField, APIEmoji, GuildEmoji } from "../types";
 import { DISCORD_LIMITS } from "../types";
 import { isEmbedEmpty, getEmbedLength, getEmbedErrors } from "../utils/message";
@@ -70,96 +71,7 @@ function FieldOverlay({ max, length, serverEmojis, onEmoji, children }: {
   );
 }
 
-function ColorPickerPopover({
- value,
- onChange,
-}: {
- value: number | null | undefined;
- onChange: (v: number | undefined) => void;
-}) {
- const hex =
-  typeof value === "number"
-   ? `#${value.toString(16).padStart(6, "0")}`
-   : "#8B1538";
- const [open, setOpen] = useState(false);
- const [placement, setPlacement] = useState<"below" | "above">("below");
- const popoverRef = useRef<HTMLDivElement>(null);
- const btnRef = useRef<HTMLButtonElement>(null);
 
- useEffect(() => {
-  const handleClick = (e: MouseEvent) => {
-   if (popoverRef.current && !popoverRef.current.contains(e.target as Node))
-    setOpen(false);
-  };
-  if (open) document.addEventListener("mousedown", handleClick);
-  return () => document.removeEventListener("mousedown", handleClick);
- }, [open]);
-
- const toggle = () => {
-  if (!open) {
-   if (btnRef.current) setPlacement(getPlacement(btnRef.current));
-  }
-  setOpen(!open);
- };
-
- return (
-  <div ref={popoverRef} style={{ position: "relative" }}>
-    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-     <button ref={btnRef} type="button" onClick={toggle}
-      style={{
-       display: "flex", alignItems: "center", gap: 6,
-       padding: "3px 8px", borderRadius: 6,
-       backgroundColor: "rgba(0,0,0,0.3)", cursor: "pointer",
-       fontSize: 10, color: "#a1a1aa", fontFamily: "monospace",
-      }}>
-      <div style={{ width: 16, height: 16, borderRadius: 4, border: "1px solid rgba(255,255,255,0.1)", backgroundColor: hex, flexShrink: 0 }} />
-      {hex}
-     </button>
-    {value != null && (
-     <button type="button" onClick={() => onChange(undefined)}
-      style={{ background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 10, padding: 2 }}>
-      Reset
-     </button>
-    )}
-   </div>
-   {open && (
-    <div style={{
-     position: "absolute", left: 0, zIndex: 30,
-     top: placement === "below" ? "calc(100% + 4px)" : undefined,
-     bottom: placement === "above" ? "calc(100% + 4px)" : undefined,
-      borderRadius: 8,
-     backgroundColor: "#1A1A1A", padding: 10,
-     boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-    }}>
-     <HexColorPicker
-      color={hex}
-      onChange={(h) => {
-       const num = Number.parseInt(h.replace("#", ""), 16);
-       if (!isNaN(num)) onChange(num);
-      }}
-      style={{ width: 180, height: 130 }}
-     />
-     <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-      <span style={{ fontSize: 10, color: "#52525b", fontFamily: "monospace", alignSelf: "center" }}>#</span>
-      <input type="text" value={hex.replace("#", "")}
-       onChange={(e) => {
-        const v = e.target.value.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
-        if (v.length <= 6) {
-         const num = Number.parseInt(v, 16);
-         onChange(!isNaN(num) ? num : undefined);
-        }
-       }}
-       style={{
-        flex: 1, background: "transparent", border: "none", borderBottom: "1px solid #3f3f46",
-        color: "#a1a1aa", fontSize: 11, fontFamily: "monospace", outline: "none",
-       }}
-      />
-     </div>
-    </div>
-   )}
-  </div>
- );
-}
 
 function FieldRow({
  field, index, onUpdate, onDuplicate, onRemove, onMoveUp, onMoveDown,
@@ -184,13 +96,13 @@ function FieldRow({
     </span>
     <div className="flex items-center gap-1">
      <button type="button" disabled={!canMoveUp} onClick={onMoveUp}
-      className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"><ChevronUp className="h-3 w-3" /></button>
+      className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"><CoolIcon icon="Chevron_Up" size={12} /></button>
      <button type="button" disabled={!canMoveDown} onClick={onMoveDown}
-      className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"><ChevronDown className="h-3 w-3" /></button>
+      className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"><CoolIcon icon="Chevron_Down" size={12} /></button>
      <button type="button" onClick={onDuplicate}
-      className="text-zinc-600 hover:text-zinc-300"><Copy className="h-3 w-3" /></button>
+      className="text-zinc-600 hover:text-zinc-300"><CoolIcon icon="Copy" size={12} /></button>
      <button type="button" onClick={onRemove}
-      className="text-zinc-600 hover:text-red-400"><Trash2 className="h-3 w-3" /></button>
+      className="text-zinc-600 hover:text-red-400"><CoolIcon icon="Trash_Empty" size={12} /></button>
     </div>
    </div>
     <div className="flex items-center gap-1.5">
@@ -305,7 +217,7 @@ function EmbedFieldEditor({
     disabled={fields.length >= 25}
      className="flex w-full items-center justify-center gap-1 text-[10px] text-zinc-600 hover:text-zinc-300 disabled:opacity-40"
    >
-    <Plus className="h-3 w-3" /> Add Field {fields.length}/25
+     <CoolIcon icon="Add_Plus" size={16} />
    </button>
   </div>
  );
@@ -316,7 +228,7 @@ function UploadBtn({ onPick }: { onPick: () => void }) {
     <button type="button" onClick={onPick} title="Upload image from device"
        className="shrink-0 text-zinc-500 hover:text-zinc-300"
       >
-       <Upload className="h-3.5 w-3.5" />
+       <CoolIcon icon="Cloud_Upload" size={14} />
     </button>
  );
 }
@@ -415,22 +327,22 @@ export default function EmbedEditor({
        color: "#a1a1aa", fontSize: 12,
       }}>
        <div className="flex items-center gap-1.5">
-        <ChevronDown className="h-3 w-3 transition-transform" style={{
-         color: "#52525b",
-         transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)",
-        }} />
+<CoolIcon icon="Chevron_Down" className="h-3 w-3 transition-transform" style={{
+          color: "#52525b",
+          transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)",
+         }} />
         <span className="text-[9px] font-medium text-zinc-500">
          Embed {embedIndex + 1}
         </span>
        </div>
       <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
        <button type="button" disabled={!canMoveUp} onClick={() => onMoveUp?.()}
-        className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"><ChevronUp className="h-3 w-3" /></button>
+        className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"><CoolIcon icon="Chevron_Up" size={12} /></button>
        <button type="button" disabled={!canMoveDown} onClick={() => onMoveDown?.()}
-        className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"><ChevronDown className="h-3 w-3" /></button>
+        className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"><CoolIcon icon="Chevron_Down" size={12} /></button>
        {onRemove && (
         <button type="button" onClick={onRemove}
-         className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
+         className="text-zinc-600 hover:text-red-400"><CoolIcon icon="Close_MD" size={12} /></button>
        )}
       </div>
      </div>
@@ -445,7 +357,7 @@ export default function EmbedEditor({
         key={i}
          className="flex items-start gap-1.5 rounded bg-red-500/10 px-2.5 py-1 text-[10px] text-red-300"
        >
-        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+        <CoolIcon icon="Triangle_Warning" size={12} className="shrink-0 mt-0.5" />
         <span>{err}</span>
        </div>
       ))}
@@ -497,7 +409,7 @@ export default function EmbedEditor({
          }
      className="shrink-0 text-zinc-500 hover:text-zinc-300"
          >
-          <Link className="h-3 w-3" />
+          <CoolIcon icon="Link" size={12} />
          </button>
         )}
        </div>
@@ -527,7 +439,7 @@ export default function EmbedEditor({
          }}
          className="shrink-0 px-1 text-zinc-600 hover:text-zinc-300"
         >
-         <X className="h-3 w-3" />
+         <CoolIcon icon="Close_MD" size={12} />
         </button>
        </div>
       )}
@@ -583,7 +495,7 @@ export default function EmbedEditor({
           onClick={() => update({ url: "https://" })}
             className="shrink-0 text-zinc-500 hover:text-zinc-300"
             >
-             <Link className="h-3 w-3" />
+             <CoolIcon icon="Link" size={12} />
           </button>
          )}
          </div>
@@ -602,7 +514,7 @@ export default function EmbedEditor({
          onClick={() => update({ url: undefined })}
          className="shrink-0 px-1 text-zinc-600 hover:text-zinc-300"
         >
-         <X className="h-3 w-3" />
+         <CoolIcon icon="Close_MD" size={12} />
         </button>
        </div>
       )}

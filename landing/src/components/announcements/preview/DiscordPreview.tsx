@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MessageSquare } from "lucide-react";
+import { CoolIcon } from "@/components/icons/CoolIcon";
 import { EMBED_BG, DISCORD, FONT } from "../constants";
 import type { APIEmbed, APIEmbedImage, APIComponentInActionRow, DraftFile, QueryDataMessageData, QueryDataTarget, APIAttachment } from "../types";
 import { TargetType } from "../types";
@@ -11,6 +11,7 @@ import ContainerPreview from "./Container";
 import Gallery from "./Gallery";
 import FileAttachmentPreview from "./FileAttachment";
 import { PreviewActionRow } from "./ActionRow";
+import type { APIComponentInMessageActionRow } from "discord-api-types/v10";
 import MessageDivider from "./MessageDivider";
 
 const defaultAvatarUrl = "/favicon.svg";
@@ -240,10 +241,10 @@ export default function DiscordPreview({
             {message.components!.map((row, ri) =>
               row.type === 1 && row.components.length > 0 ? (
                 <div key={ri} style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  <PreviewActionRow components={row.components} onEditComponent={(comp, _, ci) => onEditComponent?.(comp, ri, ci)} />
+                  <PreviewActionRow components={row.components as APIComponentInMessageActionRow[]} />
                 </div>
               ) : row.type === 17 ? (
-                <ContainerPreview key={ri} container={row} hasTopMargin={false} onEditComponent={(comp, _ri, _ci) => onEditComponent?.(comp, ri, _ci)} files={files} />
+                <ContainerPreview key={ri} component={row} files={files} cdn={cdn} setImageModalData={setImageModalData} cache={undefined} />
               ) : null
             )}
           </div>
@@ -278,7 +279,7 @@ export default function DiscordPreview({
           <div style={{ display: "flex" }}>
             <div style={{ flexShrink: 0 }}>
               <div style={{ marginTop: 16, width: 64, height: 64, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: DISCORD.threadBg }}>
-                <MessageSquare style={{ width: 40, height: 40, color: DISCORD.textMuted }} />
+                <CoolIcon icon="Chat_Dots" size={40} style={{ color: DISCORD.textMuted }} />
               </div>
               <h3 style={{ margin: "8px 0", fontSize: 32, fontWeight: 500, lineHeight: 1.25, color: DISCORD.headerPrimary, fontFamily: FONT, userSelect: "text" }}>{threadName}</h3>
             </div>

@@ -1,11 +1,8 @@
-import { Router } from 'express';
-import type { Request, Response, NextFunction } from 'express';
-import multer from 'multer';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { Client } from 'discord.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { requireGuildAccess } from '../middleware/requireGuildAccess.js';
 import { rateLimiter } from '../middleware/rateLimiter.js';
-import type { BotContext } from '../../types/index.js';
 import type { AuthService } from '../../services/authService.js';
 import type { AccessControlService } from '../../services/accessControlService.js';
 import type { GuildService } from '../../services/guildService.js';
@@ -14,9 +11,7 @@ import type { AnnouncementService } from '../../services/announcementService.js'
 import type { UploadService } from '../../services/upload/uploadService.js';
 import { logger } from '../../utils/logger.js';
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } });
-
-export function createGuildRoutes({ guildService, accessControlService, client, authService, dmBroadcastService, announcementService, uploadService }: {
+interface Deps {
   guildService: GuildService;
   accessControlService: AccessControlService;
   client: Client;
@@ -24,271 +19,240 @@ export function createGuildRoutes({ guildService, accessControlService, client, 
   dmBroadcastService: DmBroadcastService;
   announcementService: AnnouncementService;
   uploadService: UploadService;
-}): Router {
-  const router = Router();
-  router.use(requireAuth(authService));
+}
 
-  router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
-    try {
-      const guilds = await guildService.listGuilds();
-      res.status(200).json({ guilds });
-    } catch (error) {
-      next(error);
-    }
+export async function guildRoutes(instance: FastifyInstance, opts: { deps: Deps }): Promise<void> {
+  const { guildService, accessControlService, client, authService, dmBroadcastService, announcementService, uploadService } = opts.deps;
+  const authHook = requireAuth(authService);
+  const guildAccessHook = requireGuildAccess(accessControlService);
+
+  instance.addHook('preHandler', authHook);
+
+  instance.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
+    const guilds = await guildService.listGuilds();
+    return reply.status(200).send({ guilds });
   });
 
-  router.use('/:guildId/*', requireGuildAccess(accessControlService));
-
-  router.use('/:guildId/dm-broadcast', rateLimiter({ windowMs: 300_000, maxRequests: 5, keyPrefix: 'dm_broadcast' }));
-
-  router.get('/:guildId/overview', async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const guildId = req.params.guildId as string;
-      const overview = await guildService.getOverview(guildId);
-      res.status(200).json({ overview });
-    } catch (error) {
-      next(error);
-    }
+  instance.get('/:guildId/overview', { preHandler: guildAccessHook }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as Record<string, string>;
+    const guildId = params.guildId!;
+    const overview = await guildService.getOverview(guildId);
+    return reply.status(200).send({ overview });
   });
 
-  router.get('/:guildId/channels', async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const guildId = req.params.guildId as string;
-      const guild = client.guilds.cache.get(guildId);
+  instance.get('/:guildId/channels', { preHandler: guildAccessHook }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as Record<string, string>;
+    const guildId = params.guildId!;
+    const guild = client.guilds.cache.get(guildId);
 
-      if (!guild) {
-        return res.status(404).json({ error: 'Guild not found' });
-      }
-
-      const channels = guild.channels.cache
-        .filter((ch: any) => ch.type === 0)
-        .map((ch: any) => ({
-          id: ch.id,
-          name: ch.name,
-          type: ch.type
-        }))
-        .sort((a: any, b: any) => a.name.localeCompare(b.name));
-
-      res.status(200).json({ channels });
-    } catch (error) {
-      next(error);
+    if (!guild) {
+      return reply.status(404).send({ error: 'Guild not found' });
     }
+
+    const channels = guild.channels.cache
+      .filter((ch: any) => ch.type === 0)
+      .map((ch: any) => ({
+        id: ch.id,
+        name: ch.name,
+        type: ch.type
+      }))
+      .sort((a: any, b: any) => a.name.localeCompare(b.name));
+
+    return reply.status(200).send({ channels });
   });
 
-  router.get('/:guildId/roles', async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const guildId = req.params.guildId as string;
-      const guild = client.guilds.cache.get(guildId);
+  instance.get('/:guildId/roles', { preHandler: guildAccessHook }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as Record<string, string>;
+    const guildId = params.guildId!;
+    const guild = client.guilds.cache.get(guildId);
 
-      if (!guild) {
-        return res.status(404).json({ error: 'Guild not found' });
-      }
-
-      const roles = guild.roles.cache
-        .filter((role: any) => role.id !== guild.id)
-        .map((role: any) => ({
-          id: role.id,
-          name: role.name,
-          color: role.color,
-          managed: role.managed,
-          editable: role.editable,
-          position: role.position
-        }))
-        .sort((left: any, right: any) => right.position - left.position);
-
-      res.status(200).json({ roles });
-    } catch (error) {
-      next(error);
+    if (!guild) {
+      return reply.status(404).send({ error: 'Guild not found' });
     }
+
+    const roles = guild.roles.cache
+      .filter((role: any) => role.id !== guild.id)
+      .map((role: any) => ({
+        id: role.id,
+        name: role.name,
+        color: role.color,
+        managed: role.managed,
+        editable: role.editable,
+        position: role.position
+      }))
+      .sort((left: any, right: any) => right.position - left.position);
+
+    return reply.status(200).send({ roles });
   });
 
-  router.get('/:guildId/emojis', async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const guildId = req.params.guildId as string;
-      const guild = client.guilds.cache.get(guildId) ?? await client.guilds.fetch(guildId).catch(() => null);
+  instance.get('/:guildId/emojis', { preHandler: guildAccessHook }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as Record<string, string>;
+    const guildId = params.guildId!;
+    const guild = client.guilds.cache.get(guildId) ?? await client.guilds.fetch(guildId).catch(() => null);
 
-      if (!guild) {
-        return res.status(404).json({ error: 'Guild not found' });
-      }
-
-      const now = Date.now();
-      const lastFetch = (guild as any)._lastEmojisFetch || 0;
-      if (now - lastFetch > 120000) {
-        (guild as any)._lastEmojisFetch = now;
-        await guild.emojis.fetch().catch(() => {});
-      }
-
-      const emojis = guild.emojis.cache
-        .map((emoji: any) => ({
-          id: emoji.id,
-          name: emoji.name,
-          animated: emoji.animated,
-          mention: emoji.animated ? `<a:${emoji.name}:${emoji.id}>` : `<:${emoji.name}:${emoji.id}>`,
-          url: emoji.imageURL({ extension: emoji.animated ? 'gif' : 'png', size: 64 })
-        }));
-
-      res.status(200).json({ emojis });
-    } catch (error) {
-      next(error);
+    if (!guild) {
+      return reply.status(404).send({ error: 'Guild not found' });
     }
+
+    const now = Date.now();
+    const lastFetch = (guild as any)._lastEmojisFetch || 0;
+    if (now - lastFetch > 120000) {
+      (guild as any)._lastEmojisFetch = now;
+      await guild.emojis.fetch().catch(() => {});
+    }
+
+    const emojis = guild.emojis.cache
+      .map((emoji: any) => ({
+        id: emoji.id,
+        name: emoji.name,
+        animated: emoji.animated,
+        mention: emoji.animated ? `<a:${emoji.name}:${emoji.id}>` : `<:${emoji.name}:${emoji.id}>`,
+        url: emoji.imageURL({ extension: emoji.animated ? 'gif' : 'png', size: 64 })
+      }));
+
+    return reply.status(200).send({ emojis });
   });
 
-  router.get('/:guildId/members', async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const guildId = req.params.guildId as string;
-      const guild = client.guilds.cache.get(guildId) ?? await client.guilds.fetch(guildId).catch(() => null);
+  instance.get('/:guildId/members', { preHandler: guildAccessHook }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as Record<string, string>;
+    const query = request.query as Record<string, string>;
+    const guildId = params.guildId!;
+    const guild = client.guilds.cache.get(guildId) ?? await client.guilds.fetch(guildId).catch(() => null);
 
-      if (!guild) {
-        return res.status(404).json({ error: 'Guild not found' });
-      }
-
-      const query = String(req.query.q ?? '').trim().toLowerCase();
-      const limit = Math.min(50, Math.max(1, Number.parseInt(String(req.query.limit ?? '25'), 10) || 25));
-
-      const now = Date.now();
-      const lastFetch = (guild as any)._lastMembersFetch || 0;
-      if (guild.memberCount <= 1000 && guild.members.cache.size < guild.memberCount && now - lastFetch > 60000) {
-        (guild as any)._lastMembersFetch = now;
-        await guild.members.fetch().catch(() => null);
-      }
-
-      const members = guild.members.cache
-        .filter((member: any) => !member.user?.bot)
-        .filter((member: any) => {
-          if (!query) return true;
-
-          return member.user.username.toLowerCase().includes(query)
-            || member.displayName.toLowerCase().includes(query)
-            || member.id.includes(query);
-        })
-        .map((member: any) => ({
-          id: member.id,
-          username: member.user.username,
-          display_name: member.displayName
-        }))
-        .sort((left: any, right: any) => left.display_name.localeCompare(right.display_name))
-        .slice(0, limit);
-
-      res.status(200).json({ members });
-    } catch (error) {
-      next(error);
+    if (!guild) {
+      return reply.status(404).send({ error: 'Guild not found' });
     }
+
+    const q = String(query.q ?? '').trim().toLowerCase();
+    const limit = Math.min(50, Math.max(1, Number.parseInt(String(query.limit ?? '25'), 10) || 25));
+
+    const now = Date.now();
+    const lastFetch = (guild as any)._lastMembersFetch || 0;
+    if (guild.memberCount <= 1000 && guild.members.cache.size < guild.memberCount && now - lastFetch > 60000) {
+      (guild as any)._lastMembersFetch = now;
+      await guild.members.fetch().catch(() => null);
+    }
+
+    const members = guild.members.cache
+      .filter((member: any) => !member.user?.bot)
+      .filter((member: any) => {
+        if (!q) return true;
+        return member.user.username.toLowerCase().includes(q)
+          || member.displayName.toLowerCase().includes(q)
+          || member.id.includes(q);
+      })
+      .map((member: any) => ({
+        id: member.id,
+        username: member.user.username,
+        display_name: member.displayName
+      }))
+      .sort((left: any, right: any) => left.display_name.localeCompare(right.display_name))
+      .slice(0, limit);
+
+    return reply.status(200).send({ members });
   });
 
-  router.post('/:guildId/dm-broadcast', async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const guildId = req.params.guildId as string;
-      const job = await dmBroadcastService.startBroadcast(guildId, req.body ?? {});
-      res.status(202).json({ ok: true, job });
-    } catch (error) {
-      next(error);
-    }
+  instance.post('/:guildId/dm-broadcast', { preHandler: guildAccessHook }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as Record<string, string>;
+    const guildId = params.guildId!;
+    const job = await dmBroadcastService.startBroadcast(guildId, request.body ?? {});
+    return reply.status(202).send({ ok: true, job });
   });
 
-  router.get('/:guildId/dm-broadcast/:jobId', async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const guildId = req.params.guildId as string;
-      const jobId = req.params.jobId as string;
-      const job = dmBroadcastService.getJob(guildId, jobId);
-      if (!job) {
-        return res.status(404).json({ error: 'dm_broadcast_job_not_found' });
-      }
-
-      res.status(200).json({ ok: true, job });
-    } catch (error) {
-      next(error);
+  instance.get('/:guildId/dm-broadcast/:jobId', { preHandler: guildAccessHook }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as Record<string, string>;
+    const guildId = params.guildId!;
+    const jobId = params.jobId!;
+    const job = dmBroadcastService.getJob(guildId, jobId);
+    if (!job) {
+      return reply.status(404).send({ error: 'dm_broadcast_job_not_found' });
     }
+    return reply.status(200).send({ ok: true, job });
   });
 
-  router.post('/:guildId/upload', upload.single('file'), async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const file = req.file as any;
-      if (!file) {
-        res.status(400).json({ error: 'No file provided' });
-        return;
-      }
-
-      const url = await uploadService.processFile({
-        buffer: file.buffer,
-        originalname: file.originalname,
-        mimetype: file.mimetype,
-        size: file.size,
-      });
-
-      res.status(200).json({ url });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || 'Upload failed' });
+  instance.post('/:guildId/upload', { preHandler: guildAccessHook }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const file = await request.file();
+    if (!file) {
+      return reply.status(400).send({ error: 'No file provided' });
     }
+
+    const buffer = await file.toBuffer();
+    const url = await uploadService.processFile({
+      buffer,
+      originalname: file.filename,
+      mimetype: file.mimetype,
+      size: buffer.length,
+    });
+
+    return reply.status(200).send({ url });
   });
 
-  router.post('/:guildId/announcements', upload.any(), async (req: Request, res: Response, next: NextFunction) => {
+  instance.post('/:guildId/announcements', { preHandler: [guildAccessHook, rateLimiter({ windowMs: 60_000, maxRequests: 10, keyPrefix: 'announcement_send' })] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const guildId = req.params.guildId as string;
-      if (Array.isArray(req.files) && req.files.length > 10) {
-        res.status(400).json({ error: 'Maximum 10 files per announcement' });
-        return;
-      }
-      logger.info({ guildId, filesCount: (req.files as any[])?.length ?? 0, bodyKeys: Object.keys(req.body ?? {}) }, 'announcement upload received');
-      let payload: Record<string, any> = req.body ?? {};
-      if ((req.body as Record<string, any>)?.payload) {
-        try { payload = JSON.parse((req.body as Record<string, any>).payload); } catch { payload = {}; }
-      }
-      interface EntryMeta {
-        name?: string;
-        spoiler?: boolean;
-        description?: string;
-      }
-      interface FileEntry {
-        fieldname?: string;
-        originalname: string;
-        mimetype: string;
-        size: number;
-        buffer: Buffer;
-      }
-      const entryMetas: Record<string, EntryMeta | EntryMeta[]> = {};
-      const entryBuffers: Record<string, FileEntry[]> = {};
-      const bodyKeys = Object.keys(req.body ?? {});
-      for (const key of bodyKeys) {
-        const metaMatch = key.match(/^filemeta_(.+)$/);
-        if (metaMatch) {
-          const entryId = metaMatch[1] as string;
-          try { entryMetas[entryId] = JSON.parse((req.body as Record<string, any>)[key]); } catch {}
+      const params = request.params as Record<string, string>;
+      const guildId = params.guildId!;
+
+      const body: Record<string, any> = {};
+      const entryMetas: Record<string, any> = {};
+      const entryBuffers: Record<string, { buffer: Buffer; filename: string; mimetype: string; size: number }[]> = {};
+
+      const parts = request.parts();
+      for await (const part of parts) {
+        if (part.type === 'file') {
+          const fieldMatch = part.fieldname?.match(/^file_(.+)$/);
+          if (fieldMatch) {
+            const entryId = fieldMatch[1]!;
+            if (!entryBuffers[entryId]) entryBuffers[entryId] = [];
+            const buffer = await part.toBuffer();
+            entryBuffers[entryId].push({
+              buffer,
+              filename: part.filename,
+              mimetype: part.mimetype,
+              size: buffer.length,
+            });
+          }
+        } else {
+          const metaMatch = part.fieldname.match(/^filemeta_(.+)$/);
+          if (metaMatch) {
+            try { entryMetas[metaMatch[1]!] = JSON.parse(part.value as string); } catch {}
+          } else if (part.fieldname === 'payload') {
+            try { Object.assign(body, JSON.parse(part.value as string)); } catch {}
+          } else {
+            body[part.fieldname] = part.value;
+          }
         }
       }
-      for (const f of (req.files as FileEntry[]) || []) {
-        const fieldMatch = f.fieldname?.match(/^file_(.+)$/);
-        if (fieldMatch) {
-          const entryId = fieldMatch[1] as string;
-          if (!entryBuffers[entryId]) entryBuffers[entryId] = [];
-          entryBuffers[entryId].push(f);
-        }
+
+      if ((entryBuffers as any).length > 10) {
+        return reply.status(400).send({ error: 'Maximum 10 files per announcement' });
       }
-      payload._entryFiles = {};
+
+      logger.info({ guildId, filesCount: Object.keys(entryBuffers).length, bodyKeys: Object.keys(body) }, 'announcement upload received');
+
+      body._entryFiles = {};
       for (const [entryId, metas] of Object.entries(entryMetas)) {
         const files = entryBuffers[entryId] || [];
         const metaArr = Array.isArray(metas) ? metas : [metas];
-        payload._entryFiles[entryId] = files.map((f: FileEntry, i: number) => ({
+        body._entryFiles[entryId] = files.map((f, i) => ({
           buffer: f.buffer,
-          originalname: (metaArr[i] as EntryMeta)?.name || f.originalname,
+          originalname: (metaArr[i] as any)?.name || f.filename,
           mimetype: f.mimetype,
           size: f.size,
-          spoiler: (metaArr[i] as EntryMeta)?.spoiler || false,
-          description: (metaArr[i] as EntryMeta)?.description || undefined,
+          spoiler: (metaArr[i] as any)?.spoiler || false,
+          description: (metaArr[i] as any)?.description || undefined,
         }));
       }
-      logger.info({ entryCount: Object.keys(payload._entryFiles).length, channelCount: payload.channel_ids?.length }, 'announcement payload assembled');
-      const result = await announcementService.send(guildId, payload);
+
+      logger.info({ entryCount: Object.keys(body._entryFiles).length, channelCount: body.channel_ids?.length }, 'announcement payload assembled');
+      const result = await announcementService.send(guildId, body);
       logger.info({ result }, 'announcement sent successfully');
-      res.status(200).json({ ok: true, result });
+      return reply.status(200).send({ ok: true, result });
     } catch (error) {
-      logger.error({ err: error, guildId: req.params.guildId }, 'announcement upload failed');
+      logger.error({ err: error, guildId: (request.params as any).guildId }, 'announcement upload failed');
       if (error instanceof Error) {
-        res.status(400).json({ error: error.message });
-        return;
+        return reply.status(400).send({ error: error.message });
       }
-      next(error);
+      throw error;
     }
   });
-
-  return router;
 }

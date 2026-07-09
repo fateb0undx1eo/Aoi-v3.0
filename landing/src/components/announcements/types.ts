@@ -58,7 +58,7 @@ interface MediaGalleryItem { media: UnfurledMediaItem; description?: string; spo
 interface APIV2TextDisplay { type: 10; id?: number; content: string; }
 interface APIV2Separator { type: 14; id?: number; divider?: boolean; spacing?: number; }
 interface APIV2MediaGallery { type: 12; id?: number; items: MediaGalleryItem[]; }
-interface APIV2Thumbnail { type: 11; id?: number; media: UnfurledMediaItem; description?: string; spoiler?: boolean; }
+interface APIV2Thumbnail { type: 11; id?: number; media: UnfurledMediaItem; description?: string | null; spoiler?: boolean; }
 interface APIV2File { type: 13; id?: number; file: UnfurledMediaItem; spoiler?: boolean; name?: string; size?: number; }
 
 // ── Modal component interfaces ───────────────────────────────────
@@ -252,17 +252,6 @@ interface FlowActionPayload extends FlowAction {
   ci: number;
 }
 
-// ── Discohook-style DraftFlow for interaction flows ─────────────────────────
-interface DraftFlowAction {
-  type: number;
-  [key: string]: any;
-}
-
-interface DraftFlow {
-  name?: string | null;
-  actions: DraftFlowAction[];
-}
-
 // ── Discohook-style Zod schemas for validation ──────────────────────────────
 const ZodAPIEmbedField = z.object({
   name: z.string().max(256),
@@ -381,7 +370,6 @@ export type {
   ModuleRow, GuildChannel, GuildRole, GuildEmoji, SaveState, StatusMsg,
   Token,
   FlowAction, FlowActionPayload,
-  DraftFlow, DraftFlowAction,
   SetImageModalData, ImageModalProps,
 };
 export { TargetType };

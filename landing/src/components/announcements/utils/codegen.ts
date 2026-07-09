@@ -10,25 +10,28 @@ export function generateDiscordJs(msg: QueryDataMessageData): string {
   if (msg.content) lines.push(`  content: ${JSON.stringify(msg.content)},`);
 
   if (msg.embeds?.length) {
+    const embedLines: string[] = [];
     msg.embeds.forEach((e, i) => {
-      lines.push(`  embeds: [`);
-      lines.push(`    new EmbedBuilder()`);
-      if (e.title) lines.push(`      .setTitle(${JSON.stringify(e.title)})`);
-      if (e.description) lines.push(`      .setDescription(${JSON.stringify(e.description)})`);
-      if (e.url) lines.push(`      .setURL(${JSON.stringify(e.url)})`);
-      if (e.color) lines.push(`      .setColor(${e.color})`);
-      if (e.author?.name) lines.push(`      .setAuthor({ name: ${JSON.stringify(e.author.name)}${e.author.icon_url ? `, iconURL: ${JSON.stringify(e.author.icon_url)}` : ""}${e.author.url ? `, url: ${JSON.stringify(e.author.url)}` : ""} })`);
+      embedLines.push(`    new EmbedBuilder()`);
+      if (e.title) embedLines.push(`      .setTitle(${JSON.stringify(e.title)})`);
+      if (e.description) embedLines.push(`      .setDescription(${JSON.stringify(e.description)})`);
+      if (e.url) embedLines.push(`      .setURL(${JSON.stringify(e.url)})`);
+      if (e.color) embedLines.push(`      .setColor(${e.color})`);
+      if (e.author?.name) embedLines.push(`      .setAuthor({ name: ${JSON.stringify(e.author.name)}${e.author.icon_url ? `, iconURL: ${JSON.stringify(e.author.icon_url)}` : ""}${e.author.url ? `, url: ${JSON.stringify(e.author.url)}` : ""} })`);
       if (e.fields?.length) {
         e.fields.forEach((f) => {
-          lines.push(`      .addFields({ name: ${JSON.stringify(f.name)}, value: ${JSON.stringify(f.value)}${f.inline ? ", inline: true" : ""} })`);
+          embedLines.push(`      .addFields({ name: ${JSON.stringify(f.name)}, value: ${JSON.stringify(f.value)}${f.inline ? ", inline: true" : ""} })`);
         });
       }
-      if (e.footer?.text) lines.push(`      .setFooter({ text: ${JSON.stringify(e.footer.text)}${e.footer.icon_url ? `, iconURL: ${JSON.stringify(e.footer.icon_url)}` : ""} })`);
-      if (e.image?.url) lines.push(`      .setImage(${JSON.stringify(e.image.url)})`);
-      if (e.thumbnail?.url) lines.push(`      .setThumbnail(${JSON.stringify(e.thumbnail.url)})`);
-      if (e.timestamp) lines.push(`      .setTimestamp(new Date(${JSON.stringify(e.timestamp)}))`);
-      lines.push(`    ],`);
+      if (e.footer?.text) embedLines.push(`      .setFooter({ text: ${JSON.stringify(e.footer.text)}${e.footer.icon_url ? `, iconURL: ${JSON.stringify(e.footer.icon_url)}` : ""} })`);
+      if (e.image?.url) embedLines.push(`      .setImage(${JSON.stringify(e.image.url)})`);
+      if (e.thumbnail?.url) embedLines.push(`      .setThumbnail(${JSON.stringify(e.thumbnail.url)})`);
+      if (e.timestamp) embedLines.push(`      .setTimestamp(new Date(${JSON.stringify(e.timestamp)}))`);
+      embedLines.push(`    ,`);
     });
+    lines.push(`  embeds: [`);
+    lines.push(...embedLines);
+    lines.push(`  ],`);
   }
 
   if (msg.components?.length && msg.components[0]?.type === 1) {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle, AlertTriangle, FileText, Image, Lock, Upload, Video, X } from "lucide-react";
+import { Video } from "lucide-react";
+import { CoolIcon } from "@/components/icons/CoolIcon";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -39,7 +40,7 @@ function FileEditModal({
       <DialogContent className="max-w-md border-border/70 bg-black text-zinc-100">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" style={{ color: ACCENT }} />
+            <CoolIcon icon="File_Document" size={20} style={{ color: ACCENT }} />
             Edit File
           </DialogTitle>
           <DialogDescription className="text-zinc-400">
@@ -223,7 +224,7 @@ export default function FileAttachmentEditor({
             : "border-zinc-700 hover:border-zinc-500"
         }`}
       >
-        <Upload className="h-6 w-6 text-zinc-500" />
+        <CoolIcon icon="Cloud_Upload" size={24} className="text-zinc-500" />
         <p className="text-xs text-zinc-400">
           Drop files here, click to browse, or paste from clipboard
         </p>
@@ -267,17 +268,17 @@ export default function FileAttachmentEditor({
                 }`}
               >
                 {isImage(f) ? (
-                  <Image className="h-4 w-4 shrink-0 text-zinc-400" />
+                  <CoolIcon icon="Image_01" size={16} className="shrink-0 text-zinc-400" />
                 ) : f.content_type?.startsWith("video/") ? (
                   <Video className="h-4 w-4 shrink-0 text-zinc-400" />
                 ) : (
-                  <FileText className="h-4 w-4 shrink-0 text-zinc-400" />
+                  <CoolIcon icon="File_Document" size={16} className="shrink-0 text-zinc-400" />
                 )}
                 <div className="min-w-0 flex-1 truncate">
                   <span className="text-xs text-zinc-300">
                     {f.spoiler ? (
                       <>
-                        <Lock className="mr-0.5 inline h-2.5 w-2.5" />
+                        <CoolIcon icon="Lock" size={10} className="mr-0.5 inline" />
                         SPOILER{" "}
                       </>
                     ) : null}
@@ -288,11 +289,11 @@ export default function FileAttachmentEditor({
                   </span>
                   {isUploadEligible(f) ? (
                     <span className="ml-1 inline-flex items-center gap-0.5 text-[9px] text-green-400" title="This file will be hosted permanently on Catbox">
-                      <CheckCircle className="h-2.5 w-2.5" />Catbox
+                      <CoolIcon icon="Circle_Check" size={10} />Catbox
                     </span>
                   ) : (
                     <span className="ml-1" title="File exceeds 200MB upload limit, will be attached normally">
-                      <AlertTriangle className="inline h-2.5 w-2.5 text-yellow-500" />
+                      <CoolIcon icon="Triangle_Warning" size={10} className="inline text-yellow-500" />
                     </span>
                   )}
                   {usedInEmbed && (
@@ -309,21 +310,21 @@ export default function FileAttachmentEditor({
                   }}
                   className="shrink-0 text-zinc-500 hover:text-zinc-300"
                 >
-                  <FileText className="h-3 w-3" />
+                  <CoolIcon icon="File_Document" size={12} />
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditFile(f)}
                   className="shrink-0 text-zinc-500 hover:text-zinc-300"
                 >
-                  <FileText className="h-3 w-3" />
+                  <CoolIcon icon="File_Document" size={12} />
                 </button>
                 <button
                   type="button"
                   onClick={() => removeFile(f.id)}
                   className="shrink-0 text-zinc-500 hover:text-red-400"
                 >
-                  <X className="h-3 w-3" />
+                  <CoolIcon icon="Close_MD" size={12} />
                 </button>
               </div>
             );

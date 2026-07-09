@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye } from "lucide-react";
+import { CoolIcon } from "@/components/icons/CoolIcon";
 import { EMBED_BG, DISCORD, FONT } from "../constants";
 import type { APIComponentInActionRow, DraftFile, QueryDataMessage, QueryDataTarget } from "../types";
 import { isComponentsV2 } from "../utils/message";
@@ -18,7 +18,7 @@ export default function UnifiedPreview({ messages, targets, selectedId, onSelect
     <div style={{ borderRadius: 8, backgroundColor: EMBED_BG, fontFamily: FONT }}>
       {messages.length === 0 ? (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "64px 24px", textAlign: "center" }}>
-          <Eye style={{ width: 40, height: 40, color: DISCORD.textMuted, marginBottom: 12 }} />
+          <CoolIcon icon="Show" size={40} style={{ color: DISCORD.textMuted, marginBottom: 12 }} />
           <p style={{ fontSize: 14, color: DISCORD.textMuted, fontFamily: FONT, margin: 0 }}>No messages yet</p>
           <p style={{ marginTop: 4, fontSize: 12, color: "#52525b", fontFamily: FONT }}>Add a message to start composing</p>
         </div>

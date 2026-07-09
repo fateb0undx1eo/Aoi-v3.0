@@ -1,199 +1,300 @@
-import { useState, useRef } from "react";
-import { ChevronDown, ExternalLink } from "lucide-react";
-import type { APIComponentInActionRow, APIButtonComponent, APIStringSelectComponent } from "../types";
-import { getPlacement } from "../utils/placement";
-import { FONT, DISCORD } from "../constants";
+import { Popover } from "@base-ui-components/react/popover";
+import {
+  type APIButtonComponent,
+  type APISelectMenuComponent,
+  ButtonStyle,
+  ComponentType,
+} from "discord-api-types/v10";
+import type { APIActionRowComponent, APIComponentInMessageActionRow } from "discord-api-types/v10";
+import { useTranslation } from "@/lib/react-i18next";
+import { twJoin } from "tailwind-merge";
+import type { TFunction } from "@/types/i18next";
+import type { CacheManager } from "@/util/cache/CacheManager";
+import { cdn } from "../util/cdn";
+import { Button } from "../Button";
+import { CoolIcon } from "@/components/icons/CoolIcon";
+import { RoleShield } from "@/components/icons/role";
+import { Twemoji } from "@/components/icons/Twemoji";
+import { channelIcons } from "../utils/markdown";
+import type { ResolvableAPIChannel, ResolvableAPIRole } from "../types/cache";
 
-const BUTTON_COLORS: Record<number, { bg: string; hover: string; active: string; text: string }> = {
-  1: { bg: "#5865F2", hover: "#4752C4", active: "#3C45A5", text: "#fff" },
-  2: { bg: "#4E5058", hover: "#5F616A", active: "#6D6F78", text: "#fff" },
-  3: { bg: "#23A55A", hover: "#1C8B4A", active: "#15733E", text: "#fff" },
-  4: { bg: "#F23F42", hover: "#D8363A", active: "#BD2D30", text: "#fff" },
-  5: { bg: "transparent", hover: "transparent", active: "transparent", text: "#00A8FC" },
-  6: { bg: "#9B59B6", hover: "#824EA0", active: "#6F4290", text: "#fff" },
+enum AuthorType {
+  User,
+  ApplicationWebhook,
+  ActionableWebhook,
+}
+
+interface ResolvableAPIGuildMember {
+  user: { id: string; username: string; global_name: string | null };
+  nick: string | null;
+}
+
+type PreviewComponent<T extends APIComponentInMessageActionRow> = React.FC<{
+  data: T;
+  onClick?: React.ButtonHTMLAttributes<HTMLButtonElement>["onClick"];
+  authorType?: AuthorType;
+  cache?: CacheManager;
+  t?: TFunction;
+}>;
+
+export const PreviewButton: PreviewComponent<APIButtonComponent> = ({
+  data,
+  onClick,
+  authorType,
+}) => {
+  const nonSendable = authorType
+    ? authorType < AuthorType.ApplicationWebhook
+    : undefined;
+
+  const button = (
+    <Button
+      discordstyle={data.style}
+      emoji={data.style !== ButtonStyle.Premium ? (data as any).emoji : undefined}
+      disabled={data.disabled ?? false}
+      className={twJoin("!text-sm", nonSendable ? "hidden" : undefined)}
+      onClick={onClick}
+    >
+      {data.style !== ButtonStyle.Premium ? data.label : `SKU ${data.sku_id}`}
+    </Button>
+  );
+  return data.style === ButtonStyle.Link && data.url !== "" ? (
+    <a href={data.url} target="_blank" rel="noreferrer" className="contents">
+      {button}
+    </a>
+  ) : (
+    button
+  );
 };
 
-export function PreviewButton({ data, onClick }: { data: APIButtonComponent; onClick?: () => void }) {
-  const isLink = data.style === 5;
-  const isPremium = data.style === 6;
-  const colors = BUTTON_COLORS[data.style] ?? BUTTON_COLORS[1]!;
-  const label = isPremium ? `SKU ${data.sku_id}` : (data.label || (isLink ? "Link" : "Button"));
-
-  const inner = (
-    <button
-      type="button"
-      disabled={data.disabled}
-      onClick={onClick}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        borderRadius: 3,
-        padding: "10px 16px",
-        fontSize: 14,
-        fontWeight: 500,
-        lineHeight: 1.3,
-        fontFamily: FONT,
-        color: data.disabled ? DISCORD.buttonDisabledText : colors.text,
-        backgroundColor: data.disabled ? DISCORD.buttonDisabled : colors.bg,
-        border: isLink ? "1px solid #00A8FC" : "none",
-        cursor: data.disabled ? "not-allowed" : "pointer",
-        opacity: data.disabled ? 0.5 : 1,
-        transition: "background-color 0.1s, opacity 0.1s",
-        userSelect: "none",
-      }}
-      onMouseEnter={e => { if (!data.disabled && !isLink) { e.currentTarget.style.backgroundColor = colors.hover; } }}
-      onMouseLeave={e => { if (!data.disabled && !isLink) { e.currentTarget.style.backgroundColor = colors.bg; } }}
-      onMouseDown={e => { if (!data.disabled && !isLink) { e.currentTarget.style.backgroundColor = colors.active; } }}
-      onMouseUp={e => { if (!data.disabled && !isLink) { e.currentTarget.style.backgroundColor = colors.hover; } }}
-    >
-      {data.emoji?.id ? (
-        <img src={`https://cdn.discordapp.com/emojis/${data.emoji.id}.${data.emoji.animated ? "gif" : "png"}?size=32`} alt="" style={{ width: 20, height: 20, objectFit: "contain" }} />
-      ) : data.emoji?.name ? <span style={{ fontSize: 18 }}>{data.emoji.name}</span> : null}
-      {label}
-      {isLink && <ExternalLink style={{ width: 14, height: 14 }} />}
-    </button>
-  );
-
-  if (isLink && data.url) {
-    return <a href={data.url} target="_blank" rel="noreferrer noopener" style={{ display: "contents" }}>{inner}</a>;
-  }
-  return inner;
-}
-
-export function PreviewSelect({ data, onClick }: { data: APIStringSelectComponent; onClick?: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [selPlacement, setSelPlacement] = useState<"below" | "above">("below");
-  const selBtnRef = useRef<HTMLButtonElement>(null);
-
+const PreviewSelectOption: React.FC<{
+  label: string;
+  description?: string;
+  icon?: React.ReactNode;
+}> = ({ label, description, icon }) => {
   return (
-    <div style={{ position: "relative", fontFamily: FONT }}>
-      <button
-        ref={selBtnRef}
-        type="button"
-        disabled={data.disabled}
-        onClick={() => {
-          if (!open) {
-            if (selBtnRef.current) setSelPlacement(getPlacement(selBtnRef.current));
-          }
-          setOpen(!open); onClick?.();
-        }}
-        style={{
-          display: "inline-flex",
-          maxWidth: 400,
-          alignItems: "center",
-          gap: 8,
-          borderRadius: 4,
-          background: DISCORD.selectBg,
-          padding: 10,
-          fontSize: 14,
-          fontWeight: 500,
-          fontFamily: FONT,
-          color: data.disabled ? DISCORD.buttonDisabledText : DISCORD.selectPlaceholder,
-          border: `1px solid ${DISCORD.selectBorder}`,
-          opacity: data.disabled ? 0.5 : 1,
-          cursor: data.disabled ? "not-allowed" : "pointer",
-          transition: "border-color 0.1s",
-          userSelect: "none",
-          width: "100%",
-          minWidth: 200,
-        }}
-      >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.2, color: data.disabled ? DISCORD.buttonDisabledText : DISCORD.textNormal }}>
-          {data.placeholder || "Select an option"}
-        </span>
-        <ChevronDown style={{ width: 14, height: 14, flexShrink: 0, transition: "transform 0.15s", transform: open ? "rotate(180deg)" : "rotate(0deg)" }} />
-      </button>
-      {open && data.options.length > 0 && (
-        <div style={{
-          position: "absolute",
-          left: 0,
-          zIndex: 30,
-          minWidth: 200,
-          overflowY: "auto",
-          borderRadius: 8,
-          border: "1px solid rgba(255,255,255,0.06)",
-          background: DISCORD.selectOptionBg,
-          boxShadow: "0 8px 16px rgba(0,0,0,0.24)",
-          ...(selPlacement === "below" ? { top: "100%", marginTop: 4 } : { bottom: "100%", marginBottom: 4 }),
-        }}>
-          {data.options.map((opt, oi) => (
-            <div key={oi}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 12px",
-                fontSize: 14,
-                fontFamily: FONT,
-                color: DISCORD.textNormal,
-                cursor: "pointer",
-                transition: "background-color 0.05s",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = DISCORD.selectOptionHover; }}
-              onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent"; }}
-            >
-              {opt.emoji?.id ? (
-                <img src={`https://cdn.discordapp.com/emojis/${opt.emoji.id}.${opt.emoji.animated ? "gif" : "png"}?size=32`} alt="" style={{ width: 22, height: 22, flexShrink: 0, objectFit: "contain" }} />
-              ) : opt.emoji?.name ? <span style={{ fontSize: 16 }}>{opt.emoji.name}</span> : null}
-              <div style={{ minWidth: 0, overflow: "hidden" }}>
-                <p style={{ margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 500, lineHeight: 1.3, fontFamily: FONT, color: DISCORD.textNormal }}>{opt.label}</p>
-                {opt.description && <p style={{ margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, color: DISCORD.selectOptionDesc, fontFamily: FONT }}>{opt.description}</p>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+    <div className="flex items-center gap-2 last:rounded-b-lg hover:bg-[#F2F2F3] hover:dark:bg-[#43444B] w-full p-2 cursor-pointer">
+      {icon}
+      <div className="truncate text-sm font-medium">
+        <p className="truncate leading-[18px]">{label}</p>
+        {description && (
+          <p className="truncate text-[#4e5058] dark:text-[#b5bac1] leading-[18px]">
+            {description}
+          </p>
+        )}
+      </div>
     </div>
   );
-}
+};
 
-export function PreviewActionRow({
-  components,
-  onEditComponent,
-}: {
-  components: APIComponentInActionRow[];
-  onEditComponent?: (comp: APIComponentInActionRow, ri?: number, ci?: number) => void;
-}) {
+const PreviewMemberSelectOption: React.FC<{
+  member: ResolvableAPIGuildMember;
+}> = ({ member }) => (
+  <PreviewSelectOption
+    label={member.nick ?? member.user.global_name ?? member.user.username}
+    icon={
+      <div className="size-[22px] shrink-0 rounded-full bg-zinc-600 flex items-center justify-center text-[10px] text-white">
+        {(member.nick ?? member.user.username)[0]?.toUpperCase()}
+      </div>
+    }
+  />
+);
+
+const PreviewRoleSelectOption: React.FC<{
+  role: ResolvableAPIRole;
+}> = ({ role }) => (
+  <PreviewSelectOption
+    label={role.name}
+    icon={
+      <RoleShield
+        style={{ color: `#${role.color.toString(16).padStart(6, "0") === "000000" ? "9ca9b4" : role.color.toString(16).padStart(6, "0")}` }}
+        className="mr-2"
+      />
+    }
+  />
+);
+
+const PreviewChannelSelectOption: React.FC<{
+  channel: ResolvableAPIChannel;
+}> = ({ channel }) => (
+  <PreviewSelectOption
+    label={channel.name ?? ""}
+    icon={channelIcons[channel.type as unknown as keyof typeof channelIcons]?.({ className: "mr-2" })}
+  />
+);
+
+export const PreviewSelect: PreviewComponent<APISelectMenuComponent> = ({
+  data,
+  onClick,
+  authorType,
+  cache,
+  t,
+}) => {
+  const shouldLeftPad =
+    "options" in data && data.options.filter((o) => o.emoji).length !== 0;
+  const nonSendable = authorType
+    ? authorType < AuthorType.ActionableWebhook
+    : undefined;
+
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-      {components.map((comp, ci) => (
-        <div key={ci} style={{ display: "contents" }}>
-          {comp.type === 2 ? (
-            <PreviewButton data={comp} onClick={() => onEditComponent?.(comp, undefined, ci)} />
-          ) : comp.type === 3 ? (
-            <PreviewSelect data={comp} onClick={() => onEditComponent?.(comp, undefined, ci)} />
-          ) : comp.type >= 5 && comp.type <= 8 ? (
-            <button
-              type="button"
-              onClick={() => onEditComponent?.(comp, undefined, ci)}
-              style={{
-                display: "inline-flex",
-                maxWidth: 400,
-                cursor: "pointer",
-                alignItems: "center",
-                gap: 8,
-                borderRadius: 8,
-                background: DISCORD.selectBg,
-                padding: 10,
-                fontSize: 14,
-                fontWeight: 500,
-                fontFamily: FONT,
-                color: DISCORD.selectPlaceholder,
-                border: `1px solid ${DISCORD.selectBorder}`,
-                userSelect: "none",
-                minWidth: 200,
-                transition: "border-color 0.15s, opacity 0.15s",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = DISCORD.textMuted; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = DISCORD.selectBorder; }}
-            >
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.2 }}>
-                {comp.placeholder || "Select..."}
-              </span>
-              <ChevronDown style={{ width: 14, height: 14, flexShrink: 0 }} />
-            </button>
-          ) : null}
+    <Popover.Root>
+      <Popover.Trigger
+        disabled={data.disabled}
+        onClick={(e) => {
+          if (onClick) {
+            (e as any).preventBaseUIHandler?.();
+            onClick(e);
+          }
+        }}
+        render={
+          <button
+            type="button"
+            data-type={data.type}
+            data-custom-id={(data as any).custom_id}
+            className={twJoin(
+              "group/trigger",
+              "max-w-[400px] mr-4 box-border items-center gap-x-2",
+              "rounded-lg p-2 text-left bg-[#ebebeb] dark:bg-[#1e1f22] border border-black/[0.08] dark:border-transparent hover:border-[#c4c9ce] dark:hover:border-[#020202] transition-[border,_opacity] duration-200 font-medium cursor-pointer grid grid-cols-[1fr_auto] items-center w-full disabled:opacity-60 disabled:cursor-not-allowed",
+              nonSendable ? "hidden" : undefined,
+            )}
+          />
+        }
+      >
+        <span className="truncate text-[#5c5e66] dark:text-[#949ba4] leading-none">
+          {data.placeholder ?? (t ? t("defaultPlaceholder") : "Select an option")}
+        </span>
+        <CoolIcon
+          icon="Chevron_Down"
+          className="group-data-[popup-open]/trigger:rotate-180"
+        />
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner sideOffset={4} side="bottom" className="z-[35]">
+          <Popover.Popup
+            className={twJoin(
+              "box-border rounded-lg w-[--anchor-width] overflow-y-auto max-h-64",
+              "bg-white dark:bg-[#3C3D44] border border-[#e3e5e8] dark:border-[#1e1f22]",
+            )}
+          >
+            {data.type === ComponentType.StringSelect ? (
+              data.options.map((option, oi) => (
+                <PreviewSelectOption
+                  key={`preview-select-option-${oi}-${option.value}`}
+                  label={option.label}
+                  description={option.description}
+                  icon={
+                    option.emoji?.id ? (
+                      <img
+                        src={cdn.emoji(option.emoji.id)}
+                        className="w-[22px] h-[22px] shrink-0 object-contain"
+                        alt={option.emoji.name}
+                      />
+                    ) : option.emoji?.name ? (
+                      <Twemoji
+                        emoji={option.emoji.name}
+                        className="w-[22px] h-[22px] shrink-0 align-middle"
+                      />
+                    ) : shouldLeftPad ? (
+                      <div className="w-[22px] shrink-0" />
+                    ) : undefined
+                  }
+                />
+              ))
+            ) : data.type === ComponentType.UserSelect && cache ? (
+              (cache as any).member?.getAll?.()?.map?.((member: ResolvableAPIGuildMember) => (
+                <PreviewMemberSelectOption
+                  key={`preview-select-${data.type}-option-${member.user.id}`}
+                  member={member}
+                />
+              ))
+            ) : data.type === ComponentType.RoleSelect && cache ? (
+              (cache as any).role?.getAll?.()?.map?.((role: ResolvableAPIRole) => (
+                <PreviewRoleSelectOption
+                  key={`preview-select-${data.type}-option-${role.id}`}
+                  role={role}
+                />
+              ))
+            ) : data.type === ComponentType.MentionableSelect && cache ? (
+              <>
+                {(cache as any).role?.getAll?.()?.map?.((role: ResolvableAPIRole) => (
+                  <PreviewRoleSelectOption
+                    key={`preview-select-${data.type}-option-${role.id}-role`}
+                    role={role}
+                  />
+                ))}
+                {(cache as any).member?.getAll?.()?.map?.((member: ResolvableAPIGuildMember) => (
+                  <PreviewMemberSelectOption
+                    key={`preview-select-${data.type}-option-${member.user.id}-user`}
+                    member={member}
+                  />
+                ))}
+              </>
+            ) : data.type === ComponentType.ChannelSelect && cache ? (
+              (cache as any).channel?.getAll?.()?.map?.((channel: ResolvableAPIChannel) => (
+                <PreviewChannelSelectOption
+                  key={`preview-select-${data.type}-option-${channel.id}`}
+                  channel={channel}
+                />
+              ))
+            ) : (
+              <div className="p-3 text-xs text-zinc-500 text-center">
+                {data.placeholder ?? "Select..."}
+              </div>
+            )}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+};
+
+export const GenericPreviewComponentInActionRow: PreviewComponent<
+  APIComponentInMessageActionRow
+> = (props) => {
+  switch (props.data.type) {
+    case ComponentType.Button:
+      return <PreviewButton {...props} data={props.data as APIButtonComponent} />;
+    case ComponentType.StringSelect:
+    case ComponentType.UserSelect:
+    case ComponentType.RoleSelect:
+    case ComponentType.MentionableSelect:
+    case ComponentType.ChannelSelect:
+      return <PreviewSelect {...props} data={props.data as APISelectMenuComponent} />;
+    default:
+      return <></>;
+  }
+};
+
+export function PreviewActionRow(
+  props:
+    | { component: APIActionRowComponent<APIComponentInMessageActionRow>; authorType?: AuthorType; cache?: CacheManager }
+    | { components: APIComponentInMessageActionRow[] },
+) {
+  const row = "component" in props ? props.component : { type: 1 as const, components: props.components };
+  const resolved = row as APIActionRowComponent<APIComponentInMessageActionRow>;
+  const authorType = "authorType" in props ? props.authorType : undefined;
+  const cache = "cache" in props ? props.cache : undefined;
+  const { t } = useTranslation();
+  const isAllLinkButtons = !resolved.components
+    .map((c) => c.type === ComponentType.Button && c.style === ButtonStyle.Link)
+    .includes(false);
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {resolved.components.map((component, ci) => (
+        <div key={`action-row-component-${ci}`} className="contents">
+          <GenericPreviewComponentInActionRow
+            data={component}
+            authorType={
+              authorType === undefined ||
+              authorType < AuthorType.ApplicationWebhook
+                ? isAllLinkButtons
+                  ? AuthorType.ApplicationWebhook
+                  : undefined
+                : authorType
+            }
+            cache={cache}
+            t={t}
+          />
         </div>
       ))}
     </div>

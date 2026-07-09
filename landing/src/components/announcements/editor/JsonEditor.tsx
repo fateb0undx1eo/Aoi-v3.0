@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { AlertTriangle } from "lucide-react";
+import { CoolIcon } from "@/components/icons/CoolIcon";
 import { ACCENT } from "../constants";
 import type { QueryDataMessageData } from "../types";
 
@@ -84,7 +84,7 @@ export default function JsonEditor({ messageData, onChange }: { messageData: Que
         spellCheck={false} />
       {error && (
         <div className="flex items-start gap-2 rounded-lg border border-red-900/50 bg-red-950 px-3 py-2 text-xs text-red-400">
-          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+          <CoolIcon icon="Triangle_Warning" className="mt-0.5 h-3 w-3 shrink-0" />
           <span>{error}</span>
         </div>
       )}

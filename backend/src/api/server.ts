@@ -1,24 +1,25 @@
-import 'express-async-errors';
 import os from 'node:os';
+import http from 'node:http';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
-import express, { type Request, type Response, type NextFunction } from 'express';
-import compression from 'compression';
-import timeout from 'connect-timeout';
+import Fastify, { type FastifyInstance, type FastifyRequest, type FastifyReply } from 'fastify';
+import compress from '@fastify/compress';
+import cors from '@fastify/cors';
+import multipart from '@fastify/multipart';
 import { createRequestId, logger, withLogContext } from '../utils/logger.js';
 import { RepositoryError } from '../database/repository.js';
 import { ExternalServiceUnavailableError, ValidationError, UnauthorizedError } from '../errors.js';
 import { metrics } from '../observability/metrics.js';
 import { runtimeState } from '../observability/runtimeState.js';
 import type { EnvConfig } from '../types/env.js';
+import { idempotencyPreHandler, idempotencyOnSend } from './middleware/idempotency.js';
 import { requireAuth } from './middleware/requireAuth.js';
-import { idempotency } from './middleware/idempotency.js';
-import { createAuthRoutes } from './routes/authRoutes.js';
-import { createDashboardRoutes } from './routes/dashboardRoutes.js';
-import { createGuildRoutes } from './routes/guildRoutes.js';
-import { createModuleRoutes } from './routes/moduleRoutes.js';
-import { createAnalyticsRoutes } from './routes/analyticsRoutes.js';
-import { createSettingsRoutes } from './routes/settingsRoutes.js';
-import { createModerationRoutes } from './routes/moderationRoutes.js';
+import { authRoutes } from './routes/authRoutes.js';
+import { dashboardRoutes } from './routes/dashboardRoutes.js';
+import { guildRoutes } from './routes/guildRoutes.js';
+import { moduleRoutes } from './routes/moduleRoutes.js';
+import { analyticsRoutes } from './routes/analyticsRoutes.js';
+import { settingsRoutes } from './routes/settingsRoutes.js';
+import { moderationRoutes } from './routes/moderationRoutes.js';
 
 interface ApiServerDependencies {
   authService: any;
@@ -35,60 +36,63 @@ function validateDeps(deps: ApiServerDependencies): void {
   if (!deps.env) throw new Error('env required');
 }
 
-export function buildApiServer(deps: any): express.Application {
+export interface BuildResult {
+  fastify: FastifyInstance;
+  server: http.Server;
+}
+
+export function buildApiServer(deps: any): BuildResult {
   validateDeps(deps);
 
   const eventLoopHistogram = monitorEventLoopDelay();
   eventLoopHistogram.enable();
 
-  const app = express();
-  app.set('trust proxy', 1);
-  app.set('etag', 'strong');
-  app.use(compression({ level: 6, threshold: 512 }));
-  const allowedOrigins = new Set(deps.env?.frontend?.corsAllowedOrigins ?? []);
+  const server = http.createServer();
+
+  const fastify = Fastify({
+    serverFactory: (handler) => {
+      server.on('request', handler);
+      return server;
+    },
+    trustProxy: 1,
+    bodyLimit: 1048576,
+    requestTimeout: 30000,
+  });
+
+  const allowedOrigins = new Set<string>(deps.env?.frontend?.corsAllowedOrigins ?? []);
   const allowAnyOrigin = deps.env?.nodeEnv !== 'production';
 
-  app.use((req: Request, res: Response, next: NextFunction): void => {
-    const requestId = req.headers['x-request-id']?.toString() || createRequestId();
-    const startedAt = Date.now();
-    res.setHeader('x-request-id', requestId);
-    res.on('finish', () => {
-      metrics.increment('http_requests_total', { method: req.method, status: res.statusCode });
-      metrics.observe('http_request_duration_ms', Date.now() - startedAt, {
-        method: req.method,
-        route: req.route?.path || req.path
-      });
+  fastify.register(compress, { global: true, threshold: 512 });
+
+  fastify.register(cors, {
+    origin: allowAnyOrigin ? true : Array.from(allowedOrigins),
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'x-user-id', 'x-user-role-ids', 'Idempotency-Key'],
+  });
+
+  fastify.register(multipart, { limits: { fileSize: 200 * 1024 * 1024 } });
+
+  fastify.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
+    const requestId = request.headers['x-request-id']?.toString() || createRequestId();
+    (request as any).startedAt = Date.now();
+    reply.header('x-request-id', requestId);
+    withLogContext({ request_id: requestId }, () => {});
+  });
+
+  fastify.addHook('onResponse', async (request: FastifyRequest, reply: FastifyReply) => {
+    const startedAt = (request as any).startedAt || Date.now();
+    metrics.increment('http_requests_total', { method: request.method, status: reply.statusCode });
+    metrics.observe('http_request_duration_ms', Date.now() - startedAt, {
+      method: request.method,
+      route: request.routeOptions?.url || request.url
     });
-    withLogContext({ request_id: requestId }, next);
   });
 
-  app.use((req: Request, res: Response, next: NextFunction): void => {
-    const origin = req.headers.origin;
-
-    if (origin && (allowAnyOrigin || allowedOrigins.has(origin))) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Vary', 'Origin');
-    } else if (allowAnyOrigin) {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,Cookie,x-user-id,x-user-role-ids,Idempotency-Key');
-    if (req.method === 'OPTIONS') {
-      res.status(204).end();
-      return;
-    }
-    next();
-  });
-
-  app.use(express.json({ limit: '1mb' }));
-  app.use(timeout('30s'));
-
-  app.get('/healthz', (_req: Request, res: Response): void => {
+  fastify.get('/healthz', async (request: FastifyRequest, reply: FastifyReply) => {
     const mem = process.memoryUsage();
     const cpu = process.cpuUsage();
-    res.status(200).json({
+    return reply.status(200).send({
       ok: true,
       service: 'discord-ecosystem-backend',
       discord_ready: deps.discordClient?.isReady?.() ?? false,
@@ -131,47 +135,58 @@ export function buildApiServer(deps: any): express.Application {
     });
   });
 
-  app.get('/metrics', (_req: Request, res: Response): void => {
-    res.status(200).json(metrics.snapshot({
+  fastify.get('/metrics', async (request: FastifyRequest, reply: FastifyReply) => {
+    return reply.status(200).send(metrics.snapshot({
       runtime: runtimeState.snapshot(),
       websocket: deps.websocketStats?.() ?? null,
       queues: deps.queueStats?.() ?? []
     }));
   });
 
-  app.use('/api/auth', idempotency, createAuthRoutes(deps));
-  app.use('/api/dashboard', idempotency, createDashboardRoutes(deps));
-  app.use('/api/guilds', idempotency, createGuildRoutes(deps));
-  app.use('/api/modules', idempotency, createModuleRoutes(deps));
-  app.use('/api/analytics', idempotency, createAnalyticsRoutes(deps));
-  app.use('/api/settings', idempotency, createSettingsRoutes(deps));
-  app.use('/api/moderation', requireAuth(deps.authService), idempotency, createModerationRoutes(deps));
-
-  app.use((error: Error, _req: Request, res: Response, _next: NextFunction): void => {
+  fastify.setErrorHandler((error: Error, request: FastifyRequest, reply: FastifyReply) => {
     logger.error('API error', error);
 
     if (error instanceof ExternalServiceUnavailableError) {
-      res.status(503).json({ error: 'config_store_unreachable' });
-      return;
+      return reply.status(503).send({ error: 'config_store_unreachable' });
     }
 
     if (error instanceof ValidationError) {
-      res.status(400).json({ error: 'validation_error' });
-      return;
+      return reply.status(400).send({ error: 'validation_error' });
     }
 
     if (error instanceof UnauthorizedError) {
-      res.status(401).json({ error: 'unauthorized' });
-      return;
+      return reply.status(401).send({ error: 'unauthorized' });
     }
 
     if (error instanceof RepositoryError) {
-      res.status(500).json({ error: 'config_store_failed' });
-      return;
+      return reply.status(500).send({ error: 'config_store_failed' });
     }
 
-    res.status(500).json({ error: 'internal_server_error' });
+    if ((error as any).statusCode) {
+      return reply.status((error as any).statusCode).send({ error: error.message });
+    }
+
+    return reply.status(500).send({ error: 'internal_server_error' });
   });
 
-  return app;
+  function registerGroup(prefix: string, routeFn: any, extraHooks: any[] = []) {
+    fastify.register(async (instance: FastifyInstance) => {
+      instance.addHook('preHandler', idempotencyPreHandler);
+      instance.addHook('onSend', idempotencyOnSend);
+      for (const hook of extraHooks) {
+        instance.addHook('preHandler', hook);
+      }
+      instance.register(routeFn, { deps });
+    }, { prefix });
+  }
+
+  registerGroup('/api/auth', authRoutes);
+  registerGroup('/api/dashboard', dashboardRoutes);
+  registerGroup('/api/guilds', guildRoutes);
+  registerGroup('/api/modules', moduleRoutes);
+  registerGroup('/api/analytics', analyticsRoutes);
+  registerGroup('/api/settings', settingsRoutes);
+  registerGroup('/api/moderation', moderationRoutes, [requireAuth(deps.authService)]);
+
+  return { fastify, server };
 }

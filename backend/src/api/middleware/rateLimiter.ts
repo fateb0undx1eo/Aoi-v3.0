@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from 'express';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 import { logger } from '../../utils/logger.js';
 
 interface RateLimitEntry {
@@ -23,8 +23,8 @@ export function rateLimiter(opts: {
 } = {}) {
   const { windowMs = 60_000, maxRequests = 60, keyPrefix = 'global' } = opts;
 
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const userId = (req as any).user?.id || req.ip || 'unknown';
+  return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const userId = (request as any).user?.id || request.ip || 'unknown';
     const key = `${keyPrefix}:${userId}`;
     const now = Date.now();
 
@@ -36,19 +36,17 @@ export function rateLimiter(opts: {
 
     entry.count++;
 
-    res.setHeader('X-RateLimit-Limit', maxRequests.toString());
-    res.setHeader('X-RateLimit-Remaining', Math.max(0, maxRequests - entry.count).toString());
-    res.setHeader('X-RateLimit-Reset', Math.ceil(entry.resetAt / 1000).toString());
+    reply.header('X-RateLimit-Limit', maxRequests.toString());
+    reply.header('X-RateLimit-Remaining', Math.max(0, maxRequests - entry.count).toString());
+    reply.header('X-RateLimit-Reset', Math.ceil(entry.resetAt / 1000).toString());
 
     if (entry.count > maxRequests) {
       logger.warn(`Rate limit exceeded for ${key}`);
-      res.status(429).json({
+      reply.status(429).send({
         error: 'Too many requests',
         retryAfter: Math.ceil((entry.resetAt - now) / 1000)
       });
       return;
     }
-
-    next();
   };
 }

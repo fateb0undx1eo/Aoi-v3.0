@@ -652,55 +652,6 @@ const maskedLinkRule = defineRule({
   },
 });
 
-// For blog-type posts; not actually used in Discord previews
-const maskedImageLinkRule = defineRule({
-  capture(source) {
-    const match =
-      /^!\[((?:\[[^\]]*\]|[^[\]]|\](?=[^[]*\]))*)\]\(\s*<?((?:\([^)]*\)|[^\s\\]|\\.)*?)>?(?:\s+['"](.*?)['"])?\s*\)/su.exec(
-        source,
-      );
-    if (!match) return;
-    try {
-      new URL(match[2]!);
-    } catch {
-      return;
-    }
-
-    const dotDelimited = new URL(match[2]!).pathname.split(".");
-    return {
-      size: match[0]!.length,
-      content: match[1]!,
-      url: new URL(match[2]!).href,
-      extension:
-        dotDelimited.length === 0
-          ? null
-          : dotDelimited[dotDelimited.length - 1]!.toLowerCase(),
-      title: match[3]!,
-    };
-  },
-  render(capture) {
-    return capture.extension !== null && ["mp4"].includes(capture.extension) ? (
-      // biome-ignore lint/a11y/useMediaCaption: Not available
-      <video
-        title={capture.title}
-        className="rounded-lg"
-        rel="noreferrer noopener nofollow ugc"
-        controls
-      >
-        <source src={pathize(capture.url)} type="video/mp4" />
-      </video>
-    ) : (
-      <img
-        src={pathize(capture.url)}
-        title={capture.title}
-        className="rounded-lg"
-        rel="noreferrer noopener nofollow ugc"
-        alt={capture.content || capture.title}
-      />
-    );
-  },
-});
-
 const emphasisRule = defineRule({
   capture(source, _, parse) {
     const match =
@@ -773,10 +724,9 @@ const codeRule = defineRule({
     };
   },
   render(capture) {
-    return capture.content ?? "";
+    return <code className={codeStyle}>{capture.content}</code>;
   },
 });
-
 
 const breakRule = defineRule({
   capture(source) {
@@ -942,12 +892,6 @@ const channelMentionRule = defineRule({
     };
   },
   render(_capture, _, data, t) {
-    if (data.channel === undefined) {
-      <span className={actionableMentionStyle}>
-        {channelIcons.text()}channel
-      </span>;
-    }
-
     return (
       <span className={actionableMentionStyle}>
         {channelIcons[(data.channel?.type ?? "text") as keyof typeof channelIcons]()}
@@ -976,10 +920,6 @@ const memberMentionRule = defineRule({
     };
   },
   render(_capture, _render, data, t) {
-    if (data.member === undefined) {
-      <span className={actionableMentionStyle}>@member</span>;
-    }
-
     return (
       <span className={actionableMentionStyle}>
         {data.member ? (
@@ -1130,7 +1070,6 @@ type RuleOptionKey =
   | "references"
   | "links"
   | "autoLinks"
-  | "maskedImageLinks"
   | "maskedLinks"
   | "italic"
   | "bold"
@@ -1164,7 +1103,6 @@ export const ruleOptions: Record<
   references: { rule: referenceRule, full: true },
   links: { rule: linkRule, title: true, full: true },
   autoLinks: { rule: autoLinkRule, title: true, full: true },
-  maskedImageLinks: { rule: maskedImageLinkRule },
   maskedLinks: { rule: maskedLinkRule, full: true },
   italic: { rule: emphasisRule, title: true, full: true },
   bold: { rule: strongRule, title: true, full: true },
@@ -1277,7 +1215,7 @@ export const Markdown: React.FC<{
     }
   }, [result, cache]);
 
-  return <div>{renderMarkdownNodes(result.nodes, resolver.resolved, t)}</div>;
+  return <div className="[--font-size:1rem]">{renderMarkdownNodes(result.nodes, resolver.resolved, t)}</div>;
 };
 
 /**

@@ -11,59 +11,46 @@ const configSchema = {
         properties: {
           id: { type: 'string', description: 'Unique preset identifier' },
           name: { type: 'string', description: 'Display name for the preset' },
-          kind: { type: 'string', enum: ['message', 'embed', 'flow'], description: 'Preset type' },
+          kind: { type: 'string', enum: ['draft', 'template'], description: 'Preset type' },
           data: {
             type: 'object',
+            description: 'Full QueryData payload (version, messages[], targets[])',
             properties: {
-              content: { type: 'string', maxLength: 2000 },
-              embeds: {
+              version: { type: 'string', description: 'Query data format version' },
+              messages: {
                 type: 'array',
                 items: {
                   type: 'object',
                   properties: {
-                    title: { type: 'string', maxLength: 256 },
-                    description: { type: 'string', maxLength: 4096 },
-                    url: { type: 'string', format: 'uri' },
-                    color: { type: 'number' },
-                    fields: {
-                      type: 'array',
-                      items: {
-                        type: 'object',
-                        properties: {
-                          name: { type: 'string', maxLength: 256 },
-                          value: { type: 'string', maxLength: 1024 },
-                          inline: { type: 'boolean' }
-                        },
-                        required: ['name', 'value']
-                      }
-                    },
-                    footer: {
+                    _id: { type: 'string' },
+                    name: { type: 'string', maxLength: 100 },
+                    data: {
                       type: 'object',
                       properties: {
-                        text: { type: 'string', maxLength: 2048 },
-                        icon_url: { type: 'string', format: 'uri' }
+                        content: { type: 'string', maxLength: 2000 },
+                        embeds: { type: 'array', items: { type: 'object' } },
+                        components: { type: 'array', items: { type: 'object' } },
+                        flags: { type: 'integer' },
+                        thread_name: { type: 'string', maxLength: 100 },
+                        allowed_mentions: { type: 'object' }
                       }
-                    },
-                    image: { type: 'object', properties: { url: { type: 'string', format: 'uri' } } },
-                    thumbnail: { type: 'object', properties: { url: { type: 'string', format: 'uri' } } },
-                    author: {
-                      type: 'object',
-                      properties: {
-                        name: { type: 'string', maxLength: 256 },
-                        url: { type: 'string', format: 'uri' },
-                        icon_url: { type: 'string', format: 'uri' }
-                      }
-                    },
-                    timestamp: { type: 'string', format: 'date-time' }
+                    }
                   }
                 }
               },
-              components: {
+              targets: {
                 type: 'array',
-                description: 'Action rows or V2 layout containers'
-              },
-              flags: { type: 'integer', description: 'Message flags bitfield' },
-              thread_name: { type: 'string', description: 'Forum thread name if applicable' }
+                items: {
+                  type: 'object',
+                  properties: {
+                    type: { type: 'integer' },
+                    url: { type: 'string' },
+                    application_id: { type: 'string' },
+                    bot_id: { type: 'string' },
+                    channel_id: { type: 'string' }
+                  }
+                }
+              }
             }
           }
         },

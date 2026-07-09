@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CoolIcon } from "@/components/icons/CoolIcon";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@/lib/utils";
 import type { ImageModalProps } from "../types";
@@ -53,7 +53,7 @@ export function ImageModal({
                 setIndex(siblingIndex);
               }}
             >
-              <ChevronLeft className="h-8 w-8" />
+              <CoolIcon icon="Chevron_Left" size={32} />
             </button>
           )}
           {image ? (
@@ -75,7 +75,7 @@ export function ImageModal({
                 setIndex(siblingIndex);
               }}
             >
-              <ChevronRight className="h-8 w-8" />
+              <CoolIcon icon="Chevron_Right" size={32} />
             </button>
           )}
         </DialogPrimitive.Content>

@@ -3,10 +3,24 @@ import type { TFunction } from "@/types/i18next";
 
 export { type TFunction };
 
+const translations: Record<string, string> = {
+  "content": "Content",
+  "accessory": "Accessory",
+  "addAccessory": "Add Accessory",
+  "addText": "Add Text",
+  "delete": "Delete",
+  "description": "Description",
+  "markSpoiler": "Mark as spoiler",
+  "imageUrl": "Image URL",
+  "component.2": "Button",
+  "component.11": "Thumbnail",
+  "linkButton": "Link Button",
+};
+
 export function useTranslation(): { t: TFunction } {
   return {
     t: (key: string, options?: Record<string, unknown>) => {
-      return key;
+      return translations[key] ?? key;
     },
   };
 }

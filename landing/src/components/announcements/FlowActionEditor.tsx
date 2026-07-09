@@ -1,6 +1,6 @@
-import { Plus, X, Zap } from "lucide-react";
+import { Zap } from "lucide-react";
+import { CoolIcon } from "@/components/icons/CoolIcon";
 import type { FlowAction } from "./types";
-import { ACCENT } from "./constants";
 
 const actionMeta: Record<FlowAction["type"], { label: string; desc: string; group: string }> = {
   add_role:       { label: "Add Role",       desc: "Grant a role to the user", group: "roles" },
@@ -78,7 +78,7 @@ export default function FlowActionEditor({ actions, onChange, isButton, isSelect
                 <span className="rounded bg-zinc-800 px-1 text-[8px] text-zinc-500">on: {action.option_value}</span>
               )}
             </span>
-            <button type="button" onClick={() => removeAction(i)} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
+            <button type="button" onClick={() => removeAction(i)} className="text-zinc-600 hover:text-red-400"><CoolIcon icon="Close_MD" size={12} /></button>
           </div>
           <div className="space-y-1">
             {isSelect && (
@@ -191,8 +191,8 @@ export default function FlowActionEditor({ actions, onChange, isButton, isSelect
             <div className="flex flex-wrap gap-1">
               {types.map((type) => (
                 <button key={type} type="button" onClick={() => addAction(type)}
-                  className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] uppercase text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300">
-                  <Plus className="h-2 w-2" /> {actionMeta[type].label}
+                  className="flex items-center justify-center w-6 h-6 rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300">
+                  <CoolIcon icon="Add_Plus" size={14} />
                 </button>
               ))}
             </div>

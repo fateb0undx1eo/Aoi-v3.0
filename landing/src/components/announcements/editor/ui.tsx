@@ -1,5 +1,6 @@
 import { useState, useRef, type ReactNode } from "react";
-import { ChevronDown, Plus, Hash } from "lucide-react";
+import { Hash } from "lucide-react";
+import { CoolIcon } from "@/components/icons/CoolIcon";
 import { C } from "../constants";
 
 export function Label({ children, muted, style }: { children: ReactNode; muted?: boolean; style?: React.CSSProperties }) {
@@ -95,8 +96,8 @@ export function Section({ title, badge, defaultOpen, titleStyle, collapsible, ch
         onKeyDown={collapsible !== false ? (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(!open); } } : undefined}
       >
         {collapsible !== false && (
-          <ChevronDown style={{
-            width: 14, height: 14, color: C.textMuted, flexShrink: 0,
+          <CoolIcon icon="Chevron_Down" size={14} style={{
+            color: C.textMuted, flexShrink: 0,
             transform: open ? "rotate(0deg)" : "rotate(-90deg)",
             transition: "transform 0.15s",
           }} />
@@ -160,7 +161,7 @@ export function AddButton({ label, onClick, disabled }: { label: string; onClick
       }}
       onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.color = C.text; }}
       onMouseLeave={(e) => { if (!disabled) e.currentTarget.style.color = C.textMuted; }}>
-      <Plus style={{ width: 12, height: 12 }} /> {label}
+      <CoolIcon icon="Add_Plus" size={16} />
     </button>
   );
 }

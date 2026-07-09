@@ -1,19 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  Plus,
-  Trash2,
-  Image,
-  FileText,
-  Code,
-  Layers,
-  MessageSquare,
-  BellOff,
-  BellMinus,
-  X,
-} from "lucide-react";
+import { CoolIcon } from "@/components/icons/CoolIcon";
 import type {
   APIComponentInActionRow,
   APIEmbed,
@@ -175,7 +161,7 @@ export default function MessageEditorCard({
             disabled={!canMoveUp}
             className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"
           >
-            <ChevronUp className="h-2.5 w-2.5" />
+            <CoolIcon icon="Chevron_Up" size={10} />
           </button>
           <button
             type="button"
@@ -183,7 +169,7 @@ export default function MessageEditorCard({
             disabled={!canMoveDown}
             className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"
           >
-            <ChevronDown className="h-2.5 w-2.5" />
+            <CoolIcon icon="Chevron_Down" size={10} />
           </button>
         </div>
         <button
@@ -212,7 +198,7 @@ export default function MessageEditorCard({
             title="Duplicate"
             className="text-zinc-600 hover:text-zinc-300"
           >
-            <Copy className="h-3 w-3" />
+            <CoolIcon icon="Copy" size={12} />
           </button>
           <button
             type="button"
@@ -220,14 +206,14 @@ export default function MessageEditorCard({
             title="Remove"
             className="text-zinc-600 hover:text-red-400"
           >
-            <Trash2 className="h-3 w-3" />
+            <CoolIcon icon="Trash_Empty" size={12} />
           </button>
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}
             className="text-zinc-600 hover:text-zinc-300"
           >
-            <ChevronDown
+            <CoolIcon icon="Chevron_Down"
               className={`h-3 w-3 transition-transform ${collapsed ? "" : "rotate-180"}`}
             />
           </button>
@@ -277,22 +263,22 @@ export default function MessageEditorCard({
                 >
                   {tab === "files" ? (
                     <>
-                      <Image className="mr-0.5 inline h-2.5 w-2.5" />
+                      <CoolIcon icon="Image_01" size={10} className="mr-0.5 inline" />
                       {labels[tab]}
                     </>
                   ) : tab === "embed" ? (
                     <>
-                      <FileText className="mr-0.5 inline h-2.5 w-2.5" />
+                      <CoolIcon icon="File_Document" size={10} className="mr-0.5 inline" />
                       {labels[tab]}
                     </>
                   ) : tab === "json" ? (
                     <>
-                      <Code className="mr-0.5 inline h-2.5 w-2.5" />
+                      <CoolIcon icon="Code" size={10} className="mr-0.5 inline" />
                       {labels[tab]}
                     </>
                   ) : tab === "components" ? (
                     <>
-                      <Layers className="mr-0.5 inline h-2.5 w-2.5" />
+                      <CoolIcon icon="Layers" size={10} className="mr-0.5 inline" />
                       {labels[tab]}
                     </>
                   ) : (
@@ -362,7 +348,7 @@ export default function MessageEditorCard({
 
               {(msg.embeds ?? []).length === 0 && (
                 <div className="rounded-lg bg-zinc-800/10 p-4 text-center">
-                  <FileText className="mx-auto mb-1 h-6 w-6 text-zinc-600" />
+                  <CoolIcon icon="File_Document" size={24} className="mx-auto mb-1 text-zinc-600" />
                   <p className="text-xs text-zinc-500">
                     No embeds yet. Click below to add one.
                   </p>
@@ -412,10 +398,9 @@ export default function MessageEditorCard({
                   updateMessageData({ embeds });
                 }}
                 disabled={(msg.embeds?.length ?? 0) >= 10}
-                className="flex w-full items-center justify-center gap-1 rounded-lg bg-zinc-800/30 py-2.5 text-xs text-zinc-500 hover:bg-zinc-700/30 hover:text-zinc-300 disabled:opacity-40"
+                className="flex w-full items-center justify-center py-2.5 text-zinc-500 hover:text-zinc-300 disabled:opacity-40"
               >
-                <Plus className="h-3.5 w-3.5" /> Add Embed (
-                {msg.embeds?.length ?? 0}/10)
+                <CoolIcon icon="Add_Plus" size={16} />
               </button>
             </div>
           )}
@@ -461,7 +446,7 @@ export default function MessageEditorCard({
                 }}
                 className="h-3 w-3 rounded border-zinc-700 bg-zinc-800"
               />
-              <BellOff className="h-2.5 w-2.5" /> Suppress Embeds
+              <CoolIcon icon="Bell_Off" size={10} /> Suppress Embeds
             </label>
             <label className="flex items-center gap-1 text-[9px] text-zinc-500">
               <input
@@ -474,7 +459,7 @@ export default function MessageEditorCard({
                 }}
                 className="h-3 w-3 rounded border-zinc-700 bg-zinc-800"
               />
-              <BellOff className="h-2.5 w-2.5" /> Suppress Notifications
+              <CoolIcon icon="Bell_Off" size={10} /> Suppress Notifications
             </label>
             <label className="flex items-center gap-1 text-[9px] text-zinc-500">
               <input
@@ -489,7 +474,7 @@ export default function MessageEditorCard({
                 }
                 className="h-3 w-3 rounded border-zinc-700 bg-zinc-800"
               />
-              <BellMinus className="h-2.5 w-2.5" /> Allow Mentions
+              <CoolIcon icon="Bell_Remove" size={10} /> Allow Mentions
             </label>
           </div>
         </div>

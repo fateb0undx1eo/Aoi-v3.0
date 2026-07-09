@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from 'express';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 import { redisClient } from '../../core/redis.js';
 import { logger } from '../../utils/logger.js';
 
@@ -13,22 +13,12 @@ const HEADERS_TO_CACHE = [
   'x-idempotent'
 ];
 
-export async function idempotency(req: Request, res: Response, next: NextFunction): Promise<void> {
-  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
-    next();
-    return;
-  }
+export async function idempotencyPreHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) return;
 
-  const key = (req.headers['idempotency-key'] as string)?.trim();
-  if (!key || key.length < 8 || key.length > 256) {
-    next();
-    return;
-  }
-
-  if (!redisClient.isReady()) {
-    next();
-    return;
-  }
+  const key = (request.headers['idempotency-key'] as string)?.trim();
+  if (!key || key.length < 8 || key.length > 256) return;
+  if (!redisClient.isReady()) return;
 
   const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, '');
   const redisKey = `idempotency:${safeKey}`;
@@ -39,35 +29,39 @@ export async function idempotency(req: Request, res: Response, next: NextFunctio
       try {
         const cached = JSON.parse(existing);
         logger.debug('Idempotency hit', { key: safeKey });
-        res.status(cached.status).set(cached.headers ?? {}).json(cached.body);
+        reply.status(cached.status).headers(cached.headers ?? {}).send(cached.body);
         return;
       } catch {
         await redisClient.del(redisKey);
       }
     }
 
-    const originalJson = res.json.bind(res);
-    res.json = function (body: any): Response {
-      const cachedHeaders: Record<string, string> = { 'x-idempotent': 'true' };
-      for (const header of HEADERS_TO_CACHE) {
-        const value = res.getHeader(header);
-        if (value !== undefined && value !== null) {
-          cachedHeaders[header] = String(value);
-        }
-      }
-
-      const payload = JSON.stringify({
-        status: res.statusCode,
-        headers: cachedHeaders,
-        body,
-      });
-      redisClient.setex(redisKey, IDEMPOTENCY_TTL_SECONDS, payload).catch(() => {});
-      return originalJson(body);
-    };
-
-    next();
+    (request as any).idempotencyKey = safeKey;
+    (request as any).idempotencyRedisKey = redisKey;
   } catch (error) {
     logger.warn('Idempotency middleware error:', error);
-    next();
+  }
+}
+
+export async function idempotencyOnSend(request: FastifyRequest, reply: FastifyReply, payload: unknown): Promise<void> {
+  const safeKey = (request as any).idempotencyKey;
+  if (!safeKey) return;
+
+  if (reply.statusCode >= 200 && reply.statusCode < 300) {
+    const redisKey = (request as any).idempotencyRedisKey;
+    const cachedHeaders: Record<string, string> = { 'x-idempotent': 'true' };
+    for (const header of HEADERS_TO_CACHE) {
+      const value = reply.getHeader(header);
+      if (value !== undefined && value !== null) {
+        cachedHeaders[header] = String(value);
+      }
+    }
+
+    const data = JSON.stringify({
+      status: reply.statusCode,
+      headers: cachedHeaders,
+      body: payload,
+    });
+    redisClient.setex(redisKey, IDEMPOTENCY_TTL_SECONDS, data).catch(() => {});
   }
 }

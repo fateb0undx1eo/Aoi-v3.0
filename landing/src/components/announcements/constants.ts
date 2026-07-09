@@ -146,3 +146,5 @@ export const TIMESTAMP_STYLES: Record<string, string> = { t: "Short Time", T: "L
 export const DISCORD_BLUE = "#5865F2";
 export const CDN = "https://cdn.discordapp.com";
 export { DISCORD_LIMITS } from "./types";
+
+export const MAX_TOTAL_COMPONENTS_CHARACTERS = 4000;

@@ -1,61 +1,48 @@
-import { Router } from 'express';
-import type { Request, Response, NextFunction } from 'express';
-
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { requireGuildAccess } from '../middleware/requireGuildAccess.js';
-import type { BotContext } from '../../types/index.js';
 import type { AuthService } from '../../services/authService.js';
 import type { AccessControlService } from '../../services/accessControlService.js';
 import type { DashboardOverviewService } from '../../services/dashboardOverviewService.js';
 
-export function createDashboardRoutes({ authService, accessControlService, dashboardOverviewService }: {
+interface Deps {
   authService: AuthService;
   accessControlService: AccessControlService;
   dashboardOverviewService: DashboardOverviewService;
-}): Router {
-  const router = Router();
+}
 
-  router.use(requireAuth(authService));
+export async function dashboardRoutes(instance: FastifyInstance, opts: { deps: Deps }): Promise<void> {
+  const { authService, accessControlService, dashboardOverviewService } = opts.deps;
+  const authHook = requireAuth(authService);
+  const guildAccessHook = requireGuildAccess(accessControlService);
 
-  router.get('/guild/:guildId/overview', requireGuildAccess(accessControlService), async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const guildId = req.params.guildId as string;
-      const overview = await dashboardOverviewService.getOverview(guildId);
-      if (!overview) {
-        res.status(404).json({ error: 'Guild not found or bot not in guild' });
-        return;
-      }
-
-      res.json(overview);
-    } catch (error) {
-      next(error);
+  instance.get('/guild/:guildId/overview', { preHandler: [authHook, guildAccessHook] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as Record<string, string>;
+    const guildId = params.guildId!;
+    const overview = await dashboardOverviewService.getOverview(guildId);
+    if (!overview) {
+      return reply.status(404).send({ error: 'Guild not found or bot not in guild' });
     }
+    return reply.send(overview);
   });
 
-  router.post('/guild/:guildId/socket-ticket', requireGuildAccess(accessControlService), async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const guildId = req.params.guildId as string;
-      const ticket = authService.createSocketTicket(req.auth as any, guildId);
-      res.status(200).json({
-        ticket,
-        expires_in_ms: 60 * 1000
-      });
-    } catch (error) {
-      next(error);
-    }
+  instance.post('/guild/:guildId/socket-ticket', { preHandler: [authHook, guildAccessHook] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as Record<string, string>;
+    const guildId = params.guildId!;
+    const ticket = authService.createSocketTicket((request as any).auth, guildId);
+    return reply.status(200).send({
+      ticket,
+      expires_in_ms: 60 * 1000
+    });
   });
 
-  router.post('/guild/:guildId/logs-socket-ticket', requireGuildAccess(accessControlService), async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const ticket = authService.createLogsSocketTicket(req.auth as any);
-      res.status(200).json({
-        ticket,
-        expires_in_ms: 60 * 1000
-      });
-    } catch (error) {
-      next(error);
-    }
+  instance.post('/guild/:guildId/logs-socket-ticket', { preHandler: [authHook, guildAccessHook] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as Record<string, string>;
+    const guildId = params.guildId!;
+    const ticket = authService.createLogsSocketTicket((request as any).auth);
+    return reply.status(200).send({
+      ticket,
+      expires_in_ms: 60 * 1000
+    });
   });
-
-  return router;
 }

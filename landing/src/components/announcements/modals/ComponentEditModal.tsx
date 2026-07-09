@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Check, ChevronDown, ChevronUp, Copy, ExternalLink, Plus, Smile, X, Zap } from "lucide-react";
+import { Smile, Zap } from "lucide-react";
+import { CoolIcon } from "@/components/icons/CoolIcon";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ACCENT, BUTTON_STYLES } from "../constants";
@@ -119,7 +120,7 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
                         className={`flex items-center justify-center gap-1 rounded-lg px-2 py-2 text-xs font-medium transition-all ${
                           (draft as any).style === s ? "ring-2 ring-white/40" : ""
                         } ${bs?.discordClass}`}>
-                        {(draft as any).style === s && <Check className="h-3 w-3" />}
+                        {(draft as any).style === s && <CoolIcon icon="Check" size={12} />}
                         {bs?.label}
                       </button>
                     );
@@ -209,14 +210,14 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
                                 [opts[oi - 1]!, opts[oi]!] = [opts[oi]!, opts[oi - 1]!];
                                 update({ options: opts } as Partial<APIStringSelectComponent>);
                               }}
-                              className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"><ChevronUp className="h-3 w-3" /></button>
+                              className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"><CoolIcon icon="Chevron_Up" size={12} /></button>
                             <button type="button" disabled={oi === (draft as APIStringSelectComponent).options.length - 1}
                               onClick={() => {
                                 const opts = [...(draft as APIStringSelectComponent).options];
                                 [opts[oi]!, opts[oi + 1]!] = [opts[oi + 1]!, opts[oi]!];
                                 update({ options: opts } as Partial<APIStringSelectComponent>);
                               }}
-                              className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"><ChevronDown className="h-3 w-3" /></button>
+                              className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30"><CoolIcon icon="Chevron_Down" size={12} /></button>
                             <button type="button"
                               onClick={() => {
                                 const cloned = JSON.parse(JSON.stringify(opt));
@@ -225,13 +226,13 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
                                 opts.splice(oi + 1, 0, cloned);
                                 update({ options: opts } as Partial<APIStringSelectComponent>);
                               }}
-                              className="text-zinc-600 hover:text-zinc-300"><Copy className="h-3 w-3" /></button>
+                              className="text-zinc-600 hover:text-zinc-300"><CoolIcon icon="Copy" size={12} /></button>
                             <button type="button"
                               onClick={() => {
                                 const opts = (draft as APIStringSelectComponent).options.filter((_, i) => i !== oi);
                                 update({ options: opts } as Partial<APIStringSelectComponent>);
                               }}
-                              className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
+                              className="text-zinc-600 hover:text-red-400"><CoolIcon icon="Close_MD" size={12} /></button>
                           </div>
                         </div>
                         <div className="mb-1 flex items-center gap-2">
@@ -279,8 +280,8 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
                         const opts = [...(draft as APIStringSelectComponent).options, { label: "", value: randomId() }];
                         update({ options: opts } as Partial<APIStringSelectComponent>);
                       }}
-                      className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-700 py-1.5 text-xs text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 disabled:opacity-40">
-                      <Plus className="h-3 w-3" /> Add Option
+                      className="flex w-full items-center justify-center gap-1 rounded-lg py-1.5 text-xs text-zinc-500 hover:text-zinc-300 disabled:opacity-40">
+                      <CoolIcon icon="Add_Plus" size={16} />
                     </button>
                   </div>
                 </div>
@@ -345,14 +346,14 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
                         <button type="button" onClick={() => {
                           const dvs = ((draft as any).default_values || []).filter((_: any, i: number) => i !== di);
                           update({ default_values: dvs.length > 0 ? dvs : undefined } as any);
-                        }} className="text-zinc-600 hover:text-red-400"><X className="h-3 w-3" /></button>
+                        }} className="text-zinc-600 hover:text-red-400"><CoolIcon icon="Close_MD" size={12} /></button>
                       </div>
                     ))}
                     <button type="button" onClick={() => {
                       const dvs = [...((draft as any).default_values || []), { id: "", type: "user" }];
                       update({ default_values: dvs } as any);
-                    }} className="flex w-full items-center justify-center gap-1 rounded border border-dashed border-zinc-700 py-1 text-xs text-zinc-500 hover:border-zinc-500 hover:text-zinc-300">
-                      <Plus className="h-3 w-3" /> Add Default
+                    }} className="flex w-full items-center justify-center gap-1 rounded py-1 text-xs text-zinc-500 hover:text-zinc-300">
+                      <CoolIcon icon="Add_Plus" size={16} />
                     </button>
                   </div>
                 </div>
@@ -417,18 +418,18 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
                   <span>{draft.emoji.name}</span>
                 ) : null}
                 {draft.label || "Button"}
-                {draft.style === 5 && <ExternalLink className="h-3 w-3" />}
+                {draft.style === 5 && <CoolIcon icon="External_Link" size={12} />}
               </div>
             )}
             {isStringSelect && (
               <div className="inline-flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-400" style={{ backgroundColor: "#4e5058" }}>
-                <ChevronDown className="h-3 w-3" />
+                <CoolIcon icon="Chevron_Down" size={12} />
                 {(draft as APIStringSelectComponent).placeholder || "Select an option"}
               </div>
             )}
             {(draft.type === 5 || draft.type === 6 || draft.type === 7 || draft.type === 8) && (
               <div className="inline-flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-400" style={{ backgroundColor: "#4e5058" }}>
-                <ChevronDown className="h-3 w-3" />
+                <CoolIcon icon="Chevron_Down" size={12} />
                 {draft.placeholder || "Select..."}
               </div>
             )}
@@ -440,7 +441,7 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
           <button type="button" onClick={() => { onChange(draft); onClose(); }}
             className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors"
             style={{ backgroundColor: ACCENT }}>
-            <Check className="mr-1 inline h-4 w-4" /> Save
+            <CoolIcon icon="Check" size={16} className="mr-1 inline" /> Save
           </button>
         </div>
       </DialogContent>
