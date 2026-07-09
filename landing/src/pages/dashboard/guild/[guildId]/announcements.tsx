@@ -38,8 +38,6 @@ import { EmojiBtn } from "@/components/announcements/EmojiBtn";
 import { AccessoryBtn } from "@/components/announcements/AccessoryBtn";
 import { useUndoHistory } from "@/components/announcements/hooks/useUndoHistory";
 
-import "@/styles/announcements.css";
-
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function GuildAnnouncementsPage() {
