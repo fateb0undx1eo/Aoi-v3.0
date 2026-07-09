@@ -9,7 +9,7 @@ import type {
   APIActionRowComponent, APIContainerComponent,
   APIComponentInActionRow, APIV2TextDisplay,
 } from "@/components/announcements/types";
-import { C, CDN } from "@/components/announcements/constants";
+import { C, CDN, EMBED_BG } from "@/components/announcements/constants";
 import { getBackendApiUrl } from "@/lib/backend";
 import {
   randomId, createMessage, cloneQueryData,
