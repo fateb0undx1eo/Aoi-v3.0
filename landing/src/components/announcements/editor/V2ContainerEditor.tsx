@@ -13,11 +13,12 @@ const CONTAINER_CHILD_TYPES: { type: APIV2ChildComponent["type"]; label: string 
   { type: 1,  label: "Row" },
 ];
 
-export default function V2ContainerEditor({ container, onContainerChange, onRemove, totalComponentCount }: {
+export default function V2ContainerEditor({ container, onContainerChange, onRemove, totalComponentCount, onAddAttachment }: {
   container: APIContainerComponent;
   onContainerChange: (c: APIContainerComponent) => void;
   onRemove: () => void;
-  totalComponentCount?: number;
+  totalComponentCount: number;
+  onAddAttachment?: (file: File) => Promise<string>;
 }) {
   const accentColorVal = container.accent_color;
   const hasAccent = accentColorVal != null;
@@ -126,7 +127,7 @@ export default function V2ContainerEditor({ container, onContainerChange, onRemo
                   <CoolIcon icon="Chevron_Down" size={10} />
                 </button>
               </div>
-              <V2ChildEditor child={child} onChange={(c) => updateChild(ci, c)} onRemove={() => removeChild(ci)} />
+              <V2ChildEditor child={child} onChange={(c) => updateChild(ci, c)} onRemove={() => removeChild(ci)} onAddAttachment={onAddAttachment} />
             </div>
           ))
         )}

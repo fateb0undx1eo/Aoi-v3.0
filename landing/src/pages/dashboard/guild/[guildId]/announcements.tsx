@@ -1136,6 +1136,7 @@ export default function GuildAnnouncementsPage() {
                         setComponentModalOpen(true);
                       }}
                       isV2={false}
+                      onAddAttachment={handleAddAttachment}
                     />
                   </Section>
                 )}

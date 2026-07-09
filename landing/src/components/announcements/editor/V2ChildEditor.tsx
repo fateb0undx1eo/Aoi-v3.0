@@ -25,10 +25,11 @@ function TypeBadge({ type }: { type: number }) {
   );
 }
 
-export default function V2ChildEditor({ child, onChange, onRemove }: {
+export default function V2ChildEditor({ child, onChange, onRemove, onAddAttachment }: {
   child: APIV2ChildComponent;
   onChange: (c: APIV2ChildComponent) => void;
   onRemove: () => void;
+  onAddAttachment?: (file: File) => Promise<string>;
 }) {
   const [sectionAccOpen, setSectionAccOpen] = useState(false);
   const [accPlacement, setAccPlacement] = useState<"above" | "below">("above");
@@ -43,6 +44,43 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
   const sectionLabelClass = "text-[10px] font-semibold text-white uppercase tracking-wider";
 
   const headerBtnClass = "shrink-0 text-zinc-600 hover:text-zinc-300";
+
+  const [uploading, setUploading] = useState<string | null>(null);
+
+  const triggerUpload = (target: string, onUrl: (url: string) => void) => {
+    if (!onAddAttachment) return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setUploading(target);
+      try {
+        const url = await onAddAttachment(file);
+        onUrl(url);
+      } catch {
+        // error handled by parent
+      } finally {
+        setUploading(null);
+      }
+    };
+    input.click();
+  };
+
+  function UploadBtn({ target, onUrl }: { target: string; onUrl: (url: string) => void }) {
+    return (
+      <button type="button" onClick={() => triggerUpload(target, onUrl)} disabled={uploading === target} title="Upload image from device"
+        className="shrink-0 text-zinc-500 hover:text-zinc-300 disabled:opacity-30 disabled:cursor-wait"
+      >
+        {uploading === target ? (
+          <span className="inline-block animate-spin" style={{ width: 14, height: 14, border: "2px solid currentcolor", borderTopColor: "transparent", borderRadius: "50%" }} />
+        ) : (
+          <CoolIcon icon="Cloud_Upload" size={14} />
+        )}
+      </button>
+    );
+  }
 
   const removeBtn = (
     <button type="button" onClick={onRemove} className={headerBtnClass}>
@@ -111,6 +149,7 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
                   placeholder="Image URL..."
                   className={`${inputClass} flex-1 min-w-0`}
                   style={{ backgroundColor: inputBg }} />
+                {onAddAttachment && <UploadBtn target={"media-" + ii} onUrl={(url) => updateItem(ii, { media: { url } })} />}
                 <button type="button" onClick={() => removeItem(ii)} className={headerBtnClass}>
                   <CoolIcon icon="Close_MD" size={12} />
                 </button>
@@ -158,6 +197,7 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
               placeholder="File URL (attachment://filename)..."
               className={`${inputClass} flex-1`}
               style={{ backgroundColor: inputBg }} />
+            {onAddAttachment && <UploadBtn target="file" onUrl={(url) => onChange({ ...child, file: { url } })} />}
           </div>
           <label className="flex items-center gap-1 text-[10px] text-zinc-500 cursor-pointer">
             <input type="checkbox" checked={child.spoiler || false}
@@ -330,11 +370,14 @@ export default function V2ChildEditor({ child, onChange, onRemove }: {
                   {accessory?.type === 11 && (
                     <div className="flex flex-col gap-1.5">
                       <span className="text-[9px] text-zinc-500 uppercase">Thumbnail Accessory</span>
-                      <input type="text" value={(accessory as APIV2Thumbnail).media?.url || ""}
-                        onChange={(e) => onChange({ ...child, accessory: { type: 11, media: { url: e.target.value }, description: (accessory as APIV2Thumbnail).description, spoiler: (accessory as APIV2Thumbnail).spoiler } } as any)}
-                        placeholder="Image URL..."
-                        className={inlineInputClass}
-                        style={{ backgroundColor: inputBg }} />
+                      <div className="flex items-center gap-1.5">
+                        <input type="text" value={(accessory as APIV2Thumbnail).media?.url || ""}
+                          onChange={(e) => onChange({ ...child, accessory: { type: 11, media: { url: e.target.value }, description: (accessory as APIV2Thumbnail).description, spoiler: (accessory as APIV2Thumbnail).spoiler } } as any)}
+                          placeholder="Image URL..."
+                          className={`${inlineInputClass} flex-1`}
+                          style={{ backgroundColor: inputBg }} />
+                        {onAddAttachment && <UploadBtn target="thumb-acc" onUrl={(url) => onChange({ ...child, accessory: { type: 11, media: { url }, description: (accessory as APIV2Thumbnail).description, spoiler: (accessory as APIV2Thumbnail).spoiler } } as any)} />}
+                      </div>
                       <input type="text" value={(accessory as APIV2Thumbnail).description || ""}
                         onChange={(e) => onChange({ ...child, accessory: { ...accessory, description: e.target.value || undefined } } as any)}
                         placeholder="Description (alt text)"
