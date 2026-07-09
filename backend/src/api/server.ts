@@ -56,7 +56,7 @@ export function buildApiServer(deps: any): BuildResult {
       return server;
     },
     trustProxy: 1,
-    bodyLimit: 1048576,
+    bodyLimit: 209715200, // 200 MB — matches multipart file size limit
     requestTimeout: 30000,
   });
 
