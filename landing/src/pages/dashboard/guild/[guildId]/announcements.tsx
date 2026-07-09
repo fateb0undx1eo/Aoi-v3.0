@@ -70,7 +70,7 @@ export default function GuildAnnouncementsPage() {
   const [presetName,   setPresetName]   = useState("");
   const [presetsOpen,  setPresetsOpen]  = useState(false);
 
-  const { toasts, addToast, dismissToast, confirmAction } = useToasts();
+  const { toasts, addToast, updateToast, dismissToast, confirmAction } = useToasts();
   const { undo: rawUndo, redo: rawRedo, resetHistory, skipHistoryRef } = useUndoHistory(data);
 
   const [sendModalOpen,  setSendModalOpen]  = useState(false);
@@ -390,7 +390,7 @@ export default function GuildAnnouncementsPage() {
       }
     }
 
-    addToast("sending", "Sending announcement…");
+    const sendingToastId = addToast("sending", "Sending announcement…");
 
     // Build allowed_mentions from suppressMentions flag
     const buildAllowedMentions = (existing: any) => {
@@ -401,7 +401,7 @@ export default function GuildAnnouncementsPage() {
     try {
       if (!sendAsBot && webhookUrl.trim()) {
         const match = webhookUrl.trim().match(WEBHOOK_URL_RE);
-        if (!match) { addToast("error", "Invalid webhook URL"); return; }
+        if (!match) { updateToast(sendingToastId, "error", "Invalid webhook URL"); return; }
         const [, webhookId, webhookToken] = match;
         const parsedLink = editMode && messageLink.trim() ? parseMessageLink(messageLink.trim()) : null;
         const isEdit = !!parsedLink;
@@ -420,8 +420,8 @@ export default function GuildAnnouncementsPage() {
           } catch { failed++; }
           if (data.messages.length > 1) await new Promise((r) => setTimeout(r, 500));
         }
-        if (failed === 0) addToast("success", `Sent ${sent} message${sent !== 1 ? "s" : ""} via webhook!`);
-        else addToast("error", `Sent ${sent}, failed ${failed} message${failed !== 1 ? "s" : ""}`);
+        if (failed === 0) updateToast(sendingToastId, "success", `Sent ${sent} message${sent !== 1 ? "s" : ""} via webhook!`);
+        else updateToast(sendingToastId, "error", `Sent ${sent}, failed ${failed} message${failed !== 1 ? "s" : ""}`);
       } else {
         const body = {
           channel_ids: Array.from(selectedChannelIds),
@@ -484,11 +484,11 @@ export default function GuildAnnouncementsPage() {
         }
         const responseData = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(responseData?.error || "Failed to send");
-        addToast("success", "Announcement sent successfully!");
+        updateToast(sendingToastId, "success", "Announcement sent!");
       }
       setSendModalOpen(false);
     } catch (err) {
-      addToast("error", err instanceof Error ? err.message : "Failed to send");
+      updateToast(sendingToastId, "error", err instanceof Error ? err.message : "Failed to send");
     }
   }, [
     guildId, data, selectedChannelIds, messageFiles, addToast,

@@ -171,20 +171,27 @@ export async function guildRoutes(instance: FastifyInstance, opts: { deps: Deps 
   });
 
   instance.post('/:guildId/upload', { preHandler: guildAccessHook }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const file = await request.file();
-    if (!file) {
-      return reply.status(400).send({ error: 'No file provided' });
+    let filename = 'unknown';
+    try {
+      const file = await request.file();
+      if (!file) {
+        return reply.status(400).send({ error: 'No file provided' });
+      }
+      filename = file.filename;
+
+      const buffer = await file.toBuffer();
+      const url = await uploadService.processFile({
+        buffer,
+        originalname: file.filename,
+        mimetype: file.mimetype,
+        size: buffer.length,
+      });
+
+      return reply.status(200).send({ url });
+    } catch (error: any) {
+      logger.error({ guildId: (request.params as any).guildId, filename, error: error.message }, 'upload route: catbox upload failed');
+      return reply.status(500).send({ error: error instanceof Error ? error.message : 'Upload failed' });
     }
-
-    const buffer = await file.toBuffer();
-    const url = await uploadService.processFile({
-      buffer,
-      originalname: file.filename,
-      mimetype: file.mimetype,
-      size: buffer.length,
-    });
-
-    return reply.status(200).send({ url });
   });
 
   instance.post('/:guildId/announcements', { preHandler: [guildAccessHook, rateLimiter({ windowMs: 60_000, maxRequests: 10, keyPrefix: 'announcement_send' })] }, async (request: FastifyRequest, reply: FastifyReply) => {

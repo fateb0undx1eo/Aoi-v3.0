@@ -94,6 +94,14 @@ export function useToasts() {
     if (state !== "sending") {
       setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
     }
+    return id;
+  }, []);
+
+  const updateToast = useCallback((id: string, state: Toast["state"], text: string) => {
+    setToasts((prev) => prev.map((t) => t.id === id ? { ...t, state, text } : t));
+    if (state !== "sending") {
+      setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
+    }
   }, []);
 
   const dismissToast = useCallback((id: string) => {
@@ -119,5 +127,5 @@ export function useToasts() {
     });
   }, []);
 
-  return { toasts, addToast, dismissToast, confirmAction };
+  return { toasts, addToast, updateToast, dismissToast, confirmAction };
 }
