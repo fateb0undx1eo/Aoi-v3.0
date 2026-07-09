@@ -173,20 +173,33 @@ export async function guildRoutes(instance: FastifyInstance, opts: { deps: Deps 
   instance.post('/:guildId/upload', { preHandler: guildAccessHook }, async (request: FastifyRequest, reply: FastifyReply) => {
     let filename = 'unknown';
     try {
-      const file = await request.file();
-      if (!file) {
-        return reply.status(400).send({ error: 'No file provided' });
+      const contentType = (request.headers['content-type'] || '').toLowerCase();
+
+      let buffer: Buffer;
+      let originalname: string;
+      let mimetype: string;
+
+      if (contentType.includes('application/json')) {
+        const body = request.body as Record<string, any>;
+        if (!body?.data) {
+          return reply.status(400).send({ error: 'No file data provided' });
+        }
+        buffer = Buffer.from(body.data as string, 'base64');
+        originalname = (body.filename as string) || 'upload.bin';
+        mimetype = (body.mimetype as string) || 'application/octet-stream';
+        filename = originalname;
+      } else {
+        const file = await request.file();
+        if (!file) {
+          return reply.status(400).send({ error: 'No file provided' });
+        }
+        filename = file.filename;
+        buffer = await file.toBuffer();
+        originalname = file.filename;
+        mimetype = file.mimetype;
       }
-      filename = file.filename;
 
-      const buffer = await file.toBuffer();
-      const url = await uploadService.processFile({
-        buffer,
-        originalname: file.filename,
-        mimetype: file.mimetype,
-        size: buffer.length,
-      });
-
+      const url = await uploadService.processFile({ buffer, originalname, mimetype, size: buffer.length });
       return reply.status(200).send({ url });
     } catch (error: any) {
       logger.error({ guildId: (request.params as any).guildId, filename, error: error.message }, 'upload route: catbox upload failed');

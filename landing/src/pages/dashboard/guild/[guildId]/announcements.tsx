@@ -494,21 +494,21 @@ export default function GuildAnnouncementsPage() {
 
   // ── Embed attachment upload ──────────────────────────────────────────────────
   const handleAddAttachment = useCallback(async (file: File): Promise<string> => {
-    if (process.env.NODE_ENV === "development") {
+    if (guildId && process.env.NODE_ENV === "development" && !process.env.NEXT_PUBLIC_BACKEND_API_URL) {
       return URL.createObjectURL(file);
     }
     const gid = typeof guildId === "string" ? guildId : "";
     if (!gid) throw new Error("No guild ID");
-    const fd = new FormData();
-    fd.append("file", file);
-    let res;
-    try {
-      res = await fetch(`${getBackendApiUrl()}/api/guilds/${gid}/upload`, {
-        method: "POST", body: fd, credentials: "include",
-      });
-    } catch (err) {
-      throw new Error(`Network error reaching upload server: ${err instanceof Error ? err.message : 'unknown'}`);
-    }
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
+    const base64 = btoa(binary);
+    const res = await fetch(`/api/backend/guilds/${gid}/upload`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: file.name, mimetype: file.type, size: buffer.byteLength, data: base64 }),
+    });
     if (!res.ok) {
       let msg = "Upload failed";
       try { const body = await res.json(); msg = body.error || msg; } catch { msg = `HTTP ${res.status}: ${res.statusText}`; }

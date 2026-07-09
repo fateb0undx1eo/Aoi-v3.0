@@ -1,6 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getBackendApiUrl } from "@/lib/backend";
 
+export const config = { api: { bodyParser: { sizeLimit: "200mb" } } };
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { route, ...queryParams } = req.query;
   const path = Array.isArray(route) ? route.join("/") : route || "";
