@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { CoolIcon } from "@/components/icons/CoolIcon";
 import { BUTTON_STYLES, DISCORD_LIMITS } from "../constants";
@@ -10,11 +10,8 @@ import V2ContainerEditor from "./V2ContainerEditor";
 export function totalComponentCount(components: any[]): number {
   return components.reduce((sum, c) => {
     let count = 1;
-    if (c.components) {
-      count += c.components.length;
-      for (const child of c.components) {
-        if (child.components) count += child.components.length;
-      }
+    if (Array.isArray(c.components)) {
+      count += totalComponentCount(c.components);
     }
     return sum + count;
   }, 0);
@@ -44,7 +41,7 @@ function AddComponentPopover({ ri, hasSelect, hasButton, row, onAddButton, onAdd
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     if (btnRef.current) {
       const r = btnRef.current.getBoundingClientRect();
@@ -148,7 +145,11 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
     onChange(components.map((r, i) => {
       if (i !== ri || r.type !== 1) return r;
       if (r.components.length >= DISCORD_LIMITS.V1_COMPONENTS_PER_ROW) return r;
-      return { ...r, components: [...r.components, { type: 2 as const, style: style as 1|2|3|4|5|6, label: "Button", custom_id: `btn_${randomId()}`, disabled: false } as APIButtonComponent] };
+      const base = { type: 2 as const, style: style as 1|2|3|4|5|6, label: "Button", disabled: false };
+      const button: APIButtonComponent = style === 5
+        ? { ...base, url: "https://example.com" }
+        : { ...base, custom_id: `btn_${randomId()}` };
+      return { ...r, components: [...r.components, button] };
     }));
   };
   const addSelectToRow = (ri: number, selType: number) => {
