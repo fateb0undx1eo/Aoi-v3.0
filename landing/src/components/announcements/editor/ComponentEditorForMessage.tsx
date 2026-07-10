@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from "react";
 import { CoolIcon } from "@/components/icons/CoolIcon";
 import { BUTTON_STYLES, DISCORD_LIMITS } from "../constants";
 import type { APIButtonComponent, APIComponentInActionRow, APIContainerComponent, APITopLevelComponent, APIV2ChildComponent } from "../types";
@@ -112,6 +113,45 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
   // ── V1 row: detect contents ──────────────────────────────────────
   const BURGUNDY = "#8B1538";
 
+  const selectMenuOptions = [
+    { type: 3, label: "Select Menu", desc: "String options" },
+    { type: 5, label: "User Select", desc: "Pick users" },
+    { type: 6, label: "Role Select", desc: "Pick roles" },
+    { type: 7, label: "User & Role Select", desc: "Pick mentionables" },
+    { type: 8, label: "Channel Select", desc: "Pick channels" },
+  ];
+
+  function SelectMenuPopover({ ri }: { ri: number }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+      if (!open) return;
+      const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+      document.addEventListener("mousedown", handler);
+      return () => document.removeEventListener("mousedown", handler);
+    }, [open]);
+    return (
+      <div ref={ref} className="relative">
+        <button type="button" onClick={() => setOpen(!open)}
+          className="text-[9px] px-1.5 py-0.5 rounded bg-[#1A1A1A] text-zinc-500 hover:text-zinc-300 cursor-pointer">
+          + Select
+        </button>
+        {open && (
+          <div className="absolute top-full left-0 mt-1 z-50 w-48 rounded-lg bg-[#111] p-1 shadow-xl">
+            {selectMenuOptions.map((opt) => (
+              <button key={opt.type} type="button"
+                onClick={() => { addSelectToRow(ri, opt.type); setOpen(false); }}
+                className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer flex flex-col">
+                <span>{opt.label}</span>
+                <span className="text-[9px] text-zinc-600">{opt.desc}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function v1RowAdders(row: APITopLevelComponent & { type: 1 }, ri: number) {
     const hasSelect = row.components.some(c => c.type !== 2);
     const hasButton = row.components.some(c => c.type === 2);
@@ -126,15 +166,7 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
           </>
         )}
         {!hasButton && row.components.length === 0 && (
-          <select defaultValue="" onChange={(e) => { const v = e.target.value; if (v) { addSelectToRow(ri, Number(v)); } }}
-            className="text-[9px] px-1.5 py-0.5 rounded bg-[#1A1A1A] text-zinc-500 outline-none cursor-pointer">
-            <option value="" disabled>+ Select...</option>
-            <option value={3}>String</option>
-            <option value={5}>User</option>
-            <option value={6}>Role</option>
-            <option value={7}>Mentionable</option>
-            <option value={8}>Channel</option>
-          </select>
+          <SelectMenuPopover ri={ri} />
         )}
         <button type="button" onClick={() => duplicate(ri)}
           className="text-zinc-600 hover:text-zinc-300 flex items-center cursor-pointer">

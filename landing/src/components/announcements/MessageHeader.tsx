@@ -193,7 +193,7 @@ export function AddContentPopover({
             }}
             onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#18181b"; }}
             onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}>
-            Component
+            Action Row
           </button>
         </div>
       )}
