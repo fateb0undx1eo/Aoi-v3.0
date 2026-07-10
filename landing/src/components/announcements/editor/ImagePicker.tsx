@@ -1,8 +1,17 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { CoolIcon } from "@/components/icons/CoolIcon";
 
 const MAX_SIZE_BYTES = 200 * 1024 * 1024;
 const BURGUNDY = "#8B1538";
+
+function UploadIcon({ size = 32 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
 
 interface ImagePickerProps {
   value: string | undefined;
@@ -20,7 +29,6 @@ export default function ImagePicker({ value, onValue, onAddAttachment, onError }
   const [dragOver, setDragOver] = useState(false);
   const [sizeError, setSizeError] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const [canPaste, setCanPaste] = useState(false);
 
   useEffect(() => {
@@ -73,8 +81,6 @@ export default function ImagePicker({ value, onValue, onAddAttachment, onError }
           }
         }
       }
-      const text = await navigator.clipboard.readText();
-      if (text) setUrlDraft(text);
     } catch {
       // clipboard read denied
     }
@@ -90,12 +96,12 @@ export default function ImagePicker({ value, onValue, onAddAttachment, onError }
 
   if (value) {
     return (
-      <div className="flex items-center gap-1.5 rounded border border-zinc-800 bg-[#1A1A1A] px-2 py-1 cursor-pointer hover:border-zinc-600"
+      <div className="flex items-center gap-1.5 rounded bg-[#1A1A1A] px-2 py-1 cursor-pointer hover:bg-[#222]"
         onClick={() => setOpen(true)}>
         <span className="flex-1 truncate text-[10px] text-zinc-400" title={value}>{value}</span>
         <button type="button" onClick={(e) => { e.stopPropagation(); onValue(undefined); }}
           className="shrink-0 text-zinc-600 hover:text-red-400 flex items-center p-0.5">
-          <CoolIcon icon="Close_MD" size={12} />
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
     );
@@ -104,9 +110,9 @@ export default function ImagePicker({ value, onValue, onAddAttachment, onError }
   return (
     <>
       <button type="button" onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 rounded border border-dashed border-zinc-700 bg-[#1A1A1A] px-2 py-1 text-[10px] text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 cursor-pointer"
+        className="flex items-center gap-1.5 rounded bg-[#1A1A1A] px-2 py-1 text-[10px] text-zinc-500 hover:text-zinc-300 cursor-pointer"
         style={{ width: 160 }}>
-        <CoolIcon icon="Image" size={12} />
+        <UploadIcon size={12} />
         Add Image
       </button>
 
@@ -116,12 +122,12 @@ export default function ImagePicker({ value, onValue, onAddAttachment, onError }
           onClick={() => setOpen(false)}
         >
           <div onClick={(e) => e.stopPropagation()}
-            style={{ backgroundColor: "#1a1a1a", borderRadius: 14, border: "1px solid #333", padding: 24, width: 420, maxWidth: "90vw", minHeight: 340, display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
+            style={{ backgroundColor: "#1a1a1a", borderRadius: 14, padding: 24, width: 420, maxWidth: "90vw", minHeight: 340, display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
 
             <div className="flex items-center justify-between mb-5">
               <span className="text-sm font-semibold text-zinc-200">Add Image</span>
               <button type="button" onClick={() => setOpen(false)} className="text-zinc-500 hover:text-zinc-300">
-                <CoolIcon icon="Close_MD" size={18} />
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
 
@@ -131,38 +137,34 @@ export default function ImagePicker({ value, onValue, onAddAttachment, onError }
                 <button key={t} type="button" onClick={() => setTab(t)}
                   className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors"
                   style={{ color: tab === t ? BURGUNDY : "#71717a" }}>
-                  <CoolIcon icon={t === "url" ? "Link" : "Cloud_Upload"} size={14} />
+                  {t === "url" ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                    </svg>
+                  ) : (
+                    <UploadIcon size={14} />
+                  )}
                   {t === "url" ? "URL" : "Upload"}
                 </button>
               ))}
             </div>
 
-            {/* Content area */}
+            {/* Content */}
             <div className="flex-1">
-              {/* URL Tab */}
               {tab === "url" && (
                 <div>
                   <label className="block text-xs text-zinc-400 mb-2">Paste media URL</label>
-                  <div className="flex gap-2">
-                    <input ref={inputRef} type="text" value={urlDraft} autoFocus
-                      onChange={(e) => setUrlDraft(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleConfirm(); if (e.key === "Escape") setOpen(false); }}
-                      placeholder="https://example.com/image.png"
-                      className="flex-1 rounded-lg border border-zinc-900 bg-black px-3 py-2.5 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-700"
-                    />
-                    {canPaste && (
-                      <button type="button" onClick={handlePaste}
-                        className="shrink-0 px-2.5 rounded-lg border border-zinc-900 bg-black text-[10px] text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 cursor-pointer flex items-center gap-1">
-                        <CoolIcon icon="Link" size={10} />
-                        Paste
-                      </button>
-                    )}
-                  </div>
+                  <input type="text" value={urlDraft} autoFocus
+                    onChange={(e) => setUrlDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleConfirm(); if (e.key === "Escape") setOpen(false); }}
+                    placeholder="https://example.com/image.png"
+                    className="w-full rounded-lg bg-[#111] px-3 py-2.5 text-xs text-zinc-200 placeholder-zinc-600 outline-none"
+                  />
                   <p className="text-[10px] text-zinc-600 mt-2">Supported: images, GIFs, videos (YouTube, Twitch, etc.)</p>
                 </div>
               )}
 
-              {/* Upload Tab */}
               {tab === "upload" && (
                 <div>
                   <div ref={dropRef}
@@ -170,8 +172,8 @@ export default function ImagePicker({ value, onValue, onAddAttachment, onError }
                     onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                     onDragLeave={() => setDragOver(false)}
                     onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) handleFile(f); }}
-                    className="rounded-lg border border-zinc-800 p-8 text-center cursor-pointer transition-colors hover:border-zinc-600"
-                    style={{ borderColor: dragOver ? BURGUNDY : undefined, backgroundColor: dragOver ? "rgba(139,21,56,0.05)" : "#111" }}
+                    className="rounded-lg p-8 text-center cursor-pointer transition-colors"
+                    style={{ backgroundColor: dragOver ? "rgba(139,21,56,0.08)" : "#111" }}
                   >
                     {uploading ? (
                       <div className="flex flex-col items-center gap-2">
@@ -180,13 +182,13 @@ export default function ImagePicker({ value, onValue, onAddAttachment, onError }
                       </div>
                     ) : uploadResult ? (
                       <div className="flex flex-col items-center gap-2">
-                        <CoolIcon icon="Check" size={24} />
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                         <span className="text-xs text-green-400">Upload complete</span>
                         <span className="text-[10px] text-zinc-500 truncate max-w-full">{uploadResult}</span>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center gap-2">
-                        <CoolIcon icon="Cloud_Upload" size={24} />
+                        <UploadIcon size={28} />
                         <span className="text-xs text-zinc-300">Drop a file here, or click to choose</span>
                         <span className="text-[10px] text-zinc-600">Max size: 200MB</span>
                       </div>
@@ -197,8 +199,11 @@ export default function ImagePicker({ value, onValue, onAddAttachment, onError }
                   )}
                   {canPaste && !uploading && !uploadResult && (
                     <button type="button" onClick={handlePaste}
-                      className="w-full mt-2 px-2.5 py-1.5 rounded-lg border border-zinc-900 bg-black text-[10px] text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 cursor-pointer flex items-center justify-center gap-1">
-                      <CoolIcon icon="Link" size={10} />
+                      className="w-full mt-2 px-2.5 py-1.5 rounded-lg bg-[#111] text-[10px] text-zinc-500 hover:text-zinc-300 cursor-pointer flex items-center justify-center gap-1.5">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
                       Paste from clipboard
                     </button>
                   )}
@@ -209,17 +214,14 @@ export default function ImagePicker({ value, onValue, onAddAttachment, onError }
             {/* Footer */}
             <div className="flex justify-end gap-2 mt-5">
               <button type="button" onClick={() => setOpen(false)}
-                className="px-4 py-2 rounded-lg text-xs text-zinc-400 hover:text-zinc-200 cursor-pointer border-none bg-transparent">
+                className="px-4 py-2 rounded-lg text-xs text-zinc-400 hover:text-zinc-200 cursor-pointer bg-transparent">
                 Cancel
               </button>
               <button type="button" onClick={handleConfirm}
                 disabled={tab === "url" ? !urlDraft.trim() : !uploadResult}
-                className="px-4 py-2 rounded-lg text-xs font-medium text-white cursor-pointer border-none disabled:opacity-30 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded-lg text-xs font-medium text-white cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{ backgroundColor: BURGUNDY }}>
-                <span className="flex items-center gap-1.5">
-                  <CoolIcon icon="Check" size={12} />
-                  Add
-                </span>
+                Add
               </button>
             </div>
           </div>
