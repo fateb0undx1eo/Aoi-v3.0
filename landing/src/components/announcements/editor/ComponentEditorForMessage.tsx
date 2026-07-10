@@ -121,31 +121,65 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
     { type: 8, label: "Channel Select", desc: "Pick channels" },
   ];
 
-  function SelectMenuPopover({ ri }: { ri: number }) {
+  function AddComponentPopover({ ri, hasSelect, hasButton, row }: { ri: number; hasSelect: boolean; hasButton: boolean; row: APITopLevelComponent & { type: 1 } }) {
     const [open, setOpen] = useState(false);
+    const [sub, setSub] = useState<"select" | null>(null);
     const ref = useRef<HTMLDivElement>(null);
     useEffect(() => {
       if (!open) return;
-      const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+      const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setSub(null); } };
       document.addEventListener("mousedown", handler);
       return () => document.removeEventListener("mousedown", handler);
     }, [open]);
+
+    const canAddButton = !hasSelect && row.components.length < DISCORD_LIMITS.V1_COMPONENTS_PER_ROW;
+    const canAddSelect = !hasButton && row.components.length === 0;
+
     return (
       <div ref={ref} className="relative">
         <button type="button" onClick={() => setOpen(!open)}
           className="text-[9px] px-1.5 py-0.5 rounded bg-[#1A1A1A] text-zinc-500 hover:text-zinc-300 cursor-pointer">
-          + Select
+          + Add Component
         </button>
         {open && (
-          <div className="absolute top-full left-0 mt-1 z-50 w-48 rounded-lg bg-[#111] p-1 shadow-xl">
-            {selectMenuOptions.map((opt) => (
-              <button key={opt.type} type="button"
-                onClick={() => { addSelectToRow(ri, opt.type); setOpen(false); }}
-                className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer flex flex-col">
-                <span>{opt.label}</span>
-                <span className="text-[9px] text-zinc-600">{opt.desc}</span>
-              </button>
-            ))}
+          <div className="absolute top-full left-0 mt-1 z-50 w-44 rounded-lg bg-[#111] p-1 shadow-xl">
+            <button type="button" disabled={!canAddButton}
+              onClick={() => { addButton(ri, 1); setOpen(false); }}
+              className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+              Button
+            </button>
+            <button type="button" disabled={!canAddButton}
+              onClick={() => { addButton(ri, 5); setOpen(false); }}
+              className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+              Link Button
+            </button>
+            {canAddSelect && (
+              <>
+                {!sub ? (
+                  <button type="button"
+                    onClick={() => setSub("select")}
+                    className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer flex items-center justify-between">
+                    <span>Select Menu</span>
+                    <CoolIcon icon="Chevron_Down" size={10} />
+                  </button>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => setSub(null)}
+                      className="w-full text-left px-2.5 py-1 rounded text-[10px] text-zinc-500 hover:text-zinc-300 cursor-pointer">
+                      ← Back
+                    </button>
+                    {selectMenuOptions.map((opt) => (
+                      <button key={opt.type} type="button"
+                        onClick={() => { addSelectToRow(ri, opt.type); setOpen(false); setSub(null); }}
+                        className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer flex flex-col">
+                        <span>{opt.label}</span>
+                        <span className="text-[9px] text-zinc-600">{opt.desc}</span>
+                      </button>
+                    ))}
+                  </>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -155,18 +189,12 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
   function v1RowAdders(row: APITopLevelComponent & { type: 1 }, ri: number) {
     const hasSelect = row.components.some(c => c.type !== 2);
     const hasButton = row.components.some(c => c.type === 2);
+    const canAddButton = !hasSelect && row.components.length < DISCORD_LIMITS.V1_COMPONENTS_PER_ROW;
+    const canAddSelect = !hasButton && row.components.length === 0;
     return (
       <div className="flex items-center gap-1">
-        {!hasSelect && row.components.length < DISCORD_LIMITS.V1_COMPONENTS_PER_ROW && (
-          <>
-            <button type="button" onClick={() => addButton(ri, 1)}
-              className="text-[9px] px-1.5 py-0.5 rounded bg-[#1A1A1A] text-zinc-500 hover:text-zinc-300 cursor-pointer">+ Button</button>
-            <button type="button" onClick={() => addButton(ri, 5)}
-              className="text-[9px] px-1.5 py-0.5 rounded bg-[#1A1A1A] text-zinc-500 hover:text-zinc-300 cursor-pointer">+ Link</button>
-          </>
-        )}
-        {!hasButton && row.components.length === 0 && (
-          <SelectMenuPopover ri={ri} />
+        {(canAddButton || canAddSelect) && (
+          <AddComponentPopover ri={ri} hasSelect={hasSelect} hasButton={hasButton} row={row} />
         )}
         <button type="button" onClick={() => duplicate(ri)}
           className="text-zinc-600 hover:text-zinc-300 flex items-center cursor-pointer">
