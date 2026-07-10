@@ -47,43 +47,6 @@ export default function V2ChildEditor({ child, onChange, onRemove, onAddAttachme
 
   const headerBtnClass = "shrink-0 text-zinc-600 hover:text-zinc-300";
 
-  const [uploading, setUploading] = useState<string | null>(null);
-
-  const triggerUpload = (target: string, onUrl: (url: string) => void) => {
-    if (!onAddAttachment) return;
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/*";
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      setUploading(target);
-      try {
-        const url = await onAddAttachment(file);
-        onUrl(url);
-      } catch {
-        // error handled by parent
-      } finally {
-        setUploading(null);
-      }
-    };
-    input.click();
-  };
-
-  function UploadBtn({ target, onUrl }: { target: string; onUrl: (url: string) => void }) {
-    return (
-      <button type="button" onClick={() => triggerUpload(target, onUrl)} disabled={uploading === target} title="Upload image from device"
-        className="shrink-0 text-zinc-500 hover:text-zinc-300 disabled:opacity-30 disabled:cursor-wait"
-      >
-        {uploading === target ? (
-          <span className="inline-block animate-spin" style={{ width: 14, height: 14, border: "2px solid currentcolor", borderTopColor: "transparent", borderRadius: "50%" }} />
-        ) : (
-          <CoolIcon icon="Cloud_Upload" size={14} />
-        )}
-      </button>
-    );
-  }
-
   const removeBtn = (
     <button type="button" onClick={onRemove} className={headerBtnClass}>
       <CoolIcon icon="Close_MD" size={12} />
@@ -146,19 +109,12 @@ export default function V2ChildEditor({ child, onChange, onRemove, onAddAttachme
                     className="h-6 w-6 flex-shrink-0 rounded object-cover border border-zinc-800"
                     onError={(e) => { (e.target as HTMLElement).style.display = "none"; }} />
                 )}
-                <input type="text" value={item.media?.url || ""}
-                  onChange={(e) => updateItem(ii, { media: { url: e.target.value } })}
-                  placeholder="Image URL..."
-                  className={`${inputClass} flex-1 min-w-0`}
-                  style={{ backgroundColor: inputBg }} />
-                {onAddAttachment && (
-                  <ImagePicker
-                    value={item.media?.url}
-                    onValue={(url) => updateItem(ii, { media: { url: url ?? "" } })}
-                    onAddAttachment={onAddAttachment}
-                    onError={onAttachmentError}
-                  />
-                )}
+                <ImagePicker
+                  value={item.media?.url}
+                  onValue={(url) => updateItem(ii, { media: { url: url ?? "" } })}
+                  onAddAttachment={onAddAttachment}
+                  onError={onAttachmentError}
+                />
                 <button type="button" onClick={() => removeItem(ii)} className={headerBtnClass}>
                   <CoolIcon icon="Close_MD" size={12} />
                 </button>
@@ -379,20 +335,12 @@ export default function V2ChildEditor({ child, onChange, onRemove, onAddAttachme
                   {accessory?.type === 11 && (
                     <div className="flex flex-col gap-1.5">
                       <span className="text-[9px] text-zinc-500 uppercase">Thumbnail Accessory</span>
-                      {onAddAttachment ? (
-                        <ImagePicker
-                          value={(accessory as APIV2Thumbnail).media?.url}
-                          onValue={(url) => onChange({ ...child, accessory: url ? { type: 11, media: { url }, description: (accessory as APIV2Thumbnail).description, spoiler: (accessory as APIV2Thumbnail).spoiler } : undefined as any } as any)}
-                          onAddAttachment={onAddAttachment}
-                          onError={onAttachmentError}
-                        />
-                      ) : (
-                        <input type="text" value={(accessory as APIV2Thumbnail).media?.url || ""}
-                          onChange={(e) => onChange({ ...child, accessory: { type: 11, media: { url: e.target.value }, description: (accessory as APIV2Thumbnail).description, spoiler: (accessory as APIV2Thumbnail).spoiler } } as any)}
-                          placeholder="Image URL..."
-                          className={`${inlineInputClass} flex-1`}
-                          style={{ backgroundColor: inputBg }} />
-                      )}
+                      <ImagePicker
+                        value={(accessory as APIV2Thumbnail).media?.url}
+                        onValue={(url) => onChange({ ...child, accessory: url ? { type: 11, media: { url }, description: (accessory as APIV2Thumbnail).description, spoiler: (accessory as APIV2Thumbnail).spoiler } : undefined as any } as any)}
+                        onAddAttachment={onAddAttachment}
+                        onError={onAttachmentError}
+                      />
                       <input type="text" value={(accessory as APIV2Thumbnail).description || ""}
                         onChange={(e) => onChange({ ...child, accessory: { ...accessory, description: e.target.value || undefined } } as any)}
                         placeholder="Description (alt text)"
