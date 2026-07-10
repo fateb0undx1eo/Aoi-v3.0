@@ -5,7 +5,7 @@ import { randomId } from "../utils/message";
 import V2ChildEditor from "./V2ChildEditor";
 import V2ContainerEditor from "./V2ContainerEditor";
 
-function totalComponentCount(components: any[]): number {
+export function totalComponentCount(components: any[]): number {
   return components.reduce((sum, c) => {
     let count = 1;
     if (c.components) {

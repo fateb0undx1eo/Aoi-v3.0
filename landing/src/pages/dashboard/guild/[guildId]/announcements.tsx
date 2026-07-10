@@ -21,7 +21,7 @@ import ComponentEditModal from "@/components/announcements/modals/ComponentEditM
 import { ImageModal } from "@/components/announcements/modals/ImageModal";
 import DiscordPreview, { EmptyPreviewPlaceholder } from "@/components/announcements/preview/DiscordPreview";
 import EmbedEditor from "@/components/announcements/editor/EmbedEditor";
-import ComponentEditorForMessage from "@/components/announcements/editor/ComponentEditorForMessage";
+import ComponentEditorForMessage, { totalComponentCount } from "@/components/announcements/editor/ComponentEditorForMessage";
 import V2ChildEditor from "@/components/announcements/editor/V2ChildEditor";
 import V2ContainerEditor from "@/components/announcements/editor/V2ContainerEditor";
 import { TextDisplayEditor } from "@/components/announcements/editor/TextDisplayEditor";
@@ -930,6 +930,8 @@ export default function GuildAnnouncementsPage() {
                                 const comps = msg.components?.filter((_, i) => i !== ci);
                                 updateMessageData({ components: comps?.length ? comps : undefined });
                               }}
+                              totalComponentCount={totalComponentCount(msg.components ?? [])}
+                              onAddAttachment={handleAddAttachment}
                             />
                           </div>
                         );
