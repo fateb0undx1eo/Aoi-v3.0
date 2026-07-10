@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { CoolIcon } from "@/components/icons/CoolIcon";
 import { BUTTON_STYLES, DISCORD_LIMITS } from "../constants";
@@ -41,24 +41,21 @@ function AddComponentPopover({ ri, hasSelect, hasButton, row, onAddButton, onAdd
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<"main" | "select">("main");
   const btnRef = useRef<HTMLButtonElement>(null);
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
-
-  useLayoutEffect(() => {
-    if (!open) { setMenuPos({ top: 0, left: 0 }); return; }
-    if (btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect();
-      let top = r.bottom + 4;
-      let left = r.left;
-      const menuW = 160;
-      if (left + menuW > window.innerWidth) left = window.innerWidth - menuW - 8;
-      if (top + 200 > window.innerHeight) top = r.top - 200;
-      setMenuPos({ top, left });
-    }
-  }, [open]);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
   useEffect(() => {
     if (!open) return;
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      const menuW = 160;
+      let left = r.left + r.width / 2 - menuW / 2;
+      let top = r.bottom + 4;
+      if (left + menuW > window.innerWidth) left = window.innerWidth - menuW - 8;
+      if (left < 8) left = 8;
+      if (top + 200 > window.innerHeight) top = r.top - 200;
+      setMenuPos({ top, left });
+    }
     const handler = (e: MouseEvent) => {
       const t = e.target as Node;
       if (btnRef.current?.contains(t)) return;
