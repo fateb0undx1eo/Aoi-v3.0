@@ -110,23 +110,25 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
   const total = totalComponentCount(components);
 
   // ── V1 row: detect contents ──────────────────────────────────────
+  const BURGUNDY = "#8B1538";
+
   function v1RowAdders(row: APITopLevelComponent & { type: 1 }, ri: number) {
     const hasSelect = row.components.some(c => c.type !== 2);
     const hasButton = row.components.some(c => c.type === 2);
     return (
-      <div className="flex items-center gap-1 flex-wrap">
+      <div className="flex items-center gap-1">
         {!hasSelect && row.components.length < DISCORD_LIMITS.V1_COMPONENTS_PER_ROW && (
           <>
             <button type="button" onClick={() => addButton(ri, 1)}
-              className="text-[9px] px-1.5 py-0.5 rounded border border-zinc-800 bg-[#111] text-zinc-500 hover:text-zinc-300 cursor-pointer uppercase">+Btn</button>
+              className="text-[9px] px-1.5 py-0.5 rounded bg-[#1A1A1A] text-zinc-500 hover:text-zinc-300 cursor-pointer">+ Button</button>
             <button type="button" onClick={() => addButton(ri, 5)}
-              className="text-[9px] px-1.5 py-0.5 rounded border border-zinc-800 bg-[#111] text-zinc-500 hover:text-zinc-300 cursor-pointer uppercase">+Link</button>
+              className="text-[9px] px-1.5 py-0.5 rounded bg-[#1A1A1A] text-zinc-500 hover:text-zinc-300 cursor-pointer">+ Link</button>
           </>
         )}
-        {row.components.length === 0 && (
+        {!hasButton && row.components.length === 0 && (
           <select defaultValue="" onChange={(e) => { const v = e.target.value; if (v) { addSelectToRow(ri, Number(v)); } }}
-            className="text-[9px] px-1 py-0.5 rounded border border-zinc-800 bg-[#111] text-zinc-500 outline-none">
-            <option value="" disabled>+Select...</option>
+            className="text-[9px] px-1.5 py-0.5 rounded bg-[#1A1A1A] text-zinc-500 outline-none cursor-pointer">
+            <option value="" disabled>+ Select...</option>
             <option value={3}>String</option>
             <option value={5}>User</option>
             <option value={6}>Role</option>
@@ -135,13 +137,13 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
           </select>
         )}
         <button type="button" onClick={() => duplicate(ri)}
-          className="text-[9px] px-1.5 py-0.5 rounded border border-zinc-800 bg-[#111] text-zinc-500 hover:text-zinc-300 cursor-pointer flex items-center">
+          className="text-zinc-600 hover:text-zinc-300 flex items-center cursor-pointer">
           <CoolIcon icon="Copy" size={10} />
         </button>
         {components.length > 1 && (
           <button type="button" onClick={() => removeTop(ri)}
-            className="text-zinc-600 hover:text-red-400 flex items-center p-0 border-none bg-none cursor-pointer">
-            <CoolIcon icon="Close_MD" size={12} />
+            className="text-zinc-600 hover:text-red-400 flex items-center cursor-pointer">
+            <CoolIcon icon="Close_MD" size={10} />
           </button>
         )}
       </div>
@@ -179,41 +181,28 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
           // V1 Action Row
           if (row.type === 1) {
             return (
-              <div key={ri} className="relative rounded-lg border border-zinc-800 p-2" style={{ backgroundColor: "#151515" }}>
-                {/* Move buttons */}
-                <div
-                  className="absolute left-[-14px] top-1/2 -translate-y-1/2 flex flex-col gap-0.5 opacity-30 hover:opacity-100 transition-opacity"
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = "0.3"}>
-                  <button type="button" onClick={() => moveComponent(ri, "up")} disabled={ri === 0}
-                    className={`flex items-center p-0 border-none bg-none cursor-pointer ${ri === 0 ? "opacity-30" : "text-zinc-500 hover:text-zinc-300"}`}>
-                    <CoolIcon icon="Chevron_Up" size={10} />
-                  </button>
-                  <button type="button" onClick={() => moveComponent(ri, "down")} disabled={ri === components.length - 1}
-                    className={`flex items-center p-0 border-none bg-none cursor-pointer ${ri === components.length - 1 ? "opacity-30" : "text-zinc-500 hover:text-zinc-300"}`}>
-                    <CoolIcon icon="Chevron_Down" size={10} />
-                  </button>
-                </div>
-                <div className="flex items-center justify-between mb-1.5">
+              <div key={ri} className="relative rounded-lg p-2" style={{ backgroundColor: "#151515" }}>
+                <div className="flex items-center justify-between mb-1">
                   <span className="text-[11px] font-semibold text-zinc-400">
                     Row {ri + 1} <span className="text-zinc-600 font-normal">({row.components.length}/{DISCORD_LIMITS.V1_COMPONENTS_PER_ROW})</span>
                   </span>
                   {v1RowAdders(row, ri)}
                 </div>
                 {row.components.length === 0 ? (
-                  <div className="text-center py-2 text-[10px] text-zinc-600">Empty &mdash; add buttons or a select menu</div>
+                  <div className="text-center py-2 text-[10px] text-zinc-600">Empty — add buttons or a select menu</div>
                 ) : (
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1">
                     {row.components.map((comp, ci) => (
                       <button key={ci} type="button" onClick={() => onEditComponent(comp, ri, ci)}
-                        className="relative px-2 py-1 rounded border border-zinc-800 bg-[#111] text-zinc-400 text-[10px] cursor-pointer hover:border-zinc-700">
+                        className="group relative px-2 py-1 rounded bg-[#1A1A1A] text-[10px] cursor-pointer hover:bg-[#222] transition-colors"
+                        style={{ borderLeft: comp.type === 2 ? `2px solid ${comp.style === 1 ? BURGUNDY : comp.style === 3 ? "#22c55e" : comp.style === 4 ? "#ef4444" : comp.style === 5 ? "#3b82f6" : comp.style === 6 ? "#eab308" : "#4a4a50"}` : undefined }}>
                         {comp.type === 2 ? (
-                          <span>{comp.label || "Button"} <span className="text-zinc-600">({BUTTON_STYLES[comp.style]?.label || "?"})</span></span>
+                          <span className="text-zinc-300">{comp.label || "Button"}</span>
                         ) : (
-                          <span>{["String","","User","Role","Mentionable","Channel"][comp.type - 3] || "Select"} Select</span>
+                          <span className="text-zinc-300">{["String","","User","Role","Mentionable","Channel"][comp.type - 3] || "Select"}</span>
                         )}
                         <span
-                          className="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center cursor-pointer"
+                          className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 text-white text-[7px] flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
                           onClick={(e) => { e.stopPropagation(); removeComp(ri, ci); }}>x</span>
                       </button>
                     ))}
