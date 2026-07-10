@@ -179,36 +179,36 @@ const headingRule = defineRule({
   },
   render(capture, render) {
     const common =
-      "mx-0 mb-2 mt-4 font-display font-bold leading-[1.375em] text-primary-860 dark:text-primary-130";
+      "mx-0 mb-2 mt-4 font-bold leading-[1.375em] text-primary-860 dark:text-primary-130";
 
     if (capture.level === 1) {
       return (
-        <h4
+        <div
           className={twMerge(
             common,
             "text-[calc(var(--font-size)*1.5)] first:mt-2",
           )}
         >
           {render(capture.content)}
-        </h4>
+        </div>
       );
     }
     if (capture.level === 2) {
       return (
-        <h5
+        <div
           className={twMerge(
             common,
             "text-[calc(var(--font-size)*1.25)] first:mt-2",
           )}
         >
           {render(capture.content)}
-        </h5>
+        </div>
       );
     }
     return (
-      <h6 className={twMerge(common, "text-[length:--font-size] first:mt-1")}>
+      <div className={twMerge(common, "text-[length:--font-size] first:mt-1")}>
         {render(capture.content)}
-      </h6>
+      </div>
     );
   },
 });
