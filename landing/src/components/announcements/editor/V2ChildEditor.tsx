@@ -162,7 +162,21 @@ export default function V2ChildEditor({ child, onChange, onRemove, onAddAttachme
               placeholder="File URL (attachment://filename)..."
               className={`${inputClass} flex-1`}
               style={{ backgroundColor: inputBg }} />
-            {onAddAttachment && <UploadBtn target="file" onUrl={(url) => onChange({ ...child, file: { url } })} />}
+            {onAddAttachment && (
+              <button type="button" onClick={() => {
+                const input = document.createElement("input");
+                input.type = "file";
+                input.onchange = async () => {
+                  const file = input.files?.[0];
+                  if (!file) return;
+                  try { const url = await onAddAttachment(file); onChange({ ...child, file: { url } }); } catch {}
+                };
+                input.click();
+              }} title="Upload file from device"
+                className="shrink-0 text-zinc-500 hover:text-zinc-300">
+                <CoolIcon icon="Cloud_Upload" size={14} />
+              </button>
+            )}
           </div>
           <label className="flex items-center gap-1 text-[10px] text-zinc-500 cursor-pointer">
             <input type="checkbox" checked={child.spoiler || false}
