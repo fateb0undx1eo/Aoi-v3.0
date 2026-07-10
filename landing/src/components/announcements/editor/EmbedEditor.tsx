@@ -90,7 +90,7 @@ function FieldRow({
  const valueRef = useRef<HTMLTextAreaElement>(null);
 
  return (
-   <div className="rounded-lg bg-zinc-800/30 p-1.5 space-y-1.5">
+   <div className="rounded-lg bg-zinc-800/30 p-1 space-y-1">
    <div className="flex items-center justify-between gap-1">
     <span className="text-[10px] font-medium text-zinc-500">
      FIELD {index + 1}
@@ -107,7 +107,7 @@ function FieldRow({
     </div>
    </div>
     <div>
-     <span className="block text-[11px] text-zinc-400 mb-0.5">Field name</span>
+     <span className="block text-[11px] text-zinc-400 mb-0">Field name</span>
      <div className="flex items-center gap-1.5">
       <div className="flex-1">
        <FieldOverlay max={DISCORD_LIMITS.FIELD_NAME} length={field.name?.length ?? 0}
@@ -120,7 +120,7 @@ function FieldRow({
          value={field.name}
          onChange={(e) => onUpdate({ name: e.target.value })}
          maxLength={DISCORD_LIMITS.FIELD_NAME}
-         className="w-full rounded px-2 py-1 text-xs text-zinc-200 outline-none"
+         className="w-full rounded px-2 py-0.5 text-xs text-zinc-200 outline-none"
          style={{ backgroundColor: "#1A1A1A", paddingRight: 60 }}
         />
        </FieldOverlay>
@@ -136,7 +136,7 @@ function FieldRow({
      </div>
     </div>
     <div>
-     <span className="block text-[11px] text-zinc-400 mb-0.5">Field value</span>
+     <span className="block text-[11px] text-zinc-400 mb-0">Field value</span>
      <FieldOverlay max={DISCORD_LIMITS.FIELD_VALUE} length={field.value?.length ?? 0}
       serverEmojis={serverEmojis}
       onEmoji={(text) => {
@@ -148,7 +148,7 @@ function FieldRow({
        onChange={(e) => onUpdate({ value: e.target.value })}
        rows={2}
        maxLength={DISCORD_LIMITS.FIELD_VALUE}
-       className="w-full resize-none rounded px-2 py-1 text-xs text-zinc-200 outline-none"
+       className="w-full resize-none rounded px-2 py-0.5 text-xs text-zinc-200 outline-none"
        style={{ backgroundColor: "#1A1A1A", paddingRight: 60 }}
       />
      </FieldOverlay>
@@ -317,7 +317,7 @@ export default function EmbedEditor({
      </div>
     )}
    {!collapsed && (
-    <div className="px-2 pb-2 space-y-1.5">
+    <div className="px-2 pb-1.5 space-y-1">
     {/* Validation errors */}
     {errors.length > 0 && (
      <div className="space-y-0.5">
@@ -336,12 +336,12 @@ export default function EmbedEditor({
 
     {/* Author Section */}
     <div>
-     <div className="flex items-center gap-1 mb-1 text-[10px] font-semibold text-white uppercase tracking-wider">
+     <div className="flex items-center gap-1 mb-0.5 text-[10px] font-semibold text-white uppercase tracking-wider">
       Author
      </div>
-      <div className="space-y-1.5">
+      <div className="space-y-1">
        <div>
-        <span className="block text-[11px] text-zinc-400 mb-0.5">Author name</span>
+        <span className="block text-[11px] text-zinc-400 mb-0">Author name</span>
         <div className="flex gap-1 items-center">
         <FieldOverlay max={DISCORD_LIMITS.AUTHOR_NAME} length={embed.author?.name?.length ?? 0}
          serverEmojis={serverEmojis}
@@ -361,7 +361,7 @@ export default function EmbedEditor({
            })
           }
           maxLength={DISCORD_LIMITS.AUTHOR_NAME}
-          className="w-full rounded px-2 py-1 text-xs text-zinc-200 outline-none"
+          className="w-full rounded px-2 py-0.5 text-xs text-zinc-200 outline-none"
           style={{ backgroundColor: "#1A1A1A", paddingRight: serverEmojis ? 56 : 28 }}
          />
         </FieldOverlay>
@@ -386,7 +386,7 @@ export default function EmbedEditor({
        </div>
        {embed.author?.url !== undefined && (
         <div>
-         <span className="block text-[11px] text-zinc-400 mb-0.5">Author URL</span>
+         <span className="block text-[11px] text-zinc-400 mb-0">Author URL</span>
          <div className="flex gap-1">
          <input
           type="text"
@@ -400,7 +400,7 @@ export default function EmbedEditor({
             },
            })
           }
-          className="flex-1 rounded px-2 py-1 text-xs text-zinc-200 outline-none" style={{ backgroundColor: "#1A1A1A" }}
+          className="flex-1 rounded px-2 py-0.5 text-xs text-zinc-200 outline-none" style={{ backgroundColor: "#1A1A1A" }}
          />
          <button
           type="button"
@@ -417,7 +417,7 @@ export default function EmbedEditor({
         </div>
        )}
         <div>
-         <span className="block text-[11px] text-zinc-400 mb-0.5">Author icon</span>
+         <span className="block text-[11px] text-zinc-400 mb-0">Author icon</span>
          <ImagePicker
            value={embed.author?.icon_url}
            onValue={(url) => update({ author: { name: embed.author?.name ?? "", icon_url: url, url: embed.author?.url } })}
@@ -430,12 +430,12 @@ export default function EmbedEditor({
 
     {/* Body Section */}
     <div>
-     <div className="flex items-center gap-1 mb-1 text-[10px] font-semibold text-white uppercase tracking-wider">
+     <div className="flex items-center gap-1 mb-0.5 text-[10px] font-semibold text-white uppercase tracking-wider">
       Body
      </div>
-      <div className="space-y-1.5">
+      <div className="space-y-1">
        <div>
-        <span className="block text-[11px] text-zinc-400 mb-0.5">Title</span>
+        <span className="block text-[11px] text-zinc-400 mb-0">Title</span>
         <div className="flex gap-1 items-center">
         <FieldOverlay max={DISCORD_LIMITS.EMBED_TITLE} length={embed.title?.length ?? 0}
          serverEmojis={serverEmojis}
@@ -449,7 +449,7 @@ export default function EmbedEditor({
            update({ title: e.target.value || undefined })
           }
           maxLength={DISCORD_LIMITS.EMBED_TITLE}
-          className="w-full rounded px-2 py-1 text-xs text-zinc-200 outline-none"
+          className="w-full rounded px-2 py-0.5 text-xs text-zinc-200 outline-none"
           style={{ backgroundColor: "#1A1A1A", paddingRight: serverEmojis ? 56 : 28 }}
          />
         </FieldOverlay>
@@ -466,13 +466,13 @@ export default function EmbedEditor({
         </div>
        {embed.url !== undefined && (
         <div>
-         <span className="block text-[11px] text-zinc-400 mb-0.5">Title URL</span>
+         <span className="block text-[11px] text-zinc-400 mb-0">Title URL</span>
          <div className="flex gap-1">
          <input
           type="text"
           value={embed.url}
           onChange={(e) => update({ url: e.target.value || undefined })}
-          className="flex-1 rounded px-2 py-1 text-xs text-zinc-200 outline-none" style={{ backgroundColor: "#1A1A1A" }}
+          className="flex-1 rounded px-2 py-0.5 text-xs text-zinc-200 outline-none" style={{ backgroundColor: "#1A1A1A" }}
          />
          <button
           type="button"
@@ -485,7 +485,7 @@ export default function EmbedEditor({
         </div>
        )}
        <div>
-        <span className="block text-[11px] text-zinc-400 mb-0.5">Description</span>
+        <span className="block text-[11px] text-zinc-400 mb-0">Description</span>
         <FieldOverlay max={DISCORD_LIMITS.EMBED_DESCRIPTION} length={embed.description?.length ?? 0}
          serverEmojis={serverEmojis}
          onEmoji={(text) => {
@@ -497,15 +497,15 @@ export default function EmbedEditor({
           onChange={(e) =>
            update({ description: e.target.value || undefined })
           }
-          rows={4}
+          rows={3}
           maxLength={DISCORD_LIMITS.EMBED_DESCRIPTION}
-          className="w-full resize-none rounded px-2 py-1 text-xs text-zinc-200 outline-none"
+          className="w-full resize-none rounded px-2 py-0.5 text-xs text-zinc-200 outline-none"
           style={{ backgroundColor: "#1A1A1A", paddingRight: serverEmojis ? 56 : 28 }}
          />
         </FieldOverlay>
        </div>
        <div>
-        <div className="flex items-center gap-1 mb-1 text-[10px] font-semibold text-white uppercase tracking-wider">
+        <div className="flex items-center gap-1 mb-0.5 text-[10px] font-semibold text-white uppercase tracking-wider">
          ACCENT
         </div>
        <ColorPickerPopover
@@ -518,7 +518,7 @@ export default function EmbedEditor({
 
     {/* Fields Section */}
     <div>
-     <div className="flex items-center gap-1 mb-1 text-[10px] font-semibold text-white uppercase tracking-wider">
+     <div className="flex items-center gap-1 mb-0.5 text-[10px] font-semibold text-white uppercase tracking-wider">
       Fields
       <span className="text-zinc-600" style={{ fontSize: 8, marginLeft: "auto" }}>{embed.fields?.length ?? 0}/{DISCORD_LIMITS.EMBED_FIELDS}</span>
      </div>
@@ -531,7 +531,7 @@ export default function EmbedEditor({
 
     {/* Images Section */}
     <div>
-     <div className="flex items-center gap-1 mb-1 text-[10px] font-semibold text-white uppercase tracking-wider">
+     <div className="flex items-center gap-1 mb-0.5 text-[10px] font-semibold text-white uppercase tracking-wider">
       Images
      </div>
        <div className="space-y-0.5">
@@ -566,12 +566,12 @@ export default function EmbedEditor({
 
     {/* Footer Section */}
     <div>
-     <div className="flex items-center gap-1 mb-1 text-[10px] font-semibold text-white uppercase tracking-wider">
+     <div className="flex items-center gap-1 mb-0.5 text-[10px] font-semibold text-white uppercase tracking-wider">
       Footer
      </div>
-       <div className="space-y-1.5">
+       <div className="space-y-1">
         <div>
-         <span className="block text-[11px] text-zinc-400 mb-0.5">Footer text</span>
+         <span className="block text-[11px] text-zinc-400 mb-0">Footer text</span>
          <FieldOverlay max={DISCORD_LIMITS.FOOTER_TEXT} length={embed.footer?.text?.length ?? 0}
           serverEmojis={serverEmojis}
           onEmoji={(text) => {
@@ -589,13 +589,13 @@ export default function EmbedEditor({
             })
            }
            maxLength={DISCORD_LIMITS.FOOTER_TEXT}
-           className="w-full rounded px-2 py-1 text-xs text-zinc-200 outline-none"
+           className="w-full rounded px-2 py-0.5 text-xs text-zinc-200 outline-none"
            style={{ backgroundColor: "#1A1A1A", paddingRight: serverEmojis ? 56 : 28 }}
           />
          </FieldOverlay>
         </div>
         <div>
-         <span className="block text-[11px] text-zinc-400 mb-0.5">Footer icon</span>
+         <span className="block text-[11px] text-zinc-400 mb-0">Footer icon</span>
          <ImagePicker
            value={embed.footer?.icon_url}
            onValue={(url) => update({ footer: { text: embed.footer?.text ?? "", icon_url: url } })}
