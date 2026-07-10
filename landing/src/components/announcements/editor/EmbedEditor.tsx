@@ -107,7 +107,7 @@ function FieldRow({
     </div>
    </div>
     <div>
-     <span className="block text-[9px] text-zinc-500 mb-0.5">Field name</span>
+     <span className="block text-[11px] text-zinc-400 mb-0.5">Field name</span>
      <div className="flex items-center gap-1.5">
       <div className="flex-1">
        <FieldOverlay max={DISCORD_LIMITS.FIELD_NAME} length={field.name?.length ?? 0}
@@ -136,7 +136,7 @@ function FieldRow({
      </div>
     </div>
     <div>
-     <span className="block text-[9px] text-zinc-500 mb-0.5">Field value</span>
+     <span className="block text-[11px] text-zinc-400 mb-0.5">Field value</span>
      <FieldOverlay max={DISCORD_LIMITS.FIELD_VALUE} length={field.value?.length ?? 0}
       serverEmojis={serverEmojis}
       onEmoji={(text) => {
@@ -341,7 +341,7 @@ export default function EmbedEditor({
      </div>
       <div className="space-y-1.5">
        <div>
-        <span className="block text-[9px] text-zinc-500 mb-0.5">Author name</span>
+        <span className="block text-[11px] text-zinc-400 mb-0.5">Author name</span>
         <div className="flex gap-1 items-center">
         <FieldOverlay max={DISCORD_LIMITS.AUTHOR_NAME} length={embed.author?.name?.length ?? 0}
          serverEmojis={serverEmojis}
@@ -386,7 +386,7 @@ export default function EmbedEditor({
        </div>
        {embed.author?.url !== undefined && (
         <div>
-         <span className="block text-[9px] text-zinc-500 mb-0.5">Author URL</span>
+         <span className="block text-[11px] text-zinc-400 mb-0.5">Author URL</span>
          <div className="flex gap-1">
          <input
           type="text"
@@ -417,7 +417,7 @@ export default function EmbedEditor({
         </div>
        )}
         <div>
-         <span className="block text-[9px] text-zinc-500 mb-0.5">Author icon</span>
+         <span className="block text-[11px] text-zinc-400 mb-0.5">Author icon</span>
          <ImagePicker
            value={embed.author?.icon_url}
            onValue={(url) => update({ author: { name: embed.author?.name ?? "", icon_url: url, url: embed.author?.url } })}
@@ -435,7 +435,7 @@ export default function EmbedEditor({
      </div>
       <div className="space-y-1.5">
        <div>
-        <span className="block text-[9px] text-zinc-500 mb-0.5">Title</span>
+        <span className="block text-[11px] text-zinc-400 mb-0.5">Title</span>
         <div className="flex gap-1 items-center">
         <FieldOverlay max={DISCORD_LIMITS.EMBED_TITLE} length={embed.title?.length ?? 0}
          serverEmojis={serverEmojis}
@@ -466,7 +466,7 @@ export default function EmbedEditor({
         </div>
        {embed.url !== undefined && (
         <div>
-         <span className="block text-[9px] text-zinc-500 mb-0.5">Title URL</span>
+         <span className="block text-[11px] text-zinc-400 mb-0.5">Title URL</span>
          <div className="flex gap-1">
          <input
           type="text"
@@ -485,7 +485,7 @@ export default function EmbedEditor({
         </div>
        )}
        <div>
-        <span className="block text-[9px] text-zinc-500 mb-0.5">Description</span>
+        <span className="block text-[11px] text-zinc-400 mb-0.5">Description</span>
         <FieldOverlay max={DISCORD_LIMITS.EMBED_DESCRIPTION} length={embed.description?.length ?? 0}
          serverEmojis={serverEmojis}
          onEmoji={(text) => {
@@ -536,7 +536,7 @@ export default function EmbedEditor({
      </div>
        <div className="space-y-0.5">
         <div>
-         <label className="mb-0.5 block text-[9px] text-zinc-500">
+         <label className="mb-0.5 block text-[11px] text-zinc-400">
           Thumbnail
          </label>
          <div className="flex gap-1">
@@ -549,7 +549,7 @@ export default function EmbedEditor({
           </div>
         </div>
         <div>
-          <label className="mb-0.5 block text-[9px] text-zinc-500">
+          <label className="mb-0.5 block text-[11px] text-zinc-400">
            Image
          </label>
          <div className="flex gap-1">
@@ -571,7 +571,7 @@ export default function EmbedEditor({
      </div>
        <div className="space-y-1.5">
         <div>
-         <span className="block text-[9px] text-zinc-500 mb-0.5">Footer text</span>
+         <span className="block text-[11px] text-zinc-400 mb-0.5">Footer text</span>
          <FieldOverlay max={DISCORD_LIMITS.FOOTER_TEXT} length={embed.footer?.text?.length ?? 0}
           serverEmojis={serverEmojis}
           onEmoji={(text) => {
@@ -595,7 +595,7 @@ export default function EmbedEditor({
          </FieldOverlay>
         </div>
         <div>
-         <span className="block text-[9px] text-zinc-500 mb-0.5">Footer icon</span>
+         <span className="block text-[11px] text-zinc-400 mb-0.5">Footer icon</span>
          <ImagePicker
            value={embed.footer?.icon_url}
            onValue={(url) => update({ footer: { text: embed.footer?.text ?? "", icon_url: url } })}
