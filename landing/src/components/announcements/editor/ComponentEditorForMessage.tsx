@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { CoolIcon } from "@/components/icons/CoolIcon";
 import { BUTTON_STYLES, DISCORD_LIMITS } from "../constants";
 import type { APIButtonComponent, APIComponentInActionRow, APIContainerComponent, APITopLevelComponent, APIV2ChildComponent } from "../types";
@@ -129,10 +130,27 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
   function AddComponentPopover({ ri, hasSelect, hasButton, row }: { ri: number; hasSelect: boolean; hasButton: boolean; row: APITopLevelComponent & { type: 1 } }) {
     const [open, setOpen] = useState(false);
     const [view, setView] = useState<"main" | "select">("main");
-    const ref = useRef<HTMLDivElement>(null);
+    const btnRef = useRef<HTMLButtonElement>(null);
+    const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+    const menuRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
       if (!open) return;
-      const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setView("main"); } };
+      if (btnRef.current) {
+        const r = btnRef.current.getBoundingClientRect();
+        let top = r.bottom + 4;
+        let left = r.left;
+        const menuW = 160;
+        if (left + menuW > window.innerWidth) left = window.innerWidth - menuW - 8;
+        if (top + 200 > window.innerHeight) top = r.top - 200;
+        setMenuPos({ top, left });
+      }
+      const handler = (e: MouseEvent) => {
+        const t = e.target as Node;
+        if (btnRef.current?.contains(t)) return;
+        if (menuRef.current?.contains(t)) return;
+        setOpen(false); setView("main");
+      };
       document.addEventListener("mousedown", handler);
       return () => document.removeEventListener("mousedown", handler);
     }, [open]);
@@ -141,33 +159,34 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
     const canAddSelect = !hasButton && row.components.length === 0;
 
     return (
-      <div ref={ref} className="relative">
-        <button type="button" onClick={() => setOpen(!open)}
+      <>
+        <button ref={btnRef} type="button" onClick={() => setOpen(!open)}
           className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-[#1A1A1A] text-zinc-500 hover:text-zinc-300 cursor-pointer">
           <img src={ICON_ADD_COMPONENT} alt="" className="w-3 h-3" />
           Add Component
         </button>
-        {open && (
-          <div className="absolute top-full left-0 mt-1 z-[9999] w-52 rounded-lg bg-[#111] p-1 shadow-xl">
+        {open && createPortal(
+          <div ref={menuRef} className="fixed z-[99999] w-40 rounded-lg bg-[#111] border border-[#222] p-1 shadow-2xl"
+            style={{ top: menuPos.top, left: menuPos.left }}>
             {view === "main" ? (
               <>
                 <button type="button" disabled={!canAddButton}
                   onClick={() => { addButton(ri, 1); setOpen(false); setView("main"); }}
-                  className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2">
-                  <img src={ICON_BUTTON} alt="" className="w-4 h-4" />
+                  className="w-full text-left px-2.5 py-1.5 rounded text-[11px] text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2">
+                  <img src={ICON_BUTTON} alt="" className="w-3.5 h-3.5" />
                   Button
                 </button>
                 <button type="button" disabled={!canAddButton}
                   onClick={() => { addButton(ri, 5); setOpen(false); setView("main"); }}
-                  className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2">
-                  <img src={ICON_LINK_BUTTON} alt="" className="w-4 h-4" />
+                  className="w-full text-left px-2.5 py-1.5 rounded text-[11px] text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2">
+                  <img src={ICON_LINK_BUTTON} alt="" className="w-3.5 h-3.5" />
                   Link Button
                 </button>
                 {canAddSelect && (
                   <button type="button"
                     onClick={() => setView("select")}
-                    className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer flex items-center gap-2">
-                    <img src={ICON_SELECT_MENU} alt="" className="w-4 h-4" />
+                    className="w-full text-left px-2.5 py-1.5 rounded text-[11px] text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer flex items-center gap-2">
+                    <img src={ICON_SELECT_MENU} alt="" className="w-3.5 h-3.5" />
                     Select Menu
                   </button>
                 )}
@@ -181,16 +200,17 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
                 {selectMenuOptions.map((opt) => (
                   <button key={opt.type} type="button"
                     onClick={() => { addSelectToRow(ri, opt.type); setOpen(false); setView("main"); }}
-                    className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer flex flex-col">
+                    className="w-full text-left px-2.5 py-1.5 rounded text-[11px] text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer flex flex-col">
                     <span>{opt.label}</span>
                     <span className="text-[9px] text-zinc-600">{opt.desc}</span>
                   </button>
                 ))}
               </>
             )}
-          </div>
+          </div>,
+          document.body
         )}
-      </div>
+      </>
     );
   }
 
@@ -249,10 +269,10 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
           // V1 Action Row
           if (row.type === 1) {
             return (
-              <div key={ri} className="relative rounded-lg p-2" style={{ backgroundColor: "#151515" }}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-semibold text-zinc-400">
-                    Row {ri + 1} <span className="text-zinc-600 font-normal">({row.components.length}/{DISCORD_LIMITS.V1_COMPONENTS_PER_ROW})</span>
+              <div key={ri} className="rounded-lg p-2" style={{ backgroundColor: "#151515" }}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] text-zinc-600 uppercase tracking-wider">
+                    Row {ri + 1} <span className="text-zinc-700">({row.components.length}/{DISCORD_LIMITS.V1_COMPONENTS_PER_ROW})</span>
                   </span>
                   {v1RowAdders(row, ri)}
                 </div>
@@ -262,16 +282,25 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
                   <div className="flex flex-wrap gap-1">
                     {row.components.map((comp, ci) => (
                       <button key={ci} type="button" onClick={() => onEditComponent(comp, ri, ci)}
-                        className="group relative px-2 py-1 rounded bg-[#1A1A1A] text-[10px] cursor-pointer hover:bg-[#222] transition-colors"
-                        style={{ borderLeft: comp.type === 2 ? `2px solid ${comp.style === 1 ? BURGUNDY : comp.style === 3 ? "#22c55e" : comp.style === 4 ? "#ef4444" : comp.style === 5 ? "#3b82f6" : comp.style === 6 ? "#eab308" : "#4a4a50"}` : undefined }}>
+                        className="group relative flex items-center gap-1 px-2 py-1 rounded-md text-[10px] cursor-pointer transition-colors"
+                        style={{
+                          backgroundColor: comp.type === 2
+                            ? comp.style === 1 ? "rgba(139,21,56,0.2)" : comp.style === 3 ? "rgba(34,197,94,0.2)" : comp.style === 4 ? "rgba(239,68,68,0.2)" : comp.style === 5 ? "rgba(59,130,246,0.2)" : comp.style === 6 ? "rgba(234,179,8,0.2)" : "rgba(75,75,80,0.3)"
+                            : "rgba(75,75,80,0.2)",
+                          borderLeft: comp.type === 2
+                            ? `2px solid ${comp.style === 1 ? BURGUNDY : comp.style === 3 ? "#22c55e" : comp.style === 4 ? "#ef4444" : comp.style === 5 ? "#3b82f6" : comp.style === 6 ? "#eab308" : "#4a4a50"}`
+                            : "2px solid #6366f1",
+                        }}>
                         {comp.type === 2 ? (
                           <span className="text-zinc-300">{comp.label || "Button"}</span>
                         ) : (
                           <span className="text-zinc-300">{["String","","User","Role","Mentionable","Channel"][comp.type - 3] || "Select"}</span>
                         )}
                         <span
-                          className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 text-white text-[7px] flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => { e.stopPropagation(); removeComp(ri, ci); }}>x</span>
+                          className="h-3.5 w-3.5 rounded-full flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500 hover:text-red-400"
+                          onClick={(e) => { e.stopPropagation(); removeComp(ri, ci); }}>
+                          <CoolIcon icon="Close_MD" size={8} />
+                        </span>
                       </button>
                     ))}
                   </div>

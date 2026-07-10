@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { CoolIcon } from "@/components/icons/CoolIcon";
 import { C } from "./constants";
 import { getPlacement } from "./utils/placement";
@@ -132,27 +133,35 @@ export function AddContentPopover({
   onAddComponent: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [placement, setPlacement] = useState<"below" | "above">("below");
-  const ref = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+
   useEffect(() => {
+    if (!open) return;
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      const menuW = 160;
+      let left = r.left + r.width / 2 - menuW / 2;
+      let top = r.bottom + 4;
+      if (left + menuW > window.innerWidth) left = window.innerWidth - menuW - 8;
+      if (left < 8) left = 8;
+      if (top + 120 > window.innerHeight) top = r.top - 120;
+      setMenuPos({ top, left });
+    }
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setOpen(false);
     };
-    if (open) document.addEventListener("mousedown", handler);
+    document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const toggle = () => {
-    if (!open) {
-      if (btnRef.current) setPlacement(getPlacement(btnRef.current));
-    }
-    setOpen(!open);
-  };
-
   return (
-    <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
-      <button ref={btnRef} type="button" onClick={toggle}
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <button ref={btnRef} type="button" onClick={() => setOpen(!open)}
         style={{
           display: "flex", alignItems: "center", justifyContent: "center",
           width: 32, height: 32, borderRadius: 8, border: "none",
@@ -163,15 +172,12 @@ export function AddContentPopover({
         onMouseLeave={(e) => { e.currentTarget.style.color = C.textMuted; }}>
         <CoolIcon icon="Add_Plus_Circle" size={22} />
       </button>
-      {open && (
-        <div style={{
-          position: "absolute", left: "50%", zIndex: 9999,
-          top: placement === "below" ? "calc(100% + 4px)" : undefined,
-          bottom: placement === "above" ? "calc(100% + 4px)" : undefined,
-          transform: `translateX(-50%)${placement === "above" ? " translateY(0)" : ""}`,
-          minWidth: 160, borderRadius: 8, border: `1px solid #1a1a1a`,
+      {open && createPortal(
+        <div ref={menuRef} style={{
+          position: "fixed", zIndex: 99999, top: menuPos.top, left: menuPos.left,
+          width: 160, borderRadius: 8, border: "1px solid #1a1a1a",
           backgroundColor: "#111111", padding: 4,
-          boxShadow: "0 0 0 100vmax rgba(0,0,0,0.55)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
         }}>
           <button type="button" disabled={maxedOut} onClick={() => { onAddEmbed(); setOpen(false); }}
             style={{
@@ -199,7 +205,8 @@ export function AddContentPopover({
             <CoolIcon icon="Navigation" size={16} />
             Action Row
           </button>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
