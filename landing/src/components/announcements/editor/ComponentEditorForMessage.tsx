@@ -128,11 +128,11 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
 
   function AddComponentPopover({ ri, hasSelect, hasButton, row }: { ri: number; hasSelect: boolean; hasButton: boolean; row: APITopLevelComponent & { type: 1 } }) {
     const [open, setOpen] = useState(false);
-    const [sub, setSub] = useState<"select" | null>(null);
+    const [view, setView] = useState<"main" | "select">("main");
     const ref = useRef<HTMLDivElement>(null);
     useEffect(() => {
       if (!open) return;
-      const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setSub(null); } };
+      const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setView("main"); } };
       document.addEventListener("mousedown", handler);
       return () => document.removeEventListener("mousedown", handler);
     }, [open]);
@@ -148,47 +148,44 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
           Add Component
         </button>
         {open && (
-          <div className="absolute top-full left-0 mt-1 z-50 w-48 rounded-lg bg-[#111] p-1 shadow-xl">
-            <button type="button" disabled={!canAddButton}
-              onClick={() => { addButton(ri, 1); setOpen(false); }}
-              className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2">
-              <img src={ICON_BUTTON} alt="" className="w-4 h-4" />
-              Button
-            </button>
-            <button type="button" disabled={!canAddButton}
-              onClick={() => { addButton(ri, 5); setOpen(false); }}
-              className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2">
-              <img src={ICON_LINK_BUTTON} alt="" className="w-4 h-4" />
-              Link Button
-            </button>
-            {canAddSelect && (
+          <div className="absolute top-full left-0 mt-1 z-[9999] w-52 rounded-lg bg-[#111] p-1 shadow-xl">
+            {view === "main" ? (
               <>
-                {!sub ? (
+                <button type="button" disabled={!canAddButton}
+                  onClick={() => { addButton(ri, 1); setOpen(false); setView("main"); }}
+                  className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2">
+                  <img src={ICON_BUTTON} alt="" className="w-4 h-4" />
+                  Button
+                </button>
+                <button type="button" disabled={!canAddButton}
+                  onClick={() => { addButton(ri, 5); setOpen(false); setView("main"); }}
+                  className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2">
+                  <img src={ICON_LINK_BUTTON} alt="" className="w-4 h-4" />
+                  Link Button
+                </button>
+                {canAddSelect && (
                   <button type="button"
-                    onClick={() => setSub("select")}
-                    className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2">
-                      <img src={ICON_SELECT_MENU} alt="" className="w-4 h-4" />
-                      Select Menu
-                    </span>
-                    <CoolIcon icon="Chevron_Down" size={10} />
+                    onClick={() => setView("select")}
+                    className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer flex items-center gap-2">
+                    <img src={ICON_SELECT_MENU} alt="" className="w-4 h-4" />
+                    Select Menu
                   </button>
-                ) : (
-                  <>
-                    <button type="button" onClick={() => setSub(null)}
-                      className="w-full text-left px-2.5 py-1 rounded text-[10px] text-zinc-500 hover:text-zinc-300 cursor-pointer">
-                      ← Back
-                    </button>
-                    {selectMenuOptions.map((opt) => (
-                      <button key={opt.type} type="button"
-                        onClick={() => { addSelectToRow(ri, opt.type); setOpen(false); setSub(null); }}
-                        className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer flex flex-col">
-                        <span>{opt.label}</span>
-                        <span className="text-[9px] text-zinc-600">{opt.desc}</span>
-                      </button>
-                    ))}
-                  </>
                 )}
+              </>
+            ) : (
+              <>
+                <button type="button" onClick={() => setView("main")}
+                  className="w-full text-left px-2.5 py-1 rounded text-[10px] text-zinc-500 hover:text-zinc-300 cursor-pointer">
+                  ← Back
+                </button>
+                {selectMenuOptions.map((opt) => (
+                  <button key={opt.type} type="button"
+                    onClick={() => { addSelectToRow(ri, opt.type); setOpen(false); setView("main"); }}
+                    className="w-full text-left px-2.5 py-1.5 rounded text-xs text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer flex flex-col">
+                    <span>{opt.label}</span>
+                    <span className="text-[9px] text-zinc-600">{opt.desc}</span>
+                  </button>
+                ))}
               </>
             )}
           </div>
