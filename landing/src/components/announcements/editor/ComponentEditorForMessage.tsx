@@ -41,11 +41,11 @@ function AddComponentPopover({ ri, hasSelect, hasButton, row, onAddButton, onAdd
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<"main" | "select">("main");
   const btnRef = useRef<HTMLButtonElement>(null);
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: -9999, left: -9999 });
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) { setMenuPos({ top: -9999, left: -9999 }); return; }
+    if (!open) { setMenuPos({ top: 0, left: 0 }); return; }
     if (btnRef.current) {
       const r = btnRef.current.getBoundingClientRect();
       let top = r.bottom + 4;
@@ -65,12 +65,25 @@ function AddComponentPopover({ ri, hasSelect, hasButton, row, onAddButton, onAdd
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  const handleToggle = () => {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      let top = r.bottom + 4;
+      let left = r.left;
+      const menuW = 160;
+      if (left + menuW > window.innerWidth) left = window.innerWidth - menuW - 8;
+      if (top + 200 > window.innerHeight) top = r.top - 200;
+      setMenuPos({ top, left });
+    }
+    setOpen(!open);
+  };
+
   const canAddButton = !hasSelect && row.components.length < DISCORD_LIMITS.V1_COMPONENTS_PER_ROW;
   const canAddSelect = !hasButton && row.components.length === 0;
 
   return (
-    <>
-      <button ref={btnRef} type="button" onClick={() => setOpen(!open)}
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <button ref={btnRef} type="button" onClick={handleToggle}
         className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-[#1A1A1A] text-zinc-500 hover:text-zinc-300 cursor-pointer">
         <img src={ICON_ADD_COMPONENT} alt="" className="w-3 h-3" />
         Add Component
@@ -120,7 +133,7 @@ function AddComponentPopover({ ri, hasSelect, hasButton, row, onAddButton, onAdd
         </div>,
         document.body
       )}
-    </>
+    </div>
   );
 }
 
