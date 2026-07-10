@@ -932,6 +932,7 @@ export default function GuildAnnouncementsPage() {
                               }}
                               totalComponentCount={totalComponentCount(msg.components ?? [])}
                               onAddAttachment={handleAddAttachment}
+                              onAttachmentError={(msg) => addToast("error", msg)}
                             />
                           </div>
                         );
@@ -1139,6 +1140,7 @@ export default function GuildAnnouncementsPage() {
                       }}
                       isV2={false}
                       onAddAttachment={handleAddAttachment}
+                      onAttachmentError={(msg) => addToast("error", msg)}
                     />
                   </Section>
                 )}

@@ -4,6 +4,7 @@ import { BUTTON_STYLES } from "../constants";
 import type { APIButtonComponent, APIV2ChildComponent, APIV2Thumbnail, ButtonStyle, MediaGalleryItem, UnfurledMediaItem } from "../types";
 import { randomId } from "../utils/message";
 import { getPlacement } from "../utils/placement";
+import ImagePicker from "./ImagePicker";
 
 const TYPE_LABELS: Record<number, { label: string; colorClass: string }> = {
   10: { label: "Text Display", colorClass: "text-indigo-400" },
@@ -25,11 +26,12 @@ function TypeBadge({ type }: { type: number }) {
   );
 }
 
-export default function V2ChildEditor({ child, onChange, onRemove, onAddAttachment }: {
+export default function V2ChildEditor({ child, onChange, onRemove, onAddAttachment, onAttachmentError }: {
   child: APIV2ChildComponent;
   onChange: (c: APIV2ChildComponent) => void;
   onRemove: () => void;
   onAddAttachment?: (file: File) => Promise<string>;
+  onAttachmentError?: (message: string) => void;
 }) {
   const [sectionAccOpen, setSectionAccOpen] = useState(false);
   const [accPlacement, setAccPlacement] = useState<"above" | "below">("above");
@@ -149,7 +151,14 @@ export default function V2ChildEditor({ child, onChange, onRemove, onAddAttachme
                   placeholder="Image URL..."
                   className={`${inputClass} flex-1 min-w-0`}
                   style={{ backgroundColor: inputBg }} />
-                {onAddAttachment && <UploadBtn target={"media-" + ii} onUrl={(url) => updateItem(ii, { media: { url } })} />}
+                {onAddAttachment && (
+                  <ImagePicker
+                    value={item.media?.url}
+                    onValue={(url) => updateItem(ii, { media: { url: url ?? "" } })}
+                    onAddAttachment={onAddAttachment}
+                    onError={onAttachmentError}
+                  />
+                )}
                 <button type="button" onClick={() => removeItem(ii)} className={headerBtnClass}>
                   <CoolIcon icon="Close_MD" size={12} />
                 </button>
@@ -370,14 +379,20 @@ export default function V2ChildEditor({ child, onChange, onRemove, onAddAttachme
                   {accessory?.type === 11 && (
                     <div className="flex flex-col gap-1.5">
                       <span className="text-[9px] text-zinc-500 uppercase">Thumbnail Accessory</span>
-                      <div className="flex items-center gap-1.5">
+                      {onAddAttachment ? (
+                        <ImagePicker
+                          value={(accessory as APIV2Thumbnail).media?.url}
+                          onValue={(url) => onChange({ ...child, accessory: url ? { type: 11, media: { url }, description: (accessory as APIV2Thumbnail).description, spoiler: (accessory as APIV2Thumbnail).spoiler } : undefined as any } as any)}
+                          onAddAttachment={onAddAttachment}
+                          onError={onAttachmentError}
+                        />
+                      ) : (
                         <input type="text" value={(accessory as APIV2Thumbnail).media?.url || ""}
                           onChange={(e) => onChange({ ...child, accessory: { type: 11, media: { url: e.target.value }, description: (accessory as APIV2Thumbnail).description, spoiler: (accessory as APIV2Thumbnail).spoiler } } as any)}
                           placeholder="Image URL..."
                           className={`${inlineInputClass} flex-1`}
                           style={{ backgroundColor: inputBg }} />
-                        {onAddAttachment && <UploadBtn target="thumb-acc" onUrl={(url) => onChange({ ...child, accessory: { type: 11, media: { url }, description: (accessory as APIV2Thumbnail).description, spoiler: (accessory as APIV2Thumbnail).spoiler } } as any)} />}
-                      </div>
+                      )}
                       <input type="text" value={(accessory as APIV2Thumbnail).description || ""}
                         onChange={(e) => onChange({ ...child, accessory: { ...accessory, description: e.target.value || undefined } } as any)}
                         placeholder="Description (alt text)"

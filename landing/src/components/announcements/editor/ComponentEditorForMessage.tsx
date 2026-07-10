@@ -24,12 +24,13 @@ function reIdComponent(comp: any) {
   if (comp.components) comp.components.forEach(reIdComponent);
 }
 
-export default function ComponentEditorForMessage({ components, onChange, onEditComponent, isV2, onAddAttachment }: {
+export default function ComponentEditorForMessage({ components, onChange, onEditComponent, isV2, onAddAttachment, onAttachmentError }: {
   components: APITopLevelComponent[];
   onChange: (c: APITopLevelComponent[]) => void;
   onEditComponent: (comp: APIComponentInActionRow, ri: number, ci: number) => void;
   isV2?: boolean;
   onAddAttachment?: (file: File) => Promise<string>;
+  onAttachmentError?: (message: string) => void;
 }) {
   // ── V1 helpers ──────────────────────────────────────────────────
   const addRow = () => {
@@ -239,7 +240,7 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
                     <CoolIcon icon="Chevron_Down" size={10} />
                   </button>
                 </div>
-                <V2ContainerEditor container={row} onContainerChange={(c) => updateContainer(ri, c)} onRemove={() => removeTop(ri)} totalComponentCount={total} onAddAttachment={onAddAttachment} />
+                <V2ContainerEditor container={row} onContainerChange={(c) => updateContainer(ri, c)} onRemove={() => removeTop(ri)} totalComponentCount={total} onAddAttachment={onAddAttachment} onAttachmentError={onAttachmentError} />
               </div>
             );
           }
@@ -261,7 +262,7 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
                     <CoolIcon icon="Chevron_Down" size={10} />
                   </button>
                 </div>
-                <V2ChildEditor child={row} onChange={(c) => updateBare(ri, c)} onRemove={() => removeTop(ri)} onAddAttachment={onAddAttachment} />
+                <V2ChildEditor child={row} onChange={(c) => updateBare(ri, c)} onRemove={() => removeTop(ri)} onAddAttachment={onAddAttachment} onAttachmentError={onAttachmentError} />
               </div>
             );
           }

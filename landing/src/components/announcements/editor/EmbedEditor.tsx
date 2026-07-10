@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { Smile } from "lucide-react";
 import { CoolIcon } from "@/components/icons/CoolIcon";
 import EmojiPickerPopover from "../pickers/EmojiPickerPopover";
@@ -7,6 +7,7 @@ import type { APIEmbed, APIEmbedField, APIEmoji, GuildEmoji } from "../types";
 import { DISCORD_LIMITS } from "../types";
 import { isEmbedEmpty, getEmbedLength, getEmbedErrors } from "../utils/message";
 import { getPlacement } from "../utils/placement";
+import ImagePicker from "./ImagePicker";
 
 function insertAtCursor(
   el: HTMLInputElement | HTMLTextAreaElement | null,
@@ -223,20 +224,6 @@ function EmbedFieldEditor({
  );
 }
 
-function UploadBtn({ onPick, loading }: { onPick: () => void; loading?: boolean }) {
- return (
-    <button type="button" onClick={onPick} disabled={loading} title="Upload image from device"
-       className="shrink-0 text-zinc-500 hover:text-zinc-300 disabled:opacity-30 disabled:cursor-wait"
-      >
-       {loading ? (
-         <span className="inline-block animate-spin" style={{ width: 14, height: 14, border: "2px solid currentcolor", borderTopColor: "transparent", borderRadius: "50%" }} />
-       ) : (
-         <CoolIcon icon="Cloud_Upload" size={14} />
-       )}
-    </button>
- );
-}
-
 export default function EmbedEditor({
  embed,
  onChange,
@@ -265,8 +252,6 @@ export default function EmbedEditor({
  serverEmojis?: GuildEmoji[];
 }) {
   const [collapsed, setCollapsed] = useState(false);
-  const [pending, setPending] = useState<Set<string>>(new Set());
-  const blobUrlsRef = useRef<string[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
   const authorNameRef = useRef<HTMLInputElement>(null);
@@ -284,50 +269,6 @@ export default function EmbedEditor({
     next.footer = undefined;
    }
    onChange(next);
-  };
-
-  useEffect(() => {
-   return () => {
-    blobUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
-    blobUrlsRef.current = [];
-   };
-  }, []);
-
-  const handleFilePick = (target: "thumbnail" | "image" | "authorIcon" | "footerIcon") => {
-   const input = document.createElement("input");
-   input.type = "file";
-   input.accept = "image/*";
-   input.onchange = async () => {
-    const file = input.files?.[0];
-    if (!file || !onAddAttachment) return;
-    if (!file.type.startsWith("image/")) {
-     onAttachmentError?.(`${file.name}: this file type is not supported in the ${target} field`);
-     return;
-    }
-    const blobUrl = URL.createObjectURL(file);
-    blobUrlsRef.current.push(blobUrl);
-    setPending((prev) => new Set(prev).add(target));
-    if (target === "thumbnail") update({ thumbnail: { url: blobUrl } });
-    else if (target === "image") update({ image: { url: blobUrl } });
-    else if (target === "authorIcon") update({ author: { name: embed.author?.name ?? "", icon_url: blobUrl, url: embed.author?.url } });
-    else if (target === "footerIcon") update({ footer: { text: embed.footer?.text ?? "", icon_url: blobUrl } });
-    try {
-     const url = await onAddAttachment(file);
-     if (target === "thumbnail") update({ thumbnail: { url } });
-     else if (target === "image") update({ image: { url } });
-     else if (target === "authorIcon") update({ author: { name: embed.author?.name ?? "", icon_url: url, url: embed.author?.url } });
-     else if (target === "footerIcon") update({ footer: { text: embed.footer?.text ?? "", icon_url: url } });
-    } catch (err) {
-     if (target === "thumbnail") update({ thumbnail: undefined });
-     else if (target === "image") update({ image: undefined });
-     else if (target === "authorIcon") update({ author: embed.author?.icon_url === blobUrl ? undefined : embed.author });
-     else if (target === "footerIcon") update({ footer: embed.footer?.icon_url === blobUrl ? undefined : embed.footer });
-     onAttachmentError?.(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-     setPending((prev) => { const n = new Set(prev); n.delete(target); return n; });
-    }
-   };
-   input.click();
   };
 
  const colorHex =
@@ -470,22 +411,12 @@ export default function EmbedEditor({
        </div>
       )}
        <div className="flex gap-1 items-center">
-        <input
-         type="text"
-         value={embed.author?.icon_url ?? ""}
-         onChange={(e) =>
-          update({
-           author: {
-            name: embed.author?.name ?? "",
-            icon_url: e.target.value || undefined,
-            url: embed.author?.url,
-           },
-          })
-         }
-         placeholder="Icon URL"
-         className="flex-1 rounded px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500" style={{ backgroundColor: "#1A1A1A" }}
+        <ImagePicker
+          value={embed.author?.icon_url}
+          onValue={(url) => update({ author: { name: embed.author?.name ?? "", icon_url: url, url: embed.author?.url } })}
+          onAddAttachment={onAddAttachment}
+          onError={onAttachmentError}
         />
-         {onAddAttachment && <UploadBtn onPick={() => handleFilePick("authorIcon")} loading={pending.has("authorIcon")} />}
         </div>
      </div>
     </div>
@@ -600,20 +531,12 @@ export default function EmbedEditor({
           Thumbnail
          </label>
          <div className="flex gap-1">
-          <input
-           type="text"
-           value={embed.thumbnail?.url ?? ""}
-           onChange={(e) =>
-            update({
-             thumbnail: e.target.value
-              ? { url: e.target.value }
-              : undefined,
-            })
-           }
-           placeholder="https://..."
-           className="flex-1 rounded px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500" style={{ backgroundColor: "#1A1A1A" }}
+          <ImagePicker
+            value={embed.thumbnail?.url}
+            onValue={(url) => update({ thumbnail: url ? { url } : undefined })}
+            onAddAttachment={onAddAttachment}
+            onError={onAttachmentError}
           />
-           {onAddAttachment && <UploadBtn onPick={() => handleFilePick("thumbnail")} loading={pending.has("thumbnail")} />}
           </div>
         </div>
         <div>
@@ -621,20 +544,12 @@ export default function EmbedEditor({
            Image
          </label>
          <div className="flex gap-1">
-          <input
-           type="text"
-           value={embed.image?.url ?? ""}
-           onChange={(e) =>
-            update({
-             image: e.target.value
-              ? { url: e.target.value }
-              : undefined,
-            })
-           }
-           placeholder="https://..."
-           className="flex-1 rounded px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500" style={{ backgroundColor: "#1A1A1A" }}
+          <ImagePicker
+            value={embed.image?.url}
+            onValue={(url) => update({ image: url ? { url } : undefined })}
+            onAddAttachment={onAddAttachment}
+            onError={onAttachmentError}
           />
-           {onAddAttachment && <UploadBtn onPick={() => handleFilePick("image")} loading={pending.has("image")} />}
           </div>
         </div>
        </div>
@@ -670,22 +585,13 @@ export default function EmbedEditor({
          />
         </FieldOverlay>
        </div>
-       <div className="flex gap-1 items-center">
-        <input
-         type="text"
-         value={embed.footer?.icon_url ?? ""}
-         onChange={(e) =>
-          update({
-           footer: {
-            text: embed.footer?.text ?? "",
-            icon_url: e.target.value || undefined,
-           },
-          })
-         }
-         placeholder="Icon URL"
-         className="flex-1 rounded px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500" style={{ backgroundColor: "#1A1A1A" }}
+        <div className="flex gap-1 items-center">
+        <ImagePicker
+          value={embed.footer?.icon_url}
+          onValue={(url) => update({ footer: { text: embed.footer?.text ?? "", icon_url: url } })}
+          onAddAttachment={onAddAttachment}
+          onError={onAttachmentError}
         />
-                 {onAddAttachment && <UploadBtn onPick={() => handleFilePick("footerIcon")} loading={pending.has("footerIcon")} />}
        </div>
         <label className="flex items-center gap-1.5 text-[10px] text-zinc-400 pt-1 cursor-pointer">
          <input type="checkbox" checked={!!embed.timestamp}
