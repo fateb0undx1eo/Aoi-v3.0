@@ -90,7 +90,7 @@ function FieldRow({
  const valueRef = useRef<HTMLTextAreaElement>(null);
 
  return (
-   <div className="rounded-lg bg-zinc-800/30 p-1.5 space-y-1">
+   <div className="rounded-lg bg-zinc-800/30 p-1.5 space-y-1.5">
    <div className="flex items-center justify-between gap-1">
     <span className="text-[10px] font-medium text-zinc-500">
      FIELD {index + 1}
@@ -106,34 +106,37 @@ function FieldRow({
       className="text-zinc-600 hover:text-red-400"><CoolIcon icon="Trash_Empty" size={12} /></button>
     </div>
    </div>
-    <div className="flex items-center gap-1.5">
-     <div className="flex-1">
-      <FieldOverlay max={DISCORD_LIMITS.FIELD_NAME} length={field.name?.length ?? 0}
-       serverEmojis={serverEmojis}
-       onEmoji={(text) => {
-        onUpdate({ name: insertAtCursor(nameRef.current, text, field.name) });
-       }}>
-       <input
-        type="text" ref={nameRef}
-        value={field.name}
-        onChange={(e) => onUpdate({ name: e.target.value })}
-        placeholder="Field name"
-        maxLength={DISCORD_LIMITS.FIELD_NAME}
-        className="w-full rounded px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500"
-        style={{ backgroundColor: "#1A1A1A", paddingRight: 60 }}
-       />
-      </FieldOverlay>
-     </div>
-     <label className="flex items-center gap-1 text-[10px] text-zinc-500 shrink-0 cursor-pointer">
-      <input type="checkbox" checked={!!field.inline}
-       onChange={(e) => onUpdate({ inline: e.target.checked })}
-       className="peer sr-only" />
-      <div className="w-3.5 h-3.5 rounded-sm bg-zinc-800 relative after:content-[''] after:absolute after:w-2 after:h-2 after:top-[3px] after:left-[3px] after:rounded-full after:bg-primary after:opacity-0 peer-checked:after:opacity-100 after:transition-opacity after:duration-150">
-      </div>
-      Inline
-     </label>
-   </div>
     <div>
+     <span className="block text-[9px] text-zinc-500 mb-0.5">Field name</span>
+     <div className="flex items-center gap-1.5">
+      <div className="flex-1">
+       <FieldOverlay max={DISCORD_LIMITS.FIELD_NAME} length={field.name?.length ?? 0}
+        serverEmojis={serverEmojis}
+        onEmoji={(text) => {
+         onUpdate({ name: insertAtCursor(nameRef.current, text, field.name) });
+        }}>
+        <input
+         type="text" ref={nameRef}
+         value={field.name}
+         onChange={(e) => onUpdate({ name: e.target.value })}
+         maxLength={DISCORD_LIMITS.FIELD_NAME}
+         className="w-full rounded px-2 py-1 text-xs text-zinc-200 outline-none"
+         style={{ backgroundColor: "#1A1A1A", paddingRight: 60 }}
+        />
+       </FieldOverlay>
+      </div>
+      <label className="flex items-center gap-1 text-[10px] text-zinc-500 shrink-0 cursor-pointer">
+       <input type="checkbox" checked={!!field.inline}
+        onChange={(e) => onUpdate({ inline: e.target.checked })}
+        className="peer sr-only" />
+       <div className="w-3.5 h-3.5 rounded-sm bg-zinc-800 relative after:content-[''] after:absolute after:w-2 after:h-2 after:top-[3px] after:left-[3px] after:rounded-full after:bg-primary after:opacity-0 peer-checked:after:opacity-100 after:transition-opacity after:duration-150">
+       </div>
+       Inline
+      </label>
+     </div>
+    </div>
+    <div>
+     <span className="block text-[9px] text-zinc-500 mb-0.5">Field value</span>
      <FieldOverlay max={DISCORD_LIMITS.FIELD_VALUE} length={field.value?.length ?? 0}
       serverEmojis={serverEmojis}
       onEmoji={(text) => {
@@ -143,10 +146,9 @@ function FieldRow({
        ref={valueRef}
        value={field.value}
        onChange={(e) => onUpdate({ value: e.target.value })}
-       placeholder="Field value"
        rows={2}
        maxLength={DISCORD_LIMITS.FIELD_VALUE}
-       className="w-full resize-none rounded px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500"
+       className="w-full resize-none rounded px-2 py-1 text-xs text-zinc-200 outline-none"
        style={{ backgroundColor: "#1A1A1A", paddingRight: 60 }}
       />
      </FieldOverlay>
@@ -337,98 +339,104 @@ export default function EmbedEditor({
      <div className="flex items-center gap-1 mb-1 text-[10px] font-semibold text-white uppercase tracking-wider">
       Author
      </div>
-     <div className="space-y-0.5">
-      <div className="flex gap-1 items-center">
-       <FieldOverlay max={DISCORD_LIMITS.AUTHOR_NAME} length={embed.author?.name?.length ?? 0}
-        serverEmojis={serverEmojis}
-        onEmoji={(text) => {
-         update({ author: { name: insertAtCursor(authorNameRef.current, text, embed.author?.name ?? ""), icon_url: embed.author?.icon_url, url: embed.author?.url } });
-        }}>
-        <input
-         type="text" ref={authorNameRef}
-         value={embed.author?.name ?? ""}
-         onChange={(e) =>
-          update({
-           author: {
-            name: e.target.value,
-            icon_url: embed.author?.icon_url,
-            url: embed.author?.url,
-           },
-          })
-         }
-         placeholder="Author name"
-         maxLength={DISCORD_LIMITS.AUTHOR_NAME}
-         className="w-full rounded px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500"
-         style={{ backgroundColor: "#1A1A1A", paddingRight: serverEmojis ? 56 : 28 }}
-        />
-       </FieldOverlay>
-       {embed.author?.url === undefined && (
-        <button
-         type="button"
-         onClick={() =>
-          update({
-           author: {
-            name: embed.author?.name ?? "",
-            icon_url: embed.author?.icon_url,
-            url: "https://",
-           },
-          })
-         }
-     className="shrink-0 text-zinc-500 hover:text-zinc-300"
-         >
-          <CoolIcon icon="Link" size={12} />
-         </button>
-        )}
-       </div>
-      {embed.author?.url !== undefined && (
-       <div className="flex gap-1">
-        <input
-         type="text"
-         value={embed.author.url}
-         onChange={(e) =>
-          update({
-           author: {
-            name: embed.author?.name ?? "",
-            icon_url: embed.author?.icon_url,
-            url: e.target.value,
-           },
-          })
-         }
-         placeholder="https://..."
-         className="flex-1 rounded px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500" style={{ backgroundColor: "#1A1A1A" }}
-        />
-        <button
-         type="button"
-         onClick={() => {
-          const a = embed.author;
-          if (a)
-           update({ author: { name: a.name, icon_url: a.icon_url } });
-         }}
-         className="shrink-0 px-1 text-zinc-600 hover:text-zinc-300"
-        >
-         <CoolIcon icon="Close_MD" size={12} />
-        </button>
-       </div>
-      )}
-       <div className="flex gap-1 items-center">
-        <ImagePicker
-          value={embed.author?.icon_url}
-          onValue={(url) => update({ author: { name: embed.author?.name ?? "", icon_url: url, url: embed.author?.url } })}
-          onAddAttachment={onAddAttachment}
-          onError={onAttachmentError}
-        />
+      <div className="space-y-1.5">
+       <div>
+        <span className="block text-[9px] text-zinc-500 mb-0.5">Author name</span>
+        <div className="flex gap-1 items-center">
+        <FieldOverlay max={DISCORD_LIMITS.AUTHOR_NAME} length={embed.author?.name?.length ?? 0}
+         serverEmojis={serverEmojis}
+         onEmoji={(text) => {
+          update({ author: { name: insertAtCursor(authorNameRef.current, text, embed.author?.name ?? ""), icon_url: embed.author?.icon_url, url: embed.author?.url } });
+         }}>
+         <input
+          type="text" ref={authorNameRef}
+          value={embed.author?.name ?? ""}
+          onChange={(e) =>
+           update({
+            author: {
+             name: e.target.value,
+             icon_url: embed.author?.icon_url,
+             url: embed.author?.url,
+            },
+           })
+          }
+          maxLength={DISCORD_LIMITS.AUTHOR_NAME}
+          className="w-full rounded px-2 py-1 text-xs text-zinc-200 outline-none"
+          style={{ backgroundColor: "#1A1A1A", paddingRight: serverEmojis ? 56 : 28 }}
+         />
+        </FieldOverlay>
+        {embed.author?.url === undefined && (
+         <button
+          type="button"
+          onClick={() =>
+           update({
+            author: {
+             name: embed.author?.name ?? "",
+             icon_url: embed.author?.icon_url,
+             url: "https://",
+            },
+           })
+          }
+      className="shrink-0 text-zinc-500 hover:text-zinc-300"
+          >
+           <CoolIcon icon="Link" size={12} />
+          </button>
+         )}
         </div>
+       </div>
+       {embed.author?.url !== undefined && (
+        <div>
+         <span className="block text-[9px] text-zinc-500 mb-0.5">Author URL</span>
+         <div className="flex gap-1">
+         <input
+          type="text"
+          value={embed.author.url}
+          onChange={(e) =>
+           update({
+            author: {
+             name: embed.author?.name ?? "",
+             icon_url: embed.author?.icon_url,
+             url: e.target.value,
+            },
+           })
+          }
+          className="flex-1 rounded px-2 py-1 text-xs text-zinc-200 outline-none" style={{ backgroundColor: "#1A1A1A" }}
+         />
+         <button
+          type="button"
+          onClick={() => {
+           const a = embed.author;
+           if (a)
+            update({ author: { name: a.name, icon_url: a.icon_url } });
+          }}
+          className="shrink-0 px-1 text-zinc-600 hover:text-zinc-300"
+         >
+          <CoolIcon icon="Close_MD" size={12} />
+         </button>
+        </div>
+        </div>
+       )}
+        <div>
+         <span className="block text-[9px] text-zinc-500 mb-0.5">Author icon</span>
+         <ImagePicker
+           value={embed.author?.icon_url}
+           onValue={(url) => update({ author: { name: embed.author?.name ?? "", icon_url: url, url: embed.author?.url } })}
+           onAddAttachment={onAddAttachment}
+           onError={onAttachmentError}
+         />
+        </div>
+      </div>
      </div>
-    </div>
 
     {/* Body Section */}
     <div>
      <div className="flex items-center gap-1 mb-1 text-[10px] font-semibold text-white uppercase tracking-wider">
       Body
      </div>
-     <div className="space-y-0.5">
-      <div>
-       <div className="flex gap-1 items-center">
+      <div className="space-y-1.5">
+       <div>
+        <span className="block text-[9px] text-zinc-500 mb-0.5">Title</span>
+        <div className="flex gap-1 items-center">
         <FieldOverlay max={DISCORD_LIMITS.EMBED_TITLE} length={embed.title?.length ?? 0}
          serverEmojis={serverEmojis}
          onEmoji={(text) => {
@@ -440,9 +448,8 @@ export default function EmbedEditor({
           onChange={(e) =>
            update({ title: e.target.value || undefined })
           }
-          placeholder="Embed title"
           maxLength={DISCORD_LIMITS.EMBED_TITLE}
-          className="w-full rounded px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500"
+          className="w-full rounded px-2 py-1 text-xs text-zinc-200 outline-none"
           style={{ backgroundColor: "#1A1A1A", paddingRight: serverEmojis ? 56 : 28 }}
          />
         </FieldOverlay>
@@ -457,44 +464,46 @@ export default function EmbedEditor({
          )}
          </div>
         </div>
-      {embed.url !== undefined && (
-       <div className="flex gap-1">
-        <input
-         type="text"
-         value={embed.url}
-         onChange={(e) => update({ url: e.target.value || undefined })}
-         placeholder="Title URL"
-         className="flex-1 rounded px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500" style={{ backgroundColor: "#1A1A1A" }}
-        />
-        <button
-         type="button"
-         onClick={() => update({ url: undefined })}
-         className="shrink-0 px-1 text-zinc-600 hover:text-zinc-300"
-        >
-         <CoolIcon icon="Close_MD" size={12} />
-        </button>
+       {embed.url !== undefined && (
+        <div>
+         <span className="block text-[9px] text-zinc-500 mb-0.5">Title URL</span>
+         <div className="flex gap-1">
+         <input
+          type="text"
+          value={embed.url}
+          onChange={(e) => update({ url: e.target.value || undefined })}
+          className="flex-1 rounded px-2 py-1 text-xs text-zinc-200 outline-none" style={{ backgroundColor: "#1A1A1A" }}
+         />
+         <button
+          type="button"
+          onClick={() => update({ url: undefined })}
+          className="shrink-0 px-1 text-zinc-600 hover:text-zinc-300"
+         >
+          <CoolIcon icon="Close_MD" size={12} />
+         </button>
+        </div>
+        </div>
+       )}
+       <div>
+        <span className="block text-[9px] text-zinc-500 mb-0.5">Description</span>
+        <FieldOverlay max={DISCORD_LIMITS.EMBED_DESCRIPTION} length={embed.description?.length ?? 0}
+         serverEmojis={serverEmojis}
+         onEmoji={(text) => {
+          update({ description: insertAtCursor(descRef.current, text, embed.description ?? "") || undefined });
+         }}>
+         <textarea
+          ref={descRef}
+          value={embed.description ?? ""}
+          onChange={(e) =>
+           update({ description: e.target.value || undefined })
+          }
+          rows={4}
+          maxLength={DISCORD_LIMITS.EMBED_DESCRIPTION}
+          className="w-full resize-none rounded px-2 py-1 text-xs text-zinc-200 outline-none"
+          style={{ backgroundColor: "#1A1A1A", paddingRight: serverEmojis ? 56 : 28 }}
+         />
+        </FieldOverlay>
        </div>
-      )}
-      <div>
-       <FieldOverlay max={DISCORD_LIMITS.EMBED_DESCRIPTION} length={embed.description?.length ?? 0}
-        serverEmojis={serverEmojis}
-        onEmoji={(text) => {
-         update({ description: insertAtCursor(descRef.current, text, embed.description ?? "") || undefined });
-        }}>
-        <textarea
-         ref={descRef}
-         value={embed.description ?? ""}
-         onChange={(e) =>
-          update({ description: e.target.value || undefined })
-         }
-         placeholder="Embed description"
-         rows={4}
-         maxLength={DISCORD_LIMITS.EMBED_DESCRIPTION}
-         className="w-full resize-none rounded px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500"
-         style={{ backgroundColor: "#1A1A1A", paddingRight: serverEmojis ? 56 : 28 }}
-        />
-       </FieldOverlay>
-      </div>
        <div>
         <div className="flex items-center gap-1 mb-1 text-[10px] font-semibold text-white uppercase tracking-wider">
          ACCENT
@@ -560,39 +569,40 @@ export default function EmbedEditor({
      <div className="flex items-center gap-1 mb-1 text-[10px] font-semibold text-white uppercase tracking-wider">
       Footer
      </div>
-      <div className="space-y-0.5">
-       <div className="flex gap-1 items-center">
-        <FieldOverlay max={DISCORD_LIMITS.FOOTER_TEXT} length={embed.footer?.text?.length ?? 0}
-         serverEmojis={serverEmojis}
-         onEmoji={(text) => {
-          update({ footer: { text: insertAtCursor(footerRef.current, text, embed.footer?.text ?? ""), icon_url: embed.footer?.icon_url } });
-         }}>
-         <input
-          type="text" ref={footerRef}
-          value={embed.footer?.text ?? ""}
-          onChange={(e) =>
-           update({
-            footer: {
-             text: e.target.value,
-             icon_url: embed.footer?.icon_url,
-            },
-           })
-          }
-          placeholder="Footer text"
-          maxLength={DISCORD_LIMITS.FOOTER_TEXT}
-          className="w-full rounded px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500"
-          style={{ backgroundColor: "#1A1A1A", paddingRight: serverEmojis ? 56 : 28 }}
+       <div className="space-y-1.5">
+        <div>
+         <span className="block text-[9px] text-zinc-500 mb-0.5">Footer text</span>
+         <FieldOverlay max={DISCORD_LIMITS.FOOTER_TEXT} length={embed.footer?.text?.length ?? 0}
+          serverEmojis={serverEmojis}
+          onEmoji={(text) => {
+           update({ footer: { text: insertAtCursor(footerRef.current, text, embed.footer?.text ?? ""), icon_url: embed.footer?.icon_url } });
+          }}>
+          <input
+           type="text" ref={footerRef}
+           value={embed.footer?.text ?? ""}
+           onChange={(e) =>
+            update({
+             footer: {
+              text: e.target.value,
+              icon_url: embed.footer?.icon_url,
+             },
+            })
+           }
+           maxLength={DISCORD_LIMITS.FOOTER_TEXT}
+           className="w-full rounded px-2 py-1 text-xs text-zinc-200 outline-none"
+           style={{ backgroundColor: "#1A1A1A", paddingRight: serverEmojis ? 56 : 28 }}
+          />
+         </FieldOverlay>
+        </div>
+        <div>
+         <span className="block text-[9px] text-zinc-500 mb-0.5">Footer icon</span>
+         <ImagePicker
+           value={embed.footer?.icon_url}
+           onValue={(url) => update({ footer: { text: embed.footer?.text ?? "", icon_url: url } })}
+           onAddAttachment={onAddAttachment}
+           onError={onAttachmentError}
          />
-        </FieldOverlay>
-       </div>
-        <div className="flex gap-1 items-center">
-        <ImagePicker
-          value={embed.footer?.icon_url}
-          onValue={(url) => update({ footer: { text: embed.footer?.text ?? "", icon_url: url } })}
-          onAddAttachment={onAddAttachment}
-          onError={onAttachmentError}
-        />
-       </div>
+        </div>
         <label className="flex items-center gap-1.5 text-[10px] text-zinc-400 pt-1 cursor-pointer">
          <input type="checkbox" checked={!!embed.timestamp}
           onChange={(e) => {
