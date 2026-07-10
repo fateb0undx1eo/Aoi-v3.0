@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { CoolIcon } from "@/components/icons/CoolIcon";
 import { BUTTON_STYLES, DISCORD_LIMITS } from "../constants";
@@ -44,7 +44,7 @@ function AddComponentPopover({ ri, hasSelect, hasButton, row, onAddButton, onAdd
   const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) { setMenuPos({ top: 0, left: 0 }); return; }
     if (btnRef.current) {
       const r = btnRef.current.getBoundingClientRect();
@@ -55,6 +55,10 @@ function AddComponentPopover({ ri, hasSelect, hasButton, row, onAddButton, onAdd
       if (top + 200 > window.innerHeight) top = r.top - 200;
       setMenuPos({ top, left });
     }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     const handler = (e: MouseEvent) => {
       const t = e.target as Node;
       if (btnRef.current?.contains(t)) return;
@@ -65,32 +69,18 @@ function AddComponentPopover({ ri, hasSelect, hasButton, row, onAddButton, onAdd
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const handleToggle = () => {
-    if (!open && btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect();
-      let top = r.bottom + 4;
-      let left = r.left;
-      const menuW = 160;
-      if (left + menuW > window.innerWidth) left = window.innerWidth - menuW - 8;
-      if (top + 200 > window.innerHeight) top = r.top - 200;
-      setMenuPos({ top, left });
-    }
-    setOpen(!open);
-  };
-
   const canAddButton = !hasSelect && row.components.length < DISCORD_LIMITS.V1_COMPONENTS_PER_ROW;
   const canAddSelect = !hasButton && row.components.length === 0;
 
   return (
     <div style={{ position: "relative", display: "inline-block" }}>
-      <button ref={btnRef} type="button" onClick={handleToggle}
+      <button ref={btnRef} type="button" onClick={() => setOpen(!open)}
         className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-[#1A1A1A] text-zinc-500 hover:text-zinc-300 cursor-pointer">
         <img src={ICON_ADD_COMPONENT} alt="" className="w-3 h-3" />
         Add Component
       </button>
       {open && createPortal(
-        <div ref={menuRef} className="fixed z-[99999] w-40 rounded-lg bg-[#111] border border-[#222] p-1 shadow-2xl"
-          style={{ top: menuPos.top, left: menuPos.left }}>
+        <div ref={menuRef} style={{ position: "fixed", zIndex: 99999, top: menuPos.top, left: menuPos.left, width: 160, borderRadius: 8, border: "1px solid #1a1a1a", backgroundColor: "#111", padding: 4, boxShadow: "0 8px 32px rgba(0,0,0,0.6)" }}>
           {view === "main" ? (
             <>
               <button type="button" disabled={!canAddButton}
