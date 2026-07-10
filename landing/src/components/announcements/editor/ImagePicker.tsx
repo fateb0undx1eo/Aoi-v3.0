@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import { CoolIcon } from "@/components/icons/CoolIcon";
 
 interface ImagePickerProps {
@@ -10,49 +10,40 @@ interface ImagePickerProps {
 
 export default function ImagePicker({ value, onValue, onAddAttachment, onError }: ImagePickerProps) {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"choose" | "url">("choose");
-  const [urlDraft, setUrlDraft] = useState("");
+  const [draft, setDraft] = useState("");
   const [uploading, setUploading] = useState(false);
-  const cancelledRef = useRef(false);
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
 
-  if (value) {
-    return (
-      <div className="flex items-center gap-1.5">
-        <span className="flex-1 truncate text-[10px] text-zinc-400" title={value}>
-          {uploading ? "Uploading..." : value}
-        </span>
-        {uploading && (
-          <span className="inline-block animate-spin shrink-0" style={{ width: 10, height: 10, border: "2px solid currentcolor", borderTopColor: "transparent", borderRadius: "50%" }} />
-        )}
-        <button type="button" onClick={() => { cancelledRef.current = true; onValue(undefined); }}
-          className="shrink-0 text-zinc-600 hover:text-red-400 flex items-center p-0.5">
-          <CoolIcon icon="Close_MD" size={12} />
-        </button>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!open) {
+      setDraft("");
+      setUploadPreview(null);
+      setUploading(false);
+    }
+  }, [open]);
+
+  const handleConfirm = () => {
+    const url = uploadPreview ?? draft.trim();
+    if (url) {
+      onValue(url);
+      setOpen(false);
+    }
+  };
 
   const handleUpload = () => {
     if (!onAddAttachment) return;
-    cancelledRef.current = false;
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return;
-      const blobUrl = URL.createObjectURL(file);
-      onValue(blobUrl);
       setUploading(true);
       try {
         const url = await onAddAttachment(file);
-        if (!cancelledRef.current) onValue(url);
-        URL.revokeObjectURL(blobUrl);
-        setOpen(false);
+        setUploadPreview(url);
       } catch (err) {
-        if (!cancelledRef.current) onValue(undefined);
         onError?.(err instanceof Error ? err.message : "Upload failed");
-        URL.revokeObjectURL(blobUrl);
       } finally {
         setUploading(false);
       }
@@ -60,59 +51,100 @@ export default function ImagePicker({ value, onValue, onAddAttachment, onError }
     input.click();
   };
 
-  const submitUrl = () => {
-    const trimmed = urlDraft.trim();
-    if (trimmed) {
-      onValue(trimmed);
-      setUrlDraft("");
-      setOpen(false);
-    }
-  };
+  if (value) {
+    return (
+      <div className="flex items-center gap-1.5 rounded border border-zinc-800 bg-[#1A1A1A] px-2 py-1 cursor-pointer hover:border-zinc-600"
+        onClick={() => setOpen(true)}>
+        <span className="flex-1 truncate text-[10px] text-zinc-400" title={value}>
+          {value}
+        </span>
+        <button type="button" onClick={(e) => { e.stopPropagation(); onValue(undefined); }}
+          className="shrink-0 text-zinc-600 hover:text-red-400 flex items-center p-0.5">
+          <CoolIcon icon="Close_MD" size={12} />
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="relative inline-flex">
-      <button type="button" onClick={() => { setOpen(!open); setMode("choose"); setUrlDraft(""); }}
-        className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-zinc-200
-                   rounded border border-dashed border-zinc-700 px-2 py-1 cursor-pointer
-                   whitespace-nowrap">
+    <>
+      <button type="button" onClick={() => setOpen(true)}
+        className="flex items-center gap-1.5 w-full rounded border border-dashed border-zinc-700 bg-[#1A1A1A] px-2 py-1 text-[10px] text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 cursor-pointer">
         <CoolIcon icon="Image" size={12} />
         Add Image
       </button>
+
       {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute z-20 top-full mt-1 left-0 rounded border border-zinc-700 bg-[#1A1A1A] shadow-lg p-1 min-w-[150px]">
-            {mode === "url" ? (
-              <div className="flex flex-col gap-1 p-1">
-                <input type="text" value={urlDraft} autoFocus
-                  onChange={(e) => setUrlDraft(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") submitUrl(); if (e.key === "Escape") { setOpen(false); setUrlDraft(""); } }}
-                  placeholder="https://..."
-                  className="w-full rounded px-1.5 py-1 text-[10px] text-zinc-200 placeholder-zinc-600 outline-none bg-zinc-800 border border-zinc-700" />
-                <div className="flex gap-1 justify-end">
-                  <button type="button" onClick={submitUrl}
-                    className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-700 text-zinc-200 cursor-pointer">Done</button>
-                  <button type="button" onClick={() => { setMode("choose"); setUrlDraft(""); }}
-                    className="text-[9px] px-1.5 py-0.5 rounded text-zinc-500 cursor-pointer">Cancel</button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col">
-                <button type="button" onClick={handleUpload}
-                  className="flex items-center gap-2 px-2 py-1 text-[10px] text-zinc-300 hover:bg-zinc-800 rounded cursor-pointer text-left whitespace-nowrap">
-                  <CoolIcon icon="Cloud_Upload" size={12} />
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 9998,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            backgroundColor: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)",
+          }}
+          onClick={() => setOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: "#111", borderRadius: 14,
+              border: "1px solid #333", padding: 24,
+              width: 400, maxWidth: "90vw",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
+            }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#e4e4e7", marginBottom: 16 }}>
+              Add Image
+            </div>
+
+            <input type="text" value={draft} autoFocus
+              onChange={(e) => { setDraft(e.target.value); if (uploadPreview) setUploadPreview(null); }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleConfirm(); if (e.key === "Escape") setOpen(false); }}
+              placeholder="Paste image link..."
+              className="w-full rounded-lg border border-zinc-800 bg-black px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-600"
+            />
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12 }}>
+              <div style={{ flex: 1, height: 1, backgroundColor: "#333" }} />
+              <span style={{ fontSize: 9, color: "#52525b", textTransform: "uppercase" }}>or</span>
+              <div style={{ flex: 1, height: 1, backgroundColor: "#333" }} />
+            </div>
+
+            <button type="button" onClick={handleUpload} disabled={uploading}
+              className="w-full flex items-center justify-center gap-2 mt-3 rounded-lg border border-dashed border-zinc-700 bg-black px-3 py-2 text-xs text-zinc-400 hover:text-zinc-200 hover:border-zinc-500 cursor-pointer disabled:opacity-40"
+            >
+              {uploading ? (
+                <>
+                  <span className="inline-block animate-spin" style={{ width: 12, height: 12, border: "2px solid currentcolor", borderTopColor: "transparent", borderRadius: "50%" }} />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <CoolIcon icon="Cloud_Upload" size={14} />
                   Upload from device
-                </button>
-                <button type="button" onClick={() => setMode("url")}
-                  className="flex items-center gap-2 px-2 py-1 text-[10px] text-zinc-300 hover:bg-zinc-800 rounded cursor-pointer text-left whitespace-nowrap">
-                  <CoolIcon icon="Link" size={12} />
-                  Paste URL
-                </button>
+                </>
+              )}
+            </button>
+
+            {uploadPreview && (
+              <div style={{ marginTop: 10, padding: "6px 8px", borderRadius: 8, backgroundColor: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", fontSize: 10, color: "#4ade80", wordBreak: "break-all" }}>
+                Ready: {uploadPreview.slice(0, 60)}...
               </div>
             )}
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
+              <button type="button" onClick={() => setOpen(false)}
+                className="px-3 py-1.5 rounded-lg text-xs text-zinc-400 hover:text-zinc-200 cursor-pointer border-none bg-transparent">
+                Cancel
+              </button>
+              <button type="button" onClick={handleConfirm}
+                className="px-4 py-1.5 rounded-lg text-xs font-medium text-white cursor-pointer border-none"
+                style={{ backgroundColor: "#5865f2" }}>
+                Add
+              </button>
+            </div>
           </div>
-        </>
+        </div>
       )}
-    </div>
+    </>
   );
 }
