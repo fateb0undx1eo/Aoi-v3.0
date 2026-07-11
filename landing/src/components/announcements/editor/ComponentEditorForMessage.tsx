@@ -23,11 +23,11 @@ const ICON_LINK_BUTTON = "data:image/svg+xml,%3csvg%20width='100'%20height='100'
 const ICON_SELECT_MENU = "data:image/svg+xml,%3csvg%20width='100'%20height='100'%20viewBox='0%200%2032%2032'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%3e%3cpath%20fill-rule='evenodd'%20clip-rule='evenodd'%20d='M25.9898%202.66663C26.8731%202.66663%2027.7202%202.97867%2028.3448%203.53412C28.9694%204.08956%2029.3203%204.84291%2029.3203%205.62843V23.2475L25.0075%2020.649C24.6745%2020.4445%2024.2692%2020.2905%2023.818%2020.2614C23.3525%2020.2314%2022.8532%2020.338%2022.4137%2020.6345C21.9741%2020.931%2021.6882%2021.3539%2021.5416%2021.7968C21.3996%2022.226%2021.3905%2022.6596%2021.4554%2023.045L22.4575%2029.3229H6.00688C5.12358%2029.3229%204.27646%2029.0108%203.65187%2028.4554C3.02728%2027.8999%202.67639%2027.1466%202.67639%2026.3611V5.62843C2.67639%204.84291%203.02728%204.08956%203.65187%203.53412C4.27646%202.97867%205.12358%202.66663%206.00688%202.66663H25.9898ZM6.77494%208.88615C6.77494%209.73802%207.47192%2010.435%208.32379%2010.435H20.7146C21.1254%2010.435%2021.5193%2010.2718%2021.8098%209.98135C22.1002%209.69089%2022.2634%209.29693%2022.2634%208.88615L22.2634%208.31545C22.2634%207.90467%2022.1002%207.51071%2021.8097%207.22025C21.5193%206.92978%2021.1253%206.7666%2020.7145%206.7666H8.32375C7.91297%206.7666%207.51901%206.92978%207.22855%207.22025C6.93808%207.51071%206.7749%207.90467%206.7749%208.31545L6.77494%208.88615ZM8.32379%2016.1652C7.47192%2016.1652%206.77494%2015.4682%206.77494%2014.6163L6.7749%2014.0456C6.7749%2013.6348%206.93808%2013.2409%207.22855%2012.9504C7.51902%2012.6599%207.91297%2012.4968%208.32375%2012.4968H20.7145C21.1253%2012.4968%2021.5193%2012.6599%2021.8097%2012.9504C22.1002%2013.2409%2022.2634%2013.6348%2022.2634%2014.0456L22.2634%2014.6163C22.2634%2015.0271%2022.1002%2015.421%2021.8098%2015.7115C21.5193%2016.002%2021.1254%2016.1652%2020.7146%2016.1652H8.32379ZM6.77494%2020.3466C6.77494%2021.1985%207.47192%2021.8955%208.32379%2021.8955H15.8594C16.2702%2021.8955%2016.6642%2021.7323%2016.9546%2021.4418C17.2451%2021.1513%2017.4083%2020.7574%2017.4083%2020.3466L17.4083%2019.7759C17.4083%2019.3651%2017.2451%2018.9712%2016.9546%2018.6807C16.6641%2018.3902%2016.2702%2018.2271%2015.8594%2018.2271H8.32375C7.91297%2018.2271%207.51902%2018.3902%207.22855%2018.6807C6.93808%2018.9712%206.7749%2019.3651%206.7749%2019.7759L6.77494%2020.3466Z'%20fill='%23ABABAB'/%3e%3cpath%20d='M23.0509%2022.7818C23.0212%2022.61%2023.0301%2022.4459%2023.0768%2022.3048C23.0768%2022.3048%2023.0767%2022.3048%2023.0768%2022.3048C23.1234%2022.1637%2023.2064%2022.0503%2023.3178%2021.9751C23.3179%2021.9751%2023.3178%2021.9751%2023.3178%2021.9751C23.3438%2021.9576%2023.3712%2021.9422%2023.3998%2021.9291C23.4936%2021.8862%2023.6002%2021.8677%2023.7139%2021.875C23.8622%2021.8846%2024.0177%2021.9378%2024.1658%2022.0297L30.1405%2025.6295C30.8985%2026.0887%2031.1896%2027.2073%2030.6425%2027.5763L25.7674%2030.8647C25.2203%2031.2337%2024.2887%2030.5471%2024.1504%2029.6699L23.0509%2022.7818Z'%20fill='%23ABABAB'/%3e%3c/svg%3e";
 
 const SELECT_MENU_OPTIONS = [
-  { type: 3, label: "Select Menu", desc: "String options" },
-  { type: 5, label: "User Select", desc: "Pick users" },
-  { type: 6, label: "Role Select", desc: "Pick roles" },
-  { type: 7, label: "User & Role Select", desc: "Pick mentionables" },
-  { type: 8, label: "Channel Select", desc: "Pick channels" },
+  { type: 3, label: "Select Menu" },
+  { type: 5, label: "User Select" },
+  { type: 6, label: "Role Select" },
+  { type: 7, label: "User & Role Select" },
+  { type: 8, label: "Channel Select" },
 ];
 
 function AddComponentPopover({ ri, hasSelect, hasButton, row, onAddButton, onAddSelect }: {
@@ -47,16 +47,21 @@ function AddComponentPopover({ ri, hasSelect, hasButton, row, onAddButton, onAdd
       const r = btnRef.current.getBoundingClientRect();
       const menuW = 160;
       let left = r.left + r.width / 2 - menuW / 2;
-      let top = r.bottom + 4;
-      if (left + menuW > window.innerWidth) left = window.innerWidth - menuW - 8;
-      if (left < 8) left = 8;
       // Open upward if button is in bottom half of screen
       const buttonCenterY = r.top + r.height / 2;
       if (buttonCenterY > window.innerHeight / 2) {
-        top = r.top - 4;
+        let top = r.top - 1;
+        if (top < 1) top = r.bottom + 1;
+        if (left + menuW > window.innerWidth) left = window.innerWidth - menuW - 8;
+        if (left < 8) left = 8;
+        setMenuPos({ top, left });
+      } else {
+        let top = r.bottom + 1;
+        if (left + menuW > window.innerWidth) left = window.innerWidth - menuW - 8;
+        if (left < 8) left = 8;
+        if (top + 200 > window.innerHeight) top = r.top - 1;
+        setMenuPos({ top, left });
       }
-      if (top < 4) top = r.bottom + 4;
-      setMenuPos({ top, left });
     }
     const handler = (e: MouseEvent) => {
       const t = e.target as Node;
@@ -74,9 +79,9 @@ function AddComponentPopover({ ri, hasSelect, hasButton, row, onAddButton, onAdd
   return (
     <div style={{ position: "relative", display: "inline-block" }}>
       <button ref={btnRef} type="button" onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-[#1A1A1A] text-zinc-500 hover:text-zinc-300 cursor-pointer">
-        <img src={ICON_ADD_COMPONENT} alt="" className="w-3 h-3" />
-        Add Component
+        className="flex items-center justify-center w-full h-full min-h-[28px] min-w-[28px] rounded bg-transparent text-zinc-500 hover:text-zinc-300 cursor-pointer transition-colors"
+        style={{ padding: 0 }}>
+        <img src={ICON_ADD_COMPONENT} alt="" style={{ width: 20, height: 20 }} />
       </button>
       {open && createPortal(
         <div ref={menuRef} style={{ position: "fixed", zIndex: 99999, top: menuPos.top, left: menuPos.left, width: 160, borderRadius: 8, border: "1px solid #1a1a1a", backgroundColor: "#111", padding: 4, boxShadow: "0 8px 32px rgba(0,0,0,0.6)" }}>
@@ -112,9 +117,8 @@ function AddComponentPopover({ ri, hasSelect, hasButton, row, onAddButton, onAdd
               {SELECT_MENU_OPTIONS.map((opt) => (
                 <button key={opt.type} type="button"
                   onClick={() => { onAddSelect(ri, opt.type); setOpen(false); setView("main"); }}
-                  className="w-full text-left px-2.5 py-1.5 rounded text-[11px] text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer flex flex-col">
-                  <span>{opt.label}</span>
-                  <span className="text-[9px] text-zinc-600">{opt.desc}</span>
+                  className="w-full text-left px-2.5 py-1.5 rounded text-[11px] text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer">
+                  {opt.label}
                 </button>
               ))}
             </>
@@ -219,34 +223,10 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
     { type: 1, label: "Row" },
   ];
 
-  const total = totalComponentCount(components);
+const total = totalComponentCount(components);
 
   // ── V1 row: detect contents ──────────────────────────────────────
   const BURGUNDY = "#8B1538";
-
-  function v1RowAdders(row: APITopLevelComponent & { type: 1 }, ri: number) {
-    const hasSelect = row.components.some(c => c.type !== 2);
-    const hasButton = row.components.some(c => c.type === 2);
-    const canAddButton = !hasSelect && row.components.length < DISCORD_LIMITS.V1_COMPONENTS_PER_ROW;
-    const canAddSelect = !hasButton && row.components.length === 0;
-    return (
-      <div className="flex items-center gap-1">
-        {(canAddButton || canAddSelect) && (
-          <AddComponentPopover ri={ri} hasSelect={hasSelect} hasButton={hasButton} row={row} onAddButton={addButton} onAddSelect={addSelectToRow} />
-        )}
-        <button type="button" onClick={() => duplicate(ri)}
-          className="text-zinc-600 hover:text-zinc-300 flex items-center cursor-pointer">
-          <CoolIcon icon="Copy" size={10} />
-        </button>
-        {components.length > 1 && (
-          <button type="button" onClick={() => removeTop(ri)}
-            className="text-zinc-600 hover:text-red-400 flex items-center cursor-pointer">
-            <CoolIcon icon="Close_MD" size={10} />
-          </button>
-        )}
-      </div>
-    );
-  }
 
   const addBtnClass = "flex items-center justify-center w-7 h-7 rounded text-zinc-500 hover:text-zinc-300 cursor-pointer";
 
@@ -278,16 +258,32 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
         {components.map((row, ri) => {
           // V1 Action Row
           if (row.type === 1) {
+            const isEmpty = row.components.length === 0;
             return (
               <div key={ri} className="rounded-lg p-2" style={{ backgroundColor: "#151515" }}>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[10px] text-zinc-600 uppercase tracking-wider">
                     Row {ri + 1} <span className="text-zinc-700">({row.components.length}/{DISCORD_LIMITS.V1_COMPONENTS_PER_ROW})</span>
                   </span>
-                  {v1RowAdders(row, ri)}
+                  {!isEmpty && (
+                    <div className="flex items-center gap-1">
+                      <button type="button" onClick={() => duplicate(ri)}
+                        className="text-zinc-600 hover:text-zinc-300 flex items-center cursor-pointer">
+                        <CoolIcon icon="Copy" size={10} />
+                      </button>
+                      {components.length > 1 && (
+                        <button type="button" onClick={() => removeTop(ri)}
+                          className="text-zinc-600 hover:text-red-400 flex items-center cursor-pointer">
+                          <CoolIcon icon="Close_MD" size={10} />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {row.components.length === 0 ? (
-                  <div className="text-center py-2 text-[10px] text-zinc-600">Empty — add buttons or a select menu</div>
+                {isEmpty ? (
+                  <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
+                    <AddComponentPopover ri={ri} hasSelect={false} hasButton={false} row={row} onAddButton={addButton} onAddSelect={addSelectToRow} />
+                  </div>
                 ) : (
                   <div className="flex flex-wrap gap-1">
                     {row.components.map((comp, ci) => (
@@ -318,6 +314,13 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
               </div>
             );
           }
+
+          // V1 row detection helpers (for non-empty rows)
+          const actionRow = row as unknown as { type: 1; components: any[] };
+          const hasSelect = actionRow.components.some(c => c.type !== 2);
+          const hasButton = actionRow.components.some(c => c.type === 2);
+          const canAddButton = !hasSelect && actionRow.components.length < DISCORD_LIMITS.V1_COMPONENTS_PER_ROW;
+          const canAddSelect = !hasButton && actionRow.components.length === 0;
 
           // V2 Container
           if (row.type === 17) {

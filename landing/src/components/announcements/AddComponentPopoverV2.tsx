@@ -28,14 +28,14 @@ const MAIN_ITEMS = [
 ];
 
 const SELECT_MENU_OPTIONS = [
-  { type: "3", label: "Select Menu", desc: "String options", icon: ICON_SELECT_MENU },
-  { type: "5", label: "User Select", desc: "Pick users", icon: ICON_SELECT_MENU },
-  { type: "6", label: "Role Select", desc: "Pick roles", icon: ICON_SELECT_MENU },
-  { type: "7", label: "Mentionable Select", desc: "Users & roles", icon: ICON_SELECT_MENU },
-  { type: "8", label: "Channel Select", desc: "Pick channels", icon: ICON_SELECT_MENU },
+  { type: "3", label: "Select Menu", icon: ICON_SELECT_MENU },
+  { type: "5", label: "User Select", icon: ICON_SELECT_MENU },
+  { type: "6", label: "Role Select", icon: ICON_SELECT_MENU },
+  { type: "7", label: "Mentionable Select", icon: ICON_SELECT_MENU },
+  { type: "8", label: "Channel Select", icon: ICON_SELECT_MENU },
 ];
 
-function MenuItem({ item, onClick, disabled }: { item: typeof MAIN_ITEMS[0]; onClick: () => void; disabled?: boolean }) {
+function MenuItem({ item, onClick, disabled }: { item: { type: string; label: string; icon: string; desc?: string }; onClick: () => void; disabled?: boolean }) {
   const [hover, setHover] = useState(false);
   return (
     <button type="button" disabled={disabled} onClick={onClick}
@@ -48,10 +48,7 @@ function MenuItem({ item, onClick, disabled }: { item: typeof MAIN_ITEMS[0]; onC
         fontSize: 12, fontWeight: 500, textAlign: "left", transition: "background 0.1s",
       }}>
       <img src={item.icon} alt="" style={{ width: 18, height: 18, flexShrink: 0 }} />
-      <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
-        <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.label}</span>
-        <span style={{ fontSize: 9, color: C.textMuted, whiteSpace: "nowrap" }}>{item.desc}</span>
-      </div>
+      <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.label}</span>
     </button>
   );
 }
