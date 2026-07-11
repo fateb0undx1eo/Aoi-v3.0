@@ -79,9 +79,9 @@ function AddComponentPopover({ ri, hasSelect, hasButton, row, onAddButton, onAdd
   return (
     <div style={{ position: "relative", display: "inline-block" }}>
       <button ref={btnRef} type="button" onClick={() => setOpen(!open)}
-        className="flex items-center justify-center w-full h-full min-h-[28px] min-w-[28px] rounded bg-transparent text-zinc-500 hover:text-zinc-300 cursor-pointer transition-colors"
-        style={{ padding: 0 }}>
-        <img src={ICON_ADD_COMPONENT} alt="" style={{ width: 20, height: 20 }} />
+        className="flex items-center justify-center rounded bg-transparent text-zinc-500 hover:text-zinc-300 cursor-pointer transition-colors"
+        style={{ padding: 0, width: 36, height: 36, minWidth: 36, minHeight: 36, overflow: "visible" }}>
+        <img src={ICON_ADD_COMPONENT} alt="" style={{ width: 24, height: 24, display: "block" }} />
       </button>
       {open && createPortal(
         <div ref={menuRef} style={{ position: "fixed", zIndex: 99999, top: menuPos.top, left: menuPos.left, width: 160, borderRadius: 8, border: "1px solid #1a1a1a", backgroundColor: "#111", padding: 4, boxShadow: "0 8px 32px rgba(0,0,0,0.6)" }}>
