@@ -586,7 +586,7 @@ export default function GuildAnnouncementsPage() {
       <ImageModal {...imageModalData} clear={() => setImageModalData(undefined)} />
 
       {/* ── Two-panel layout ────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", height: "100vh" }}>
+      <div style={{ flex: 1, display: "flex", height: "100vh" }}>
 
         {/* ── LEFT PANEL ──────────────────────────────────────────────────────── */}
         <div style={{

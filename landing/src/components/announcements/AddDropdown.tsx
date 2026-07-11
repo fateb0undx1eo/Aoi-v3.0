@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { CoolIcon } from "@/components/icons/CoolIcon";
 import { C } from "./constants";
 import { getPlacement } from "./utils/placement";
@@ -28,6 +29,7 @@ export function AddDropdown({ isV2, canAddEmbed, canAddRow, onAddEmbed, onAddRow
 }) {
   const [open, setOpen] = useState(false);
   const [placement, setPlacement] = useState<"below" | "above">("below");
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const ref = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -38,7 +40,17 @@ export function AddDropdown({ isV2, canAddEmbed, canAddRow, onAddEmbed, onAddRow
 
   const toggle = () => {
     if (!open) {
-      if (btnRef.current) setPlacement(getPlacement(btnRef.current));
+      if (btnRef.current) {
+        const r = btnRef.current.getBoundingClientRect();
+        const menuW = 140;
+        let left = r.left + r.width / 2 - menuW / 2;
+        let top = r.bottom + 4;
+        if (left + menuW > window.innerWidth) left = window.innerWidth - menuW - 8;
+        if (left < 8) left = 8;
+        if (top + 200 > window.innerHeight) top = r.top - 200;
+        setMenuPos({ top, left });
+        setPlacement(top > r.bottom ? "above" : "below");
+      }
     }
     setOpen(!open);
   };
@@ -68,11 +80,10 @@ export function AddDropdown({ isV2, canAddEmbed, canAddRow, onAddEmbed, onAddRow
       >
         <CoolIcon icon="Add_Plus_Circle" size={20} />
       </button>
-      {open && (
+      {open && createPortal(
         <div style={{
-          position: "absolute", left: 0, zIndex: 50, marginTop: placement === "below" ? 4 : undefined, marginBottom: placement === "above" ? 4 : undefined,
-          bottom: placement === "above" ? "100%" : undefined, top: placement === "below" ? "100%" : undefined,
-          minWidth: 140, borderRadius: 6, border: `1px solid ${C.border}`,
+          position: "fixed", zIndex: 99999, top: menuPos.top, left: menuPos.left, width: 140,
+          borderRadius: 6, border: `1px solid ${C.border}`,
           backgroundColor: "#18181b", boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
           padding: 4,
         }}>
@@ -84,7 +95,8 @@ export function AddDropdown({ isV2, canAddEmbed, canAddRow, onAddEmbed, onAddRow
           ) : v2Items.map((item) => (
             <DropItem key={item.value} label={item.label} onClick={() => { onAddV2Component(item.value); close(); }} />
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
