@@ -31,6 +31,7 @@ import { Section, Input } from "@/components/announcements/editor/ui";
 import { ToastContainer, useToasts } from "@/components/announcements/ToastContainer";
 import { SendModal } from "@/components/announcements/SendModal";
 import { AddDropdown } from "@/components/announcements/AddDropdown";
+import { AddComponentPopoverV2 } from "@/components/announcements/AddComponentPopoverV2";
 import { MessageActionBtn, AddMessagePopover, AddContentPopover } from "@/components/announcements/MessageHeader";
 import { ToolbarButton } from "@/components/announcements/ToolbarButton";
 import { EmojiBtn } from "@/components/announcements/EmojiBtn";
@@ -1028,21 +1029,20 @@ export default function GuildAnnouncementsPage() {
 
                 {/* Add button — centered */}
                 <div style={{ display: "flex", justifyContent: "center", paddingTop: 4 }}>
-                  <AddDropdown
-                    isV2={true}
-                    canAddEmbed={false}
-                    canAddRow={false}
-                    onAddEmbed={() => {}}
-                    onAddRow={() => {}}
-                    onAddV2Component={(type) => {
+                  <AddComponentPopoverV2
+                    onAdd={(type) => {
                       const comps = [...(msg.components ?? [])];
                       switch (type) {
+                        case "button": comps.push({ type: 1, components: [{ type: 2, style: 1, label: "Button", custom_id: `btn_${randomId()}`, disabled: false }] }); break;
+                        case "link": comps.push({ type: 1, components: [{ type: 2, style: 5, label: "Link", url: "https://", disabled: false }] }); break;
                         case "text": comps.push({ type: 10, content: "" }); break;
                         case "container": comps.push({ type: 17, components: [] }); break;
                         case "media": comps.push({ type: 12, items: [] }); break;
                         case "file": comps.push({ type: 13, file: { url: "" } }); break;
                         case "divider": comps.push({ type: 14 }); break;
                         case "row": comps.push({ type: 1, components: [] }); break;
+                        case "3": case "5": case "6": case "7": case "8":
+                          comps.push({ type: 1, components: [{ type: Number(type) as 3 | 5 | 6 | 7 | 8, custom_id: `sel_${randomId()}`, placeholder: "Select...", options: [] }] }); break;
                       }
                       updateMessageData({ components: comps });
                     }}
