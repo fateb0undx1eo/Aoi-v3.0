@@ -50,7 +50,12 @@ function AddComponentPopover({ ri, hasSelect, hasButton, row, onAddButton, onAdd
       let top = r.bottom + 4;
       if (left + menuW > window.innerWidth) left = window.innerWidth - menuW - 8;
       if (left < 8) left = 8;
-      if (top + 200 > window.innerHeight) top = r.top - 200;
+      // Open upward if button is in bottom half of screen
+      const buttonCenterY = r.top + r.height / 2;
+      if (buttonCenterY > window.innerHeight / 2) {
+        top = r.top - 4;
+      }
+      if (top < 4) top = r.bottom + 4;
       setMenuPos({ top, left });
     }
     const handler = (e: MouseEvent) => {
