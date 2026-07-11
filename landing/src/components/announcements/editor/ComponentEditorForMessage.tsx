@@ -130,7 +130,7 @@ function reIdComponent(comp: any) {
 export default function ComponentEditorForMessage({ components, onChange, onEditComponent, isV2, onAddAttachment, onAttachmentError }: {
   components: APITopLevelComponent[];
   onChange: (c: APITopLevelComponent[]) => void;
-  onEditComponent: (comp: APIComponentInActionRow, ri: number, ci: number) => void;
+  onEditComponent: (comp: APIComponentInActionRow, ri: number, ci: number, e: React.MouseEvent<HTMLButtonElement>) => void;
   isV2?: boolean;
   onAddAttachment?: (file: File) => Promise<string>;
   onAttachmentError?: (message: string) => void;
@@ -286,7 +286,7 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
                 ) : (
                   <div className="flex flex-wrap gap-1">
                     {row.components.map((comp, ci) => (
-                      <button key={ci} type="button" onClick={() => onEditComponent(comp, ri, ci)}
+                      <button key={ci} type="button" onClick={(e) => onEditComponent(comp, ri, ci, e)}
                         className="group relative flex items-center gap-1 px-2 py-1 rounded-md text-[10px] cursor-pointer transition-colors"
                         style={{
                           backgroundColor: comp.type === 2

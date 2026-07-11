@@ -9,11 +9,12 @@ import { randomId } from "../utils/message";
 import FlowActionEditor from "../FlowActionEditor";
 import EmojiPickerPopover from "../pickers/EmojiPickerPopover";
 
-export default function ComponentEditModal({ open, onClose, component, onChange, serverEmojis }: {
+export default function ComponentEditModal({ open, onClose, component, onChange, serverEmojis, position }: {
   open: boolean; onClose: () => void;
   component: APIComponentInActionRow | null;
   onChange: (c: APIComponentInActionRow) => void;
   serverEmojis: GuildEmoji[];
+  position?: { x: number; y: number } | null;
 }) {
   const [draft, setDraft] = useState<(APIComponentInActionRow & { _flows?: FlowAction[] }) | null>(null);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
@@ -30,11 +31,24 @@ export default function ComponentEditModal({ open, onClose, component, onChange,
     setDraft({ ...draft, ...updates } as APIComponentInActionRow & { _flows?: FlowAction[] });
   };
 
+  const contentStyle = position ? {
+    position: "fixed" as const,
+    left: position.x,
+    top: position.y,
+    transform: "translate(-50%, -100%)",
+    maxWidth: 480,
+    maxHeight: "85vh",
+    zIndex: 50,
+    inset: "auto",
+  } : {
+    inset: "auto",
+  };
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <EmojiPickerPopover open={emojiPickerOpen} onClose={() => setEmojiPickerOpen(false)} serverEmojis={serverEmojis}
         onEmojiSelect={(emoji: APIEmoji) => update({ emoji } as any)} />
-      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-border/70 bg-black text-zinc-100">
+      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-border/70 bg-black text-zinc-100" style={contentStyle}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5" style={{ color: ACCENT }} />

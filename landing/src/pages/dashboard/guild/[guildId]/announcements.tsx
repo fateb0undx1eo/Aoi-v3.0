@@ -59,6 +59,7 @@ export default function GuildAnnouncementsPage() {
   const [editingComponent,     setEditingComponent]     = useState<APIComponentInActionRow | null>(null);
   const [editingComponentPos,  setEditingComponentPos]  = useState<{ ri: number; ci: number } | null>(null);
   const [componentModalOpen,   setComponentModalOpen]   = useState(false);
+  const [componentModalPos,    setComponentModalPos]    = useState<{ x: number; y: number } | null>(null);
   const [selectedChannelIds,   setSelectedChannelIds]   = useState<Set<string>>(new Set());
   const [codeGenOpen,          setCodeGenOpen]          = useState(false);
   const [imageModalData,       setImageModalData]       = useState<import("@/components/announcements/types").ImageModalProps>();
@@ -565,7 +566,7 @@ export default function GuildAnnouncementsPage() {
       <CodeGenerator messageData={msg || {}} open={codeGenOpen} onClose={() => setCodeGenOpen(false)} />
       <ComponentEditModal
         open={componentModalOpen}
-        onClose={() => setComponentModalOpen(false)}
+        onClose={() => { setComponentModalOpen(false); setComponentModalPos(null); }}
         component={editingComponent}
         onChange={(comp) => {
           if (!editingComponentPos) return;
@@ -579,6 +580,7 @@ export default function GuildAnnouncementsPage() {
           }
         }}
         serverEmojis={serverEmojis}
+        position={componentModalPos}
       />
 
       <ImageModal {...imageModalData} clear={() => setImageModalData(undefined)} />
@@ -776,7 +778,7 @@ export default function GuildAnnouncementsPage() {
             style={{
               flex: 1,
               overflowY: "scroll",
-              overflowX: "hidden",
+              overflowX: "visible",
               padding: "12px 14px",
             }}
           >
@@ -1133,7 +1135,10 @@ export default function GuildAnnouncementsPage() {
                     <ComponentEditorForMessage
                       components={msg.components ?? []}
                       onChange={(comps) => updateMessageData({ components: comps })}
-                      onEditComponent={(comp, ri, ci) => {
+                      onEditComponent={(comp, ri, ci, e) => {
+                        const btn = e.currentTarget as HTMLButtonElement;
+                        const rect = btn.getBoundingClientRect();
+                        setComponentModalPos({ x: rect.left, y: rect.bottom + 8 });
                         setEditingComponent(comp);
                         setEditingComponentPos({ ri: ri!, ci: ci! });
                         setComponentModalOpen(true);
