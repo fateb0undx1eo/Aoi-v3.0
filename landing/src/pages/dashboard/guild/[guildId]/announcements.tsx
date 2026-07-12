@@ -1093,38 +1093,29 @@ export default function GuildAnnouncementsPage() {
                   <Section title="EMBEDS" collapsible={false} noBorder>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                       {(msg.embeds ?? []).map((embed, ei) => (
-                        <EmbedEditor
-                          key={ei}
-                          embed={embed}
-                          embedIndex={ei}
-                          maxEmbeds={msg.embeds?.length ?? 0}
-                          onChange={(updated) => {
+                          <EmbedEditor
+                           key={ei}
+                           embed={embed}
+                           embedIndex={ei}
+                           maxEmbeds={msg.embeds?.length ?? 0}
+                           onChange={(updated) => {
                             const embeds = [...(msg.embeds ?? [])];
                             embeds[ei] = updated;
                             updateMessageData({ embeds });
-                          }}
-                          onRemove={() => {
+                           }}
+                           onRemove={() => {
                             const embeds = msg.embeds?.filter((_, i) => i !== ei);
                             updateMessageData({ embeds: embeds?.length ? embeds : undefined });
-                          }}
-                          onMoveUp={() => {
-                            if (ei === 0) return;
+                           }}
+                           onDuplicate={() => {
                             const embeds = [...(msg.embeds ?? [])];
-                            [embeds[ei], embeds[ei - 1]] = [embeds[ei - 1]!, embeds[ei]!];
+                            const clone = JSON.parse(JSON.stringify(embed));
+                            embeds.splice(ei + 1, 0, clone);
                             updateMessageData({ embeds });
-                          }}
-                          onMoveDown={() => {
-                            const embeds = [...(msg.embeds ?? [])];
-                            if (ei >= embeds.length - 1) return;
-                            [embeds[ei], embeds[ei + 1]] = [embeds[ei + 1]!, embeds[ei]!];
-                            updateMessageData({ embeds });
-                          }}
-                          canMoveUp={ei > 0}
-                          canMoveDown={ei < (msg.embeds?.length ?? 0) - 1}
-                          serverEmojis={serverEmojis}
-                          onAddAttachment={handleAddAttachment}
-                          onAttachmentError={(msg) => addToast("error", msg)}
-                        />
+                           }}
+                           onAddAttachment={handleAddAttachment}
+                           onAttachmentError={(msg) => addToast("error", msg)}
+                          />
                       ))}
                     </div>
                   </Section>

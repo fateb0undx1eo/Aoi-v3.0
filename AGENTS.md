@@ -1,5 +1,11 @@
 # CRITICAL RULES — READ BEFORE EVERY SESSION
 
+## NEVER COMMIT OR PUSH UNLESS EXPLICITLY TOLD
+
+- NEVER run `git commit`, `git push`, `git add`, or any git staging command unless the user says "commit and push" or equivalent.
+- NEVER ask "should I commit and push" or "want me to commit". Wait for the user to tell you.
+- Stage only the files that were part of the task when committing.
+
 ## NEVER RUN DESTRUCTIVE COMMANDS WITHOUT EXPLICIT PERMISSION
 
 - NEVER run `git reset`, `git checkout --`, `git restore`, `git clean`, or any command that destroys uncommitted work.

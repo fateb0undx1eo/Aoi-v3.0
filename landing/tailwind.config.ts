@@ -47,6 +47,7 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        "embed-label": "#ABABAB",
         muted: "#5C5E65",
         "muted-dark": "#959BA3",
         background: {
