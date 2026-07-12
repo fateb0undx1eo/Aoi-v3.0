@@ -1146,7 +1146,7 @@ export default function GuildAnnouncementsPage() {
                   </Section>
                 )}
 
-                {/* ADD EMBED / COMPONENT */}
+                {/* ADD EMBED / ACTION ROW */}
                 <div style={{ display: "flex", justifyContent: "center", paddingTop: 4 }}>
                   <AddContentPopover
                     maxedOut={(msg.embeds?.length ?? 0) >= 10}

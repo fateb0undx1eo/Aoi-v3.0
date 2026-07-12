@@ -170,7 +170,12 @@ export function AddContentPopover({
         }}
         onMouseEnter={(e) => { e.currentTarget.style.color = C.text; }}
         onMouseLeave={(e) => { e.currentTarget.style.color = C.textMuted; }}>
-        <CoolIcon icon="Add_Plus_Circle" size={22} />
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 48 48" style={{ width: 22, height: 22, display: "block" }}>
+          <g id="horizontal-menu-circle--navigation-dots-three-circle-button-horizontal-menu">
+            <path id="Union" fill="#ababab" d="M24 1.5C11.574 1.5 1.5 11.574 1.5 24S11.574 46.5 24 46.5 46.5 36.426 46.5 24 36.426 1.5 24 1.5Z" stroke-width="1"></path>
+            <path id="Subtract" fill="#4a4a4b" fill-rule="evenodd" d="M24 27.5a3.5 3.5 0 1 0 0 -7 3.5 3.5 0 0 0 0 7ZM16 24a3.5 3.5 0 1 1 -7 0 3.5 3.5 0 0 1 7 0Zm19.5 3.5a3.5 3.5 0 1 0 0 -7 3.5 3.5 0 0 0 0 7Z" clip-rule="evenodd" stroke-width="1"></path>
+          </g>
+        </svg>
       </button>
       {open && createPortal(
         <div ref={menuRef} style={{

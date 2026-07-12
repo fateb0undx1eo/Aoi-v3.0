@@ -90,7 +90,7 @@ function AddComponentPopover({ ri, hasSelect, hasButton, row, onAddButton, onAdd
           {view === "main" ? (
             <>
               <button type="button" disabled={!canAddButton}
-                onClick={() => { onAddButton(ri, 1); setOpen(false); setView("main"); }}
+                    onClick={() => { onAddButton(ri, 2); setOpen(false); setView("main"); }}
                 className="w-full text-left px-2.5 py-1.5 rounded text-[11px] text-zinc-300 hover:bg-[#1A1A1A] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2">
                 <img src={ICON_BUTTON} alt="" className="w-3.5 h-3.5" />
                 Button
@@ -302,26 +302,32 @@ const total = totalComponentCount(components);
                   ) : (
                     <div className="flex gap-1.5" style={{ width: "100%" }}>
                       {row.components.map((comp, ci) => (
-                        <button key={ci} type="button" onClick={(e) => onEditComponent(comp, ri, ci, e)}
-                          className="group relative flex items-center justify-center gap-1 px-1 py-1.5 rounded-md text-[10px] cursor-pointer transition-colors"
-                          style={{
-                            backgroundColor: comp.type === 2
-                              ? comp.style === 1 ? "#5865F2" : comp.style === 3 ? "#248046" : comp.style === 4 ? "#DA373C" : comp.style === 5 ? "#3b82f6" : "#4E5058"
-                              : "#4E5058",
-                            flex: "1 1 0%",
-                            maxWidth: "calc((100% - 24px) / 5)"
-                          }}>
-                          {comp.type === 2 ? (
-                            <span className="text-zinc-300">{comp.label || "Button"}</span>
-                          ) : (
-                            <span className="text-zinc-300">{["String","","User","Role","Mentionable","Channel"][comp.type - 3] || "Select"}</span>
-                          )}
+                        <div key={ci} className="relative" style={{ flex: "1 1 0%", maxWidth: "calc((100% - 24px) / 5)" }}>
+                          <button type="button" onClick={(e) => onEditComponent(comp, ri, ci, e)}
+                            className="flex items-center justify-center gap-1 px-1 py-2 rounded-md text-sm cursor-pointer transition-colors w-full"
+                            style={{
+                              backgroundColor: comp.type === 2
+                                ? comp.style === 1 ? "#5865F2" : comp.style === 3 ? "#248046" : comp.style === 4 ? "#DA373C" : comp.style === 5 ? "#3b82f6" : "#4E5058"
+                                : "#4E5058",
+                            }}>
+                            {comp.type === 2 ? (
+                              <span className="text-zinc-300">{comp.label || "Button"}</span>
+                            ) : (
+                              <span className="text-zinc-300">{["String","","User","Role","Mentionable","Channel"][comp.type - 3] || "Select"}</span>
+                            )}
+                          </button>
                           <span
-                            className="h-3.5 w-3.5 rounded-full flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500 hover:text-red-400 absolute right-0.5"
+                            className="flex items-center justify-center cursor-pointer absolute z-10"
+                            style={{ top: -7, right: -7 }}
                             onClick={(e) => { e.stopPropagation(); removeComp(ri, ci); }}>
-                            <CoolIcon icon="Close_MD" size={8} />
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14" style={{ width: 14, height: 14, display: "block" }}>
+                              <g id="subtract-circle--delete-add-circle-subtract-button-buttons-remove-mathematics-math-minus">
+                                <path id="Ellipse 639" fill="#ababab" d="M0 7a7 7 0 1 0 14 0A7 7 0 1 0 0 7" stroke-width="1"></path>
+                                <path id="Vector 1452 (Stroke)" fill="#4a4a4b" fill-rule="evenodd" d="M3.25 7A0.75 0.75 0 0 1 4 6.25h6a0.75 0.75 0 0 1 0 1.5H4A0.75 0.75 0 0 1 3.25 7Z" clip-rule="evenodd" stroke-width="1"></path>
+                              </g>
+                            </svg>
                           </span>
-                        </button>
+                        </div>
                       ))}
                     </div>
                   )}
