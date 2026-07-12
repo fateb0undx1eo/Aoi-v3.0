@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&family=Syne:wght@800&family=Unbounded:wght@700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&family=Space+Grotesk:wght@600;700&family=Syne:wght@800&family=Unbounded:wght@700&display=swap");
 
 @font-face {
   font-family: "gg sans";
@@ -116,6 +116,7 @@
     --font-heading: "Unbounded", sans-serif;
     --font-card-heading: "Space Grotesk", sans-serif;
     --font-subpage-heading: "Syne", sans-serif;
+    --font-ui-label: "Outfit", sans-serif;
   }
 
   .dark {

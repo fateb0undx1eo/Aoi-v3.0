@@ -76,17 +76,17 @@ export function Toggle({ checked, onChange, label, disabled }: {
   );
 }
 
-export function Section({ title, badge, defaultOpen, titleStyle, collapsible, children }: {
-  title: string; badge?: string; defaultOpen?: boolean; titleStyle?: React.CSSProperties; collapsible?: boolean; children: ReactNode;
+export function Section({ title, badge, defaultOpen, titleStyle, collapsible, noBorder, children }: {
+  title: string; badge?: string; defaultOpen?: boolean; titleStyle?: React.CSSProperties; collapsible?: boolean; noBorder?: boolean; children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen !== false);
   const show = collapsible === false ? true : open;
   return (
-    <div style={{ borderBottom: `1px solid #181818` }}>
+    <div style={{ borderBottom: noBorder ? "none" : "1px solid #181818" }}>
       <div style={{
         display: "flex", alignItems: "center", gap: 8, width: "100%",
         padding: "10px 12px", color: C.text,
-        fontSize: 13, fontWeight: 600, textAlign: "left",
+        fontSize: 12, fontWeight: 600, textAlign: "left", textTransform: "uppercase",
         ...(collapsible !== false ? { cursor: "pointer", background: "none", border: "none" } : {}),
       }}
         onClick={() => { if (collapsible !== false) setOpen(!open); }}
@@ -102,7 +102,7 @@ export function Section({ title, badge, defaultOpen, titleStyle, collapsible, ch
             transition: "transform 0.15s",
           }} />
         )}
-        <span style={{ flex: 1, ...titleStyle }}>{title}</span>
+        <span style={{ flex: 1, fontFamily: "var(--font-ui-label)", ...titleStyle }}>{title}</span>
         {badge && (
           <span style={{
             fontSize: 10, fontWeight: 500, padding: "1px 8px", borderRadius: 10,

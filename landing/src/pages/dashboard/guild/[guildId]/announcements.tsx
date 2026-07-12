@@ -795,7 +795,7 @@ export default function GuildAnnouncementsPage() {
             ) : isV2 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {/* CONTENT with 4000 char limit */}
-                <Section title="MESSAGE" titleStyle={{ color: "#fff", textTransform: "uppercase" }} collapsible={false}>
+                <Section title="MESSAGE" collapsible={false} noBorder>
                   <div style={{ position: "relative" }}>
                     <Input
                       multiline rows={5}
@@ -1051,7 +1051,7 @@ export default function GuildAnnouncementsPage() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {/* CONTENT + Add button */}
-                <Section title="MESSAGE" titleStyle={{ color: "#fff", textTransform: "uppercase" }} collapsible={false}>
+                <Section title="MESSAGE" collapsible={false} noBorder>
                   <div style={{ position: "relative" }}>
                     <Input
                       multiline rows={5}
@@ -1088,49 +1088,51 @@ export default function GuildAnnouncementsPage() {
                     </div>
                   </div>
                 </Section>
-                {/* EMBEDS — collapsible via EmbedEditor header */}
+                {/* EMBEDS */}
                 {(msg.embeds ?? []).length > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {(msg.embeds ?? []).map((embed, ei) => (
-                      <EmbedEditor
-                        key={ei}
-                        embed={embed}
-                        embedIndex={ei}
-                        maxEmbeds={msg.embeds?.length ?? 0}
-                        onChange={(updated) => {
-                          const embeds = [...(msg.embeds ?? [])];
-                          embeds[ei] = updated;
-                          updateMessageData({ embeds });
-                        }}
-                        onRemove={() => {
-                          const embeds = msg.embeds?.filter((_, i) => i !== ei);
-                          updateMessageData({ embeds: embeds?.length ? embeds : undefined });
-                        }}
-                        onMoveUp={() => {
-                          if (ei === 0) return;
-                          const embeds = [...(msg.embeds ?? [])];
-                          [embeds[ei], embeds[ei - 1]] = [embeds[ei - 1]!, embeds[ei]!];
-                          updateMessageData({ embeds });
-                        }}
-                        onMoveDown={() => {
-                          const embeds = [...(msg.embeds ?? [])];
-                          if (ei >= embeds.length - 1) return;
-                          [embeds[ei], embeds[ei + 1]] = [embeds[ei + 1]!, embeds[ei]!];
-                          updateMessageData({ embeds });
-                        }}
-                        canMoveUp={ei > 0}
-                        canMoveDown={ei < (msg.embeds?.length ?? 0) - 1}
-                        serverEmojis={serverEmojis}
-                        onAddAttachment={handleAddAttachment}
-                        onAttachmentError={(msg) => addToast("error", msg)}
-                      />
-                    ))}
-                  </div>
+                  <Section title="EMBEDS" collapsible={false} noBorder>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {(msg.embeds ?? []).map((embed, ei) => (
+                        <EmbedEditor
+                          key={ei}
+                          embed={embed}
+                          embedIndex={ei}
+                          maxEmbeds={msg.embeds?.length ?? 0}
+                          onChange={(updated) => {
+                            const embeds = [...(msg.embeds ?? [])];
+                            embeds[ei] = updated;
+                            updateMessageData({ embeds });
+                          }}
+                          onRemove={() => {
+                            const embeds = msg.embeds?.filter((_, i) => i !== ei);
+                            updateMessageData({ embeds: embeds?.length ? embeds : undefined });
+                          }}
+                          onMoveUp={() => {
+                            if (ei === 0) return;
+                            const embeds = [...(msg.embeds ?? [])];
+                            [embeds[ei], embeds[ei - 1]] = [embeds[ei - 1]!, embeds[ei]!];
+                            updateMessageData({ embeds });
+                          }}
+                          onMoveDown={() => {
+                            const embeds = [...(msg.embeds ?? [])];
+                            if (ei >= embeds.length - 1) return;
+                            [embeds[ei], embeds[ei + 1]] = [embeds[ei + 1]!, embeds[ei]!];
+                            updateMessageData({ embeds });
+                          }}
+                          canMoveUp={ei > 0}
+                          canMoveDown={ei < (msg.embeds?.length ?? 0) - 1}
+                          serverEmojis={serverEmojis}
+                          onAddAttachment={handleAddAttachment}
+                          onAttachmentError={(msg) => addToast("error", msg)}
+                        />
+                      ))}
+                    </div>
+                  </Section>
                 )}
 
                 {/* COMPONENTS */}
                 {((msg.components ?? []).length > 0) && (
-                  <Section title="Components" badge={`${msg.components?.length ?? 0} rows`}>
+                  <Section title="Components" collapsible={false}>
                     <ComponentEditorForMessage
                       components={msg.components ?? []}
                       onChange={(comps) => updateMessageData({ components: comps })}

@@ -234,10 +234,7 @@ const total = totalComponentCount(components);
   return (
     <div className="flex flex-col gap-2">
       {/* Header + V2 add buttons */}
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-zinc-500">
-          {isV2 ? `Components (${total}/${DISCORD_LIMITS.V2_TOTAL_COMPONENTS})` : `Action Rows (${components.length}/${DISCORD_LIMITS.V1_ROWS})`}
-        </span>
+      <div className="flex items-center justify-end">
         {isV2 && (
           <div className="flex gap-1 flex-wrap">
             {v2BareLabels.map(({ type, label }) => (
@@ -265,9 +262,9 @@ const total = totalComponentCount(components);
             const hasButton = actionRow.components.some(c => c.type === 2);
             return (
               <div key={ri} className="rounded-lg p-2" style={{ backgroundColor: "#151515" }}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] text-zinc-600 uppercase tracking-wider">
-                    Row {ri + 1} <span className="text-zinc-700">({row.components.length}/{DISCORD_LIMITS.V1_COMPONENTS_PER_ROW})</span>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-zinc-400 uppercase" style={{ fontFamily: "var(--font-heading)" }}>
+                    {ri + 1}
                   </span>
                   <div className="flex items-center gap-1">
                     {!isEmpty && (
