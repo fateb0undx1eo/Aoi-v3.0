@@ -464,7 +464,7 @@ export default function GuildAnnouncementsPage() {
 
         const hasFiles = data.messages.some((m) => (messageFiles[m._id || ""] || []).length > 0);
         let res: Response;
-        const url = `${getBackendApiUrl()}/api/guilds/${guildId}/announcements`;
+        const url = `/api/backend/guilds/${guildId}/announcements`;
         if (hasFiles) {
           const fd = new FormData();
           fd.append("payload", JSON.stringify(body));
