@@ -229,8 +229,6 @@ export default function ComponentEditorForMessage({ components, onChange, onEdit
 const total = totalComponentCount(components);
 
   // ── V1 row: detect contents ──────────────────────────────────────
-  const BURGUNDY = "#8B1538";
-
   const addBtnClass = "flex items-center justify-center w-7 h-7 rounded text-zinc-500 hover:text-zinc-300 cursor-pointer";
 
   return (
@@ -302,17 +300,16 @@ const total = totalComponentCount(components);
                       <AddComponentPopover ri={ri} hasSelect={hasSelect} hasButton={hasButton} row={row} onAddButton={addButton} onAddSelect={addSelectToRow} label="Add Component" />
                     </div>
                   ) : (
-                    <div className="flex flex-wrap gap-1" style={{ width: "100%" }}>
+                    <div className="flex gap-1.5" style={{ width: "100%" }}>
                       {row.components.map((comp, ci) => (
                         <button key={ci} type="button" onClick={(e) => onEditComponent(comp, ri, ci, e)}
-                          className="group relative flex items-center gap-1 px-2 py-1 rounded-md text-[10px] cursor-pointer transition-colors"
+                          className="group relative flex items-center justify-center gap-1 px-1 py-1.5 rounded-md text-[10px] cursor-pointer transition-colors"
                           style={{
                             backgroundColor: comp.type === 2
-                              ? comp.style === 1 ? "rgba(139,21,56,0.2)" : comp.style === 3 ? "rgba(34,197,94,0.2)" : comp.style === 4 ? "rgba(239,68,68,0.2)" : comp.style === 5 ? "rgba(59,130,246,0.2)" : comp.style === 6 ? "rgba(234,179,8,0.2)" : "rgba(75,75,80,0.3)"
-                              : "rgba(75,75,80,0.2)",
-                            borderLeft: comp.type === 2
-                              ? `2px solid ${comp.style === 1 ? BURGUNDY : comp.style === 3 ? "#22c55e" : comp.style === 4 ? "#ef4444" : comp.style === 5 ? "#3b82f6" : comp.style === 6 ? "#eab308" : "#4a4a50"}`
-                              : "2px solid #6366f1",
+                              ? comp.style === 1 ? "#5865F2" : comp.style === 3 ? "#248046" : comp.style === 4 ? "#DA373C" : comp.style === 5 ? "#3b82f6" : "#4E5058"
+                              : "#4E5058",
+                            flex: "1 1 0%",
+                            maxWidth: "calc((100% - 24px) / 5)"
                           }}>
                           {comp.type === 2 ? (
                             <span className="text-zinc-300">{comp.label || "Button"}</span>
@@ -320,7 +317,7 @@ const total = totalComponentCount(components);
                             <span className="text-zinc-300">{["String","","User","Role","Mentionable","Channel"][comp.type - 3] || "Select"}</span>
                           )}
                           <span
-                            className="h-3.5 w-3.5 rounded-full flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500 hover:text-red-400"
+                            className="h-3.5 w-3.5 rounded-full flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500 hover:text-red-400 absolute right-0.5"
                             onClick={(e) => { e.stopPropagation(); removeComp(ri, ci); }}>
                             <CoolIcon icon="Close_MD" size={8} />
                           </span>
