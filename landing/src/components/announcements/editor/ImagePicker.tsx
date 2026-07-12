@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 
 const MAX_SIZE_BYTES = 200 * 1024 * 1024;
-const BURGUNDY = "#8B1538";
 
 function UploadIcon({ size = 32 }: { size?: number }) {
   return (
@@ -141,14 +140,21 @@ export default function ImagePicker({ value, onValue, onAddAttachment, onError }
               {(["url", "upload"] as const).map((t) => (
                 <button key={t} type="button" onClick={() => setTab(t)}
                   className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors"
-                  style={{ color: tab === t ? BURGUNDY : "#71717a" }}>
+                  style={{ color: tab === t ? "#a1a1aa" : "#71717a" }}>
                   {t === "url" ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="-0.5 -0.5 15 15" style={{ width: 14, height: 14, display: "block", overflow: "visible" }}>
+                      <g id="link-chain--create-hyperlink-link-make-unlink-connection-chain">
+                        <path id="Union" fill="currentColor" fill-rule="evenodd" d="m7.671 2.743 -0.964 0.964a1 1 0 0 1 -1.414 -1.414l0.964 -0.965a4.536 4.536 0 0 1 6.415 6.415l-0.965 0.964a1 1 0 1 1 -1.414 -1.414l0.964 -0.965a2.536 2.536 0 0 0 -3.585 -3.585Zm-3.964 2.55a1 1 0 0 1 0 1.414l-0.964 0.965a2.536 2.536 0 0 0 3.585 3.585l0.965 -0.964a1 1 0 0 1 1.414 1.414l-0.964 0.964a4.536 4.536 0 0 1 -6.415 -6.414l0.965 -0.964a1 1 0 0 1 1.414 0Zm5.5 0.914a1 1 0 0 0 -1.414 -1.414l-3 3a1 1 0 0 0 1.414 1.414l3 -3Z" clip-rule="evenodd" stroke-width="1"></path>
+                      </g>
                     </svg>
                   ) : (
-                    <UploadIcon size={14} />
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="-0.5 -0.5 15 15" style={{ width: 14, height: 14, display: "block", overflow: "visible" }}>
+                      <g id="local-storage-folder">
+                        <path id="Union" fill="#4a4a4b" fill-rule="evenodd" d="M5.635 10.582a0.5 0.5 0 0 1 0.47 -0.332h1.79a0.5 0.5 0 0 1 0.47 0.332l0.687 1.918H10a0.75 0.75 0 0 1 0 1.5H4a0.75 0.75 0 0 1 0 -1.5h0.948l0.686 -1.918Z" clip-rule="evenodd" stroke-width="1"></path>
+                        <path id="vector" fill="#4a4a4b" d="M14 4.565c0 0.24 -0.194 0.435 -0.434 0.435h-4.77a0.435 0.435 0 0 1 -0.435 -0.435V0.435A0.435 0.435 0 0 1 8.796 0H10.4a0.435 0.435 0 0 1 0.435 0.33l0.122 0.54h2.608a0.435 0.435 0 0 1 0.435 0.434v3.261Z" stroke-width="1"></path>
+                        <path id="Subtract" fill="#ababab" fill-rule="evenodd" d="M7.111 0.5H1.457C0.652 0.5 0 1.152 0 1.957v7.586C0 10.348 0.652 11 1.457 11h11.086C13.348 11 14 10.348 14 9.543v-3.35a1.687 1.687 0 0 1 -0.434 0.057h-4.77a1.685 1.685 0 0 1 -1.685 -1.685V0.5Z" clip-rule="evenodd" stroke-width="1"></path>
+                      </g>
+                    </svg>
                   )}
                   {t === "url" ? "URL" : "Upload"}
                 </button>
@@ -202,32 +208,37 @@ export default function ImagePicker({ value, onValue, onAddAttachment, onError }
                   {sizeError && (
                     <p className="text-[10px] text-red-400 mt-2">File exceeds 200MB limit.</p>
                   )}
-                  {canPaste && !uploading && !uploadResult && (
-                    <button type="button" onClick={handlePaste}
-                      className="w-full mt-2 px-2.5 py-1.5 rounded-lg bg-[#111] text-[10px] text-zinc-500 hover:text-zinc-300 cursor-pointer flex items-center justify-center gap-1.5">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                      </svg>
-                      Paste from clipboard
-                    </button>
-                  )}
                 </div>
               )}
             </div>
 
             {/* Footer */}
-            <div className="flex justify-end gap-2 mt-5">
-              <button type="button" onClick={() => setOpen(false)}
-                className="px-4 py-2 rounded-lg text-xs text-zinc-400 hover:text-zinc-200 cursor-pointer bg-transparent">
-                Cancel
-              </button>
-              <button type="button" onClick={handleConfirm}
-                disabled={tab === "url" ? !urlDraft.trim() : !uploadResult}
-                className="px-4 py-2 rounded-lg text-xs font-medium text-white cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{ backgroundColor: BURGUNDY }}>
-                Add
-              </button>
+            <div className="flex items-center justify-between gap-2 mt-5">
+              {canPaste && !uploading && !uploadResult && !urlDraft.trim() && (
+                <button type="button" onClick={handlePaste}
+                  className="flex items-center gap-1.5 px-2 py-1.5 rounded text-[10px] text-white cursor-pointer"
+                  style={{ backgroundColor: "#0C0C0C" }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14" style={{ width: 10, height: 10, display: "block" }}>
+                    <g id="blank-notepad--content-notes-book-notepad-notebook">
+                      <path id="Rectangle 481" fill="#ababab" d="M0 3.5A1.5 1.5 0 0 1 1.5 2h11A1.5 1.5 0 0 1 14 3.5v9a1.5 1.5 0 0 1 -1.5 1.5h-11A1.5 1.5 0 0 1 0 12.5v-9Z" stroke-width="1"></path>
+                      <path id="Union" fill="#4a4a4b" fill-rule="evenodd" d="M3.5 0a1 1 0 0 1 1 1v2a1 1 0 0 1 -2 0V1a1 1 0 0 1 1 -1ZM7 0a1 1 0 0 1 1 1v2a1 1 0 0 1 -2 0V1a1 1 0 0 1 1 -1Zm4.5 1a1 1 0 1 0 -2 0v2a1 1 0 0 0 2 0V1Z" clip-rule="evenodd" stroke-width="1"></path>
+                    </g>
+                  </svg>
+                  Paste
+                </button>
+              )}
+              <div className="flex items-center gap-2 ml-auto">
+                <button type="button" onClick={() => setOpen(false)}
+                  className="px-4 py-2 rounded-lg text-xs text-zinc-400 hover:text-zinc-200 cursor-pointer bg-transparent">
+                  Cancel
+                </button>
+                <button type="button" onClick={handleConfirm}
+                  disabled={tab === "url" ? !urlDraft.trim() : !uploadResult}
+                  className="px-4 py-2 rounded-lg text-xs font-medium text-white cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: "#1E1E1F" }}>
+                  Add
+                </button>
+              </div>
             </div>
           </div>
         </div>
