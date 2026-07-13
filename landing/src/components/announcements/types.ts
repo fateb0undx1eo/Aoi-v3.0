@@ -145,7 +145,7 @@ type APIV2ChildComponent = APIV2TextDisplay | APIV2Separator | APIV2MediaGallery
 
 type APITopLevelComponent = APIActionRowComponent | APIContainerComponent | APIV2TextDisplay | APIV2Separator | APIV2MediaGallery | APIV2File | APIV2Section;
 
-interface APIEmbedField { name: string; value: string; inline?: boolean; }
+interface APIEmbedField { id?: string; name: string; value: string; inline?: boolean; }
 interface APIEmbedFooter { text: string; icon_url?: string; proxy_icon_url?: string; }
 interface APIEmbedImage { url: string; proxy_url?: string; width?: number; height?: number; content_type?: string; placeholder?: string; placeholder_version?: number; description?: string; flags?: number; }
 interface APIEmbedThumbnail { url: string; proxy_url?: string; width?: number; height?: number; content_type?: string; placeholder?: string; placeholder_version?: number; description?: string; flags?: number; }

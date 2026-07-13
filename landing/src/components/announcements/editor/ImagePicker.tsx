@@ -19,9 +19,10 @@ interface ImagePickerProps {
   onValue: (url: string | undefined) => void;
   onAddAttachment?: (file: File) => Promise<string>;
   onError?: (message: string) => void;
+  className?: string;
 }
 
-export default function ImagePicker({ value, onValue, onAddAttachment, onError }: ImagePickerProps) {
+export default function ImagePicker({ value, onValue, onAddAttachment, onError, className }: ImagePickerProps) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"url" | "upload">("url");
   const [urlDraft, setUrlDraft] = useState("");
@@ -99,8 +100,7 @@ export default function ImagePicker({ value, onValue, onAddAttachment, onError }
     const fileName = value.split("/").pop()?.split("?")[0] || value;
     return (
       <button type="button" onClick={() => setOpen(true)}
-        className="flex items-center justify-center gap-1 rounded text-[10px] text-zinc-400 hover:text-zinc-300 cursor-pointer"
-        style={{ backgroundColor: "#1E1E1F", padding: "6px 10px", width: 100 }}>
+        className={"flex items-center justify-center gap-1 rounded text-[10px] text-zinc-400 hover:text-zinc-300 cursor-pointer px-2.5 py-[6px] w-[100px] bg-[#1E1E1F] " + (className ?? "")}>
         <UploadIcon size={12} />
         <span className="truncate max-w-[55px]" title={value}>{fileName}</span>
         <span onClick={(e) => { e.stopPropagation(); onValue(undefined); }}
@@ -114,8 +114,7 @@ export default function ImagePicker({ value, onValue, onAddAttachment, onError }
   return (
     <>
       <button type="button" onClick={() => setOpen(true)}
-        className="flex items-center justify-center gap-1 rounded text-[10px] text-zinc-500 hover:text-zinc-300 cursor-pointer"
-        style={{ backgroundColor: "#1E1E1F", padding: "6px 10px", width: 100 }}>
+        className={"flex items-center justify-center gap-1 rounded text-[10px] text-zinc-500 hover:text-zinc-300 cursor-pointer px-2.5 py-[6px] w-[100px] bg-[#1E1E1F] " + (className ?? "")}>
         <UploadIcon size={12} />
         Add Image
       </button>
