@@ -258,7 +258,7 @@ export default function EmbedEditor({
         role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setCollapsed((prev) => !prev); }}
         aria-expanded={!collapsed} aria-label={collapsed ? "Expand embed" : "Collapse embed"}>
         <div className="flex items-center gap-1.5">
-<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 48 48" className="w-4 h-4 block transition-transform duration-250"
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 48 48" className="w-4 h-4 block overflow-visible transition-transform duration-250"
           style={{ transform: collapsed ? "rotate(0deg)" : "rotate(90deg)" }}>
           <g id="arrow-right-circle-1--arrow-keyboard-circle-button-right">
             <path id="Subtract" fill="#ababab" fillRule="evenodd" d="M46.5 24c0 12.426 -10.074 22.5 -22.5 22.5S1.5 36.426 1.5 24 11.574 1.5 24 1.5 46.5 11.574 46.5 24Z" clipRule="evenodd" strokeWidth="1"></path>
@@ -269,20 +269,20 @@ export default function EmbedEditor({
           Embed {embedIndex + 1}
         </span>
        </div>
-       <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-         <div style={{ position: "relative" }}>
-           <button type="button" onClick={() => {
-            if (colorBtnRef.current) {
-             const rect = colorBtnRef.current.getBoundingClientRect();
-             setColorBtnRect(rect);
-             const center = rect.top + rect.height / 2;
-             setColorPlacement(center < window.innerHeight / 2 ? "below" : "above");
-            }
-            previousColorRef.current = embed.color;
-            setColorOpen((prev) => !prev);
-           }}
-           ref={colorBtnRef}
-           className="w-3.5 h-3.5 rounded-sm border border-white/10 cursor-pointer p-0 shrink-0"
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <div style={{ position: "relative" }}>
+            <button type="button" onClick={() => {
+             if (colorBtnRef.current) {
+              const rect = colorBtnRef.current.getBoundingClientRect();
+              setColorBtnRect(rect);
+              const center = rect.top + rect.height / 2;
+              setColorPlacement(center < window.innerHeight / 2 ? "below" : "above");
+             }
+             previousColorRef.current = embed.color;
+             setColorOpen((prev) => !prev);
+            }}
+            ref={colorBtnRef}
+            className="w-3 h-3 rounded-sm border border-white/10 cursor-pointer p-0 shrink-0 mt-[3.7px]"
            style={{ backgroundColor: colorHex ?? "transparent" }}
            aria-label="Accent color"
           />
@@ -333,7 +333,7 @@ export default function EmbedEditor({
               />
             </div>
               <div className="flex items-center gap-1 mt-2">
-               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14" className="w-3 h-3 shrink-0">
+               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14" className="w-3 h-3 shrink-0 overflow-visible">
                 <g id="sign-hashtag--mail-sharp-sign-hashtag-tag">
                  <path id="Union" fill="#52525b" fillRule="evenodd" d="M11.178 0.09a0.75 0.75 0 0 1 0.594 0.879l-0.513 2.67h1.913a0.75 0.75 0 1 1 0 1.5h-2.201l-0.716 3.722h2.917a0.75 0.75 0 1 1 0 1.5H9.966l-0.568 2.953a0.75 0.75 0 1 1 -1.473 -0.283l0.514 -2.67H4.743l-0.568 2.953a0.75 0.75 0 1 1 -1.473 -0.283l0.514 -2.67H0.827a0.75 0.75 0 0 1 0 -1.5h2.677l0.716 -3.723H0.827a0.75 0.75 0 1 1 0 -1.5H4.51L5.076 0.686A0.75 0.75 0 1 1 6.55 0.969l-0.513 2.67h3.696L10.3 0.686a0.75 0.75 0 0 1 0.879 -0.595Zm-5.43 5.048 -0.716 3.723h3.695l0.716 -3.723H5.748Z" clipRule="evenodd" strokeWidth="1"></path>
                 </g>
@@ -357,9 +357,9 @@ export default function EmbedEditor({
             </div>
           </div>
          )}
-        <button type="button" disabled={maxEmbeds != null && maxEmbeds >= 10} onClick={() => onDuplicate?.()} aria-label="Duplicate embed"
-         className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30 flex items-center cursor-pointer">
-         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 48 48" className="w-4 h-4 block">
+         <button type="button" disabled={maxEmbeds != null && maxEmbeds >= 10} onClick={() => onDuplicate?.()} aria-label="Duplicate embed"
+          className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30 flex items-center cursor-pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 48 48" className="w-3 h-3 block overflow-visible">
           <g id="calendar-add--add-calendar-date-day-month">
            <path id="Union" fill="#ababab" d="M24 46.5c-7.632 0 -12.948 -0.485 -16.147 -0.911 -2.862 -0.382 -5.068 -2.554 -5.479 -5.419 -0.417 -2.91 -0.874 -7.506 -0.874 -13.67s0.457 -10.76 0.874 -13.67c0.41 -2.864 2.617 -5.037 5.48 -5.418C11.051 6.985 16.367 6.5 24 6.5c7.632 0 12.948 0.485 16.147 0.912 2.862 0.381 5.068 2.554 5.479 5.418 0.417 2.91 0.874 7.506 0.874 13.67s-0.457 10.76 -0.874 13.67c-0.41 2.864 -2.617 5.037 -5.48 5.419 -3.198 0.426 -8.514 0.911 -16.146 0.911Z" strokeWidth="1"></path>
            <path id="Union_2" fill="#4a4a4b" d="M33.5 14.518c-0.504 0 -0.947 -0.014 -1.336 -0.037 -2.27 -0.133 -3.547 -2.002 -3.618 -3.918a69.407 69.407 0 0 1 0 -5.091c0.07 -1.916 1.348 -3.785 3.618 -3.918 0.389 -0.023 0.832 -0.036 1.336 -0.036 0.504 0 0.947 0.013 1.336 0.036 2.27 0.133 3.547 2.002 3.618 3.918a69.409 69.409 0 0 1 0 5.091c-0.07 1.916 -1.348 3.785 -3.618 3.918a22.66 22.66 0 0 1 -1.336 0.037Z" strokeWidth="1"></path>
@@ -369,9 +369,9 @@ export default function EmbedEditor({
          </svg>
         </button>
         {onRemove && (
-         <button type="button" onClick={onRemove} aria-label="Remove embed"
-          className="text-zinc-600 hover:text-red-400 flex items-center cursor-pointer">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14" className="w-4 h-4 block">
+          <button type="button" onClick={onRemove} aria-label="Remove embed"
+           className="text-zinc-600 hover:text-red-400 flex items-center cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14" className="w-3 h-3 block overflow-visible">
            <g id="subtract-circle--delete-add-circle-subtract-button-buttons-remove-mathematics-math-minus">
             <path id="Ellipse 639" fill="#ababab" d="M0 7a7 7 0 1 0 14 0A7 7 0 1 0 0 7" strokeWidth="1"></path>
             <path id="Vector 1452 (Stroke)" fill="#4a4a4b" fillRule="evenodd" d="M3.25 7A0.75 0.75 0 0 1 4 6.25h6a0.75 0.75 0 0 1 0 1.5H4A0.75 0.75 0 0 1 3.25 7Z" clipRule="evenodd" strokeWidth="1"></path>
@@ -440,7 +440,7 @@ export default function EmbedEditor({
            onClick={() => setAuthorLinkActive(!authorLinkActive)}
            className={`shrink-0 ${authorLinkActive ? "text-blurple" : "text-zinc-500 hover:text-zinc-300"}`}
          >
-           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14" className="w-3 h-3">
+           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14"             className="w-3 h-3 overflow-visible">
     <g id="link-chain--create-hyperlink-link-make-unlink-connection-chain">
       <path id="Union" fill="currentColor" fillRule="evenodd" d="m7.671 2.743 -0.964 0.964a1 1 0 0 1 -1.414 -1.414l0.964 -0.965a4.536 4.536 0 0 1 6.415 6.415l-0.965 0.964a1 1 0 1 1 -1.414 -1.414l0.964 -0.965a2.536 2.536 0 0 0 -3.585 -3.585Zm-3.964 2.55a1 1 0 0 1 0 1.414l-0.964 0.965a2.536 2.536 0 0 0 3.585 3.585l0.965 -0.964a1 1 0 0 1 1.414 1.414l-0.964 0.964a4.536 4.536 0 0 1 -6.415 -6.414l0.965 -0.964a1 1 0 0 1 1.414 0Zm5.5 0.914a1 1 0 0 0 -1.414 -1.414l-3 3a1 1 0 0 0 1.414 1.414l3 -3Z" clipRule="evenodd" strokeWidth="1"></path>
     </g>
@@ -492,7 +492,7 @@ export default function EmbedEditor({
            onClick={() => setTitleLinkActive(!titleLinkActive)}
            className={`shrink-0 ${titleLinkActive ? "text-blurple" : "text-zinc-500 hover:text-zinc-300"}`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14" className="w-3 h-3">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14"             className="w-3 h-3 overflow-visible">
     <g id="link-chain--create-hyperlink-link-make-unlink-connection-chain">
       <path id="Union" fill="currentColor" fillRule="evenodd" d="m7.671 2.743 -0.964 0.964a1 1 0 0 1 -1.414 -1.414l0.964 -0.965a4.536 4.536 0 0 1 6.415 6.415l-0.965 0.964a1 1 0 1 1 -1.414 -1.414l0.964 -0.965a2.536 2.536 0 0 0 -3.585 -3.585Zm-3.964 2.55a1 1 0 0 1 0 1.414l-0.964 0.965a2.536 2.536 0 0 0 3.585 3.585l0.965 -0.964a1 1 0 0 1 1.414 1.414l-0.964 0.964a4.536 4.536 0 0 1 -6.415 -6.414l0.965 -0.964a1 1 0 0 1 1.414 0Zm5.5 0.914a1 1 0 0 0 -1.414 -1.414l-3 3a1 1 0 0 0 1.414 1.414l3 -3Z" clipRule="evenodd" strokeWidth="1"></path>
     </g>
