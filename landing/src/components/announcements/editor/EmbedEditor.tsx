@@ -181,6 +181,8 @@ export default function EmbedEditor({
  }) {
   const [collapsed, setCollapsed] = useState(false);
   const [colorOpen, setColorOpen] = useState(false);
+  const [authorLinkActive, setAuthorLinkActive] = useState(false);
+  const [titleLinkActive, setTitleLinkActive] = useState(false);
   const [colorBtnRect, setColorBtnRect] = useState<DOMRect | null>(null);
   const [colorPlacement, setColorPlacement] = useState<"above" | "below">("below");
   const colorBtnRef = useRef<HTMLButtonElement>(null);
@@ -414,45 +416,36 @@ export default function EmbedEditor({
       <div className="flex gap-3 items-start">
         <div className="flex-1">
          <div className="pr-4">
-          <FieldLabel label="Author name" max={DISCORD_LIMITS.AUTHOR_NAME} length={embed.author?.name?.length ?? 0} />
+          {authorLinkActive ? (
+           <span className="block mb-0.5 text-[11px] text-zinc-400">Author URL</span>
+          ) : (
+           <FieldLabel label="Author name" max={DISCORD_LIMITS.AUTHOR_NAME} length={embed.author?.name?.length ?? 0} />
+          )}
          </div>
          <div className="flex gap-1 items-center">
           <input
            type="text" ref={authorNameRef}
-           value={embed.author?.name ?? ""}
+           value={authorLinkActive ? (embed.author?.url ?? "") : (embed.author?.name ?? "")}
            onChange={(e) =>
-            update({
-             author: {
-              name: e.target.value,
-              icon_url: embed.author?.icon_url,
-              url: embed.author?.url,
-             },
-            })
+            update(authorLinkActive
+             ? { author: { name: embed.author?.name ?? "", icon_url: embed.author?.icon_url, url: e.target.value } }
+             : { author: { name: e.target.value, icon_url: embed.author?.icon_url, url: embed.author?.url } }
+            )
            }
-           maxLength={DISCORD_LIMITS.AUTHOR_NAME}
+           maxLength={authorLinkActive ? undefined : DISCORD_LIMITS.AUTHOR_NAME}
            className="w-full rounded px-2 py-[6px] text-xs text-zinc-200 outline-none bg-[#1E1E1F]"
           />
-         {embed.author?.url === undefined && (
-         <button
-          type="button"
-          onClick={() =>
-           update({
-            author: {
-             name: embed.author?.name ?? "",
-             icon_url: embed.author?.icon_url,
-             url: "https://",
-            },
-           })
-          }
-         className="shrink-0 text-zinc-500 hover:text-zinc-300"
-          >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14" className="w-3 h-3">
-   <g id="link-chain--create-hyperlink-link-make-unlink-connection-chain">
-     <path id="Union" fill="#ababab" fillRule="evenodd" d="m7.671 2.743 -0.964 0.964a1 1 0 0 1 -1.414 -1.414l0.964 -0.965a4.536 4.536 0 0 1 6.415 6.415l-0.965 0.964a1 1 0 1 1 -1.414 -1.414l0.964 -0.965a2.536 2.536 0 0 0 -3.585 -3.585Zm-3.964 2.55a1 1 0 0 1 0 1.414l-0.964 0.965a2.536 2.536 0 0 0 3.585 3.585l0.965 -0.964a1 1 0 0 1 1.414 1.414l-0.964 0.964a4.536 4.536 0 0 1 -6.415 -6.414l0.965 -0.964a1 1 0 0 1 1.414 0Zm5.5 0.914a1 1 0 0 0 -1.414 -1.414l-3 3a1 1 0 0 0 1.414 1.414l3 -3Z" clipRule="evenodd" strokeWidth="1"></path>
-   </g>
- </svg>
-          </button>
-         )}
+          <button
+           type="button"
+           onClick={() => setAuthorLinkActive(!authorLinkActive)}
+           className={`shrink-0 ${authorLinkActive ? "text-blurple" : "text-zinc-500 hover:text-zinc-300"}`}
+         >
+           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14" className="w-3 h-3">
+    <g id="link-chain--create-hyperlink-link-make-unlink-connection-chain">
+      <path id="Union" fill="currentColor" fillRule="evenodd" d="m7.671 2.743 -0.964 0.964a1 1 0 0 1 -1.414 -1.414l0.964 -0.965a4.536 4.536 0 0 1 6.415 6.415l-0.965 0.964a1 1 0 1 1 -1.414 -1.414l0.964 -0.965a2.536 2.536 0 0 0 -3.585 -3.585Zm-3.964 2.55a1 1 0 0 1 0 1.414l-0.964 0.965a2.536 2.536 0 0 0 3.585 3.585l0.965 -0.964a1 1 0 0 1 1.414 1.414l-0.964 0.964a4.536 4.536 0 0 1 -6.415 -6.414l0.965 -0.964a1 1 0 0 1 1.414 0Zm5.5 0.914a1 1 0 0 0 -1.414 -1.414l-3 3a1 1 0 0 0 1.414 1.414l3 -3Z" clipRule="evenodd" strokeWidth="1"></path>
+    </g>
+  </svg>
+         </button>
         </div>
        </div>
         <div className="w-[100px] -mt-[7px]">
@@ -468,38 +461,6 @@ export default function EmbedEditor({
          />
         </div>
        </div>
-      {embed.author?.url !== undefined && (
-      <div className="mt-1">
-       <span className="block text-[11px] text-zinc-400 mb-0">Author URL</span>
-       <div className="flex gap-1">
-       <input
-        type="text"
-        value={embed.author.url}
-        onChange={(e) =>
-         update({
-          author: {
-           name: embed.author?.name ?? "",
-           icon_url: embed.author?.icon_url,
-           url: e.target.value,
-          },
-         })
-        }
-         className="flex-1 rounded px-2 py-0.5 text-xs text-zinc-200 outline-none bg-[#1E1E1F]"
-       />
-       <button
-        type="button"
-        onClick={() => {
-         const a = embed.author;
-         if (a)
-          update({ author: { name: a.name, icon_url: a.icon_url } });
-        }}
-        className="shrink-0 px-1 text-zinc-600 hover:text-zinc-300"
-       >
-        <CoolIcon icon="Close_MD" size={12} />
-       </button>
-      </div>
-      </div>
-     )}
       </div>
 
     {/* Body Section */}
@@ -510,68 +471,50 @@ export default function EmbedEditor({
       <div className="space-y-1">
          <div>
           <div className="pr-4">
-           <FieldLabel label="Title" max={DISCORD_LIMITS.EMBED_TITLE} length={embed.title?.length ?? 0} />
+           {titleLinkActive ? (
+            <span className="block mb-0.5 text-[11px] text-zinc-400">Title URL</span>
+           ) : (
+            <FieldLabel label="Title" max={DISCORD_LIMITS.EMBED_TITLE} length={embed.title?.length ?? 0} />
+           )}
           </div>
           <div className="flex gap-1 items-center">
            <input
             type="text" ref={titleRef}
-            value={embed.title ?? ""}
+            value={titleLinkActive ? (embed.url ?? "") : (embed.title ?? "")}
             onChange={(e) =>
-             update({ title: e.target.value || undefined })
+             update(titleLinkActive ? { url: e.target.value || undefined } : { title: e.target.value || undefined })
             }
-            maxLength={DISCORD_LIMITS.EMBED_TITLE}
+            maxLength={titleLinkActive ? undefined : DISCORD_LIMITS.EMBED_TITLE}
             className="w-full rounded px-2 py-[6px] text-xs text-zinc-200 outline-none bg-[#1E1E1F]"
            />
-         {embed.url === undefined && (
-         <button
-          type="button"
-          onClick={() => update({ url: "https://" })}
-            className="shrink-0 text-zinc-500 hover:text-zinc-300"
-            >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14" className="w-3 h-3">
-  <g id="link-chain--create-hyperlink-link-make-unlink-connection-chain">
-    <path id="Union" fill="#ababab" fillRule="evenodd" d="m7.671 2.743 -0.964 0.964a1 1 0 0 1 -1.414 -1.414l0.964 -0.965a4.536 4.536 0 0 1 6.415 6.415l-0.965 0.964a1 1 0 1 1 -1.414 -1.414l0.964 -0.965a2.536 2.536 0 0 0 -3.585 -3.585Zm-3.964 2.55a1 1 0 0 1 0 1.414l-0.964 0.965a2.536 2.536 0 0 0 3.585 3.585l0.965 -0.964a1 1 0 0 1 1.414 1.414l-0.964 0.964a4.536 4.536 0 0 1 -6.415 -6.414l0.965 -0.964a1 1 0 0 1 1.414 0Zm5.5 0.914a1 1 0 0 0 -1.414 -1.414l-3 3a1 1 0 0 0 1.414 1.414l3 -3Z" clipRule="evenodd" strokeWidth="1"></path>
-  </g>
-</svg>
+          <button
+           type="button"
+           onClick={() => setTitleLinkActive(!titleLinkActive)}
+           className={`shrink-0 ${titleLinkActive ? "text-blurple" : "text-zinc-500 hover:text-zinc-300"}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14" className="w-3 h-3">
+    <g id="link-chain--create-hyperlink-link-make-unlink-connection-chain">
+      <path id="Union" fill="currentColor" fillRule="evenodd" d="m7.671 2.743 -0.964 0.964a1 1 0 0 1 -1.414 -1.414l0.964 -0.965a4.536 4.536 0 0 1 6.415 6.415l-0.965 0.964a1 1 0 1 1 -1.414 -1.414l0.964 -0.965a2.536 2.536 0 0 0 -3.585 -3.585Zm-3.964 2.55a1 1 0 0 1 0 1.414l-0.964 0.965a2.536 2.536 0 0 0 3.585 3.585l0.965 -0.964a1 1 0 0 1 1.414 1.414l-0.964 0.964a4.536 4.536 0 0 1 -6.415 -6.414l0.965 -0.964a1 1 0 0 1 1.414 0Zm5.5 0.914a1 1 0 0 0 -1.414 -1.414l-3 3a1 1 0 0 0 1.414 1.414l3 -3Z" clipRule="evenodd" strokeWidth="1"></path>
+    </g>
+  </svg>
           </button>
-          )}
           </div>
          </div>
-       {embed.url !== undefined && (
         <div>
-         <span className="block text-[11px] text-zinc-400 mb-0">Title URL</span>
-         <div className="flex gap-1">
-         <input
-          type="text"
-          value={embed.url}
-          onChange={(e) => update({ url: e.target.value || undefined })}
-           className="flex-1 rounded px-2 py-0.5 text-xs text-zinc-200 outline-none bg-[#1E1E1F]"
+         <FieldLabel label="Description" max={DISCORD_LIMITS.EMBED_DESCRIPTION} length={embed.description?.length ?? 0} />
+         <textarea
+          ref={descRef}
+          value={embed.description ?? ""}
+          onChange={(e) =>
+           update({ description: e.target.value || undefined })
+          }
+          rows={3}
+          maxLength={DISCORD_LIMITS.EMBED_DESCRIPTION}
+          className="w-full resize-none rounded px-2 py-0.5 text-xs text-zinc-200 outline-none bg-[#1E1E1F]"
          />
-         <button
-          type="button"
-          onClick={() => update({ url: undefined })}
-          className="shrink-0 px-1 text-zinc-600 hover:text-zinc-300"
-         >
-          <CoolIcon icon="Close_MD" size={12} />
-         </button>
         </div>
-        </div>
-       )}
-       <div>
-        <FieldLabel label="Description" max={DISCORD_LIMITS.EMBED_DESCRIPTION} length={embed.description?.length ?? 0} />
-        <textarea
-         ref={descRef}
-         value={embed.description ?? ""}
-         onChange={(e) =>
-          update({ description: e.target.value || undefined })
-         }
-         rows={3}
-         maxLength={DISCORD_LIMITS.EMBED_DESCRIPTION}
-         className="w-full resize-none rounded px-2 py-0.5 text-xs text-zinc-200 outline-none bg-[#1E1E1F]"
-        />
        </div>
       </div>
-     </div>
 
     {/* Fields Section */}
     <div>
