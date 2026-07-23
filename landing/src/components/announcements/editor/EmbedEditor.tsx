@@ -167,6 +167,10 @@ export default function EmbedEditor({
  maxEmbeds,
   onRemove,
   onDuplicate,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
   onAddAttachment,
   onAttachmentError,
  }: {
@@ -176,6 +180,10 @@ export default function EmbedEditor({
   maxEmbeds?: number;
   onRemove?: () => void;
   onDuplicate?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
   onAddAttachment?: (file: File) => Promise<string>;
   onAttachmentError?: (message: string) => void;
  }) {
@@ -357,8 +365,16 @@ export default function EmbedEditor({
             </div>
           </div>
          )}
+         <button type="button" disabled={!canMoveUp} onClick={() => onMoveUp?.()} aria-label="Move embed up"
+           className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30 flex items-center cursor-pointer">
+          <CoolIcon icon="Chevron_Up" size={12} />
+         </button>
+         <button type="button" disabled={!canMoveDown} onClick={() => onMoveDown?.()} aria-label="Move embed down"
+           className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30 flex items-center cursor-pointer">
+          <CoolIcon icon="Chevron_Down" size={12} />
+         </button>
          <button type="button" disabled={maxEmbeds != null && maxEmbeds >= 10} onClick={() => onDuplicate?.()} aria-label="Duplicate embed"
-          className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30 flex items-center cursor-pointer">
+           className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30 flex items-center cursor-pointer">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 48 48" className="w-3 h-3 block overflow-visible">
           <g id="calendar-add--add-calendar-date-day-month">
            <path id="Union" fill="#ababab" d="M24 46.5c-7.632 0 -12.948 -0.485 -16.147 -0.911 -2.862 -0.382 -5.068 -2.554 -5.479 -5.419 -0.417 -2.91 -0.874 -7.506 -0.874 -13.67s0.457 -10.76 0.874 -13.67c0.41 -2.864 2.617 -5.037 5.48 -5.418C11.051 6.985 16.367 6.5 24 6.5c7.632 0 12.948 0.485 16.147 0.912 2.862 0.381 5.068 2.554 5.479 5.418 0.417 2.91 0.874 7.506 0.874 13.67s-0.457 10.76 -0.874 13.67c-0.41 2.864 -2.617 5.037 -5.48 5.419 -3.198 0.426 -8.514 0.911 -16.146 0.911Z" strokeWidth="1"></path>
