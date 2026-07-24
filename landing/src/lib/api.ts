@@ -242,6 +242,7 @@ export function useSaveModule(guildId: string | undefined) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["guild-overview", guildId] });
+      queryClient.invalidateQueries({ queryKey: ["module-commands", guildId] });
     },
   });
 }

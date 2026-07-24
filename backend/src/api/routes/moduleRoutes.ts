@@ -136,10 +136,12 @@ export async function moduleRoutes(instance: FastifyInstance, opts: { deps: Deps
   instance.put('/:guildId/:moduleName/commands/:commandName', async (request: FastifyRequest, reply: FastifyReply) => {
     const params = request.params as Record<string, string>;
     const guildId = params.guildId!;
+    const moduleName = params.moduleName!;
     const commandName = params.commandName!;
     const body = request.body as Record<string, any>;
     await configService.upsertCommandConfig({
       guild_id: guildId,
+      module_name: moduleName,
       command_name: commandName,
       enabled: body.enabled ?? true,
       overrides: body.overrides ?? null,
