@@ -186,6 +186,9 @@ export function registerInteractionRouter(client: Client, registry: ModuleRegist
 
         const handlers = registry.getEventHandlers('interactionCreate');
         for (const handler of handlers) {
+          const moduleCfg = context.configCache.getModuleConfig(interaction.guildId, handler.moduleName);
+          if (moduleCfg?.enabled === false) continue;
+
           let result: InteractionResult | void;
           try {
             result = await handler.execute(interaction, context);
@@ -238,8 +241,14 @@ export function registerInteractionRouter(client: Client, registry: ModuleRegist
         }
       }
 
+      const moduleCfg = context.configCache.getModuleConfig(interaction.guildId, command.moduleName);
+      if (moduleCfg?.enabled === false) {
+        await interaction.editReply('This module is disabled for this guild.');
+        return;
+      }
+
       const cmdConfig = context.configCache.getCommandConfig(interaction.guildId, command.name);
-      if (cmdConfig && cmdConfig.enabled === false) {
+      if (cmdConfig?.enabled === false) {
         await interaction.editReply('This command is disabled for this guild.');
         return;
       }

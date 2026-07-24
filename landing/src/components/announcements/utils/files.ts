@@ -27,7 +27,7 @@ export function getImageUri(uri: string, files?: DraftFile[]): string {
   const file = resolveAttachmentUri(trimmed, files);
   if (file?.url) return file.url;
   if (file?.file) return URL.createObjectURL(file.file);
-  if (!/^https?:\/\//i.test(trimmed) && !trimmed.startsWith("attachment://")) return "";
+  if (!/^https?:\/\//i.test(trimmed) && !trimmed.startsWith("attachment://") && !trimmed.startsWith("blob:")) return "";
   return trimmed;
 }
 

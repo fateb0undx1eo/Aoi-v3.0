@@ -8,6 +8,7 @@ import {
   PanelLeftOpen,
   Settings2,
   Shield,
+  SlidersHorizontal,
   Terminal,
   Users,
   Wrench,
@@ -227,6 +228,19 @@ export function DashboardLayout({
                 >
                   <Terminal className="h-4 w-4" />
                   Logs
+                </Link>
+
+                <Link
+                  href={`/dashboard/guild/${guildId}/modules`}
+                  onClick={closeMobile}
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                    currentPath === `/dashboard/guild/${guildId}/modules`
+                      ? "bg-primary/10 font-medium text-primary"
+                      : "text-foreground/82 hover:bg-background/72 hover:text-foreground"
+                  }`}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Modules
                 </Link>
 
                 {hasModules && (

@@ -277,6 +277,46 @@ export function useCreateModCase(guildId: string | undefined) {
   });
 }
 
+// ── Module Command Config Hooks ────────────────────────────────
+
+export type CommandInfo = {
+  name: string;
+  description: string;
+  enabled: boolean;
+};
+
+export type ModuleWithCommands = {
+  name: string;
+  display_name?: string;
+  description?: string;
+  enabled: boolean;
+  commands: CommandInfo[];
+};
+
+export function useModuleCommands(guildId: string | undefined) {
+  return useQuery<{ modules: ModuleWithCommands[] }>({
+    queryKey: ["module-commands", guildId],
+    queryFn: () => fetchJson(`/api/backend/modules/${guildId}/commands`),
+    enabled: !!guildId,
+  });
+}
+
+export function useSaveModuleCommand(guildId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ moduleName, commandName, enabled }: { moduleName: string; commandName: string; enabled: boolean }) =>
+      fetchJson(`/api/backend/modules/${guildId}/${moduleName}/commands/${commandName}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["module-commands", guildId] });
+      queryClient.invalidateQueries({ queryKey: ["guild-overview", guildId] });
+    },
+  });
+}
+
 export function useRevokePunishment(guildId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({

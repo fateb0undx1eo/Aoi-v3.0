@@ -1,4 +1,4 @@
-import type { ModuleRegistry, ModuleDefinition } from '../types/index.js';
+import type { ModuleRegistry, ModuleDefinition, ModuleCommand } from '../types/index.js';
 
 interface ModuleConfigRow {
   guild_id: string;
@@ -8,8 +8,17 @@ interface ModuleConfigRow {
   updated_at: string;
 }
 
+interface CommandConfigRow {
+  guild_id: string;
+  command_name: string;
+  enabled: boolean;
+  overrides: Record<string, any> | null;
+  updated_at: string;
+}
+
 interface ConfigCacheLike {
   getModuleConfig(guildId: string, moduleName: string): ModuleConfigRow | null;
+  getCommandConfig(guildId: string, commandName: string): CommandConfigRow | null;
 }
 
 interface ModuleInfo {
@@ -17,6 +26,18 @@ interface ModuleInfo {
   configSchema: Record<string, any>;
   enabled: boolean;
   config: Record<string, any>;
+}
+
+interface ModuleWithCommands {
+  name: string;
+  display_name?: string;
+  description?: string;
+  enabled: boolean;
+  commands: Array<{
+    name: string;
+    description: string;
+    enabled: boolean;
+  }>;
 }
 
 export class ModuleService {
@@ -36,6 +57,27 @@ export class ModuleService {
         configSchema: definition.configSchema,
         enabled: cached?.enabled ?? true,
         config: cached?.config ?? {}
+      };
+    });
+  }
+
+  listModulesWithCommands(guildId: string): ModuleWithCommands[] {
+    return this.registry.listDefinitions().map((definition: ModuleDefinition) => {
+      const cachedModule = this.configCache.getModuleConfig(guildId, definition.name);
+      const commands = definition.commands.map((cmd: ModuleCommand) => {
+        const cachedCmd = this.configCache.getCommandConfig(guildId, cmd.name);
+        return {
+          name: cmd.name,
+          description: cmd.description,
+          enabled: cachedCmd?.enabled ?? true,
+        };
+      });
+      return {
+        name: definition.name,
+        display_name: definition.display_name,
+        description: definition.description,
+        enabled: cachedModule?.enabled ?? true,
+        commands,
       };
     });
   }

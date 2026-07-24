@@ -111,4 +111,40 @@ export async function moduleRoutes(instance: FastifyInstance, opts: { deps: Deps
     }
     return reply.status(200).send({ ok: true });
   });
+
+  // ── Command-level config endpoints ───────────────────────────
+
+  instance.get('/:guildId/commands', async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as Record<string, string>;
+    const guildId = params.guildId!;
+    const modules = moduleService.listModulesWithCommands(guildId);
+    return reply.status(200).send({ modules });
+  });
+
+  instance.get('/:guildId/:moduleName/commands', async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as Record<string, string>;
+    const guildId = params.guildId!;
+    const moduleName = params.moduleName!;
+    const modules = moduleService.listModulesWithCommands(guildId);
+    const mod = modules.find((m: any) => m.name === moduleName);
+    if (!mod) {
+      return reply.status(404).send({ error: 'module_not_found' });
+    }
+    return reply.status(200).send({ module: mod });
+  });
+
+  instance.put('/:guildId/:moduleName/commands/:commandName', async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as Record<string, string>;
+    const guildId = params.guildId!;
+    const commandName = params.commandName!;
+    const body = request.body as Record<string, any>;
+    await configService.upsertCommandConfig({
+      guild_id: guildId,
+      command_name: commandName,
+      enabled: body.enabled ?? true,
+      overrides: body.overrides ?? null,
+    });
+    getRefresh(guildId)();
+    return reply.status(200).send({ ok: true });
+  });
 }

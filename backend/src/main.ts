@@ -28,6 +28,7 @@ import { RateLimitService } from './services/rateLimitService.js';
 import type { BuildResult } from './api/server.js';
 import { DiscordCommandSyncService } from './services/discordCommandSyncService.js';
 import { AuthService } from './services/authService.js';
+import { extractGuildId } from './utils/guildUtils.js';
 import { GuildService } from './services/guildService.js';
 import { AccessControlService } from './services/accessControlService.js';
 import { AnalyticsService } from './services/analyticsService.js';
@@ -289,7 +290,12 @@ async function main(): Promise<void> {
         );
 
         discordClient.on(eventName, async (...args: any[]) => {
+          const guildId = extractGuildId(args);
           for (const handler of handlers) {
+            if (guildId) {
+              const moduleCfg = context.configCache.getModuleConfig(guildId, handler.moduleName);
+              if (moduleCfg?.enabled === false) continue;
+            }
             try {
               await handler.execute(...args, context);
             } catch (error: any) {
