@@ -259,76 +259,7 @@ export async function sendEphemeralResult(interaction: any, pending: PendingDrop
   }
 }
 
-export async function handleSummonCommand(interaction: any, context: BotContext, type: string): Promise<InteractionResult> {
-  const { services, placeholderEngine } = context as any;
 
-  const enabled = await services.funService.isModuleEnabled(interaction.guildId);
-  if (!enabled) {
-    await interaction.editReply('The fun module is disabled for this server.');
-    return { type: 'IGNORE' };
-  }
-
-  const config: DropConfig = await services.funService.getGuildConfig(interaction.guildId);
-  const cooldown: CooldownResult = await services.funService.checkCommandCooldown(interaction.guildId, interaction.user.id, type, config);
-
-  if (!cooldown.allowed) {
-    const templateContext = buildTemplateContext({
-      type, guildName: interaction.guild?.name, commandName: type,
-      retryAfter: buildDurationText(cooldown.retryAfterSeconds),
-      maxUses: config.max_uses_per_member, windowSeconds: config.cooldown_window_seconds
-    });
-    const title = renderTemplate(placeholderEngine, config.cooldown_title_template, 'Slow Down', templateContext);
-    const body = renderTemplate(placeholderEngine, config.cooldown_body_template, `Try again in ${buildDurationText(cooldown.retryAfterSeconds)}.`, templateContext);
-    await interaction.editReply({
-      flags: MessageFlags.IsComponentsV2,
-      components: buildContainer({ title, body }),
-      allowedMentions: { parse: [] }
-    });
-    return { type: 'IGNORE' };
-  }
-
-  let asset: DropAsset | null;
-  try {
-    asset = await services.funService.fetchCharacter(type);
-  } catch (error: any) {
-    await interaction.editReply(`Failed to load a ${type} right now: ${error?.message || 'unknown error'}`);
-    return { type: 'IGNORE' };
-  }
-
-  const token = nanoid();
-  const templateContext = buildTemplateContext({
-    type, asset, guildName: interaction.guild?.name, summonerId: interaction.user.id, commandName: type,
-    maxUses: config.max_uses_per_member, windowSeconds: config.cooldown_window_seconds
-  });
-  const title = renderTemplate(placeholderEngine, config.summon_title_template, `${getTypeTitle(type)} Drop`, templateContext);
-  const body = renderTemplate(placeholderEngine, config.summon_body_template, `A ${type} dropped. Smash first to claim it or pass to clear it.`, templateContext);
-
-  await interaction.editReply({
-    flags: MessageFlags.IsComponentsV2,
-    components: buildContainer({
-      title, body, asset,
-      buttons: [
-        { type: 2, custom_id: `${FUN_ACTION_PREFIX}:${token}:smash`, label: config.smash_button_label, style: 3 },
-        { type: 2, custom_id: `${FUN_ACTION_PREFIX}:${token}:pass`, label: config.pass_button_label, style: 4 }
-      ]
-    }),
-    allowedMentions: { parse: [] }
-  });
-
-  const reply = await interaction.fetchReply();
-  const timeout = setTimeout(() => {
-    expirePendingDrop(token, interaction.client, placeholderEngine).catch(() => null);
-  }, config.interaction_timeout_seconds * 1000);
-
-  pendingDrops.set(token, {
-    token, guildId: interaction.guildId!, guildName: interaction.guild?.name ?? 'this server',
-    channelId: interaction.channelId, messageId: reply.id, summonerId: interaction.user.id,
-    type, asset, config, resolved: false, timeout
-  });
-
-  await services.funService.recordCommandUse(interaction.guildId!, interaction.user.id, type, config);
-  return { type: 'IGNORE' };
-}
 
 export function buildGenericResolvedComponents(pending: PendingDrop): any[] {
   return buildContainer({
