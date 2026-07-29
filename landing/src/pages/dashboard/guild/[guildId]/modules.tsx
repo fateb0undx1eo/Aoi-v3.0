@@ -1,6 +1,6 @@
-import { useState } from "react";
 import { useRouter } from "next/router";
 import { DashboardLayout } from "@/components/dashboard-layout";
+import { Switch } from "@/components/ui/switch";
 import { useGuildOverview, useModuleCommands, useSaveModule, useSaveModuleCommand, type ParsedModuleRow, type ModuleWithCommands } from "@/lib/api";
 
 export default function ModulesPage() {
@@ -17,113 +17,81 @@ export default function ModulesPage() {
   const guild = overviewData?.guild ?? null;
   const modulesWithCommands = (commandsData?.modules ?? []) as ModuleWithCommands[];
 
-  const [toggling, setToggling] = useState<Record<string, boolean>>({});
-
   const layoutModules = modules as Array<{ name: string; display_name?: string; enabled?: boolean }>;
 
   async function handleModuleToggle(moduleName: string, enabled: boolean) {
-    const key = `mod:${moduleName}`;
-    setToggling((prev) => ({ ...prev, [key]: true }));
-    try {
-      await saveModule.mutateAsync({ moduleName, body: { enabled } });
-    } finally {
-      setToggling((prev) => ({ ...prev, [key]: false }));
-    }
+    saveModule.mutate({ moduleName, body: { enabled } });
   }
 
   async function handleCommandToggle(moduleName: string, commandName: string, enabled: boolean) {
-    const key = `cmd:${commandName}`;
-    setToggling((prev) => ({ ...prev, [key]: true }));
-    try {
-      await saveCommand.mutateAsync({ moduleName, commandName, enabled });
-    } finally {
-      setToggling((prev) => ({ ...prev, [key]: false }));
-    }
+    saveCommand.mutate({ moduleName, commandName, enabled });
   }
+
+  const isMutating =
+    saveModule.isPending ||
+    saveCommand.isPending;
 
   return (
     <DashboardLayout guildId={gid ?? ""} guildName={guild?.name || "Guild"} heading="Module & Command Toggles" modules={layoutModules}>
-      <div className="space-y-4">
-        <p className="text-sm text-foreground/70">
+      <div className="space-y-8">
+        <p className="text-sm text-muted-foreground">
           Enable or disable modules and individual commands. Disabling a module turns off all its commands and background features.
         </p>
 
         {commandsLoading && (
-          <div className="rounded-2xl border border-border/70 bg-card/70 p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-xl bg-secondary/40 p-8 text-center text-sm text-muted-foreground">
             Loading modules...
           </div>
         )}
 
         {!commandsLoading && modulesWithCommands.length === 0 && (
-          <div className="rounded-2xl border border-border/70 bg-card/70 p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-xl bg-secondary/40 p-8 text-center text-sm text-muted-foreground">
             No modules found for this guild.
           </div>
         )}
 
         {modulesWithCommands.map((mod) => {
           const moduleEnabled = mod.enabled;
-          const toggleKey = `mod:${mod.name}`;
-          const isLoading = toggling[toggleKey];
 
           return (
-            <section
-              key={mod.name}
-              className="rounded-3xl border border-border/70 bg-card/70 p-6 shadow-[0_20px_46px_-32px_hsl(var(--foreground)/0.45)]"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-medium">{mod.display_name || mod.name}</h2>
+            <section key={mod.name} className="space-y-3">
+              <div className="flex items-center justify-between rounded-xl bg-secondary/30 px-5 py-4 transition-colors hover:bg-secondary/50">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base font-semibold text-foreground">{mod.display_name || mod.name}</h2>
                   {mod.description && (
-                    <p className="text-xs text-foreground/60">{mod.description}</p>
+                    <p className="mt-0.5 text-sm text-muted-foreground/80">{mod.description}</p>
                   )}
                 </div>
-
-                <label className="relative inline-flex cursor-pointer items-center">
-                  <input
-                    type="checkbox"
-                    className="peer sr-only"
-                    checked={moduleEnabled}
-                    disabled={isLoading}
-                    onChange={(e) => handleModuleToggle(mod.name, e.target.checked)}
-                  />
-                  <div className="peer h-6 w-11 rounded-full bg-border after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-card after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none" />
-                </label>
+                <Switch
+                  checked={moduleEnabled}
+                  disabled={isMutating}
+                  onCheckedChange={(checked) => handleModuleToggle(mod.name, checked)}
+                />
               </div>
 
-              <div className="mt-4 space-y-2 border-t border-border/70 pt-4">
+              <div className="ml-5 space-y-1 border-l-2 border-secondary pl-4">
                 {mod.commands.length === 0 && (
-                  <p className="text-xs text-muted-foreground">No slash commands in this module.</p>
+                  <p className="px-4 py-3 text-xs text-muted-foreground">No slash commands in this module.</p>
                 )}
-                {mod.commands.map((cmd) => {
-                  const cmdToggleKey = `cmd:${cmd.name}`;
-                  const cmdLoading = toggling[cmdToggleKey];
-
-                  return (
-                    <div
-                      key={cmd.name}
-                      className="flex items-center justify-between rounded-xl border border-border/50 bg-background/40 px-4 py-3"
-                    >
-                      <div>
-                        <span className="text-sm font-medium">/{cmd.name}</span>
-                        {cmd.description && (
-                          <p className="text-xs text-foreground/60">{cmd.description}</p>
-                        )}
-                      </div>
-                      <label
-                        className={`relative inline-flex cursor-pointer items-center ${!moduleEnabled ? "opacity-40" : ""}`}
-                      >
-                        <input
-                          type="checkbox"
-                          className="peer sr-only"
-                          checked={cmd.enabled}
-                          disabled={!moduleEnabled || cmdLoading}
-                          onChange={(e) => handleCommandToggle(mod.name, cmd.name, e.target.checked)}
-                        />
-                        <div className="peer h-6 w-11 rounded-full bg-border after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-card after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none" />
-                      </label>
+                {mod.commands.map((cmd) => (
+                  <div
+                    key={cmd.name}
+                    className="flex items-center justify-between rounded-lg px-4 py-2.5 transition-colors hover:bg-secondary/20"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm font-medium text-foreground">/{cmd.name}</span>
+                      {cmd.description && (
+                        <p className="mt-0.5 text-xs text-muted-foreground/70">{cmd.description}</p>
+                      )}
                     </div>
-                  );
-                })}
+                    <Switch
+                      checked={cmd.enabled}
+                      disabled={!moduleEnabled || isMutating}
+                      onCheckedChange={(checked) => handleCommandToggle(mod.name, cmd.name, checked)}
+                      className={!moduleEnabled ? "opacity-40" : ""}
+                    />
+                  </div>
+                ))}
               </div>
             </section>
           );
