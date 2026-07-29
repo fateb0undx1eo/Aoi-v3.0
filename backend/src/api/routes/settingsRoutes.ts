@@ -97,11 +97,20 @@ export async function settingsRoutes(instance: FastifyInstance, opts: { deps: De
     const guildId = params.guildId!;
     const commandName = params.commandName!;
     const body = request.body as Record<string, any>;
+    const enabled = body.enabled ?? true;
+    const overrides = body.overrides ?? {};
     await configService.upsertCommandConfig({
       guild_id: guildId,
       command_name: commandName,
-      enabled: body.enabled ?? true,
-      overrides: body.overrides ?? {}
+      enabled,
+      overrides
+    });
+    configCache.setCommandConfig(guildId, commandName, {
+      guild_id: guildId,
+      command_name: commandName,
+      enabled,
+      overrides,
+      updated_at: new Date().toISOString()
     });
     getRefresh(guildId)();
     return reply.status(200).send({ ok: true });

@@ -76,6 +76,8 @@ export interface ConfigService {
 export interface ConfigCache {
   getCommandConfig(guildId: string, commandName: string): CommandConfigRow | null;
   getModuleConfig(guildId: string, moduleName: string): ModuleConfigRow | null;
+  setModuleConfig(guildId: string, moduleName: string, config: ModuleConfigRow): void;
+  setCommandConfig(guildId: string, commandName: string, config: CommandConfigRow): void;
   warmGuild(guildId: string): Promise<void>;
   startAutoRefresh(getGuildIds: () => string[]): void;
   stopAutoRefresh(): void;

@@ -234,13 +234,30 @@ export function useSaveSetting(guildId: string | undefined) {
 export function useSaveModule(guildId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ moduleName, body }: { moduleName: string; body: unknown }) =>
+    mutationFn: ({ moduleName, body }: { moduleName: string; body: Record<string, unknown> }) =>
       fetchJson(`/api/backend/modules/${guildId}/${moduleName}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       }),
-    onSuccess: () => {
+    onMutate: async ({ moduleName, body }) => {
+      await queryClient.cancelQueries({ queryKey: ["module-commands", guildId] });
+      const prev = queryClient.getQueryData<{ modules: ModuleWithCommands[] }>(["module-commands", guildId]);
+      if (prev) {
+        queryClient.setQueryData<{ modules: ModuleWithCommands[] }>(["module-commands", guildId], {
+          modules: prev.modules.map((m) =>
+            m.name === moduleName ? { ...m, enabled: (body.enabled as boolean) ?? m.enabled } : m
+          ),
+        });
+      }
+      return { prev };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prev) {
+        queryClient.setQueryData(["module-commands", guildId], context.prev);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["guild-overview", guildId] });
       queryClient.invalidateQueries({ queryKey: ["module-commands", guildId] });
     },
@@ -311,7 +328,31 @@ export function useSaveModuleCommand(guildId: string | undefined) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled }),
       }),
-    onSuccess: () => {
+    onMutate: async ({ moduleName, commandName, enabled }) => {
+      await queryClient.cancelQueries({ queryKey: ["module-commands", guildId] });
+      const prev = queryClient.getQueryData<{ modules: ModuleWithCommands[] }>(["module-commands", guildId]);
+      if (prev) {
+        queryClient.setQueryData<{ modules: ModuleWithCommands[] }>(["module-commands", guildId], {
+          modules: prev.modules.map((m) =>
+            m.name === moduleName
+              ? {
+                  ...m,
+                  commands: m.commands.map((c) =>
+                    c.name === commandName ? { ...c, enabled } : c
+                  ),
+                }
+              : m
+          ),
+        });
+      }
+      return { prev };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prev) {
+        queryClient.setQueryData(["module-commands", guildId], context.prev);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["module-commands", guildId] });
       queryClient.invalidateQueries({ queryKey: ["guild-overview", guildId] });
     },

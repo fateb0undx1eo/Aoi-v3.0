@@ -83,11 +83,20 @@ export async function moduleRoutes(instance: FastifyInstance, opts: { deps: Deps
     const guildId = params.guildId!;
     const moduleName = params.moduleName!;
     const body = request.body as Record<string, any>;
+    const enabled = body.enabled ?? true;
+    const config = body.config ?? {};
     await configService.upsertModuleConfig({
       guild_id: guildId,
       module_name: moduleName,
-      enabled: body.enabled ?? true,
-      config: body.config ?? {}
+      enabled,
+      config
+    });
+    configCache.setModuleConfig(guildId, moduleName, {
+      guild_id: guildId,
+      module_name: moduleName,
+      enabled,
+      config,
+      updated_at: new Date().toISOString()
     });
     getRefresh(guildId)();
     dashboardOverviewService?.invalidateGuild(guildId);
@@ -139,12 +148,21 @@ export async function moduleRoutes(instance: FastifyInstance, opts: { deps: Deps
     const moduleName = params.moduleName!;
     const commandName = params.commandName!;
     const body = request.body as Record<string, any>;
+    const enabled = body.enabled ?? true;
+    const overrides = body.overrides ?? {};
     await configService.upsertCommandConfig({
       guild_id: guildId,
       module_name: moduleName,
       command_name: commandName,
-      enabled: body.enabled ?? true,
-      overrides: body.overrides ?? {},
+      enabled,
+      overrides,
+    });
+    configCache.setCommandConfig(guildId, commandName, {
+      guild_id: guildId,
+      command_name: commandName,
+      enabled,
+      overrides,
+      updated_at: new Date().toISOString()
     });
     getRefresh(guildId)();
     return reply.status(200).send({ ok: true });

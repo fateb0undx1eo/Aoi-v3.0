@@ -150,6 +150,14 @@ export class ConfigCache {
     }
   }
 
+  setModuleConfig(guildId: string, moduleName: string, config: ModuleConfigRow): void {
+    this.moduleCache.set(this._key(guildId, moduleName), config);
+  }
+
+  setCommandConfig(guildId: string, commandName: string, config: CommandConfigRow): void {
+    this.commandCache.set(this._key(guildId, commandName), config);
+  }
+
   getModuleConfig(guildId: string, moduleName: string): ModuleConfigRow | null {
     return this.moduleCache.get(this._key(guildId, moduleName)) ?? null;
   }
