@@ -39,7 +39,7 @@ export interface CommandConfigRow {
   guild_id: string;
   command_name: string;
   enabled: boolean;
-  overrides: Record<string, any> | null;
+  overrides: Record<string, any>;
   updated_at: string;
 }
 

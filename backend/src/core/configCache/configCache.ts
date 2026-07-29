@@ -1,20 +1,5 @@
 import { logger } from '../../utils/logger.js';
-
-interface ModuleConfigRow {
-  guild_id: string;
-  module_name: string;
-  enabled: boolean;
-  config: Record<string, any>;
-  updated_at: string;
-}
-
-interface CommandConfigRow {
-  guild_id: string;
-  command_name: string;
-  enabled: boolean;
-  overrides: Record<string, any> | null;
-  updated_at: string;
-}
+import type { ModuleConfigRow, CommandConfigRow } from '../../types/database.js';
 
 interface WelcomeConfig {
   is_enabled?: boolean;
@@ -191,10 +176,28 @@ export class ConfigCache {
     if (module === 'welcome') {
       this.welcomeCache.delete(guildId);
       logger.debug(`Invalidated Welcome cache for ${guildId}`);
+      return;
     }
+    const moduleKey = this._key(guildId, module);
+    this.moduleCache.delete(moduleKey);
+    if (feature) {
+      const commandKey = this._key(guildId, feature);
+      this.commandCache.delete(commandKey);
+    }
+    logger.debug(`Invalidated ${module} cache for ${guildId}`);
   }
 
   invalidateGuild(guildId: string): void {
+    for (const key of this.moduleCache.keys()) {
+      if (key.startsWith(`${guildId}:`)) {
+        this.moduleCache.delete(key);
+      }
+    }
+    for (const key of this.commandCache.keys()) {
+      if (key.startsWith(`${guildId}:`)) {
+        this.commandCache.delete(key);
+      }
+    }
     this.welcomeCache.delete(guildId);
     logger.debug(`Invalidated all caches for guild ${guildId}`);
   }

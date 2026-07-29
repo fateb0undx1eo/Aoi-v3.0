@@ -1,20 +1,5 @@
 import type { ModuleRegistry, ModuleDefinition, ModuleCommand } from '../types/index.js';
-
-interface ModuleConfigRow {
-  guild_id: string;
-  module_name: string;
-  enabled: boolean;
-  config: Record<string, any>;
-  updated_at: string;
-}
-
-interface CommandConfigRow {
-  guild_id: string;
-  command_name: string;
-  enabled: boolean;
-  overrides: Record<string, any> | null;
-  updated_at: string;
-}
+import type { ModuleConfigRow, CommandConfigRow } from '../types/database.js';
 
 interface ConfigCacheLike {
   getModuleConfig(guildId: string, moduleName: string): ModuleConfigRow | null;

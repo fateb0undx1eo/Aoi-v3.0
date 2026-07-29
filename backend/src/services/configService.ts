@@ -103,14 +103,16 @@ export class ConfigService {
   }
 
   async setFeatureEnabled(guildId: string, module: string, feature: string, enabled: boolean): Promise<boolean> {
-    await updateWhere(
+    await upsertRows(
       'guild_configs_v2',
-      { is_enabled: enabled, updated_at: new Date().toISOString() },
-      (table) =>
-        table
-          .eq('guild_id', guildId)
-          .eq('module', module)
-          .eq('feature', feature)
+      {
+        guild_id: guildId,
+        module,
+        feature,
+        is_enabled: enabled,
+        updated_at: new Date().toISOString()
+      },
+      'guild_id,module,feature'
     );
     return true;
   }

@@ -1,10 +1,6 @@
 import { ActivityType, type Client } from 'discord.js';
 import { logger } from '../utils/logger.js';
-import type { ConfigService, ConfigCache as ConfigCacheBase } from '../types/index.js';
-
-interface ConfigCache extends ConfigCacheBase {
-  getModuleConfig(guildId: string, moduleName: string): Record<string, any> | null;
-}
+import type { ConfigService, ConfigCache } from '../types/index.js';
 
 interface BotLooksConfig {
   enabled: boolean;

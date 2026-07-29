@@ -12,6 +12,7 @@ import type {
 } from 'discord.js';
 import type { Redis } from 'ioredis';
 import type { EnvConfig } from './env.js';
+import type { ModuleConfigRow, CommandConfigRow } from './database.js';
 
 // ─── Re-export all types ──────────────────────────────────────
 export * from './database.js';
@@ -73,12 +74,13 @@ export interface ConfigService {
 }
 
 export interface ConfigCache {
-  getCommandConfig(guildId: string, commandName: string): { enabled?: boolean; overrides?: Record<string, any> | null } | null;
-  getModuleConfig(guildId: string, moduleName: string): Record<string, any> | null;
+  getCommandConfig(guildId: string, commandName: string): CommandConfigRow | null;
+  getModuleConfig(guildId: string, moduleName: string): ModuleConfigRow | null;
   warmGuild(guildId: string): Promise<void>;
   startAutoRefresh(getGuildIds: () => string[]): void;
   stopAutoRefresh(): void;
   refreshGuild(guildId: string): Promise<void>;
+  invalidateGuild(guildId: string): void;
   getWelcomeConfig?(guildId: string): Record<string, any> | null;
   getStats?(): Record<string, any>;
   invalidate?(guildId: string, module: string, feature?: string | null): void;

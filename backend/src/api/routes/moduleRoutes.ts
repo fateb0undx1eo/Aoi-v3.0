@@ -144,7 +144,7 @@ export async function moduleRoutes(instance: FastifyInstance, opts: { deps: Deps
       module_name: moduleName,
       command_name: commandName,
       enabled: body.enabled ?? true,
-      overrides: body.overrides ?? null,
+      overrides: body.overrides ?? {},
     });
     getRefresh(guildId)();
     return reply.status(200).send({ ok: true });
