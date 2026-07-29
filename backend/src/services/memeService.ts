@@ -302,7 +302,12 @@ export class MemeService {
   }
 
   async syncGuild(guildId: string): Promise<MemeAutopostConfig> {
-    const config = await this.getGuildConfig(guildId);
+    const row = await this.getModuleRow(guildId);
+    if (row?.enabled === false) {
+      this.clearGuildTimer(guildId);
+      return this.getConfigFromModuleRow(row);
+    }
+    const config = this.getConfigFromModuleRow(row);
     this.scheduleGuild(guildId, config);
     return config;
   }

@@ -84,7 +84,8 @@ export async function moduleRoutes(instance: FastifyInstance, opts: { deps: Deps
     const moduleName = params.moduleName!;
     const body = request.body as Record<string, any>;
     const enabled = body.enabled ?? true;
-    const config = body.config ?? {};
+    const existingCfg = configCache.getModuleConfig(guildId, moduleName);
+    const config = body.config ?? existingCfg?.config ?? {};
     await configService.upsertModuleConfig({
       guild_id: guildId,
       module_name: moduleName,
@@ -112,10 +113,10 @@ export async function moduleRoutes(instance: FastifyInstance, opts: { deps: Deps
     if (moduleName === 'community' && profileStyleService) {
       await profileStyleService.syncGuild(guildId);
     }
-    if (moduleName === 'tools' && staffListService && body?.config?.staff_list) {
+    if (moduleName === 'tools' && staffListService) {
       await staffListService.syncGuild(guildId, {
-        publishNow: true,
-        forceNewMessage: body.config.staff_list.update_mode !== 'edit_existing'
+        publishNow: !!(body.config?.staff_list),
+        forceNewMessage: body.config?.staff_list?.update_mode !== 'edit_existing'
       });
     }
     return reply.status(200).send({ ok: true });

@@ -227,7 +227,12 @@ export class RoleColorRotationService {
   }
 
   async syncGuild(guildId: string): Promise<RoleColorRotationConfig> {
-    const config = await this.getGuildConfig(guildId);
+    const row = await this.configService.getModuleConfig(guildId, 'community').catch(() => null);
+    if (row?.enabled === false) {
+      this.clearGuildTimer(guildId);
+      return this.getConfigFromModuleRow(row);
+    }
+    const config = this.getConfigFromModuleRow(row);
     this.scheduleGuild(guildId, config);
     return config;
   }

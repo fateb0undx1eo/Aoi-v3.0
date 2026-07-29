@@ -608,7 +608,12 @@ export class StaffListService {
   }
 
   async syncGuild(guildId: string, options: SyncOptions = {}): Promise<StaffListConfig> {
-    const config = await this.getGuildConfig(guildId);
+    const row = await this.getModuleRow(guildId);
+    if (row?.enabled === false) {
+      this.clearGuildTimer(guildId);
+      return this.getConfigFromModuleRow(row);
+    }
+    const config = this.getConfigFromModuleRow(row);
 
     if (options.publishNow) {
       await this.publishGuildList(guildId, options);
