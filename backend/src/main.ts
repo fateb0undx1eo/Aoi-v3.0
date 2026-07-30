@@ -159,6 +159,12 @@ async function main(): Promise<void> {
     const uploadService = new UploadService(uploadConfig);
 
     // ─────────────────────────────────────────────────────────────
+    // 6. Initialize Config Service & Cache (needed by async modules)
+    // ─────────────────────────────────────────────────────────────
+    const configService = new ConfigService();
+    const configCache = new ConfigCache(configService);
+
+    // ─────────────────────────────────────────────────────────────
     // 6. Initialize Async Modules (like tickets)
     // ─────────────────────────────────────────────────────────────
     logger.info('Initializing async modules...');
@@ -166,7 +172,8 @@ async function main(): Promise<void> {
       database,
       redis: redisClient,
       discordClient,
-      environment: env.nodeEnv || 'development'
+      environment: env.nodeEnv || 'development',
+      configCache
     });
     logger.info('✓ Async modules initialized');
 
@@ -176,10 +183,6 @@ async function main(): Promise<void> {
     logger.info('Registering command and event handlers...');
     logger.debug(`Total commands in registry: ${registry.commands.size}`);
     logger.debug(`Total events in registry: ${registry.events.size}`);
-
-    // Initialize services
-    const configService = new ConfigService();
-    const configCache = new ConfigCache(configService);
     const permissionService = new PermissionService();
     const rateLimitService = new RateLimitService();
     const rateLimiter = new DynamicRateLimiter(rateLimitService);

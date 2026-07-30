@@ -10,7 +10,7 @@ import {
 import { createSetupCommand } from './commands/setup.js';
 import { createMessageCountCommand } from './commands/messageCount.js';
 import { createMessageTrackingEvent } from './events/messageTracking.js';
-import type { RedisClient } from '../../types/index.js';
+import type { RedisClient, ConfigCache } from '../../types/index.js';
 import type { Client } from 'discord.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ScheduledTask } from 'node-cron';
@@ -19,9 +19,17 @@ export async function initializeLeaderboardModule(options: {
   database: any;
   redis: RedisClient;
   discordClient: Client;
+  configCache?: ConfigCache;
 }) {
-  const { database, redis, discordClient } = options;
+  const { database, redis, discordClient, configCache } = options;
   const supabase = (await import('../../database/supabase.js')).supabase as SupabaseClient;
+
+  function isModuleEnabled(): boolean {
+    const guildId = discordClient.guilds.cache.first()?.id;
+    if (!guildId || !configCache) return true;
+    const cfg = configCache.getModuleConfig(guildId, 'leaderboard');
+    return cfg?.enabled !== false;
+  }
 
   let updateIntervalId: ReturnType<typeof setInterval> | null = null;
   let syncIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -42,11 +50,15 @@ export async function initializeLeaderboardModule(options: {
 
     bootstrap(redis, discordClient, supabase).catch((err) => logger.error({ err }, 'Leaderboard startup failed'));
 
-    const runUpdate = () => updateLeaderboard(redis, discordClient, supabase).catch((err) => logger.error({ err }, 'Update failed'));
+    const runUpdate = () => {
+      if (!isModuleEnabled()) return;
+      return updateLeaderboard(redis, discordClient, supabase).catch((err) => logger.error({ err }, 'Update failed'));
+    };
     updateIntervalId = setInterval(runUpdate, UPDATE_INTERVAL_MS);
     setTimeout(runUpdate, 5000);
 
     const runSync = () => {
+      if (!isModuleEnabled()) return;
       if (syncInProgress) {
         logger.debug('Sync already in progress (in-memory guard), skipping');
         return;
@@ -60,6 +72,7 @@ export async function initializeLeaderboardModule(options: {
     setTimeout(runSync, 10000);
 
     cronTasks.push(cron.schedule('1 0 * * *', async () => {
+      if (!isModuleEnabled()) return;
       const now = new Date();
       try {
         await withTimeout(performSync(redis, supabase), 'Pre-reset sync', 120000);
