@@ -21,6 +21,9 @@ import { analyticsRoutes } from './routes/analyticsRoutes.js';
 import { settingsRoutes } from './routes/settingsRoutes.js';
 import { moderationRoutes } from './routes/moderationRoutes.js';
 import { presetRoutes } from './routes/presetRoutes.js';
+import { pollRoutes } from './routes/pollRoutes.js';
+import { oembedRoutes } from './routes/oembedRoutes.js';
+import { pollDevRoutes } from './routes/pollDevRoutes.js';
 
 interface ApiServerDependencies {
   authService: any;
@@ -188,6 +191,9 @@ export function buildApiServer(deps: any): BuildResult {
   registerGroup('/api/analytics', analyticsRoutes);
   registerGroup('/api/settings', settingsRoutes);
   registerGroup('/api/moderation', moderationRoutes, [requireAuth(deps.authService)]);
+  registerGroup('/api/polls', pollRoutes);
+  registerGroup('/api/polls', oembedRoutes);
+  registerGroup('/api/polls', pollDevRoutes);
   registerGroup('/api/modules', presetRoutes);
 
   return { fastify, server };

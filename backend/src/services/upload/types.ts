@@ -48,7 +48,7 @@ export interface UploadConfig {
   maxConcurrentUploads: number;
   maxRetries: number;
   retryBaseDelayMs: number;
-  userHash?: string;
+  apiKey?: string;
   maxFileSizeBytes: number;
   bannedExtensions: string[];
   stripImageMetadata: boolean;

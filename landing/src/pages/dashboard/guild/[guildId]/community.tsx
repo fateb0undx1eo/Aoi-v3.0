@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useGuildOverview, useGuildRoles, useGuildChannels, useGuildEmojis, useSaveModule } from "@/lib/api";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { FeatureCard } from "@/components/feature-card";
-import { Bot, LogIn, LogOut, Zap, Lock, Users, Palette, ImageIcon, Star, Megaphone } from "lucide-react";
+import { Bot, LogIn, LogOut, Zap, Lock, Users, Palette, ImageIcon, Star, Megaphone, BarChart3 } from "lucide-react";
 import RoleColorRotation from "@/components/community/role-color-rotation";
 import MemeAutopost from "@/components/community/meme-autopost";
 import BotLooks from "@/components/community/bot-looks";
@@ -179,6 +179,17 @@ export default function CommunityPage() {
               description="Compose one-off announcements as normal messages, embeds, or containers and send them to one or many channels."
               iconColor="text-orange-400"
               onClick={() => router.push(`/dashboard/guild/${guildId}/announcements`)}
+            />
+            <FeatureCard
+              icon={<BarChart3 className="h-6 w-6" />}
+              title="Poll Studio"
+              description="Create visual polls — VS battles with generated cards and Music polls with Listen or Skip voting, using buttons or emoji reactions, with a live Discord preview."
+              iconColor="text-purple-400"
+              onClick={() => {
+                if (guildId) {
+                  void router.push({ pathname: "/dashboard/guild/[guildId]/polls", query: { guildId } });
+                }
+              }}
             />
             <FeatureCard
               icon={<Palette className="h-6 w-6" />}

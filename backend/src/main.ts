@@ -50,6 +50,7 @@ import { StaffRatingService } from './services/staffRatingService.js';
 import { CommunityService } from './services/communityService.js';
 import { ToolsService } from './services/toolsService.js';
 import { FunService } from './services/funService.js';
+import { VisualPollService } from './services/visualPollService.js';
 import { PlaceholderEngine } from './core/placeholderEngine/placeholderEngine.js';
 import type { BotContext, ModuleRegistry } from './types/index.js';
 import type { Client } from 'discord.js';
@@ -216,6 +217,7 @@ async function main(): Promise<void> {
     const communityService = new CommunityService(configService, staffRatingService);
     const toolsService = new ToolsService(configService);
     const funService = new FunService({ configService });
+    const visualPollService = new VisualPollService({ client: discordClient, uploadService });
 
     const services = {
       configService,
@@ -238,7 +240,8 @@ async function main(): Promise<void> {
       staffRatingService,
       communityService,
       toolsService,
-      funService
+      funService,
+      visualPollService
     };
 
     const queues = [operationalQueue];
@@ -275,6 +278,7 @@ async function main(): Promise<void> {
       communityService,
       toolsService,
       placeholderEngine,
+      visualPollService,
       services,
       queueStats,
       websocketStats: () => overviewSocketServer?.getStats?.() ?? { connections: 0 },

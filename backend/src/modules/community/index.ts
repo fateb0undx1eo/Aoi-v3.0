@@ -7,10 +7,13 @@ import guildMemberBoostEvent from './events/guildMemberBoost.js';
 import messageCreateEvent from './events/messageCreate.js';
 import memeAutopostButtonsEvent from './events/memeAutopostButtons.js';
 import profileModalEvent from './events/profileModal.js';
+import pollInteractionsEvent from './events/pollInteractions.js';
+import pollReactionsAddEvent from './events/pollReactions.js';
+import pollReactionsRemoveEvent from './events/pollReactionsRemove.js';
 
 export default {
   name: 'community',
   configSchema: COMMUNITY_SCHEMA,
   commands: [profileCommand, memesAutopostCommand],
-  events: [guildMemberAddEvent, guildMemberRemoveEvent, guildMemberBoostEvent, messageCreateEvent, memeAutopostButtonsEvent, profileModalEvent]
+  events: [guildMemberAddEvent, guildMemberRemoveEvent, guildMemberBoostEvent, messageCreateEvent, memeAutopostButtonsEvent, profileModalEvent, pollInteractionsEvent, pollReactionsAddEvent, pollReactionsRemoveEvent]
 };

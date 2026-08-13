@@ -48,6 +48,7 @@ export interface BotContext {
   communityService: CommunityService;
   toolsService: ToolsService;
   funService: FunService;
+  visualPollService: VisualPollService;
   placeholderEngine: PlaceholderEngine;
   services: ServiceContainer;
   queueStats: () => QueueStats[];
@@ -199,6 +200,19 @@ export interface FunService {
   executeCommand(command: string, interaction: Interaction): Promise<any>;
 }
 
+export interface VisualPollService {
+  createPoll(guildId: string, channelId: string, draft: Record<string, any>, userId: string): Promise<any>;
+  getPoll(pollId: string): Promise<any | null>;
+  getPollByMessageId(messageId: string): Promise<any | null>;
+  listPolls(guildId: string): Promise<any[]>;
+  recordVote(pollId: string, guildId: string, userId: string, optionId: string): Promise<any>;
+  removeVote(pollId: string, guildId: string, userId: string): Promise<any>;
+  refreshPollMessage(poll: any): Promise<void>;
+  setStatus(pollId: string, guildId: string, status: string): Promise<any>;
+  deletePoll(pollId: string, guildId: string): Promise<void>;
+  totals(poll: any): Promise<any[]>;
+}
+
 export interface PlaceholderEngine {
   render(template: string, context: Record<string, any>): string;
 }
@@ -224,6 +238,7 @@ export interface ServiceContainer {
   communityService: CommunityService;
   toolsService: ToolsService;
   funService: FunService;
+  visualPollService: VisualPollService;
 }
 
 // ─── Registry ─────────────────────────────────────────────────

@@ -202,7 +202,7 @@ export async function guildRoutes(instance: FastifyInstance, opts: { deps: Deps 
       const url = await uploadService.processFile({ buffer, originalname, mimetype, size: buffer.length });
       return reply.status(200).send({ url });
     } catch (error: any) {
-      logger.error({ guildId: (request.params as any).guildId, filename, error: error.message }, 'upload route: catbox upload failed');
+      logger.error({ guildId: (request.params as any).guildId, filename, error: error.message }, 'upload route: freeimage upload failed');
       return reply.status(500).send({ error: error instanceof Error ? error.message : 'Upload failed' });
     }
   });

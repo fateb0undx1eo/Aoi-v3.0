@@ -1,6 +1,6 @@
 import pRetry from 'p-retry';
 import { logger } from '../../utils/logger.js';
-import { catboxProvider } from './catboxProvider.js';
+import { freeimageProvider } from './freeimageProvider.js';
 import { stripFileMetadata } from './metadata.js';
 import type { UploadConfig, UploadResult, UrlMap, AttachmentUri, AttachmentFallback, SkippedFile, FileDescriptor } from './types.js';
 import { validateFile } from './validation.js';
@@ -21,7 +21,7 @@ export class UploadService {
 
   // ── Canonical single-file upload ─────────────────────────────────────────
   // Every upload path in the application goes through this method.
-  // It owns validation, metadata stripping, retry, timeout, and Catbox upload.
+  // It owns validation, metadata stripping, retry, timeout, and FreeImage upload.
   // Returns the public CDN URL. Throws on failure.
   async processFile(file: FileDescriptor): Promise<string> {
     const batchId = generateBatchId();
@@ -49,8 +49,8 @@ export class UploadService {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
         try {
-          return await catboxProvider.upload(processedBuffer, validationResult.sanitizedName, {
-            userHash: this.config.userHash,
+          return await freeimageProvider.upload(processedBuffer, validationResult.sanitizedName, {
+            apiKey: this.config.apiKey,
             signal: controller.signal,
           });
         } finally {
@@ -72,7 +72,7 @@ export class UploadService {
   // ── Batch coordinator (announcement flow) ────────────────────────────────
   // Iterates entry._rawFiles, delegates to processFile() for each,
   // and collects results into the UploadResult structure for announcement processing.
-  // On Catbox failure the raw processed buffer is returned as a fallback
+  // On FreeImage failure the raw processed buffer is returned as a fallback
   // so AnnouncementService can attach it inline to the Discord payload.
   async processEntries(entries: any[]): Promise<UploadResult> {
     const batchId = generateBatchId();
