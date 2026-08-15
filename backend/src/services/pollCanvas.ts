@@ -67,7 +67,7 @@ function drawCoverContain(ctx: any, image: any, x: number, y: number, w: number,
 
 function drawImageCardContain(ctx: any, image: any, x: number, y: number, w: number, h: number): void {
   ctx.save();
-  drawRoundedRect(ctx, x, y, w, h, RADIUS);
+  drawRoundedRect(ctx, x, y, w, h, TRACK_RADIUS);
   ctx.clip();
   if (!image) {
     ctx.fillStyle = '#18181b';

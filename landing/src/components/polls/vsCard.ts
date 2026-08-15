@@ -85,14 +85,14 @@ function drawCoverContain(
 
 function drawImageCardContain(
   ctx: CanvasRenderingContext2D,
-  image: HTMLImageElement | null,
+  image: CanvasImageSource | null,
   x: number,
   y: number,
   w: number,
-  h: number,
+  h: number
 ): void {
   ctx.save();
-  drawRoundedRect(ctx, x, y, w, h, RADIUS);
+  drawRoundedRect(ctx, x, y, w, h, TRACK_RADIUS);
   ctx.clip();
   if (!image) {
     ctx.fillStyle = "#18181b";
