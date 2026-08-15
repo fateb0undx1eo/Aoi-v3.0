@@ -10,6 +10,7 @@ export interface PollOptionDraft {
   accent?: string | null;
   track_url?: string | null;
   track_artist?: string | null;
+  track_duration?: number | null;
 }
 
 export interface PollSettingsDraft {

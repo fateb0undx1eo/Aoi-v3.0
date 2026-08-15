@@ -311,7 +311,8 @@ export default function PollStudio({
           track_url: url,
           label: json.title || draft.options.find((o) => o.id === optionId)?.label || "",
           image_url: json.thumbnail_url ?? null,
-          track_artist: json.artist ?? json.provider_name ?? null,
+          track_artist: json.artist ?? null,
+          track_duration: typeof json.duration === "number" ? json.duration : null,
         });
         addToast("success", "Track loaded.");
       } catch (error: any) {
@@ -350,7 +351,7 @@ export default function PollStudio({
     const timer = setTimeout(async () => {
       const cards = await Promise.all(
         draft.options.map((option) =>
-          option.image_url ? renderTrackCardPreview(option.image_url, option.label, option.track_artist ?? "") : Promise.resolve(null),
+          option.image_url ? renderTrackCardPreview(option.image_url, option.label, option.track_artist ?? "", option.track_duration ?? null) : Promise.resolve(null),
         ),
       );
       if (!cancelled) setTrackCards(cards);

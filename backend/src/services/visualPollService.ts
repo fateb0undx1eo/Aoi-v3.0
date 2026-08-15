@@ -17,6 +17,7 @@ export interface PollOption {
   accent?: string | null;
   track_url?: string | null;
   track_artist?: string | null;
+  track_duration?: number | null;
 }
 
 export interface PollSettings {
@@ -111,6 +112,7 @@ export function normalizePollOptions(rawOptions: any[] | undefined | null): Poll
       accent: typeof raw?.accent === 'string' && /^#[0-9a-f]{6}$/i.test(raw.accent) ? raw.accent : null,
       track_url: typeof raw?.track_url === 'string' && /^https?:\/\//i.test(raw.track_url) ? raw.track_url.slice(0, 2000) : null,
       track_artist: typeof raw?.track_artist === 'string' ? raw.track_artist.slice(0, 80) : null,
+      track_duration: typeof raw?.track_duration === 'number' && Number.isFinite(raw.track_duration) ? Math.floor(raw.track_duration) : null,
     }))
     .filter((option) => option.label.length > 0);
 }
@@ -361,7 +363,7 @@ export class VisualPollService {
       const track = options[0];
       if (track?.image_url) {
         try {
-          const buffer = await renderTrackCard(track.image_url, track.label, track.track_artist ?? '');
+          const buffer = await renderTrackCard(track.image_url, track.label, track.track_artist ?? '', track.track_duration ?? null);
           mediaUrl = await this.uploadService.processFile({
             buffer,
             originalname: 'poll-track.png',
