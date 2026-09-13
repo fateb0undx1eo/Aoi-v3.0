@@ -27,11 +27,12 @@ export default {
       poll = await services.visualPollService.getPoll(pollId);
     } catch (error: any) {
       // DB lookup failed (not "no row") — log the real cause server-side.
-      logger.warn({
-        pollId,
-        guildId: interaction.guildId,
-        error: error?.cause?.message ?? error?.message ?? String(error),
-      }, 'visual poll: vote lookup failed');
+      // pino-pretty renders nested objects as [object Object], so flatten.
+      const cause: any = error?.cause ?? error;
+      logger.warn(
+        `visual poll: vote lookup failed pollId=${pollId} guildId=${interaction.guildId} ` +
+          `error=${cause?.message ?? cause?.details ?? cause?.hint ?? String(cause)}`
+      );
       return { type: 'REPLY' as const, message: 'Could not reach the poll database — try again in a moment.', ephemeral: true };
     }
     // Finalized (deleted) polls keep their baked "Final — …" message.

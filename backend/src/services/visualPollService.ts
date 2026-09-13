@@ -445,6 +445,23 @@ export class VisualPollService {
       ends_at: settings.ends_at,
     });
 
+    // Re-read the inserted row so the message gets the real DB id in its
+    // vote buttons. Without this, buttons carry "pending" and every vote
+    // fails its lookup.
+    const saved = await fetchMany<any>('visual_polls', (table) =>
+      (table as any).select('*').eq('message_id', pollRow.message_id).limit(1)
+    );
+    const savedRow = parsePollRow(saved[0]);
+    if (!savedRow) {
+      await (sent as Message).delete().catch(() => null);
+      throw new Error('Poll could not be saved — try again in a moment.');
+    }
+    Object.assign(pollRow, savedRow);
+    await (sent as Message).edit({
+      flags: Number(MessageFlags.IsComponentsV2),
+      components: buildPollComponents(pollRow),
+    }).catch(() => null);
+
     if (settings.vote_method === 'reactions') {
       const emojis = options.map((option, index) => option.emoji || REACTION_EMOJIS[index] || `👍`);
       for (const emoji of emojis) {
