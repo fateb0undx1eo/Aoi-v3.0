@@ -1,12 +1,7 @@
 import type { QueryDataMessageData, APITopLevelComponent, APIV2ChildComponent } from "@/components/announcements/types";
-import type { PollDraft, PollOptionDraft, PollType } from "./types";
+import type { PollDraft, PollOptionDraft } from "./types";
 
 export type APIV2Component = APITopLevelComponent;
-
-const TYPE_TAGS: Record<PollType, string> = {
-  vs: "⚔️ VS",
-  music: "🎵 MUSIC",
-};
 
 export function emojiObject(emoji: string | null | undefined): { name: string; id?: string; animated?: boolean } | null {
   const raw = (emoji ?? "").trim();
@@ -53,13 +48,10 @@ export function buildPreviewComponents(
   const showResults =
     settings.show_results === "always" || (settings.show_results === "closed" && status === "closed");
 
-  const typeTag = TYPE_TAGS[draft.type];
-
   const children: APIV2ChildComponent[] = [];
 
   if (!isMusic) {
-    children.push({ type: 10, content: typeTag });
-    children.push({ type: 10, content: draft.title });
+    if (draft.title.trim()) children.push({ type: 10, content: draft.title });
     if (draft.subtitle) children.push({ type: 10, content: draft.subtitle });
 
     if (opts.mediaUrl) {

@@ -279,9 +279,9 @@ export function PreviewActionRow(
     .includes(false);
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2 min-w-0 max-w-full [&_button]:min-w-0 [&_button]:max-w-full">
       {resolved.components.map((component, ci) => (
-        <div key={`action-row-component-${ci}`} className="contents">
+        <div key={`action-row-component-${ci}`} className="contents min-w-0 max-w-full">
           <GenericPreviewComponentInActionRow
             data={component}
             authorType={

@@ -65,9 +65,9 @@ export const POLL_TYPE_META: Record<
 > = {
   vs: {
     label: "Versus",
-    tag: "⚔️ VS",
+    tag: "VS",
     description: "Ask a question and let people choose between two things — a this-vs-that comparison with a generated VS card",
-    emoji: "⚔️",
+    emoji: "🆚",
     hint: "Give every option an image — a VS card is rendered automatically.",
   },
   music: {
@@ -93,12 +93,12 @@ export const BACKGROUND_PRESETS = [
 export function createDefaultDraft(): PollDraft {
   return {
     type: "vs",
-    title: "Goku vs Vegeta",
+    title: "",
     subtitle: "",
     instructions: "",
     options: [
-      { id: "opt_1", label: "Goku", image_url: null, emoji: null, accent: "#5865f2" },
-      { id: "opt_2", label: "Vegeta", image_url: null, emoji: null, accent: "#e11d48" },
+      { id: "opt_1", label: "", image_url: null, emoji: null, accent: null },
+      { id: "opt_2", label: "", image_url: null, emoji: null, accent: null },
     ],
     settings: {
       vote_method: "buttons",

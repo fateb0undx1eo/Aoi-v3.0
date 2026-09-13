@@ -325,9 +325,11 @@ export class VisualPollService {
     const title = type === 'music'
       ? (String(draft.title ?? '').trim() || options[0]?.label || 'Music Poll').slice(0, 150)
       : String(draft.title ?? '').trim().slice(0, 150);
-    if (type !== 'music' && !title) throw new Error('Poll needs a title.');
 
     const settings = normalizeSettings(draft.settings);
+    if (settings.ends_at && new Date(settings.ends_at).getTime() <= Date.now()) {
+      throw new Error('The end time must be in the future.');
+    }
     if (settings.vote_method === 'reactions' && options.length > 10) {
       throw new Error('Reaction polls support at most 10 options.');
     }
@@ -589,6 +591,40 @@ export class VisualPollService {
     poll.status = status;
     await this.refreshPollMessage(poll);
     return poll;
+  }
+
+  /**
+   * Closes every open poll whose end time has passed and refreshes its
+   * Discord message (disables buttons, shows closed state + final results).
+   * Safe to run on a timer — polls already closed are never touched.
+   * Returns the number of polls that were closed.
+   */
+  async closeExpiredPolls(now: Date = new Date()): Promise<number> {
+    const rows = await fetchMany<any>('visual_polls', (table) =>
+      (table as any)
+        .select('*')
+        .eq('status', 'open')
+        .not('ends_at', 'is', null)
+        .lte('ends_at', now.toISOString())
+        .limit(100)
+    );
+    let closed = 0;
+    for (const raw of rows) {
+      const poll = parsePollRow(raw);
+      if (!poll || poll.status !== 'open') continue;
+      try {
+        await updateWhere('visual_polls', { status: 'closed' }, (table) => (table as any).eq('id', poll.id));
+        poll.status = 'closed';
+        await this.refreshPollMessage(poll);
+        closed += 1;
+      } catch (error: any) {
+        logger.warn({ pollId: poll.id, error: error?.message }, 'visual poll: scheduled close failed');
+      }
+    }
+    if (closed > 0) {
+      logger.info({ closed }, 'visual poll: closed expired polls');
+    }
+    return closed;
   }
 
   /**

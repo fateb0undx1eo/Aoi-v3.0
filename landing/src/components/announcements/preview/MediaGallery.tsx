@@ -28,13 +28,13 @@ export const PreviewMediaGallery: React.FC<{
 }> = ({ component: gallery, files, setImageModalData, cdn }) => {
   if (gallery.items.every((item) => item.media.url.startsWith("loading://"))) {
     return (
-      <div style={{ maxWidth: 520 }}>
+      <div style={{ maxWidth: "100%" }}>
         <TrackLoadingBar />
       </div>
     );
   }
   return (
-    <div>
+    <div style={{ minWidth: 0, maxWidth: "100%" }}>
       <Gallery
         cdn={cdn}
         setImageModalData={setImageModalData}

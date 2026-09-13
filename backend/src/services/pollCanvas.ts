@@ -4,8 +4,6 @@ import { resolve } from 'path';
 GlobalFonts.registerFromPath(resolve(import.meta.dirname, '../pollfonts/Inter-Bold.woff2'), 'Inter');
 GlobalFonts.registerFromPath(resolve(import.meta.dirname, '../pollfonts/Inter-ExtraBold.woff2'), 'Inter');
 
-const bgPath = resolve(import.meta.dirname, 'vs_bg.png');
-
 export interface VsCardOption {
   imageUrl?: string | null;
   label: string;
@@ -15,11 +13,8 @@ export interface VsCardStyle {
   badgeLabel?: string;
 }
 
-const CANVAS_W = 1200;
-const CANVAS_H = 500;
-const RADIUS = 16;
-const IMG_PAD = 48;
-const IMG_GAP = 20;
+const VS_W = 1100;
+const VS_H = 500;
 
 function drawRoundedRect(ctx: any, x: number, y: number, w: number, h: number, r: number): void {
   ctx.beginPath();
@@ -37,8 +32,10 @@ function drawRoundedRect(ctx: any, x: number, y: number, w: number, h: number, r
 
 function drawCover(ctx: any, image: any, x: number, y: number, w: number, h: number): void {
   if (!image) {
-  ctx.fillStyle = '#18181b';
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
     ctx.fillRect(x, y, w, h);
+    ctx.restore();
     return;
   }
   const scale = Math.max(w / image.width, h / image.height);
@@ -51,7 +48,7 @@ function drawCover(ctx: any, image: any, x: number, y: number, w: number, h: num
 
 function drawImageCard(ctx: any, image: any, x: number, y: number, w: number, h: number): void {
   ctx.save();
-  drawRoundedRect(ctx, x, y, w, h, RADIUS);
+  drawRoundedRect(ctx, x, y, w, h, TRACK_RADIUS);
   ctx.clip();
   drawCover(ctx, image, x, y, w, h);
   ctx.restore();
@@ -99,62 +96,45 @@ async function loadImageUrl(url: string): Promise<any | null> {
   }
 }
 
-let bgImage: any = null;
-
-async function getBackground(): Promise<any> {
-  if (bgImage) return bgImage;
-  try {
-    bgImage = await loadImage(bgPath);
-  } catch {
-    bgImage = null;
-  }
-  return bgImage;
-}
-
 export async function renderVsCard(options: VsCardOption[], style: VsCardStyle = {}): Promise<Buffer> {
-  const valid = options.filter((o) => o.label.trim());
+  const valid = options.filter((o) => o.label.trim() || o.imageUrl);
   const count = Math.max(2, valid.length);
   const isPair = count === 2;
 
-  const [bg, ...images] = await Promise.all([
-    getBackground(),
-    ...valid.map((o) => (o.imageUrl ? loadImageUrl(o.imageUrl) : Promise.resolve(null))),
-  ]);
+  const images = await Promise.all(
+    valid.map((o) => (o.imageUrl ? loadImageUrl(o.imageUrl) : Promise.resolve(null))),
+  );
 
-  const canvas = createCanvas(CANVAS_W, CANVAS_H);
+  const canvas = createCanvas(VS_W * TRACK_SCALE, VS_H * TRACK_SCALE);
   const ctx = canvas.getContext('2d');
+  ctx.scale(TRACK_SCALE, TRACK_SCALE);
+  ctx.imageSmoothingEnabled = true;
+  (ctx as any).imageSmoothingQuality = 'high';
 
-  if (bg) {
-    const scale = Math.max(CANVAS_W / bg.width, CANVAS_H / bg.height);
-    const sw = bg.width * scale;
-    const sh = bg.height * scale;
-    ctx.drawImage(bg, (CANVAS_W - sw) / 2, (CANVAS_H - sh) / 2, sw, sh);
-  } else {
-    ctx.fillStyle = '#09090b';
-    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-  }
-
+  // Dark background (#18181b) with rounded corners — same as the music poll card.
   ctx.save();
-  drawRoundedRect(ctx, 0, 0, CANVAS_W, CANVAS_H, RADIUS);
+  drawRoundedRect(ctx, 0, 0, VS_W, VS_H, TRACK_RADIUS);
   ctx.clip();
+  ctx.fillStyle = '#18181b';
+  ctx.fillRect(0, 0, VS_W, VS_H);
+
+  const pad = 48;
 
   if (isPair) {
-    const halfW = (CANVAS_W - IMG_PAD * 2 - IMG_GAP) / 2;
-    const imgH = CANVAS_H - IMG_PAD * 2;
-    const leftX = IMG_PAD;
-    const rightX = IMG_PAD + halfW + IMG_GAP;
-    const imgY = IMG_PAD;
-
+    const gap = 20;
+    const halfW = (VS_W - pad * 2 - gap) / 2;
+    const imgH = VS_H - pad * 2;
+    const leftX = pad;
+    const rightX = pad + halfW + gap;
+    const imgY = pad;
     drawImageCard(ctx, images[0] ?? null, leftX, imgY, halfW, imgH);
     drawImageCard(ctx, images[1] ?? null, rightX, imgY, halfW, imgH);
   } else {
     const cols = 2;
     const rows = Math.ceil(count / cols);
     const gap = 16;
-    const pad = IMG_PAD;
-    const cellW = (CANVAS_W - pad * 2 - gap * (cols - 1)) / cols;
-    const cellH = (CANVAS_H - pad * 2 - gap * (rows - 1)) / rows;
-
+    const cellW = (VS_W - pad * 2 - gap * (cols - 1)) / cols;
+    const cellH = (VS_H - pad * 2 - gap * (rows - 1)) / rows;
     valid.forEach((_, index) => {
       const row = Math.floor(index / cols);
       const col = index % cols;
@@ -164,19 +144,16 @@ export async function renderVsCard(options: VsCardOption[], style: VsCardStyle =
     });
   }
 
-  // VS / OR text — centered, single clean draw with a soft shadow for legibility
+  // VS / OR text — centered, bold white with a soft shadow for legibility.
   const label = style.badgeLabel ?? 'VS';
   ctx.font = '800 64px Inter, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const textX = CANVAS_W / 2;
-  const textY = CANVAS_H / 2;
-
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.45)';
   ctx.shadowBlur = 10;
   ctx.fillStyle = '#ffffff';
-  ctx.fillText(label, textX, textY);
+  ctx.fillText(label, VS_W / 2, VS_H / 2);
   ctx.restore();
 
   ctx.restore();

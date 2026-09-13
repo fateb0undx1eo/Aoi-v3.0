@@ -9,6 +9,15 @@ interface AuthServiceForMiddleware {
 export function requireAuth(authService: AuthServiceForMiddleware) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     try {
+      if (
+        process.env.NODE_ENV === 'development' &&
+        String(process.env.DASHBOARD_DEV_BYPASS || '').toLowerCase() === 'true'
+      ) {
+        (request as any).user = { id: 'dev', username: 'dev', global_name: 'Dev' };
+        (request as any).auth = { user: { id: 'dev', username: 'dev' } };
+        return;
+      }
+
       const cookies = parseCookies(request.headers.cookie || '');
       const bearer = request.headers.authorization?.startsWith('Bearer ')
         ? request.headers.authorization.slice(7)

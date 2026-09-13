@@ -46,7 +46,7 @@ export default function GuildPollsPage() {
           Loading…
         </div>
       ) : guild ? (
-        <PollStudio guildId={gid ?? ""} guild={guild} channels={channels} />
+        <PollStudio guildId={guild?.id ?? gid ?? ""} guild={guild} channels={channels} />
       ) : (
         <div className="flex items-center justify-center py-24 text-zinc-500">
           Guild not found.

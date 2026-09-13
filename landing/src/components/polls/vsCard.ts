@@ -4,12 +4,8 @@ export interface VsCardDrawStyle {
   badgeLabel?: string;
 }
 
-const CANVAS_W = 1200;
-const CANVAS_H = 500;
-const RADIUS = 16;
-const IMG_PAD = 48;
-const IMG_GAP = 20;
-const BG_URL = "https://files.catbox.moe/sli1um.png";
+const VS_W = 1100;
+const VS_H = 500;
 
 function drawRoundedRect(
   ctx: CanvasRenderingContext2D,
@@ -41,8 +37,10 @@ function drawCover(
   h: number,
 ): void {
   if (!image) {
-    ctx.fillStyle = "#18181b";
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-out";
     ctx.fillRect(x, y, w, h);
+    ctx.restore();
     return;
   }
   const scale = Math.max(w / image.naturalWidth, h / image.naturalHeight);
@@ -62,7 +60,7 @@ function drawImageCard(
   h: number,
 ): void {
   ctx.save();
-  drawRoundedRect(ctx, x, y, w, h, RADIUS);
+  drawRoundedRect(ctx, x, y, w, h, TRACK_RADIUS);
   ctx.clip();
   drawCover(ctx, image, x, y, w, h);
   ctx.restore();
@@ -85,7 +83,7 @@ function drawCoverContain(
 
 function drawImageCardContain(
   ctx: CanvasRenderingContext2D,
-  image: CanvasImageSource | null,
+  image: HTMLImageElement | null,
   x: number,
   y: number,
   w: number,
@@ -117,19 +115,6 @@ function loadImageUrl(url: string): Promise<HTMLImageElement | null> {
   });
 }
 
-let bgImage: HTMLImageElement | null = null;
-let bgLoading: Promise<HTMLImageElement | null> | null = null;
-
-function getBackground(): Promise<HTMLImageElement | null> {
-  if (bgImage !== null) return Promise.resolve(bgImage);
-  if (bgLoading) return bgLoading;
-  bgLoading = loadImageUrl(BG_URL).then((img) => {
-    bgImage = img;
-    return img;
-  });
-  return bgLoading;
-}
-
 export async function renderVsCardPreview(
   options: PollOptionDraft[],
   style: VsCardDrawStyle = {},
@@ -139,48 +124,43 @@ export async function renderVsCardPreview(
   const count = Math.max(2, valid.length);
   const isPair = count === 2;
 
-  const [bg, ...images] = await Promise.all([
-    getBackground(),
-    ...valid.map((o) => (o.image_url ? loadImageUrl(o.image_url) : Promise.resolve(null))),
-  ]);
+  const images = await Promise.all(
+    valid.map((o) => (o.image_url ? loadImageUrl(o.image_url) : Promise.resolve(null))),
+  );
 
   const canvas = document.createElement("canvas");
-  canvas.width = CANVAS_W;
-  canvas.height = CANVAS_H;
+  canvas.width = VS_W * TRACK_SCALE;
+  canvas.height = VS_H * TRACK_SCALE;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
+  ctx.scale(TRACK_SCALE, TRACK_SCALE);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
 
-  if (bg) {
-    const scale = Math.max(CANVAS_W / bg.naturalWidth, CANVAS_H / bg.naturalHeight);
-    const sw = bg.naturalWidth * scale;
-    const sh = bg.naturalHeight * scale;
-    ctx.drawImage(bg, (CANVAS_W - sw) / 2, (CANVAS_H - sh) / 2, sw, sh);
-  } else {
-    ctx.fillStyle = "#09090b";
-    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-  }
-
+  // Dark background (#18181b) with rounded corners — same as the music poll card.
   ctx.save();
-  drawRoundedRect(ctx, 0, 0, CANVAS_W, CANVAS_H, RADIUS);
+  drawRoundedRect(ctx, 0, 0, VS_W, VS_H, TRACK_RADIUS);
   ctx.clip();
+  ctx.fillStyle = "#18181b";
+  ctx.fillRect(0, 0, VS_W, VS_H);
+
+  const pad = 48;
 
   if (isPair) {
-    const halfW = (CANVAS_W - IMG_PAD * 2 - IMG_GAP) / 2;
-    const imgH = CANVAS_H - IMG_PAD * 2;
-    const leftX = IMG_PAD;
-    const rightX = IMG_PAD + halfW + IMG_GAP;
-    const imgY = IMG_PAD;
-
+    const gap = 20;
+    const halfW = (VS_W - pad * 2 - gap) / 2;
+    const imgH = VS_H - pad * 2;
+    const leftX = pad;
+    const rightX = pad + halfW + gap;
+    const imgY = pad;
     drawImageCard(ctx, images[0] ?? null, leftX, imgY, halfW, imgH);
     drawImageCard(ctx, images[1] ?? null, rightX, imgY, halfW, imgH);
   } else {
     const cols = 2;
     const rows = Math.ceil(count / cols);
     const gap = 16;
-    const pad = IMG_PAD;
-    const cellW = (CANVAS_W - pad * 2 - gap * (cols - 1)) / cols;
-    const cellH = (CANVAS_H - pad * 2 - gap * (rows - 1)) / rows;
-
+    const cellW = (VS_W - pad * 2 - gap * (cols - 1)) / cols;
+    const cellH = (VS_H - pad * 2 - gap * (rows - 1)) / rows;
     valid.forEach((_, index) => {
       const row = Math.floor(index / cols);
       const col = index % cols;
@@ -190,7 +170,7 @@ export async function renderVsCardPreview(
     });
   }
 
-  // VS / OR text — centered, single clean draw with a soft shadow for legibility
+  // VS / OR text — centered, bold white with a soft shadow for legibility.
   const label = style.badgeLabel ?? "VS";
   ctx.font = "800 64px Inter, sans-serif";
   ctx.textAlign = "center";
@@ -199,7 +179,7 @@ export async function renderVsCardPreview(
   ctx.shadowColor = "rgba(0,0,0,0.45)";
   ctx.shadowBlur = 10;
   ctx.fillStyle = "#ffffff";
-  ctx.fillText(label, CANVAS_W / 2, CANVAS_H / 2);
+  ctx.fillText(label, VS_W / 2, VS_H / 2);
   ctx.restore();
 
   ctx.restore();

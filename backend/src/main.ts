@@ -348,6 +348,16 @@ async function main(): Promise<void> {
         .then(() => logger.info('Rate-limit rules warmed'))
         .catch((error: any) => logger.warn('Rate-limit warm failed', error));
       configCache.startAutoRefresh(getGuildIds);
+      // Poll expiry sweeper: closes polls whose end time passed and refreshes
+      // their Discord messages. Runs every 60s; failures are logged, never fatal.
+      const sweepExpiredPolls = () => {
+        visualPollService.closeExpiredPolls().catch((error: any) =>
+          logger.warn({ error: error?.message }, 'visual poll: expiry sweep failed')
+        );
+      };
+      const pollSweepTimer = setInterval(sweepExpiredPolls, 60_000);
+      (pollSweepTimer as any).unref?.();
+      setTimeout(sweepExpiredPolls, 10_000);
     });
 
     discordClient.on('error', (error: any) => {

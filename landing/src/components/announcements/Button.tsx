@@ -25,7 +25,7 @@ export const Button = ({
     type="button"
     {...props}
     className={twMerge(
-      "relative border border-[#ffffff14] rounded-lg font-medium text-base h-8 py-0 px-4 min-w-[60px] max-w-full text-white transition shrink-0",
+      "relative border border-[#ffffff14] rounded-lg font-medium text-base h-8 py-0 px-4 min-w-0 max-w-full text-white transition shrink",
       loading ? "" : "disabled:opacity-50 disabled:cursor-not-allowed",
       !style || style === ButtonStyle.Primary
         ? "bg-blurple hover:bg-blurple-600 active:bg-blurple-700"

@@ -177,7 +177,8 @@ export default function DiscordPreview({
     fontFamily: FONT,
     transition: "background-color 0.1s",
     borderRadius: 4,
-    padding: "1px 0",
+    padding: 0,
+    margin: 0,
     WebkitFontSmoothing: "antialiased" as const,
     MozOsxFontSmoothing: "grayscale" as const,
   };
@@ -236,11 +237,11 @@ export default function DiscordPreview({
       )}
 
       {hasComponents && (
-        <div style={{ marginTop: 4 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, overflow: "hidden", maxWidth: 600 }}>
+        <div style={{ marginTop: 4, minWidth: 0 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, overflow: "hidden", maxWidth: "100%", minWidth: 0 }}>
             {message.components!.map((row, ri) =>
               row.type === 1 && row.components.length > 0 ? (
-                <div key={ri} style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <div key={ri} style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0, maxWidth: "100%" }}>
                   <PreviewActionRow components={row.components as APIComponentInMessageActionRow[]} />
                 </div>
               ) : row.type === 17 ? (
@@ -293,7 +294,7 @@ export default function DiscordPreview({
         </div>
       )}
 
-      <div style={{ display: "flex", marginTop: threadName ? 0 : 16 }}>
+      <div style={{ display: "flex", marginTop: 0 }}>
         <div style={{ width: 40, flexShrink: 0, marginRight: 12, marginLeft: 20 }}>
           {forceSeparateAuthor ? (
             <img
@@ -309,7 +310,7 @@ export default function DiscordPreview({
           )}
         </div>
 
-        <div style={{ minWidth: 0, flex: 1, paddingRight: 48 }}>
+        <div style={{ minWidth: 0, flex: 1, paddingRight: 16 }}>
           <p style={{ margin: 0, lineHeight: 1.2, display: "flex", alignItems: "baseline", gap: 6 }}>
             <span style={{ fontSize: 15, fontWeight: 600, color: DISCORD.username, fontFamily: FONT, lineHeight: 1.2 }}>
               {username}

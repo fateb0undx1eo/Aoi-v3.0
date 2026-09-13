@@ -51,11 +51,11 @@ export const PreviewContainer: React.FC<{
 }> = (props) => {
   const { component: container } = props;
   return (
-    <div>
+    <div style={{ minWidth: 0, maxWidth: "100%" }}>
       <div
         data-type={container.type}
         className={twJoin(
-          "rounded-lg flex flex-col grow gap-y-1.5 overflow-hidden p-4",
+          "rounded-lg flex flex-col grow gap-y-1.5 overflow-hidden p-4 min-w-0 max-w-full",
           "dark:text-gray-100 bg-white dark:bg-background-secondary-dark",
           "rounded-lg border border-[#E2E2E4] dark:border-[#434349]",
           "group/parent relative",
@@ -73,7 +73,7 @@ export const PreviewContainer: React.FC<{
             container.accent_color != null
               ? decimalToHex(container.accent_color)
               : "",
-          maxWidth: 520,
+          maxWidth: "100%",
         }}
       >
         {container.components.map((component, ci) => (
