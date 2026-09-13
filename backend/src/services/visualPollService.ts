@@ -120,7 +120,9 @@ export function normalizePollOptions(rawOptions: any[] | undefined | null): Poll
 export function parsePollRow(raw: any): PollRow | null {
   if (!raw) return null;
   const options = normalizePollOptions(raw.options);
-  if (options.length < 2) return null;
+  // Music polls carry a single track option; versus polls need at least two.
+  const minOptions = raw.type === 'music' ? 1 : 2;
+  if (options.length < minOptions) return null;
   return {
     id: String(raw.id),
     guild_id: String(raw.guild_id),
@@ -223,9 +225,6 @@ export function buildPollComponents(
 
   const instructions: string[] = [];
   if (settings.instructions) instructions.push(settings.instructions);
-  if (settings.ends_at) {
-    instructions.push(`Ends <t:${Math.floor(new Date(settings.ends_at).getTime() / 1000)}:R>`);
-  }
   if (poll.type !== 'music' && settings.vote_method === 'reactions') {
     instructions.push('React with your choice below.');
   }
@@ -614,6 +613,47 @@ export class VisualPollService {
     poll.status = status;
     await this.refreshPollMessage(poll);
     return poll;
+  }
+
+  /**
+   * Adjusts a poll's end time. `endsAt` null clears the timer (stays open
+   * until closed by hand); a past timestamp throws. Refreshes the message
+   * so the relative "ends" line updates in place.
+   */
+  async setEndsAt(pollId: string, guildId: string, endsAt: string | null): Promise<PollRow> {
+    const poll = await this.getPoll(pollId);
+    if (!poll || poll.guild_id !== guildId) throw new Error('Poll not found.');
+    if (poll.status !== 'open') throw new Error('This poll is already closed.');
+    if (endsAt != null) {
+      const ts = new Date(endsAt).getTime();
+      if (!Number.isFinite(ts)) throw new Error('That end time is not valid.');
+      if (ts <= Date.now()) throw new Error('The end time must be in the future.');
+      endsAt = new Date(ts).toISOString();
+    }
+    await updateWhere('visual_polls',
+      { ends_at: endsAt, settings: { ...poll.settings, ends_at: endsAt } },
+      (table) => (table as any).eq('id', pollId));
+    poll.ends_at = endsAt;
+    poll.settings = { ...poll.settings, ends_at: endsAt };
+    await this.refreshPollMessage(poll);
+    return poll;
+  }
+
+  /**
+   * Shifts a poll's end time by `deltaMs` (positive extends, negative
+   * shortens). Polls with no timer get one starting now. Throws when the
+   * result would land in the past.
+   */
+  async shiftEndsAt(pollId: string, guildId: string, deltaMs: number): Promise<PollRow> {
+    const poll = await this.getPoll(pollId);
+    if (!poll || poll.guild_id !== guildId) throw new Error('Poll not found.');
+    if (poll.status !== 'open') throw new Error('This poll is already closed.');
+    if (!Number.isFinite(deltaMs) || deltaMs === 0) throw new Error('Nothing to shift.');
+    const base = poll.ends_at ? new Date(poll.ends_at).getTime() : Date.now();
+    if (!Number.isFinite(base)) throw new Error('That end time is not valid.');
+    const next = base + deltaMs;
+    if (next <= Date.now()) throw new Error('That would end the poll in the past — use End now instead.');
+    return this.setEndsAt(pollId, guildId, new Date(next).toISOString());
   }
 
   /**

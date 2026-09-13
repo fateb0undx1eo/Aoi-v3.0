@@ -27,7 +27,11 @@ export async function pollRoutes(instance: FastifyInstance, opts: { deps: Deps }
   instance.get('/:guildId', { preHandler: guildAccessHook }, async (request: FastifyRequest, reply: FastifyReply) => {
     const guildId = String((request.params as Record<string, string>).guildId);
     const polls = await visualPollService.listPolls(guildId);
-    return reply.status(200).send({ polls });
+    const withTotals = await Promise.all(polls.map(async (poll) => ({
+      poll,
+      totals: await visualPollService.totals(poll),
+    })));
+    return reply.status(200).send({ polls: withTotals });
   });
 
   instance.get('/:guildId/:pollId', { preHandler: guildAccessHook }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -117,12 +121,40 @@ export async function pollRoutes(instance: FastifyInstance, opts: { deps: Deps }
       const guildId = String((request.params as Record<string, string>).guildId);
       const pollId = String((request.params as Record<string, string>).pollId);
       const body = request.body as Record<string, any>;
+
+      // End-time controls: { ends_at } sets/clears, { shift_ms } extends/shortens.
+      if ('ends_at' in (body ?? {}) || 'shift_ms' in (body ?? {})) {
+        const shift = body?.shift_ms;
+        const poll = shift !== undefined && shift !== null
+          ? await visualPollService.shiftEndsAt(pollId, guildId, Number(shift))
+          : await visualPollService.setEndsAt(
+              pollId,
+              guildId,
+              body?.ends_at == null || body.ends_at === '' ? null : String(body.ends_at)
+            );
+        const totals = await visualPollService.totals(poll);
+        return reply.status(200).send({ ok: true, poll, totals });
+      }
+
       const status = String(body?.status ?? '');
       if (status !== 'open' && status !== 'closed') {
         return sendError(reply, 400, 'Status must be open or closed');
       }
+      // Manual close finalizes like the expiry sweep: bake tally, delete rows.
+      if (status === 'closed') {
+        const poll = await visualPollService.getPoll(pollId);
+        if (!poll || poll.guild_id !== guildId) {
+          return sendError(reply, 404, 'Poll not found');
+        }
+        if (poll.status !== 'open') {
+          return sendError(reply, 400, 'This poll is already closed.');
+        }
+        await visualPollService.finalizePoll(poll);
+        return reply.status(200).send({ ok: true, poll: { ...poll, status: 'closed' as const }, totals: [] });
+      }
       const poll = await visualPollService.setStatus(pollId, guildId, status);
-      return reply.status(200).send({ ok: true, poll });
+      const totals = await visualPollService.totals(poll);
+      return reply.status(200).send({ ok: true, poll, totals });
     } catch (error: any) {
       return sendError(reply, 400, error instanceof Error ? error.message : 'Failed to update poll');
     }

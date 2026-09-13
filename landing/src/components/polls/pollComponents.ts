@@ -61,10 +61,6 @@ export function buildPreviewComponents(
 
   const instructions: string[] = [];
   if (settings.instructions) instructions.push(settings.instructions);
-  if (settings.ends_at) {
-    const ts = Math.floor(new Date(settings.ends_at).getTime() / 1000);
-    if (Number.isFinite(ts)) instructions.push(`Ends <t:${ts}:R>`);
-  }
   if (!isMusic && settings.vote_method === "reactions") {
     instructions.push("React with your choice below.");
   }

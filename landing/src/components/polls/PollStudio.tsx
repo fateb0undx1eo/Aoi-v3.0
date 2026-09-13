@@ -29,13 +29,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 import type { PollDraft, PollOptionDraft, ShowResults, VoteMethod } from "./types";
 import { POLL_TYPE_META, createDefaultDraft } from "./types";
 import { buildPreviewComponents } from "./pollComponents";
 import { renderVsCardPreview, renderTrackCardPreview } from "./vsCard";
+import PollManager from "./PollManager";
 
 function CropModal({
   dataUrl,
@@ -568,6 +569,7 @@ export default function PollStudio({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? "Failed to create poll");
+      setManageSignal((n) => n + 1);
       const poll = json?.poll;
       const link = poll?.message_id
         ? `https://discord.com/channels/${guildId}/${poll.channel_id}/${poll.message_id}`
@@ -607,8 +609,22 @@ export default function PollStudio({
   };
 
   const readyLabel = canSend ? "Ready to send" : "Not ready yet";
+  const [activeTab, setActiveTab] = useState("create");
+  const [manageSignal, setManageSignal] = useState(0);
+
+  const channelNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const channel of channels) map[channel.id] = channel.name;
+    return map;
+  }, [channels]);
 
   return (
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0">
+      <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsTrigger value="create">Create</TabsTrigger>
+        <TabsTrigger value="manage">Manage</TabsTrigger>
+      </TabsList>
+      <TabsContent value="create" className="mt-5 min-w-0">
     <div className="grid grid-cols-1 items-start gap-5 md:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,400px)]">
       <div className="flex min-w-0 flex-col gap-5 md:gap-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -1073,5 +1089,24 @@ export default function PollStudio({
         />
       ) : null}
     </div>
+      </TabsContent>
+      <TabsContent value="manage" className="mt-5 min-w-0">
+        <div className="grid grid-cols-1 items-start gap-5 md:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,400px)]">
+          <PollManager guildId={guildId} channelNames={channelNames} refreshSignal={manageSignal} />
+          <Card className="min-w-0 xl:sticky xl:top-4">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">About managing</CardTitle>
+              <CardDescription>What each control does.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
+              <p><span className="font-medium text-foreground">Adjust</span> shifts the close timer — extend a 12h poll by +12h, or shorten it with −1h.</p>
+              <p><span className="font-medium text-foreground">End now</span> closes immediately, bakes the final tally into the Discord message, and removes the rows from the database.</p>
+              <p><span className="font-medium text-foreground">Reopen</span> puts a closed poll back to open with its existing votes.</p>
+              <p><span className="font-medium text-foreground">Delete</span> removes the Discord message and all its data.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </TabsContent>
+    </Tabs>
   );
 }

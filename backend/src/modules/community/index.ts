@@ -1,5 +1,6 @@
 import { COMMUNITY_SCHEMA } from './helpers.js';
 import profileCommand from './commands/profile.js';
+import musicPollCommand from './commands/musicPoll.js';
 import memesAutopostCommand from './commands/memesAutopost.js';
 import guildMemberAddEvent from './events/guildMemberAdd.js';
 import guildMemberRemoveEvent from './events/guildMemberRemove.js';
@@ -14,6 +15,6 @@ import pollReactionsRemoveEvent from './events/pollReactionsRemove.js';
 export default {
   name: 'community',
   configSchema: COMMUNITY_SCHEMA,
-  commands: [profileCommand, memesAutopostCommand],
+  commands: [profileCommand, musicPollCommand, memesAutopostCommand],
   events: [guildMemberAddEvent, guildMemberRemoveEvent, guildMemberBoostEvent, messageCreateEvent, memeAutopostButtonsEvent, profileModalEvent, pollInteractionsEvent, pollReactionsAddEvent, pollReactionsRemoveEvent]
 };

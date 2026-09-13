@@ -51,91 +51,110 @@ function extractDuration(html: string): number | null {
   return null;
 }
 
+export interface TrackMetadata {
+  ok: true;
+  title: string;
+  thumbnail_url: string | null;
+  artist: string | null;
+  album: string | null;
+  duration: number | null;
+  provider_name: 'Spotify' | 'YouTube';
+}
+
 /**
- * Public track-metadata proxy (no auth). Resolves Spotify / YouTube track data
- * so the studio can show a song name + cover + artist without exposing keys or
- * hitting CORS in the browser.
+ * Shared Spotify / YouTube track resolver used by both the oEmbed HTTP
+ * route and the /music slash command.
  *
  * Spotify: scrapes the track page's Open Graph tags (which include the artist +
  * album in `og:description`), exactly like Discord does — no Web API / Premium needed.
  * YouTube: uses oEmbed and infers the artist from "Artist - Title" when present.
+ */
+export async function resolveTrackMetadata(url: string): Promise<TrackMetadata> {
+  const isSpotify = /open\.spotify\.com\/(track|album|playlist|episode|show)\/([a-zA-Z0-9]+)/i.test(url);
+
+  if (isSpotify) {
+    try {
+      const pageRes = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      if (pageRes.ok) {
+        const html = await pageRes.text();
+        const title = metaContent(html, 'og:title');
+        const description = metaContent(html, 'og:description');
+        const thumbnail = metaContent(html, 'og:image');
+        if (title || thumbnail) {
+          const parts = (description ?? '').split('·').map((p) => p.trim()).filter(Boolean);
+          const artist = parts[0] ?? null;
+          const album = parts.length > 1 ? (parts[1] ?? null) : null;
+          const duration = extractDuration(html);
+          return {
+            ok: true,
+            title: (title ?? '').slice(0, 80),
+            thumbnail_url: thumbnail ?? null,
+            artist,
+            album,
+            duration,
+            provider_name: 'Spotify',
+          };
+        }
+      }
+    } catch {
+      /* fall through to oembed */
+    }
+    // Fallback to oEmbed if the page scrape failed.
+    const res = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
+    if (!res.ok) throw new Error('Could not fetch track info');
+    const data = (await res.json()) as Record<string, any>;
+    return {
+      ok: true,
+      title: String(data?.title ?? '').slice(0, 80),
+      thumbnail_url: typeof data?.thumbnail_url === 'string' ? data.thumbnail_url : null,
+      artist: null,
+      album: null,
+      duration: null,
+      provider_name: 'Spotify',
+    };
+  }
+
+  // YouTube
+  const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`, {
+    headers: { 'User-Agent': 'Mozilla/5.0' },
+  });
+  if (!res.ok) throw new Error('Could not fetch track info');
+  const data = (await res.json()) as Record<string, any>;
+  const title = String(data?.title ?? '');
+  const dash = title.split(' - ');
+  const artist = dash.length > 1 ? (dash[0]?.trim() ?? null) : null;
+  const songTitle = dash.length > 1 ? dash.slice(1).join(' - ').trim() : title;
+  let duration: number | null = null;
+  try {
+    const pageRes = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (pageRes.ok) duration = extractDuration(await pageRes.text());
+  } catch {
+    /* duration is best-effort */
+  }
+  return {
+    ok: true,
+    title: songTitle.slice(0, 80),
+    thumbnail_url: typeof data?.thumbnail_url === 'string' ? data.thumbnail_url : null,
+    artist,
+    album: null,
+    duration,
+    provider_name: 'YouTube',
+  };
+}
+
+/**
+ * Public track-metadata proxy (no auth). Resolves Spotify / YouTube track data
+ * so the studio can show a song name + cover + artist without exposing keys or
+ * hitting CORS in the browser.
  */
 export async function oembedRoutes(instance: FastifyInstance): Promise<void> {
   instance.get('/oembed', {}, async (request: FastifyRequest, reply: FastifyReply) => {
     const url = String((request.query as Record<string, string>).url ?? '').trim();
     if (!url) return reply.status(400).send({ error: 'Missing url' });
     try {
-      const isSpotify = /open\.spotify\.com\/(track|album|playlist|episode|show)\/([a-zA-Z0-9]+)/i.test(url);
-
-      if (isSpotify) {
-        try {
-          const pageRes = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-          if (pageRes.ok) {
-            const html = await pageRes.text();
-            const title = metaContent(html, 'og:title');
-            const description = metaContent(html, 'og:description');
-            const thumbnail = metaContent(html, 'og:image');
-             if (title || thumbnail) {
-               const parts = (description ?? '').split('·').map((p) => p.trim()).filter(Boolean);
-               const artist = parts[0] ?? null;
-               const album = parts.length > 1 ? (parts[1] ?? null) : null;
-               const duration = extractDuration(html);
-               return reply.status(200).send({
-                 ok: true,
-                 title: (title ?? '').slice(0, 80),
-                 thumbnail_url: thumbnail ?? null,
-                 artist,
-                 album,
-                 duration,
-                 provider_name: 'Spotify',
-               });
-             }
-          }
-        } catch {
-          /* fall through to oembed */
-        }
-        // Fallback to oEmbed if the page scrape failed.
-        const res = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`, {
-          headers: { 'User-Agent': 'Mozilla/5.0' },
-        });
-        if (!res.ok) return reply.status(502).send({ error: 'Could not fetch track info' });
-        const data = (await res.json()) as Record<string, any>;
-        return reply.status(200).send({
-          ok: true,
-          title: String(data?.title ?? '').slice(0, 80),
-          thumbnail_url: typeof data?.thumbnail_url === 'string' ? data.thumbnail_url : null,
-          artist: null,
-          album: null,
-          provider_name: 'Spotify',
-        });
-      }
-
-      // YouTube
-      const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-      });
-      if (!res.ok) return reply.status(502).send({ error: 'Could not fetch track info' });
-      const data = (await res.json()) as Record<string, any>;
-      const title = String(data?.title ?? '');
-      const dash = title.split(' - ');
-      const artist = dash.length > 1 ? (dash[0]?.trim() ?? null) : null;
-      const songTitle = dash.length > 1 ? dash.slice(1).join(' - ').trim() : title;
-      let duration: number | null = null;
-      try {
-        const pageRes = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        if (pageRes.ok) duration = extractDuration(await pageRes.text());
-      } catch {
-        /* duration is best-effort */
-      }
-      return reply.status(200).send({
-        ok: true,
-        title: songTitle.slice(0, 80),
-        thumbnail_url: typeof data?.thumbnail_url === 'string' ? data.thumbnail_url : null,
-        artist,
-        album: null,
-        duration,
-        provider_name: 'YouTube',
-      });
+      return reply.status(200).send(await resolveTrackMetadata(url));
     } catch (error: any) {
       return reply.status(502).send({ error: error instanceof Error ? error.message : 'Track fetch failed' });
     }
