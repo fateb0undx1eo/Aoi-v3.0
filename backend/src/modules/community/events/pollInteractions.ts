@@ -2,6 +2,7 @@ import { MessageFlags } from 'discord.js';
 import type { ButtonInteraction } from 'discord.js';
 import type { BotContext, InteractionResult } from '../../../types/index.js';
 import { POLL_VOTE_CUSTOM_ID, buildPollComponents } from '../../../services/visualPollService.js';
+import { logger } from '../../../utils/logger.js';
 
 /**
  * Handles vote buttons on visual polls. Custom id shape:
@@ -24,8 +25,13 @@ export default {
     let poll;
     try {
       poll = await services.visualPollService.getPoll(pollId);
-    } catch {
-      // DB lookup failed (not "no row") — say so instead of blaming the poll.
+    } catch (error: any) {
+      // DB lookup failed (not "no row") — log the real cause server-side.
+      logger.warn({
+        pollId,
+        guildId: interaction.guildId,
+        error: error?.cause?.message ?? error?.message ?? String(error),
+      }, 'visual poll: vote lookup failed');
       return { type: 'REPLY' as const, message: 'Could not reach the poll database — try again in a moment.', ephemeral: true };
     }
     // Finalized (deleted) polls keep their baked "Final — …" message.
