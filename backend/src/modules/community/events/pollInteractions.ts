@@ -4,6 +4,25 @@ import type { BotContext, InteractionResult } from '../../../types/index.js';
 import { POLL_VOTE_CUSTOM_ID, buildPollComponents } from '../../../services/visualPollService.js';
 import { logger } from '../../../utils/logger.js';
 
+function stringifyCause(value: any): string {
+  if (typeof value === 'string') return value;
+  try {
+    const seen = new WeakSet();
+    const json = JSON.stringify(value, (_key, val) => {
+      if (val instanceof Error) return { name: val.name, message: val.message, stack: val.stack };
+      if (typeof val === 'object' && val !== null) {
+        if (seen.has(val)) return '[circular]';
+        seen.add(val);
+      }
+      return val;
+    });
+    if (json && json !== '{}') return json;
+  } catch {
+    /* fall through to String() */
+  }
+  return String(value);
+}
+
 /**
  * Handles vote buttons on visual polls. Custom id shape:
  *   vp:vote:<pollId>:<optionId>
@@ -31,7 +50,7 @@ export default {
       const cause: any = error?.cause ?? error;
       logger.warn(
         `visual poll: vote lookup failed pollId=${pollId} guildId=${interaction.guildId} ` +
-          `error=${cause?.message ?? cause?.details ?? cause?.hint ?? String(cause)}`
+          `error=${cause?.message ?? cause?.details ?? cause?.hint ?? stringifyCause(cause)}`
       );
       return { type: 'REPLY' as const, message: 'Could not reach the poll database — try again in a moment.', ephemeral: true };
     }
