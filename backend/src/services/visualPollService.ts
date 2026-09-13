@@ -1,6 +1,7 @@
 import { MessageFlags } from 'discord.js';
 import type { Client, TextBasedChannel, Message } from 'discord.js';
 import { fetchMany, fetchOne, upsertRows, updateWhere, deleteWhere } from '../database/repository.js';
+import { broadcastPollEvent } from '../api/pollSocketServer.js';
 import { logger } from '../utils/logger.js';
 import { renderVsCard, renderTrackCard, type VsCardOption } from './pollCanvas.js';
 import type { UploadService } from './upload/uploadService.js';
@@ -452,6 +453,7 @@ export class VisualPollService {
     }
 
     logger.info({ guildId, pollId: pollRow.id, channelId }, 'visual poll: created');
+    this.emitPollEvent(pollRow, 'update', []);
     return pollRow;
   }
 
@@ -498,6 +500,24 @@ export class VisualPollService {
     return results;
   }
 
+  private emitPollEvent(
+    poll: PollRow,
+    event: 'update' | 'finalized' | 'deleted',
+    totals?: Array<{ option_id: string; count: number; pct: number }>
+  ): void {
+    try {
+      broadcastPollEvent({
+        pollId: poll.id,
+        guildId: poll.guild_id,
+        event,
+        poll: event === 'update' ? (poll as unknown as Record<string, any>) : null,
+        totals,
+      });
+    } catch (error: any) {
+      logger.debug({ pollId: poll.id, error: error?.message }, 'visual poll: socket emit failed');
+    }
+  }
+
   /**
    * Records (or toggles) a user's vote and refreshes the poll message.
    * Returns updated totals. Throws when the poll is closed or already
@@ -507,9 +527,11 @@ export class VisualPollService {
     const poll = await this.getPoll(pollId);
     if (!poll || poll.guild_id !== guildId) throw new Error('Poll not found.');
     if (poll.status !== 'open') throw new Error('This poll is closed.');
+    // Expired polls are finalized (baked + rows deleted) by the sweeper /
+    // End-now path — finalize here too instead of leaving a dead closed row.
     if (poll.ends_at && new Date(poll.ends_at).getTime() < Date.now()) {
-      await updateWhere('visual_polls', { status: 'closed' }, (table) => (table as any).eq('id', poll.id));
-      throw new Error('This poll has ended.');
+      await this.finalizePoll(poll).catch(() => null);
+      throw new Error('This poll has ended — final results are shown above.');
     }
 
     const baseOptionId = optionId.includes(':') ? optionId.split(':')[0] : optionId;
@@ -572,6 +594,7 @@ export class VisualPollService {
     }
 
     await this.recomputeResults(poll);
+    this.emitPollEvent(poll, 'update', await this.totals(poll).catch(() => []));
     return poll;
   }
 
@@ -585,6 +608,7 @@ export class VisualPollService {
       (table as any).eq('poll_id', pollId).eq('user_id', userId)
     );
     await this.recomputeResults(poll);
+    this.emitPollEvent(poll, 'update', await this.totals(poll).catch(() => []));
     return poll;
   }
 
@@ -612,6 +636,7 @@ export class VisualPollService {
     await updateWhere('visual_polls', { status }, (table) => (table as any).eq('id', pollId));
     poll.status = status;
     await this.refreshPollMessage(poll);
+    this.emitPollEvent(poll, 'update', await this.totals(poll).catch(() => []));
     return poll;
   }
 
@@ -636,6 +661,7 @@ export class VisualPollService {
     poll.ends_at = endsAt;
     poll.settings = { ...poll.settings, ends_at: endsAt };
     await this.refreshPollMessage(poll);
+    this.emitPollEvent(poll, 'update', await this.totals(poll).catch(() => []));
     return poll;
   }
 
@@ -715,6 +741,7 @@ export class VisualPollService {
     } catch {}
     await deleteWhere('visual_poll_votes', (table) => (table as any).eq('poll_id', poll.id));
     await deleteWhere('visual_polls', (table) => (table as any).eq('id', poll.id));
+    this.emitPollEvent({ ...poll, status: 'closed' }, 'finalized');
     logger.info({ pollId: poll.id, tally }, 'visual poll: finalized and removed');
   }
 
@@ -751,6 +778,7 @@ export class VisualPollService {
     // the cleanup working even on databases without the FK cascade.
     await deleteWhere('visual_poll_votes', (table) => (table as any).eq('poll_id', pollId));
     await deleteWhere('visual_polls', (table) => (table as any).eq('id', pollId));
+    this.emitPollEvent(poll, 'deleted');
   }
 
   async totals(poll: PollRow): Promise<PollTotals[]> {

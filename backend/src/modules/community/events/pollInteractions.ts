@@ -21,10 +21,19 @@ export default {
       return { type: 'REPLY' as const, message: 'That poll action is not valid anymore.', ephemeral: true };
     }
 
-    // Finalized (deleted) polls keep their baked "Final — …" message; nudge instead of erroring.
-    const poll = await services.visualPollService.getPoll(pollId).catch(() => null);
+    let poll;
+    try {
+      poll = await services.visualPollService.getPoll(pollId);
+    } catch {
+      // DB lookup failed (not "no row") — say so instead of blaming the poll.
+      return { type: 'REPLY' as const, message: 'Could not reach the poll database — try again in a moment.', ephemeral: true };
+    }
+    // Finalized (deleted) polls keep their baked "Final — …" message.
     if (!poll) {
       return { type: 'REPLY' as const, message: 'This poll has ended — final results are shown above.', ephemeral: true };
+    }
+    if (poll.status !== 'open') {
+      return { type: 'REPLY' as const, message: 'This poll is closed.', ephemeral: true };
     }
     if (poll.guild_id !== interaction.guildId) {
       return { type: 'REPLY' as const, message: 'This poll could not be found.', ephemeral: true };

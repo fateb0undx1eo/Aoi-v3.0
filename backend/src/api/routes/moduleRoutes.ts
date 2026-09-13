@@ -151,9 +151,10 @@ export async function moduleRoutes(instance: FastifyInstance, opts: { deps: Deps
     const body = request.body as Record<string, any>;
     const enabled = body.enabled ?? true;
     const overrides = body.overrides ?? {};
+    // command_configs is keyed by (guild_id, command_name) — module_name is
+    // not a column there, so it must not be part of the upsert payload.
     await configService.upsertCommandConfig({
       guild_id: guildId,
-      module_name: moduleName,
       command_name: commandName,
       enabled,
       overrides,

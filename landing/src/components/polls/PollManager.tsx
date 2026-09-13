@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ExternalLink,
   Hourglass,
@@ -102,15 +102,112 @@ export default function PollManager({
     void fetchPolls();
   }, [fetchPolls, refreshSignal]);
 
-  // Live ticking: countdown labels + auto-refresh list every 10s.
+  // Countdown labels tick locally every second (no network).
   useEffect(() => {
     const clock = setInterval(() => setNow(Date.now()), 1_000);
-    const refresher = setInterval(() => void fetchPolls(), 10_000);
+    return () => clearInterval(clock);
+  }, []);
+
+  const [liveState, setLiveState] = useState<"connecting" | "live" | "offline">("connecting");
+  const socketRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const cancelledRef = useRef(false);
+
+  useEffect(() => {
+    cancelledRef.current = false;
     return () => {
-      clearInterval(clock);
-      clearInterval(refresher);
+      cancelledRef.current = true;
     };
-  }, [fetchPolls]);
+  }, []);
+
+  // Live vote/result stream over the poll socket. Falls back to a 30s
+  // refresh when the socket is unreachable; every reconnect re-syncs.
+  useEffect(() => {
+    if (!guildId) return;
+
+    const cleanupSocket = () => {
+      if (socketRef.current) {
+        socketRef.current.close();
+        socketRef.current = null;
+      }
+      if (reconnectTimerRef.current != null) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    };
+
+    const scheduleReconnect = () => {
+      if (cancelledRef.current) return;
+      const attempt = Math.min(reconnectAttemptsRef.current + 1, 5);
+      reconnectAttemptsRef.current = attempt;
+      const delay = Math.min(2500 * attempt, 15000);
+      reconnectTimerRef.current = setTimeout(connect, delay);
+    };
+
+    async function connect() {
+      cleanupSocket();
+      setLiveState("connecting");
+      try {
+        const response = await fetch(`/api/dashboard/guild/${guildId}/poll-socket-ticket`, {
+          method: "POST",
+        });
+        if (!response.ok) throw new Error("Failed to create realtime connection");
+        const data = await response.json();
+        if (!data?.ticket || !data?.wsUrl) throw new Error("Invalid realtime connection payload");
+
+        const socket = new WebSocket(`${data.wsUrl}?ticket=${encodeURIComponent(data.ticket)}`);
+        socketRef.current = socket;
+
+        socket.onopen = () => {
+          reconnectAttemptsRef.current = 0;
+          setLiveState("live");
+          // Re-sync on every (re)connect so nothing is missed while offline.
+          void fetchPolls();
+        };
+
+        socket.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            if (message?.type !== "poll:update" || !message?.pollId) return;
+            const incomingPoll = (message.poll ?? null) as PollRow | null;
+            const incomingTotals = (message.totals ?? []) as PollTotals[];
+            if (message.event === "finalized" || message.event === "deleted") {
+              setPolls((prev) => prev.filter((entry) => entry.poll.id !== message.pollId));
+              return;
+            }
+            if (!incomingPoll) return;
+            setPolls((prev) => {
+              const exists = prev.some((entry) => entry.poll.id === message.pollId);
+              const next = { poll: incomingPoll, totals: incomingTotals };
+              return exists
+                ? prev.map((entry) => (entry.poll.id === message.pollId ? next : entry))
+                : [next, ...prev];
+            });
+          } catch {
+            /* ignore malformed frames */
+          }
+        };
+
+        socket.onerror = () => setLiveState("offline");
+        socket.onclose = () => {
+          setLiveState("offline");
+          scheduleReconnect();
+        };
+      } catch {
+        setLiveState("offline");
+        scheduleReconnect();
+      }
+    }
+
+    connect();
+    // Safety net: full re-sync every 60s in case a frame was missed.
+    const safety = setInterval(() => void fetchPolls(), 60_000);
+    return () => {
+      cleanupSocket();
+      clearInterval(safety);
+    };
+  }, [guildId, fetchPolls]);
 
   const mutate = useCallback(
     async (pollId: string, body: Record<string, unknown>, success: string) => {
@@ -411,7 +508,10 @@ export default function PollManager({
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="default">{openPolls.length} open</Badge>
         {closedPolls.length > 0 ? <Badge variant="secondary">{closedPolls.length} closed</Badge> : null}
-        <span className="text-xs text-muted-foreground">Live — votes refresh every 10s.</span>
+        <Badge variant={liveState === "live" ? "default" : "secondary"}>
+          {liveState === "live" ? "Live" : liveState === "connecting" ? "Connecting…" : "Reconnecting…"}
+        </Badge>
+        <span className="text-xs text-muted-foreground">Votes update the instant they land.</span>
       </div>
       {openPolls.map(renderEntry)}
       {closedPolls.length > 0 ? (

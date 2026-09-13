@@ -11,6 +11,7 @@ import * as database from './database/repository.js';
 import { buildApiServer } from './api/server.js';
 import { attachOverviewSocketServer } from './api/overviewSocketServer.js';
 import { attachLogsSocketServer } from './api/logsSocketServer.js';
+import { attachPollSocketServer } from './api/pollSocketServer.js';
 import { logStreamService } from './services/logStreamService.js';
 import { bootstrapRegistry } from './core/loader/bootstrap.js';
 import { JobQueue } from './core/queue/jobQueue.js';
@@ -378,6 +379,7 @@ async function main(): Promise<void> {
       metrics
     });
     attachLogsSocketServer({ server, authService });
+    attachPollSocketServer({ server, authService, accessControlService, metrics });
 
     await fastify.listen({ port: PORT, host: '0.0.0.0' });
     logger.info(`✓ Fastify server listening on port ${PORT}`);
