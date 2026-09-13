@@ -25,6 +25,7 @@ export default {
     const message = (reaction as any)?.message as any;
     if (!message?.guildId || message.author?.id !== (context.client as any)?.user?.id) return;
 
+    // Finalized polls have no row — nothing to remove.
     const poll = await services.visualPollService.getPollByMessageId(message.id).catch(() => null);
     if (!poll || poll.settings.vote_method !== 'reactions') return;
 

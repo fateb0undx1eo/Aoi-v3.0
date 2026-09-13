@@ -151,6 +151,22 @@ function emojiObject(emoji: string | null | undefined): any | null {
   return { name: raw };
 }
 
+/**
+ * Resolves each option's final tally count keyed by label (sonic:3, speed:5)
+ * or by "<label>:listen"/"<label>:skip" for music polls (play:2, skip:7).
+ */
+export function resolveLabelTally(poll: PollRow): Record<string, number> {
+  const byId = new Map(poll.options.map((option) => [option.id, option.label]));
+  const tally: Record<string, number> = {};
+  for (const [optionId, count] of Object.entries(poll.results)) {
+    const [baseId, side] = String(optionId).split(':');
+    const label = byId.get(baseId ?? '') ?? baseId ?? '';
+    const key = side ? `${label}:${side}` : label;
+    tally[key] = (tally[key] || 0) + (Number(count) || 0);
+  }
+  return tally;
+}
+
 function computeTotals(poll: PollRow, results: Record<string, number>): PollTotals[] {
   const total = Object.values(results).reduce((sum, value) => sum + (Number(value) || 0), 0);
   return poll.options.map((option) => ({
@@ -179,7 +195,11 @@ function buildResultBar(pct: number): string {
 
 // ─── V2 component builders ─────────────────────────────────────
 
-export function buildPollComponents(poll: PollRow, results?: Record<string, number>): any[] {
+export function buildPollComponents(
+  poll: PollRow,
+  results?: Record<string, number>,
+  bakedTally?: Record<string, number> | null
+): any[] {
   const settings = poll.settings;
   const totals = computeTotals(poll, results ?? poll.results);
   const showResults = settings.show_results === 'always'
@@ -242,6 +262,9 @@ export function buildPollComponents(poll: PollRow, results?: Record<string, numb
     }
   } else if (showResults) {
     children.push({ type: 10, content: 'No votes yet — be the first!' });
+  } else if (bakedTally && Object.keys(bakedTally).length > 0) {
+    const bits = Object.entries(bakedTally).map(([label, count]) => `${label}:${count}`);
+    children.push({ type: 10, content: `Final — ${bits.join(' • ')}` });
   }
 
   if (settings.vote_method === 'buttons') {
@@ -594,10 +617,12 @@ export class VisualPollService {
   }
 
   /**
-   * Closes every open poll whose end time has passed and refreshes its
-   * Discord message (disables buttons, shows closed state + final results).
-   * Safe to run on a timer — polls already closed are never touched.
-   * Returns the number of polls that were closed.
+   * Finalizes every open poll whose end time has passed: bakes the final
+   * tally (label:count per option, or label:listen/label:skip for music)
+   * into the Discord message, edits the message to its closed state, then
+   * deletes the poll + votes rows so Supabase stays lean. Safe to run on a
+   * timer — polls already closed are never touched. Returns the count
+   * of polls that were finalized.
    */
   async closeExpiredPolls(now: Date = new Date()): Promise<number> {
     const rows = await fetchMany<any>('visual_polls', (table) =>
@@ -613,18 +638,44 @@ export class VisualPollService {
       const poll = parsePollRow(raw);
       if (!poll || poll.status !== 'open') continue;
       try {
-        await updateWhere('visual_polls', { status: 'closed' }, (table) => (table as any).eq('id', poll.id));
-        poll.status = 'closed';
-        await this.refreshPollMessage(poll);
+        await this.finalizePoll(poll);
         closed += 1;
       } catch (error: any) {
         logger.warn({ pollId: poll.id, error: error?.message }, 'visual poll: scheduled close failed');
       }
     }
     if (closed > 0) {
-      logger.info({ closed }, 'visual poll: closed expired polls');
+      logger.info({ closed }, 'visual poll: finalized expired polls');
     }
     return closed;
+  }
+
+  /**
+   * Bakes a poll's final results into its Discord message ("Final —
+   * sonic:3 • speed:5" or "Final — track:listen:2 • track:skip:7"), marks
+   * the message closed (buttons disabled), then removes the poll and its
+   * votes from Supabase. The message keeps working statelessly — later
+   * votes or reactions find no row and are ignored with a nudge.
+   */
+  async finalizePoll(poll: PollRow): Promise<void> {
+    const tally = resolveLabelTally(poll);
+    poll.status = 'closed';
+    try {
+      const guild = await this.resolveGuild(poll.guild_id);
+      const channel = guild ? await this.resolveChannel(guild, poll.channel_id) : null;
+      const message = channel && poll.message_id
+        ? await (channel as any).messages.fetch(poll.message_id).catch(() => null)
+        : null;
+      if (message) {
+        await message.edit({
+          flags: Number(MessageFlags.IsComponentsV2),
+          components: buildPollComponents(poll, poll.results, tally),
+        }).catch(() => null);
+      }
+    } catch {}
+    await deleteWhere('visual_poll_votes', (table) => (table as any).eq('poll_id', poll.id));
+    await deleteWhere('visual_polls', (table) => (table as any).eq('id', poll.id));
+    logger.info({ pollId: poll.id, tally }, 'visual poll: finalized and removed');
   }
 
   /**
@@ -656,6 +707,8 @@ export class VisualPollService {
         }
       } catch {}
     }
+    // Votes cascade off the poll row automatically; explicit delete keeps
+    // the cleanup working even on databases without the FK cascade.
     await deleteWhere('visual_poll_votes', (table) => (table as any).eq('poll_id', pollId));
     await deleteWhere('visual_polls', (table) => (table as any).eq('id', pollId));
   }

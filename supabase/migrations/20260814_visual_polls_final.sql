@@ -1,6 +1,12 @@
--- Visual Poll Studio — poll definitions and per-user votes
--- Polls are sent to Discord as Components V2 messages; votes come back via
--- button interactions (community module) or emoji reactions.
+-- Visual Polls — single merged migration (replaces
+-- 20260812_create_visual_polls.sql + 20260813_allow_music_poll_type.sql).
+-- Run this once in the Supabase SQL editor.
+--
+-- Model: polls are TEMPORARY rows. When a poll ends (expiry sweep) or is
+-- deleted from the dashboard, the bot bakes the final tally into the
+-- Discord message ("Final — sonic:3 • speed:5" or
+-- "Final — track:listen:2 • track:skip:7") and deletes the poll + votes
+-- rows, so these tables only ever hold OPEN polls. Nothing to prune by hand.
 
 create table if not exists visual_polls (
   id uuid primary key default gen_random_uuid(),
@@ -13,6 +19,12 @@ create table if not exists visual_polls (
   subtitle text not null default '',
   options jsonb not null default '[]'::jsonb,
   settings jsonb not null default '{}'::jsonb,
+  -- Raw counters keyed by internal option ids. The bot reads these at close
+  -- time and resolves them to label tallies before deleting the row:
+  --   versus  -> { "<label>": <votes> }            e.g. sonic:3, speed:5
+  --   music   -> { "<label>:listen"/":skip" }      e.g. track:listen:2, track:skip:7
+  -- Labels are placeholders resolved at close time — whatever the user
+  -- named each option is what shows in the baked "Final — …" line.
   results jsonb not null default '{}'::jsonb,
   status text not null default 'open' check (status in ('open', 'closed')),
   media_url text,
@@ -21,11 +33,26 @@ create table if not exists visual_polls (
   ends_at timestamptz
 );
 
-create index idx_visual_polls_guild on visual_polls(guild_id);
-create index idx_visual_polls_created on visual_polls(guild_id, created_at desc);
+-- Normalize the type check on databases created by the older files
+-- (20260812 shipped a narrower check; 20260813 widened it via alter).
+-- On a fresh DB this just names the check the create-table already implies.
+alter table visual_polls
+  drop constraint if exists visual_polls_type_check;
 
--- One row per user per poll. option_ids reflects the final selection
--- (single option for single-select polls, array for multi-select).
+alter table visual_polls
+  add constraint visual_polls_type_check
+  check (type in ('vs', 'music'));
+
+alter table visual_polls
+  alter column type set default 'vs';
+
+create index if not exists idx_visual_polls_guild on visual_polls(guild_id);
+create index if not exists idx_visual_polls_created on visual_polls(guild_id, created_at desc);
+create index if not exists idx_visual_polls_expiry on visual_polls(status, ends_at);
+
+-- One row per user per poll. option_ids holds the raw vote keys
+-- (single option id, array for multi-select, "<id>:listen"/"<id>:skip"
+-- for music polls). Deleted with the poll row via on delete cascade.
 create table if not exists visual_poll_votes (
   poll_id uuid not null references visual_polls(id) on delete cascade,
   guild_id text not null,
@@ -36,14 +63,14 @@ create table if not exists visual_poll_votes (
   primary key (poll_id, user_id)
 );
 
-create index idx_visual_poll_votes_poll on visual_poll_votes(poll_id);
-create index idx_visual_poll_votes_guild on visual_poll_votes(guild_id);
+create index if not exists idx_visual_poll_votes_poll on visual_poll_votes(poll_id);
+create index if not exists idx_visual_poll_votes_guild on visual_poll_votes(guild_id);
 
--- RLS
+-- RLS (bot uses the service key and bypasses these; they gate dashboard keys)
 alter table visual_polls enable row level security;
 alter table visual_poll_votes enable row level security;
 
--- Readers: dashboard_access users of the guild
+drop policy if exists "visual_polls_select" on visual_polls;
 create policy "visual_polls_select" on visual_polls
   for select using (
     auth.uid()::text in (
@@ -51,7 +78,7 @@ create policy "visual_polls_select" on visual_polls
     )
   );
 
--- Writers: owners and managers
+drop policy if exists "visual_polls_insert" on visual_polls;
 create policy "visual_polls_insert" on visual_polls
   for insert with check (
     auth.uid()::text in (
@@ -59,6 +86,7 @@ create policy "visual_polls_insert" on visual_polls
     )
   );
 
+drop policy if exists "visual_polls_update" on visual_polls;
 create policy "visual_polls_update" on visual_polls
   for update using (
     auth.uid()::text in (
@@ -66,6 +94,7 @@ create policy "visual_polls_update" on visual_polls
     )
   );
 
+drop policy if exists "visual_polls_delete" on visual_polls;
 create policy "visual_polls_delete" on visual_polls
   for delete using (
     auth.uid()::text in (
@@ -73,7 +102,7 @@ create policy "visual_polls_delete" on visual_polls
     )
   );
 
--- Votes: anyone with dashboard_access can read; any authenticated user may vote
+drop policy if exists "visual_poll_votes_select" on visual_poll_votes;
 create policy "visual_poll_votes_select" on visual_poll_votes
   for select using (
     auth.uid()::text in (
@@ -81,16 +110,19 @@ create policy "visual_poll_votes_select" on visual_poll_votes
     )
   );
 
+drop policy if exists "visual_poll_votes_insert" on visual_poll_votes;
 create policy "visual_poll_votes_insert" on visual_poll_votes
   for insert with check (
     auth.uid()::text is not null
   );
 
+drop policy if exists "visual_poll_votes_update" on visual_poll_votes;
 create policy "visual_poll_votes_update" on visual_poll_votes
   for update using (
     auth.uid()::text is not null
   );
 
+drop policy if exists "visual_poll_votes_delete" on visual_poll_votes;
 create policy "visual_poll_votes_delete" on visual_poll_votes
   for delete using (
     auth.uid()::text is not null
@@ -105,6 +137,7 @@ begin
 end;
 $$ language plpgsql;
 
+drop trigger if exists update_visual_polls_timestamp_trigger on visual_polls;
 create trigger update_visual_polls_timestamp_trigger
   before update on visual_polls
   for each row
@@ -118,6 +151,7 @@ begin
 end;
 $$ language plpgsql;
 
+drop trigger if exists update_visual_poll_votes_timestamp_trigger on visual_poll_votes;
 create trigger update_visual_poll_votes_timestamp_trigger
   before update on visual_poll_votes
   for each row

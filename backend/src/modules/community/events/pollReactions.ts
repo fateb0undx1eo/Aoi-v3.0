@@ -23,15 +23,26 @@ async function reactOptions(reaction: any, userId: string, context: BotContext, 
   if (!message?.guildId || message.author?.id !== (context.client as any)?.user?.id) return;
   if (!reaction) return;
 
+  // Finalized polls have no row — clean up stray reactions and stop.
   const poll = await services.visualPollService.getPollByMessageId(message.id).catch(() => null);
-  if (!poll) return;
+  if (!poll) {
+    if (action === 'add') {
+      await reaction.users.remove(userId).catch(() => null);
+    }
+    return;
+  }
   if (poll.settings.vote_method !== 'reactions') {
     if (action === 'add') {
       await reaction.users.remove(userId).catch(() => null);
     }
     return;
   }
-  if (poll.status !== 'open') return;
+  if (poll.status !== 'open') {
+    if (action === 'add') {
+      await reaction.users.remove(userId).catch(() => null);
+    }
+    return;
+  }
 
   const raw = normalizeEmoji(reaction);
   if (!raw) return;

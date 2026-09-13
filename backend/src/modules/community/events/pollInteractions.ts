@@ -21,8 +21,12 @@ export default {
       return { type: 'REPLY' as const, message: 'That poll action is not valid anymore.', ephemeral: true };
     }
 
-    const poll = await services.visualPollService.getPoll(pollId);
-    if (!poll || poll.guild_id !== interaction.guildId) {
+    // Finalized (deleted) polls keep their baked "Final — …" message; nudge instead of erroring.
+    const poll = await services.visualPollService.getPoll(pollId).catch(() => null);
+    if (!poll) {
+      return { type: 'REPLY' as const, message: 'This poll has ended — final results are shown above.', ephemeral: true };
+    }
+    if (poll.guild_id !== interaction.guildId) {
       return { type: 'REPLY' as const, message: 'This poll could not be found.', ephemeral: true };
     }
 
