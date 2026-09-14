@@ -16,6 +16,7 @@ import {
 import DiscordPreview from "@/components/announcements/preview/DiscordPreview";
 import { ToastContainer, useToasts } from "@/components/announcements/ToastContainer";
 import type { GuildChannel } from "@/components/announcements/types";
+import { useGuildRoles } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -297,6 +298,51 @@ function endsValueFor(endsAt: string | null): string {
   const diff = new Date(endsAt).getTime() - Date.now();
   const match = ENDS_PRESETS.find((preset) => preset.ms != null && Math.abs(diff - preset.ms) < 60_000);
   return match ? match.value : "custom";
+}
+
+function PingRolePicker({
+  guildId,
+  value,
+  onChange,
+}: {
+  guildId: string;
+  value: string | null;
+  onChange: (roleId: string | null) => void;
+}) {
+  const { data, isLoading } = useGuildRoles(guildId === "dev" ? undefined : guildId);
+  const roles = useMemo(() => {
+    const list = Array.isArray(data?.roles) ? data.roles : [];
+    return list
+      .filter((role) => role.id !== guildId && !role.managed)
+      .sort((a, b) => b.position - a.position);
+  }, [data, guildId]);
+  const selected = roles.find((role) => role.id === value) ?? null;
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor="poll-ping-role">Ping role</Label>
+      <Select
+        value={value ?? "none"}
+        onValueChange={(next) => onChange(next === "none" ? null : next)}
+        disabled={isLoading}
+      >
+        <SelectTrigger id="poll-ping-role">
+          <SelectValue placeholder={isLoading ? "Loading roles…" : "No ping"}>
+            {selected ? `@${selected.name}` : undefined}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">No ping</SelectItem>
+          {roles.map((role) => (
+            <SelectItem key={role.id} value={role.id}>
+              @{role.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <FieldHint>Pinged once as message text outside the poll card.</FieldHint>
+    </div>
+  );
 }
 
 function endsCustomLabel(endsAt: string): string {
@@ -913,6 +959,11 @@ export default function PollStudio({
             <CardDescription>Voting rules, card label, and close timer.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
+            <PingRolePicker
+              guildId={guildId}
+              value={draft.settings.ping_role_id ?? null}
+              onChange={(ping_role_id) => updateSettings({ ping_role_id })}
+            />
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
                 <Label htmlFor="poll-vote-method">Vote method</Label>

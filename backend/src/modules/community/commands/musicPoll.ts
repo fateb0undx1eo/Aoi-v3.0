@@ -59,6 +59,12 @@ export default {
           description: 'When voting closes: never, 30m, 12h, 3d, 2w …',
           required: false,
         },
+        {
+          name: 'role',
+          type: 8,
+          description: 'Role to ping outside the poll message',
+          required: false,
+        },
       ],
     },
   ],
@@ -112,6 +118,8 @@ export default {
     }
 
     const endsAt = delayMs != null ? new Date(Date.now() + delayMs).toISOString() : null;
+    const pingRole = interaction.options.getRole('role');
+    const pingRoleId = pingRole?.id && /^\d{10,25}$/.test(pingRole.id) ? pingRole.id : null;
 
     try {
       const poll = await services.visualPollService.createPoll(
@@ -141,6 +149,7 @@ export default {
             background_bottom: '#1b1b23',
             ends_at: endsAt,
             instructions: '',
+            ping_role_id: pingRoleId,
           },
         },
         interaction.user.id

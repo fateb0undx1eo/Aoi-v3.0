@@ -23,6 +23,7 @@ export interface PollSettingsDraft {
   background_bottom: string;
   ends_at: string | null;
   instructions?: string;
+  ping_role_id?: string | null;
 }
 
 export interface PollDraft {

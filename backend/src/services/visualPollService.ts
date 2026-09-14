@@ -31,6 +31,7 @@ export interface PollSettings {
   background_bottom: string;
   ends_at: string | null;
   instructions?: string;
+  ping_role_id?: string | null;
 }
 
 export interface PollDraft {
@@ -83,6 +84,7 @@ export const DEFAULT_POLL_SETTINGS: PollSettings = {
   background_bottom: '#1b1b23',
   ends_at: null,
   instructions: '',
+  ping_role_id: null,
 };
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -99,6 +101,9 @@ function normalizeSettings(raw: Partial<PollSettings> | undefined | null): PollS
   if (!/^#[0-9a-f]{6}$/i.test(String(settings.background_bottom ?? ''))) settings.background_bottom = DEFAULT_POLL_SETTINGS.background_bottom;
   settings.ends_at = typeof settings.ends_at === 'string' && settings.ends_at ? settings.ends_at : null;
   settings.instructions = String(settings.instructions ?? '').trim().slice(0, 500);
+  settings.ping_role_id = /^\d{10,25}$/.test(String(settings.ping_role_id ?? '').trim())
+    ? String(settings.ping_role_id).trim()
+    : null;
   return settings;
 }
 
@@ -330,6 +335,31 @@ export function buildPollComponents(
   return [{ type: 17, components: children }];
 }
 
+/**
+ * Builds the full send payload: the container plus an optional role ping
+ * as plain message content OUTSIDE the container. allowedMentions is scoped
+ * to exactly that role so the ping fires and nothing else can.
+ */
+export function buildPollMessage(poll: PollRow, results?: Record<string, number>): {
+  content: string;
+  allowedMentions: { parse: []; roles: string[] } | { parse: [] };
+  components: any[];
+} {
+  const pingRoleId = poll.settings.ping_role_id ?? null;
+  if (pingRoleId) {
+    return {
+      content: `<@&${pingRoleId}>`,
+      allowedMentions: { parse: [], roles: [pingRoleId] },
+      components: buildPollComponents(poll, results),
+    };
+  }
+  return {
+    content: '',
+    allowedMentions: { parse: [] },
+    components: buildPollComponents(poll, results),
+  };
+}
+
 // ─── Service ───────────────────────────────────────────────────
 
 export class VisualPollService {
@@ -468,10 +498,24 @@ export class VisualPollService {
       throw new Error('Poll could not be saved. Try again in a moment.');
     }
     Object.assign(pollRow, savedRow);
+    // Mentionable check: only ping roles the bot is actually allowed to
+    // mention (mentionable flag or manage-roles). Otherwise post silently.
+    if (pollRow.settings.ping_role_id) {
+      try {
+        const role = guild.roles.cache.get(pollRow.settings.ping_role_id)
+          ?? await guild.roles.fetch(pollRow.settings.ping_role_id).catch(() => null);
+        const me = guild.members.me;
+        if (!role || (!role.mentionable && !me?.permissions.has('ManageRoles'))) {
+          pollRow.settings = { ...pollRow.settings, ping_role_id: null };
+        }
+      } catch {
+        pollRow.settings = { ...pollRow.settings, ping_role_id: null };
+      }
+    }
+    const outbound = buildPollMessage(pollRow);
     const sent = await (channel as any).send({
       flags: Number(MessageFlags.IsComponentsV2),
-      components: buildPollComponents(pollRow),
-      allowedMentions: { parse: [] },
+      ...outbound,
     });
     pollRow.message_id = (sent as Message).id;
     await updateWhere('visual_polls', { message_id: pollRow.message_id }, (table) =>
