@@ -337,26 +337,22 @@ export function buildPollComponents(
 
 /**
  * Builds the full send payload: the container plus an optional role ping
- * as plain message content OUTSIDE the container. allowedMentions is scoped
- * to exactly that role so the ping fires and nothing else can.
+ * as a Text Display section OUTSIDE the container (V2 forbids the legacy
+ * top-level `content` field). allowedMentions is scoped to exactly that
+ * role so the ping fires and nothing else can.
  */
 export function buildPollMessage(poll: PollRow, results?: Record<string, number>): {
-  content: string;
   allowedMentions: { parse: []; roles: string[] } | { parse: [] };
   components: any[];
 } {
   const pingRoleId = poll.settings.ping_role_id ?? null;
-  if (pingRoleId) {
-    return {
-      content: `<@&${pingRoleId}>`,
-      allowedMentions: { parse: [], roles: [pingRoleId] },
-      components: buildPollComponents(poll, results),
-    };
-  }
+  const container = buildPollComponents(poll, results)[0];
+  const components = pingRoleId
+    ? [{ type: 10, content: `<@&${pingRoleId}>` }, container]
+    : [container];
   return {
-    content: '',
-    allowedMentions: { parse: [] },
-    components: buildPollComponents(poll, results),
+    allowedMentions: pingRoleId ? { parse: [], roles: [pingRoleId] } : { parse: [] },
+    components,
   };
 }
 
