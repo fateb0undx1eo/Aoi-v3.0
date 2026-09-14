@@ -74,7 +74,7 @@ export default {
       void services.visualPollService.refreshPollMessage(updated).catch(() => null);
       return {
         type: 'REPLY' as const,
-        message: poll.type === 'music' ? 'Thanks for voting! Your vote is final.' : 'Thanks for voting!',
+        message: 'Thanks for voting!',
         ephemeral: true,
       };
     } catch (error: any) {

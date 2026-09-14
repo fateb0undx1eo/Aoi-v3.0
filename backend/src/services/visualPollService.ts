@@ -561,7 +561,8 @@ export class VisualPollService {
     const current = existing[0] as any;
 
     // Music polls: one vote per person, final. Any existing vote (listen or
-    // skip) locks the voter out — no toggling, no switching sides.
+    // skip) locks the voter out, no toggling, no switching sides. The reply
+    // names what they picked, e.g. "You've already voted Skip."
     if (poll.type === 'music' && current) {
       const voted = Array.isArray(current.option_ids)
         ? current.option_ids.map((value: unknown) => String(value))
@@ -571,11 +572,7 @@ export class VisualPollService {
         : voted.some((id: string) => id.endsWith(':skip'))
           ? 'Skip'
           : null;
-      throw new Error(
-        side
-          ? `You've already voted ${side}. Your vote is final.`
-          : 'You have already voted. Your vote is final.'
-      );
+      throw new Error(side ? `You've already voted ${side}.` : 'You have already voted.');
     }
 
     // Non-music polls with multi_select toggle independently.
