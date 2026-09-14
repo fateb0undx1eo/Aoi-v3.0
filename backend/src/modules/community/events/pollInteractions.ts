@@ -1,7 +1,6 @@
-import { MessageFlags } from 'discord.js';
 import type { ButtonInteraction } from 'discord.js';
 import type { BotContext, InteractionResult } from '../../../types/index.js';
-import { POLL_VOTE_CUSTOM_ID, buildPollComponents } from '../../../services/visualPollService.js';
+import { POLL_VOTE_CUSTOM_ID } from '../../../services/visualPollService.js';
 import { logger } from '../../../utils/logger.js';
 
 function stringifyCause(value: any): string {
@@ -66,12 +65,16 @@ export default {
     }
 
     try {
+      // Record the vote (this also edits the poll message with fresh totals
+      // via refreshPollMessage) and thank the voter ephemerally. Never use
+      // interaction.update here — the clicker must not see an "edited" tag.
       const updated = await services.visualPollService.recordVote(pollId, poll.guild_id, interaction.user.id, optionId);
+      void services.visualPollService.refreshPollMessage(updated).catch(() => null);
       return {
-        type: 'UPDATE' as const,
-        components: buildPollComponents(updated),
-        flags: Number(MessageFlags.IsComponentsV2)
-      } as unknown as InteractionResult;
+        type: 'REPLY' as const,
+        message: 'Thanks for voting!',
+        ephemeral: true,
+      };
     } catch (error: any) {
       return {
         type: 'REPLY' as const,

@@ -421,18 +421,14 @@ export class VisualPollService {
       ends_at: settings.ends_at,
     };
 
-    const payload: Record<string, any> = {
-      flags: Number(MessageFlags.IsComponentsV2),
-      components: buildPollComponents(pollRow),
-      allowedMentions: { parse: [] },
-    };
-    const sent = await (channel as any).send(payload);
-    pollRow.message_id = (sent as Message).id;
-
+    // Insert the DB row FIRST so we know the real UUID, then send the
+    // message once with final vote buttons + final image. The message is
+    // never edited after posting, so Discord shows no "(edited)" tag.
+    // message_id is backfilled right after the send.
     await upsertRows('visual_polls', {
       guild_id: guildId,
       channel_id: channelId,
-      message_id: pollRow.message_id,
+      message_id: null,
       created_by: userId,
       type,
       title,
@@ -444,23 +440,30 @@ export class VisualPollService {
       media_url: mediaUrl,
       ends_at: settings.ends_at,
     });
-
-    // Re-read the inserted row so the message gets the real DB id in its
-    // vote buttons. Without this, buttons carry "pending" and every vote
-    // fails its lookup.
     const saved = await fetchMany<any>('visual_polls', (table) =>
-      (table as any).select('*').eq('message_id', pollRow.message_id).limit(1)
+      (table as any)
+        .select('*')
+        .eq('guild_id', guildId)
+        .eq('channel_id', channelId)
+        .eq('created_by', userId)
+        .eq('status', 'open')
+        .order('created_at', { ascending: false })
+        .limit(1)
     );
     const savedRow = parsePollRow(saved[0]);
     if (!savedRow) {
-      await (sent as Message).delete().catch(() => null);
       throw new Error('Poll could not be saved — try again in a moment.');
     }
     Object.assign(pollRow, savedRow);
-    await (sent as Message).edit({
+    const sent = await (channel as any).send({
       flags: Number(MessageFlags.IsComponentsV2),
       components: buildPollComponents(pollRow),
-    }).catch(() => null);
+      allowedMentions: { parse: [] },
+    });
+    pollRow.message_id = (sent as Message).id;
+    await updateWhere('visual_polls', { message_id: pollRow.message_id }, (table) =>
+      (table as any).eq('id', pollRow.id)
+    );
 
     if (settings.vote_method === 'reactions') {
       const emojis = options.map((option, index) => option.emoji || REACTION_EMOJIS[index] || `👍`);
@@ -611,6 +614,8 @@ export class VisualPollService {
     }
 
     await this.recomputeResults(poll);
+    // Totals on the message refresh from the standalone edit below, and the
+    // dashboard picks up the same event over the poll socket.
     this.emitPollEvent(poll, 'update', await this.totals(poll).catch(() => []));
     return poll;
   }
