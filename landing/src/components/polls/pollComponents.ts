@@ -89,11 +89,11 @@ export function buildPreviewComponents(
       const emoji = option.emoji ? `${option.emoji} ` : "";
       children.push({
         type: 10,
-        content: `${buildResultBar(pct)} ${emoji}**${option.label}** — ${count} (${pct}%)`,
+        content: `${buildResultBar(pct)} ${emoji}**${option.label}** : ${count} (${pct}%)`,
       });
     }
   } else if (showResults) {
-    children.push({ type: 10, content: "No votes yet — be the first!" });
+    children.push({ type: 10, content: "No votes yet, be the first!" });
   }
 
   if (settings.vote_method === "buttons") {

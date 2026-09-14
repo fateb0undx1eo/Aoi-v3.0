@@ -239,10 +239,8 @@ export function buildPollComponents(
     if (option) {
       const link = option.track_url ?? '';
       children.push({ type: 10, content: link ? `## Would you listen to this [track](${link})?` : `Would you listen to this track?` });
-      // Music tallies always render live so voters see the count move.
-      const listen = Number(tally[`${option.id}:listen`] ?? 0);
-      const skip = Number(tally[`${option.id}:skip`] ?? 0);
-      children.push({ type: 10, content: `👍 Listen ${listen} • 👎 Skip ${skip}` });
+      // No tally line in the container. Results show in the button labels
+      // once closed (LISTEN:n / SKIP:n) and live in the dashboard.
     }
     if (poll.media_url) {
       children.push({ type: 12, items: [{ media: { url: poll.media_url } }] });
@@ -256,14 +254,14 @@ export function buildPollComponents(
       const emoji = option.emoji ? `${option.emoji} ` : '';
       children.push({
         type: 10,
-        content: `${buildResultBar(pct)} ${emoji}**${option.label}** — ${count} (${pct}%)`,
+        content: `${buildResultBar(pct)} ${emoji}**${option.label}** : ${count} (${pct}%)`,
       });
     }
   } else if (showResults) {
-    children.push({ type: 10, content: 'No votes yet — be the first!' });
+    children.push({ type: 10, content: 'No votes yet, be the first!' });
   } else if (bakedTally && Object.keys(bakedTally).length > 0) {
     const bits = Object.entries(bakedTally).map(([label, count]) => `${label}:${count}`);
-    children.push({ type: 10, content: `Final — ${bits.join(' • ')}` });
+    children.push({ type: 10, content: `Final : ${bits.join(' | ')}` });
   }
 
   if (settings.vote_method === 'buttons') {
@@ -451,7 +449,7 @@ export class VisualPollService {
     );
     const savedRow = parsePollRow(saved[0]);
     if (!savedRow) {
-      throw new Error('Poll could not be saved — try again in a moment.');
+      throw new Error('Poll could not be saved. Try again in a moment.');
     }
     Object.assign(pollRow, savedRow);
     const sent = await (channel as any).send({
@@ -550,7 +548,7 @@ export class VisualPollService {
     // End-now path — finalize here too instead of leaving a dead closed row.
     if (poll.ends_at && new Date(poll.ends_at).getTime() < Date.now()) {
       await this.finalizePoll(poll).catch(() => null);
-      throw new Error('This poll has ended — final results are shown above.');
+      throw new Error('This poll has ended. Final results are shown above.');
     }
 
     const baseOptionId = optionId.includes(':') ? optionId.split(':')[0] : optionId;
@@ -575,8 +573,8 @@ export class VisualPollService {
           : null;
       throw new Error(
         side
-          ? `You've already voted ${side} — your vote is final.`
-          : 'You have already voted — your vote is final.'
+          ? `You've already voted ${side}. Your vote is final.`
+          : 'You have already voted. Your vote is final.'
       );
     }
 
@@ -717,7 +715,7 @@ export class VisualPollService {
     const base = poll.ends_at ? new Date(poll.ends_at).getTime() : Date.now();
     if (!Number.isFinite(base)) throw new Error('That end time is not valid.');
     const next = base + deltaMs;
-    if (next <= Date.now()) throw new Error('That would end the poll in the past — use End now instead.');
+    if (next <= Date.now()) throw new Error('That would end the poll in the past. Use End now instead.');
     return this.setEndsAt(pollId, guildId, new Date(next).toISOString());
   }
 

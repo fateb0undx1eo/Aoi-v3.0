@@ -79,7 +79,7 @@ export default {
 
     const link = String(interaction.options.getString('link', true) ?? '').trim();
     if (!/^https?:\/\//i.test(link)) {
-      await interaction.editReply('That does not look like a link — paste a full Spotify or YouTube URL.');
+      await interaction.editReply('That does not look like a link. Paste a full Spotify or YouTube URL.');
       return;
     }
 
@@ -92,7 +92,7 @@ export default {
     const endsRaw = interaction.options.getString('ends_in');
     const delayMs = parseEndsIn(endsRaw);
     if (endsRaw && delayMs === (undefined as unknown as number | null)) {
-      await interaction.editReply('Bad `ends_in` — use e.g. `never`, `30m`, `12h`, `3d`, `2w`.');
+      await interaction.editReply('Bad `ends_in`. Use e.g. `never`, `30m`, `12h`, `3d`, `2w`.');
       return;
     }
     if (delayMs != null && (delayMs < MIN_DELAY_MS || delayMs > MAX_DELAY_MS)) {
@@ -107,7 +107,7 @@ export default {
       track = null;
     }
     if (!track?.title || !track?.thumbnail_url) {
-      await interaction.editReply('Could not fetch that track — check the link is a public Spotify or YouTube track.');
+      await interaction.editReply('Could not fetch that track. Check the link is a public Spotify or YouTube track.');
       return;
     }
 

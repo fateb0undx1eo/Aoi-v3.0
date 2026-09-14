@@ -51,11 +51,11 @@ export default {
         `visual poll: vote lookup failed pollId=${pollId} guildId=${interaction.guildId} ` +
           `error=${cause?.message ?? cause?.details ?? cause?.hint ?? stringifyCause(cause)}`
       );
-      return { type: 'REPLY' as const, message: 'Could not reach the poll database — try again in a moment.', ephemeral: true };
+      return { type: 'REPLY' as const, message: 'Could not reach the poll database. Try again in a moment.', ephemeral: true };
     }
     // Finalized (deleted) polls keep their baked "Final — …" message.
     if (!poll) {
-      return { type: 'REPLY' as const, message: 'This poll has ended — final results are shown above.', ephemeral: true };
+      return { type: 'REPLY' as const, message: 'This poll has ended. Final results are shown above.', ephemeral: true };
     }
     if (poll.status !== 'open') {
       return { type: 'REPLY' as const, message: 'This poll is closed.', ephemeral: true };

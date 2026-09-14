@@ -347,7 +347,7 @@ export default function PollStudio({
   const endsInLabel = useMemo(() => {
     if (!draft.settings.ends_at) return null;
     const diff = new Date(draft.settings.ends_at).getTime() - Date.now();
-    if (!Number.isFinite(diff) || diff <= 0) return "in the past — pick a later time";
+    if (!Number.isFinite(diff) || diff <= 0) return "in the past. Pick a later time";
     const minutes = Math.round(diff / 60_000);
     if (minutes < 60) return `in ${minutes} minute${minutes === 1 ? "" : "s"}`;
     const hours = Math.round(minutes / 60);
@@ -631,7 +631,7 @@ export default function PollStudio({
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-semibold leading-tight">New poll</h2>
             <p className="text-sm text-muted-foreground">
-              {readyLabel} — the preview matches what lands in Discord.
+              {readyLabel}. The preview matches what lands in Discord.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -718,7 +718,7 @@ export default function PollStudio({
                   rows={2}
                   placeholder="Which one wins?"
                 />
-                <FieldHint>Optional — Discord posts omit it when empty.</FieldHint>
+                <FieldHint>Optional. Discord posts omit it when empty.</FieldHint>
               </div>
             )}
           </CardContent>
@@ -1099,7 +1099,7 @@ export default function PollStudio({
               <CardDescription>What each control does.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
-              <p><span className="font-medium text-foreground">Adjust</span> shifts the close timer — extend a 12h poll by +12h, or shorten it with −1h.</p>
+              <p><span className="font-medium text-foreground">Adjust</span> shifts the close timer. Extend a 12h poll by +12h, or shorten it with -1h.</p>
               <p><span className="font-medium text-foreground">End now</span> closes immediately, bakes the final tally into the Discord message, and removes the rows from the database.</p>
               <p><span className="font-medium text-foreground">Reopen</span> puts a closed poll back to open with its existing votes.</p>
               <p><span className="font-medium text-foreground">Delete</span> removes the Discord message and all its data.</p>

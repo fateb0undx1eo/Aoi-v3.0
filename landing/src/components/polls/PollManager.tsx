@@ -368,7 +368,7 @@ export default function PollManager({
           {poll.type === "music" && poll.options[0] ? (
             <p className="truncate text-xs text-muted-foreground">
               {poll.options[0].label}
-              {poll.options[0].track_artist ? ` — ${poll.options[0].track_artist}` : ""}
+              {poll.options[0].track_artist ? ` by ${poll.options[0].track_artist}` : ""}
             </p>
           ) : (
             <div className="flex flex-col gap-1.5">
@@ -391,7 +391,7 @@ export default function PollManager({
                 );
               })}
               {votes === 0 ? (
-                <p className="text-xs text-muted-foreground">No votes yet — rows above fill in live.</p>
+                <p className="text-xs text-muted-foreground">No votes yet. Rows above fill in live.</p>
               ) : null}
             </div>
           )}
@@ -455,7 +455,7 @@ export default function PollManager({
                   variant="destructive"
                   size="sm"
                   disabled={busy}
-                  onClick={() => void mutate(poll.id, { status: "closed" }, "Poll ended — results baked in.")}
+                  onClick={() => void mutate(poll.id, { status: "closed" }, "Poll ended. Results baked in.")}
                   className="gap-1.5"
                 >
                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <OctagonX className="h-3.5 w-3.5" />}
