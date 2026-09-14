@@ -375,12 +375,9 @@ export default function PollManager({
           <div className="flex flex-col gap-2">
             {poll.type === "music" && poll.options[0] ? (
               <>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{poll.options[0].label}</p>
-                  {poll.options[0].track_artist ? (
-                    <p className="truncate text-xs text-muted-foreground">{poll.options[0].track_artist}</p>
-                  ) : null}
-                </div>
+                {poll.options[0].track_artist ? (
+                  <p className="truncate text-xs text-muted-foreground">{poll.options[0].track_artist}</p>
+                ) : null}
                 <div className="grid grid-cols-2 gap-2">
                   {(
                     [
