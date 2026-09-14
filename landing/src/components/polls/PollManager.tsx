@@ -3,10 +3,8 @@ import {
   ExternalLink,
   Hourglass,
   Loader2,
-  Minus,
   Music4,
   OctagonX,
-  Plus,
   RefreshCw,
   RotateCcw,
   Swords,
@@ -19,6 +17,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { PollRow, PollTotals } from "./types";
 
 interface ManagedPoll {
@@ -76,6 +81,7 @@ export default function PollManager({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [adjustId, setAdjustId] = useState<string | null>(null);
   const [adjustValue, setAdjustValue] = useState("");
+  const [customValue, setCustomValue] = useState("");
   const [now, setNow] = useState(() => Date.now());
 
   const fetchPolls = useCallback(async () => {
@@ -264,7 +270,7 @@ export default function PollManager({
 
   const applyCustomShift = useCallback(
     (poll: PollRow) => {
-      const match = /^([+-]?)\s*(\d+(?:\.\d+)?)\s*([mhd])$/i.exec(adjustValue.trim());
+      const match = /^([+-]?)\s*(\d+(?:\.\d+)?)\s*([mhd])$/i.exec(customValue.trim());
       if (!match) {
         addToast("error", "Use e.g. +30m, -2h, +1d.");
         return;
@@ -279,9 +285,10 @@ export default function PollManager({
       }
       setAdjustId(null);
       setAdjustValue("");
+      setCustomValue("");
       void mutate(poll.id, { shift_ms: sign * ms }, "Timer updated.");
     },
-    [adjustValue, addToast, mutate],
+    [customValue, addToast, mutate],
   );
 
   const openPolls = useMemo(() => polls.filter((e) => e.poll.status === "open"), [polls]);
@@ -365,122 +372,125 @@ export default function PollManager({
             </div>
           </div>
 
-          {poll.type === "music" && poll.options[0] ? (
-            <>
-              <p className="truncate text-xs text-muted-foreground">
-                {poll.options[0].label}
-                {poll.options[0].track_artist ? ` by ${poll.options[0].track_artist}` : ""}
-              </p>
-              <div className="flex flex-col gap-1.5">
-                {(
-                  [
-                    { key: `${poll.options[0].id}:listen`, label: "Listen" },
-                    { key: `${poll.options[0].id}:skip`, label: "Skip" },
-                  ]
-                ).map((side) => {
-                  const count = Number(totals.find((t) => t.option_id === side.key)?.count) || 0;
-                  const pct =
-                    Number(totals.find((t) => t.option_id === side.key)?.pct) || 0;
-                  return (
-                    <div key={side.key} className="flex items-center gap-2 text-xs">
-                      <span className="w-28 shrink-0 truncate font-medium">{side.label}</span>
-                      <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-secondary">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all"
-                          style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
-                        />
+          <div className="flex flex-col gap-2">
+            {poll.type === "music" && poll.options[0] ? (
+              <>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{poll.options[0].label}</p>
+                  {poll.options[0].track_artist ? (
+                    <p className="truncate text-xs text-muted-foreground">{poll.options[0].track_artist}</p>
+                  ) : null}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      { key: `${poll.options[0].id}:listen`, label: "Listen" },
+                      { key: `${poll.options[0].id}:skip`, label: "Skip" },
+                    ]
+                  ).map((side) => {
+                    const count = Number(totals.find((t) => t.option_id === side.key)?.count) || 0;
+                    const pct = Number(totals.find((t) => t.option_id === side.key)?.pct) || 0;
+                    return (
+                      <div
+                        key={side.key}
+                        className="flex items-center justify-between gap-2 rounded-lg bg-secondary/50 px-3 py-2"
+                      >
+                        <span className="text-xs font-medium">{side.label}</span>
+                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                          {count} ({pct}%)
+                        </span>
                       </div>
-                      <span className="w-16 shrink-0 text-right tabular-nums text-muted-foreground">
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {poll.options.map((option) => {
+                  const entry2 = totals.find((t) => t.option_id === option.id);
+                  const count = Number(entry2?.count) || 0;
+                  const pct = Number(entry2?.pct) || 0;
+                  return (
+                    <div
+                      key={option.id}
+                      className="flex items-center justify-between gap-2 rounded-lg bg-secondary/50 px-3 py-2"
+                    >
+                      <span className="truncate text-xs font-medium">{option.label || "Option"}</span>
+                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                         {count} ({pct}%)
                       </span>
                     </div>
                   );
                 })}
-                {votes === 0 ? (
-                  <p className="text-xs text-muted-foreground">No votes yet. Rows above fill in live.</p>
-                ) : null}
               </div>
-            </>
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              {poll.options.map((option) => {
-                const entry2 = totals.find((t) => t.option_id === option.id);
-                const count = Number(entry2?.count) || 0;
-                const pct = Number(entry2?.pct) || 0;
-                return (
-                  <div key={option.id} className="flex items-center gap-2 text-xs">
-                    <span className="w-28 shrink-0 truncate font-medium">
-                      {option.label || "Option"}
-                    </span>
-                    <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-secondary">
-                      <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
-                    </div>
-                    <span className="w-16 shrink-0 text-right tabular-nums text-muted-foreground">
-                      {count} ({pct}%)
-                    </span>
-                  </div>
-                );
-              })}
-              {votes === 0 ? (
-                <p className="text-xs text-muted-foreground">No votes yet. Rows above fill in live.</p>
-              ) : null}
-            </div>
-          )}
+            )}
+            {votes === 0 ? (
+              <p className="text-xs text-muted-foreground">No votes yet. Counts update live.</p>
+            ) : null}
+          </div>
 
           {poll.status === "open" ? (
-            <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                  <Hourglass className="h-3.5 w-3.5" /> Adjust
-                </span>
-                {SHIFT_STEPS.map((step) => (
-                  <Button
-                    key={step.label}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => void mutate(poll.id, { shift_ms: step.ms }, "Timer updated.")}
-                    className="gap-1"
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <div className="space-y-1.5 sm:w-40">
+                  <Label htmlFor={`poll-adjust-${poll.id}`}>Adjust time</Label>
+                  <Select
+                    value={adjustValue || "none"}
+                    onValueChange={(value) => {
+                      if (value === "custom") {
+                        setAdjustId(poll.id);
+                        setAdjustValue("custom");
+                        return;
+                      }
+                      setAdjustId(null);
+                      if (value === "none") {
+                        setAdjustValue("");
+                        return;
+                      }
+                      setAdjustValue("");
+                      void mutate(poll.id, { shift_ms: Number(value) }, "Timer updated.");
+                    }}
                   >
-                    {step.ms > 0 ? <Plus className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
-                    {step.label.replace(/^[+-]/, "")}
-                  </Button>
-                ))}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => {
-                    setAdjustId(adjustId === poll.id ? null : poll.id);
-                    setAdjustValue("");
-                  }}
-                >
-                  Custom…
-                </Button>
-              </div>
-              {adjustId === poll.id ? (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <Label htmlFor={`poll-adjust-${poll.id}`}>Shift timer</Label>
-                    <Input
-                      id={`poll-adjust-${poll.id}`}
-                      value={adjustValue}
-                      onChange={(e) => setAdjustValue(e.currentTarget.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") applyCustomShift(poll);
-                      }}
-                      placeholder="+30m, -2h, +1d"
-                      className="font-mono"
-                    />
-                  </div>
-                  <Button type="button" size="sm" disabled={busy} onClick={() => applyCustomShift(poll)}>
-                    Apply
-                  </Button>
+                    <SelectTrigger id={`poll-adjust-${poll.id}`} className="font-mono">
+                      <SelectValue placeholder="Pick amount" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Pick amount</SelectItem>
+                      {SHIFT_STEPS.map((step) => (
+                        <SelectItem key={step.label} value={String(step.ms)}>
+                          {step.ms > 0 ? `+${step.label.replace(/^[+-]/, "")}` : step.label}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="custom">Custom…</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              ) : null}
-              <div className="flex flex-wrap gap-1.5">
+                {adjustValue === "custom" && adjustId === poll.id ? (
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <Label htmlFor={`poll-adjust-custom-${poll.id}`}>Custom shift</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id={`poll-adjust-custom-${poll.id}`}
+                        value={customValue}
+                        onChange={(e) => setCustomValue(e.currentTarget.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") applyCustomShift(poll);
+                        }}
+                        placeholder="+30m, -2h, +1d"
+                        className="font-mono"
+                      />
+                      <Button type="button" size="sm" disabled={busy} onClick={() => applyCustomShift(poll)}>
+                        Apply
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+                <p className="inline-flex items-center gap-1 text-xs text-muted-foreground sm:pb-2">
+                  <Hourglass className="h-3.5 w-3.5" />
+                  {endsInLabel(poll.ends_at, now)}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-1">
                 <Button
                   type="button"
                   variant="destructive"
@@ -505,7 +515,7 @@ export default function PollManager({
               </div>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-1.5 border-t border-border/60 pt-3">
+            <div className="flex flex-wrap gap-1.5 pt-1">
               <Button
                 type="button"
                 variant="outline"
