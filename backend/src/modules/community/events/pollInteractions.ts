@@ -68,11 +68,13 @@ export default {
       // Record the vote (this also edits the poll message with fresh totals
       // via refreshPollMessage) and thank the voter ephemerally. Never use
       // interaction.update here — the clicker must not see an "edited" tag.
+      // First-time voters get thanks; repeat voters get the finality nudge
+      // thrown by recordVote — never a second "thanks".
       const updated = await services.visualPollService.recordVote(pollId, poll.guild_id, interaction.user.id, optionId);
       void services.visualPollService.refreshPollMessage(updated).catch(() => null);
       return {
         type: 'REPLY' as const,
-        message: 'Thanks for voting!',
+        message: poll.type === 'music' ? 'Thanks for voting! Your vote is final.' : 'Thanks for voting!',
         ephemeral: true,
       };
     } catch (error: any) {

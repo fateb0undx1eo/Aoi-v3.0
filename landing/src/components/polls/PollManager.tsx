@@ -365,36 +365,36 @@ export default function PollManager({
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            {poll.options.map((option) => {
-              const entry2 = totals.find((t) => t.option_id === option.id);
-              const count = Number(entry2?.count) || 0;
-              const pct = Number(entry2?.pct) || 0;
-              return (
-                <div key={option.id} className="flex items-center gap-2 text-xs">
-                  <span className="w-28 shrink-0 truncate font-medium">
-                    {option.label || (poll.type === "music" ? "Track" : "Option")}
-                  </span>
-                  <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-secondary">
-                    <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
-                  </div>
-                  <span className="w-16 shrink-0 text-right tabular-nums text-muted-foreground">
-                    {count} ({pct}%)
-                  </span>
-                </div>
-              );
-            })}
-            {votes === 0 ? (
-              <p className="text-xs text-muted-foreground">No votes yet — rows above fill in live.</p>
-            ) : null}
-          </div>
-
           {poll.type === "music" && poll.options[0] ? (
             <p className="truncate text-xs text-muted-foreground">
               {poll.options[0].label}
               {poll.options[0].track_artist ? ` — ${poll.options[0].track_artist}` : ""}
             </p>
-          ) : null}
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {poll.options.map((option) => {
+                const entry2 = totals.find((t) => t.option_id === option.id);
+                const count = Number(entry2?.count) || 0;
+                const pct = Number(entry2?.pct) || 0;
+                return (
+                  <div key={option.id} className="flex items-center gap-2 text-xs">
+                    <span className="w-28 shrink-0 truncate font-medium">
+                      {option.label || "Option"}
+                    </span>
+                    <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-secondary">
+                      <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
+                    </div>
+                    <span className="w-16 shrink-0 text-right tabular-nums text-muted-foreground">
+                      {count} ({pct}%)
+                    </span>
+                  </div>
+                );
+              })}
+              {votes === 0 ? (
+                <p className="text-xs text-muted-foreground">No votes yet — rows above fill in live.</p>
+              ) : null}
+            </div>
+          )}
 
           {poll.status === "open" ? (
             <div className="flex flex-col gap-2 border-t border-border/60 pt-3">

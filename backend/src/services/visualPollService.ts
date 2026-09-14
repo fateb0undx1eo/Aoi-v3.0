@@ -239,11 +239,10 @@ export function buildPollComponents(
     if (option) {
       const link = option.track_url ?? '';
       children.push({ type: 10, content: link ? `## Would you listen to this [track](${link})?` : `Would you listen to this track?` });
-      if (showResults) {
-        const listen = Number(tally[`${option.id}:listen`] ?? 0);
-        const skip = Number(tally[`${option.id}:skip`] ?? 0);
-        children.push({ type: 10, content: `👍 Listen ${listen} • 👎 Skip ${skip}` });
-      }
+      // Music tallies always render live so voters see the count move.
+      const listen = Number(tally[`${option.id}:listen`] ?? 0);
+      const skip = Number(tally[`${option.id}:skip`] ?? 0);
+      children.push({ type: 10, content: `👍 Listen ${listen} • 👎 Skip ${skip}` });
     }
     if (poll.media_url) {
       children.push({ type: 12, items: [{ media: { url: poll.media_url } }] });
@@ -563,8 +562,26 @@ export class VisualPollService {
     );
     const current = existing[0] as any;
 
-    // Music polls vote per-track (listen/skip) and toggle independently.
-    const independent = poll.settings.multi_select || poll.type === 'music';
+    // Music polls: one vote per person, final. Any existing vote (listen or
+    // skip) locks the voter out — no toggling, no switching sides.
+    if (poll.type === 'music' && current) {
+      const voted = Array.isArray(current.option_ids)
+        ? current.option_ids.map((value: unknown) => String(value))
+        : [];
+      const side = voted.some((id: string) => id.endsWith(':listen'))
+        ? 'Listen'
+        : voted.some((id: string) => id.endsWith(':skip'))
+          ? 'Skip'
+          : null;
+      throw new Error(
+        side
+          ? `You've already voted ${side} — your vote is final.`
+          : 'You have already voted — your vote is final.'
+      );
+    }
+
+    // Non-music polls with multi_select toggle independently.
+    const independent = poll.settings.multi_select;
     let nextOptionIds: string[];
     if (independent && current) {
       const currentIds: string[] = Array.isArray(current.option_ids)
