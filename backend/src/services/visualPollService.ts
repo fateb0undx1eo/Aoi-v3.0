@@ -171,6 +171,22 @@ export function resolveLabelTally(poll: PollRow): Record<string, number> {
 }
 
 function computeTotals(poll: PollRow, results: Record<string, number>): PollTotals[] {
+  // Music polls store per-side keys ("<id>:listen" / "<id>:skip"), so each
+  // side is its own row. Everything else keys by plain option id.
+  if (poll.type === 'music') {
+    const rows: PollTotals[] = [];
+    for (const option of poll.options) {
+      for (const side of ['listen', 'skip'] as const) {
+        const key = `${option.id}:${side}`;
+        rows.push({ option_id: key, count: Number(results[key]) || 0, pct: 0 });
+      }
+    }
+    const total = rows.reduce((sum, row) => sum + row.count, 0);
+    for (const row of rows) {
+      row.pct = total > 0 ? Math.round((row.count / total) * 100) : 0;
+    }
+    return rows;
+  }
   const total = Object.values(results).reduce((sum, value) => sum + (Number(value) || 0), 0);
   return poll.options.map((option) => ({
     option_id: option.id,

@@ -366,10 +366,41 @@ export default function PollManager({
           </div>
 
           {poll.type === "music" && poll.options[0] ? (
-            <p className="truncate text-xs text-muted-foreground">
-              {poll.options[0].label}
-              {poll.options[0].track_artist ? ` by ${poll.options[0].track_artist}` : ""}
-            </p>
+            <>
+              <p className="truncate text-xs text-muted-foreground">
+                {poll.options[0].label}
+                {poll.options[0].track_artist ? ` by ${poll.options[0].track_artist}` : ""}
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {(
+                  [
+                    { key: `${poll.options[0].id}:listen`, label: "Listen" },
+                    { key: `${poll.options[0].id}:skip`, label: "Skip" },
+                  ]
+                ).map((side) => {
+                  const count = Number(totals.find((t) => t.option_id === side.key)?.count) || 0;
+                  const pct =
+                    Number(totals.find((t) => t.option_id === side.key)?.pct) || 0;
+                  return (
+                    <div key={side.key} className="flex items-center gap-2 text-xs">
+                      <span className="w-28 shrink-0 truncate font-medium">{side.label}</span>
+                      <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-secondary">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all"
+                          style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+                        />
+                      </div>
+                      <span className="w-16 shrink-0 text-right tabular-nums text-muted-foreground">
+                        {count} ({pct}%)
+                      </span>
+                    </div>
+                  );
+                })}
+                {votes === 0 ? (
+                  <p className="text-xs text-muted-foreground">No votes yet. Rows above fill in live.</p>
+                ) : null}
+              </div>
+            </>
           ) : (
             <div className="flex flex-col gap-1.5">
               {poll.options.map((option) => {
