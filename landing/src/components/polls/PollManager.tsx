@@ -4,11 +4,9 @@ import {
   Hourglass,
   Loader2,
   Music4,
-  OctagonX,
   RefreshCw,
   RotateCcw,
   Swords,
-  Trash2,
 } from "lucide-react";
 
 import { useToasts } from "@/components/announcements/ToastContainer";
@@ -490,24 +488,21 @@ export default function PollManager({
               <div className="flex flex-wrap gap-1.5 pt-1">
                 <Button
                   type="button"
-                  variant="destructive"
+                  variant="secondary"
                   size="sm"
                   disabled={busy}
                   onClick={() => void mutate(poll.id, { status: "closed" }, "Poll ended. Results baked in.")}
-                  className="gap-1.5"
                 >
-                  {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <OctagonX className="h-3.5 w-3.5" />}
                   End now
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   disabled={busy}
                   onClick={() => void remove(poll.id)}
-                  className="gap-1.5"
                 >
-                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                  Delete
                 </Button>
               </div>
             </div>
@@ -525,13 +520,12 @@ export default function PollManager({
               </Button>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 disabled={busy}
                 onClick={() => void remove(poll.id)}
-                className="gap-1.5"
               >
-                <Trash2 className="h-3.5 w-3.5" /> Delete
+                Delete
               </Button>
             </div>
           )}
@@ -545,10 +539,11 @@ export default function PollManager({
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="default">{openPolls.length} open</Badge>
         {closedPolls.length > 0 ? <Badge variant="secondary">{closedPolls.length} closed</Badge> : null}
-        <Badge variant={liveState === "live" ? "default" : "secondary"}>
-          {liveState === "live" ? "Live" : liveState === "connecting" ? "Connecting…" : "Reconnecting…"}
-        </Badge>
-        <span className="text-xs text-muted-foreground">Votes update the instant they land.</span>
+        {liveState !== "live" ? (
+          <Badge variant="secondary">
+            {liveState === "connecting" ? "Connecting…" : "Reconnecting…"}
+          </Badge>
+        ) : null}
       </div>
       {openPolls.map(renderEntry)}
       {closedPolls.length > 0 ? (
